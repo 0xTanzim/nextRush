@@ -168,6 +168,22 @@ export type ListenCallback = () => void;
  */
 export interface Routable {
   routes(): Middleware;
+  /**
+   * Test whether `path` falls under this router's mount prefix, using the
+   * SAME normalization the router itself matches with (case folding per its
+   * `caseSensitive` option, structural normalization) — never a raw
+   * `startsWith` comparison, which would apply a different rule than the
+   * router's own dispatch (RFC-029, SEC-02/SEC-15). Optional so a minimal
+   * `Routable` (e.g. a test double) still mounts; {@link createPrefixMount}
+   * falls back to a literal prefix test when this is absent.
+   *
+   * @param path - The full, still-query-stripped request path being tested.
+   * @param prefix - The normalized mount prefix (leading `/`, no trailing `/`).
+   * @returns The path's remainder past the prefix (e.g. `/users` for
+   *   `/Admin/Users` mounted at `/admin`), or `undefined` if `path` is not
+   *   under `prefix` per this router's own normalization.
+   */
+  matchesMountPrefix?(path: string, prefix: string): string | undefined;
 }
 
 /**
@@ -337,7 +353,9 @@ export class Application {
       normalizedPrefix = '/' + normalizedPrefix;
     }
 
-    this.middlewareStack.push(createPrefixMount(normalizedPrefix, routerMiddleware));
+    this.middlewareStack.push(
+      createPrefixMount(normalizedPrefix, routerMiddleware, router.matchesMountPrefix?.bind(router))
+    );
     return this;
   }
 
