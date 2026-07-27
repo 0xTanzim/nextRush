@@ -1,6 +1,6 @@
 # ADR-0019 — Context-bound signature construction for signed cookies
 
-- **Status:** `Proposed`
+- **Status:** `Accepted`
 - **Date:** `2026-07`
 - **Deciders:** `harden-security-boundaries change`
 - **Governing RFC:** `docs/RFC/request-data/031-context-bound-signatures.md`
@@ -12,7 +12,7 @@
 
 ## Lifecycle progress
 
-`Proposed ▶ Accepted ▶ Shipped`  ·  `[███████░░░░░░░░░░░░░]` **Proposed** — 1 / 3
+`Proposed ▶ Accepted ▶ Shipped`  ·  `[██████████████░░░░░░]` **Accepted** — 2 / 3
 
 ---
 

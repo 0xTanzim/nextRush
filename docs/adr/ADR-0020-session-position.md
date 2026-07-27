@@ -1,6 +1,6 @@
 # ADR-0020 — `@nextrush/session`: documented position, implementation deferred to a future RFC
 
-- **Status:** `Proposed`
+- **Status:** `Accepted`
 - **Date:** `2026-07`
 - **Deciders:** `harden-security-boundaries change`
 - **Governing RFC:** `docs/RFC/class-runtime/032-session-position.md`
@@ -12,7 +12,7 @@
 
 ## Lifecycle progress
 
-`Proposed ▶ Accepted ▶ Shipped`  ·  `[███████░░░░░░░░░░░░░]` **Proposed** — 1 / 3
+`Proposed ▶ Accepted ▶ Shipped`  ·  `[██████████████░░░░░░]` **Accepted** — 2 / 3
 
 ---
 

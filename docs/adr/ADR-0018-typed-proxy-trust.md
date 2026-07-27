@@ -1,6 +1,6 @@
 # ADR-0018 — Typed proxy-trust boundary replacing the boolean `proxy` option
 
-- **Status:** `Proposed`
+- **Status:** `Accepted`
 - **Date:** `2026-07`
 - **Deciders:** `harden-security-boundaries change`
 - **Governing RFC:** `docs/RFC/runtime-adapters/030-typed-proxy-trust.md`
@@ -12,7 +12,7 @@
 
 ## Lifecycle progress
 
-`Proposed ▶ Accepted ▶ Shipped`  ·  `[███████░░░░░░░░░░░░░]` **Proposed** — 1 / 3
+`Proposed ▶ Accepted ▶ Shipped`  ·  `[██████████████░░░░░░]` **Accepted** — 2 / 3
 
 ---
 

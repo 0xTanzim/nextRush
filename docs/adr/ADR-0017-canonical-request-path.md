@@ -1,6 +1,6 @@
 # ADR-0017 — Canonical request-path ownership in `@nextrush/router`
 
-- **Status:** `Proposed`
+- **Status:** `Accepted`
 - **Date:** `2026-07`
 - **Deciders:** `harden-security-boundaries change`
 - **Governing RFC:** `docs/RFC/request-data/029-canonical-request-path.md`
@@ -12,7 +12,7 @@
 
 ## Lifecycle progress
 
-`Proposed ▶ Accepted ▶ Shipped`  ·  `[███████░░░░░░░░░░░░░]` **Proposed** — 1 / 3
+`Proposed ▶ Accepted ▶ Shipped`  ·  `[██████████████░░░░░░]` **Accepted** — 2 / 3
 
 ---
 

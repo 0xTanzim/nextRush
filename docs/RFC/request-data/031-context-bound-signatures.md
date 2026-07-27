@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Draft` |
+| **Status**           | `Approved` |
 | **RFC number**       | `031` |
 | **Date**             | `2026-07-27` |
 | **Author(s)**        | `harden-security-boundaries change` |
