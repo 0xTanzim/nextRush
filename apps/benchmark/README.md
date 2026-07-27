@@ -46,16 +46,16 @@ pnpm bench:validate
 # Quick benchmark (NextRush only)
 pnpm bench:quick
 
-# Compare all 6 frameworks
-pnpm bench:compare:quick
+# Quick comparison (all frameworks)
+pnpm bench:compare
 
-# Standard CI-grade benchmark (3 runs, 3 concurrency levels)
+# Standard all-framework benchmark (3 runs, 3 concurrency levels)
 pnpm bench:standard
 
-# Full release benchmark (5 runs, 4 concurrency levels)
+# Full all-framework benchmark (5 runs, 4 concurrency levels)
 pnpm bench:full
 
-# Stress test (high concurrency, 2min duration)
+# All-framework stress test (high concurrency, 2min duration)
 pnpm bench:stress
 ```
 
@@ -90,6 +90,8 @@ pnpm bench:stress
 
 Single-run (`quick`) and stress profiles are marked **NOT publishable** — their reports carry a
 warning banner and their numbers must never be published (no variance / adversarial load).
+
+Framework selection defaults are intentional: `quick` (and the no-profile default) runs NextRush only; `standard`, `full`, and `stress` run all six default frameworks. `--compare` also forces all-framework mode, while `--framework` and `--frameworks` always override the profile default for targeted runs.
 
 Thread count auto-scales based on CPU cores (capped at 16). `standard` and `full` include a 1-connection serial baseline for pure latency measurement.
 
@@ -156,9 +158,12 @@ Enforced mechanically by `pnpm bench:validate` (the runner also runs it as a pre
 
 ```bash
 # Profile selection
-node scripts/run.js --profile quick|standard|full|stress
+node scripts/run.js --profile quick            # NextRush only
+node scripts/run.js --profile standard         # all frameworks
+node scripts/run.js --profile full             # all frameworks
+node scripts/run.js --profile stress           # all frameworks
 
-# Compare all frameworks
+# Force all-framework comparison (useful with quick/default profile)
 node scripts/run.js --compare
 
 # Specific framework

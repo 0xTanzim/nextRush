@@ -11,8 +11,6 @@
     "bench:full": "node scripts/run.js --profile full",
     "bench:stress": "node scripts/run.js --profile stress",
     "bench:compare": "node scripts/run.js --compare",
-    "bench:compare:quick": "node scripts/run.js --compare --profile quick",
-    "bench:compare:quick:pinned": "node scripts/run.js --compare --profile quick --pin 2-7 --client-pin 0-1",
     "bench:wrk": "node scripts/run.js --tool wrk",
     "bench:autocannon": "node scripts/run.js --tool autocannon",
     "bench:nextrush": "node scripts/run.js --framework nextrush-v3",

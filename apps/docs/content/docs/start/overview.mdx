@@ -38,7 +38,17 @@ Five acts, in order — **Why** it exists, **How** it works, what you'd spend mo
 
 <MentalModelFlow steps={['Why', 'How', 'Building', 'Running', 'Learning']} />
 
-<DocSectionEyebrow>Act 1 · Why</DocSectionEyebrow>
+<ActNav
+  acts={[
+    { href: 'act-why', n: 1, label: 'Why' },
+    { href: 'act-how', n: 2, label: 'How' },
+    { href: 'act-building', n: 3, label: 'Building' },
+    { href: 'act-running', n: 4, label: 'Running' },
+    { href: 'act-learning', n: 5, label: 'Learning' },
+  ]}
+/>
+
+<DocSectionEyebrow id="act-why">Act 1 · Why</DocSectionEyebrow>
 
 Before any piece of the framework, the reasoning behind all of them: what building an API without
 NextRush actually feels like, and the four commitments NextRush makes instead.
@@ -98,7 +108,17 @@ you can see in the code, capability you add one package at a time, and one codeb
 Everything from here on is those four ideas made concrete.
 </Callout>
 
-<DocSectionEyebrow>Act 2 · How</DocSectionEyebrow>
+<RecapCheckpoint
+  act="Act 1 · Why"
+  items={[
+    'NextRush sits in the gap Express (untyped) and NestJS (heavy) leave open — with strict types and optional structure',
+    'Four commitments explain every design decision: small core, explicit wiring, capability composition, runtime independence',
+    "If you accept any framework's cost (ecosystem, runtime lock-in, learning curve) as the price of entry — you don't need NextRush",
+    'All four ideas are made concrete by the four nodes on the request flow, which is what the next act walks through',
+  ]}
+/>
+
+<DocSectionEyebrow id="act-how">Act 2 · How</DocSectionEyebrow>
 
 The philosophy explains *why*. This act shows *how* — one request, traced through every piece it
 touches, starting with the single diagram the rest of the page keeps pointing back to.
@@ -129,7 +149,21 @@ functional and class are two ways to write the *same* pipeline, not two framewor
 
 ## Application
 
-<p className="text-sm text-[var(--text-muted)]">📍 We are here — the first node after a request arrives.</p>
+A request arrives at one place first — the Application owns that place. Every later node on the flow
+(Application → Middleware → Router → Context) is something it holds or hands the request down to.
+
+<StageLabel
+  active="Application"
+  steps={[
+    { label: 'Request' },
+    { label: 'Application', accent: true },
+    { label: 'Middleware', accent: true },
+    { label: 'Router', accent: true },
+    { label: 'Handler' },
+    { label: 'Response' },
+  ]}
+  note="The first node after a request arrives — the entry point and orchestrator."
+/>
 
 **Why a separate piece at all?** Because something has to own the pipeline before any request logic
 runs — a place to register middleware and mount routers once, instead of re-wiring them on every
@@ -178,7 +212,21 @@ Full detail: [Application](/docs/concepts/application).
 
 ## Middleware
 
-<p className="text-sm text-[var(--text-muted)]">📍 We are here — the pipeline a request flows through before the Router.</p>
+The Application owns the pipeline; the pipeline still needs behavior that runs for *every* request
+regardless of path — that behavior goes in Middleware, the second node on the flow.
+
+<StageLabel
+  active="Middleware"
+  steps={[
+    { label: 'Request' },
+    { label: 'Application', accent: true },
+    { label: 'Middleware', accent: true },
+    { label: 'Router', accent: true },
+    { label: 'Handler' },
+    { label: 'Response' },
+  ]}
+  note="The pipeline a request flows through before the Router — auth, parsing, logging, all live here."
+/>
 
 **Why not put auth and logging straight in the handler?** Because then every handler re-implements
 them, and a change to how you log means editing every route. **Middleware** wraps that behavior around
@@ -228,7 +276,21 @@ Full detail: [Middleware](/docs/concepts/middleware).
 
 ## Router
 
-<p className="text-sm text-[var(--text-muted)]">📍 We are here — where the pipeline hands off to your code.</p>
+Middleware ran for every request; the next job is to pick the ONE handler responsible for this path —
+that's the Router's job, the third node on the flow and where the pipeline hands off to your code.
+
+<StageLabel
+  active="Router"
+  steps={[
+    { label: 'Request' },
+    { label: 'Application', accent: true },
+    { label: 'Middleware', accent: true },
+    { label: 'Router', accent: true },
+    { label: 'Handler' },
+    { label: 'Response' },
+  ]}
+  note="Where the pipeline hands off to your code — maps a path to the one handler responsible for it."
+/>
 
 **Why not check the URL yourself in one big handler?** Because that turns into an unmaintainable
 chain of `if` statements the moment you have more than a few routes. The **Router** maps a request's
@@ -279,7 +341,22 @@ Full detail: [Router](/docs/concepts/routing).
 
 ## Context
 
-<p className="text-sm text-[var(--text-muted)]">📍 We are here — what every node above actually reads from and writes to.</p>
+Application, Middleware, and the Router's handler all need to read the same per-request shape and
+write back to the same response — that's the fourth and final concept node, Context.
+
+<StageLabel
+  active="Context"
+  steps={[
+    { label: 'Request' },
+    { label: 'Application', accent: true },
+    { label: 'Middleware', accent: true },
+    { label: 'Router', accent: true },
+    { label: 'Context', accent: true },
+    { label: 'Handler' },
+    { label: 'Response' },
+  ]}
+  note="What every node above actually reads from and writes to — one fresh object per request."
+/>
 
 **Why one object instead of the raw request and response?** Because juggling `req` and `res`
 separately means remembering two APIs, two mutation points, and — across runtimes — two different
@@ -323,17 +400,17 @@ handler before and after, the Router picks which handler runs, and Context is th
 them read from and write to. That's the diagram above — nothing more.
 </Callout>
 
-<details>
-<summary>You now understand — Act 2 checklist</summary>
+<RecapCheckpoint
+  act="Act 2 · How"
+  items={[
+    'Why the Application exists as a separate piece from the router — it owns the chain, route handlers do not',
+    'Why middleware order is execution order, and what skipping `ctx.next()` does (intentional short-circuit)',
+    'Why the router is backed by a segment trie instead of a list of `if` statements — lookup cost tracks URL depth',
+    'Why `ctx` replaces raw `req`/`res`, and what `ctx.state` is for — a shared namespace every middleware agrees on',
+  ]}
+/>
 
-- ✓ Why the Application exists as a separate piece from the router
-- ✓ Why middleware order is execution order, and what skipping `ctx.next()` does
-- ✓ Why the router is backed by a trie instead of a list of `if` statements
-- ✓ Why `ctx` replaces raw `req`/`res`, and what `ctx.state` is for
-
-</details>
-
-<DocSectionEyebrow>Act 3 · Building</DocSectionEyebrow>
+<DocSectionEyebrow id="act-building">Act 3 · Building</DocSectionEyebrow>
 
 You now know how one request flows. This act is about writing the code that handles it: what you
 install, which syntax you write it in, and how to add capability beyond a single request.
@@ -445,7 +522,22 @@ Full detail: [Application](/docs/concepts/application) (functional) and
 
 ## Extensions
 
-<p className="text-sm text-[var(--text-muted)]">📍 We are here — capability that lives beyond a single request.</p>
+You've seen Middleware, Routes, and Context — all per-request. Some capabilities don't run per
+request at all (a DB pool, an event bus) and live for the app's whole lifetime instead.
+
+<StageLabel
+  active="Lifetime"
+  steps={[
+    { label: 'Request' },
+    { label: 'Application', accent: true },
+    { label: 'Middleware', accent: true },
+    { label: 'Router', accent: true },
+    { label: 'Handler' },
+    { label: 'Response' },
+    { label: 'Lifetime', accent: true },
+  ]}
+  note="Capability that lives beyond a single request — app-scoped, booted once, torn down on shutdown."
+/>
 
 **Why isn't everything middleware, if middleware handles 99% of capability?** Because some things
 aren't per-request at all — a database connection pool or an event bus needs to boot once and live for
@@ -476,7 +568,22 @@ feature needs. Full detail: [Extensions](/docs/concepts/extensions).
 
 ## Errors
 
-<p className="text-sm text-[var(--text-muted)]">📍 We are here — what happens when a handler can't finish normally.</p>
+Everything so far assumed a handler finished normally. Errors are the escape hatch — what runs when
+one cannot.
+
+<StageLabel
+  active="Error"
+  steps={[
+    { label: 'Request' },
+    { label: 'Application', accent: true },
+    { label: 'Middleware', accent: true },
+    { label: 'Router', accent: true },
+    { label: 'Handler' },
+    { label: 'Error', accent: true },
+    { label: 'Response' },
+  ]}
+  note="What happens when a handler can't finish normally — throw, get mapped, surface as clean status + JSON."
+/>
 
 **Why throw instead of returning an error object?** Because a thrown error can't be silently ignored
 the way a returned value can — forgetting to check a return value is a real, common bug; forgetting to
@@ -513,17 +620,17 @@ tell "found, and it's empty" apart from "not found" — throw `NotFoundError` so
 meaning.
 </Callout>
 
-<details>
-<summary>You now understand — Act 3 checklist</summary>
+<RecapCheckpoint
+  act="Act 3 · Building"
+  items={[
+    'Why packages are per-capability, and what installing for "later, maybe" actually costs',
+    'Why functional and class are the same engine with different syntax, and when each fits (small vs team-scale)',
+    "The decision — middleware, registrar, or extension — and why each exists (per-request, once, app-lifetime)",
+    'Why thrown errors beat returned error objects — a forgotten throw is caught for you, a forgotten return is not',
+  ]}
+/>
 
-- ✓ Why packages are per-capability, and what installing for "later, maybe" costs
-- ✓ Why functional and class are the same engine with different syntax, and when each fits
-- ✓ The decision — middleware, registrar, or extension — and why each exists
-- ✓ Why thrown errors beat returned error objects
-
-</details>
-
-<DocSectionEyebrow>Act 4 · Running</DocSectionEyebrow>
+<DocSectionEyebrow id="act-running">Act 4 · Running</DocSectionEyebrow>
 
 You've built something. This act is about where it actually runs — the runtimes NextRush targets, the
 seam that makes that possible, and what the server does across its whole lifetime, not only one
@@ -619,16 +726,16 @@ those requests get cut off mid-response during every rolling deploy.
 
 Full detail: [request lifecycle](/docs/concepts/request-lifecycle).
 
-<details>
-<summary>You now understand — Act 4 checklist</summary>
+<RecapCheckpoint
+  act="Act 4 · Running"
+  items={[
+    'Why the same application code runs on five different runtimes — only the adapter import changes',
+    'What the adapter seam is, and why Node-only APIs (`node:fs`, `process`) never belong in application code',
+    'The four states a server moves through (Starting → Ready → Handling → Draining), and why draining on SIGTERM matters for zero-drop deploys',
+  ]}
+/>
 
-- ✓ Why the same application code runs on five different runtimes
-- ✓ What the adapter seam is, and why runtime APIs never belong in application code
-- ✓ The four states a running server moves through, and why draining matters on shutdown
-
-</details>
-
-<DocSectionEyebrow>Act 5 · Learning</DocSectionEyebrow>
+<DocSectionEyebrow id="act-learning">Act 5 · Learning</DocSectionEyebrow>
 
 You have the map. This last act is about what it's actually for — the services it's built to produce,
 and exactly where to go to turn this understanding into a running application.
@@ -684,3 +791,15 @@ flowchart LR
     href="/docs/reference"
   />
 </Cards>
+
+## One last picture before you go
+
+You started with this line:
+
+<MentalModelFlow steps={['Request', 'Application', 'Middleware', 'Router', 'Handler', 'Response']} />
+
+That's the whole framework. Everything in the five acts above is one node on it, one runtime for it,
+or one detail about how it's wired. **Read the code and you know what happens on every request** — no
+hidden middleware, no auto-wired magic, no runtime you didn't ask for. Start with the
+[Task API tutorial](/docs/start/quick-start) to make that line true for your first app, then keep this
+diagram in mind as a map the rest of the docs fill in.

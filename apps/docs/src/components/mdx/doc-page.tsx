@@ -1,6 +1,130 @@
 import type { LucideIcon } from 'lucide-react';
-import { AlertTriangle, ArrowRight, CheckCircle2, Gauge, Globe2, Layers, Package, Puzzle, Sparkles, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Gauge, Globe2, Layers, Package, Puzzle, Sparkles, MapPin, Zap } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
+
+export type StageStep = { label: string; accent?: boolean };
+
+/**
+ * Visible "you are here" marker for the One-Page guide's core concept
+ * sections (Application / Middleware / Router / Context). Replaces the ad-hoc
+ * `<p>📍 We are here —</p>` lines so every section communicates its position
+ * on the request flow with the same shape and the same small diagram of the
+ * stops — context the reader is meant to hold while reading the prose below.
+ *
+ * Feedback (one_page.md #9): "Code examples feel isolated — I don't know
+ * where am I in the request flow" — surfacing the stage label above the code
+ * keeps every section anchored to the page's recurring motif instead of
+ * becoming a floating API tour.
+ */
+export function StageLabel({
+  active,
+  steps,
+  note,
+}: {
+  active: string;
+  steps: StageStep[];
+  note: string;
+}) {
+  const activeIndex = steps.findIndex((s) => s.label === active);
+  return (
+    <div className="stage-label not-prose" role="group" aria-label="Position on the request flow">
+      <div className="stage-label__map" aria-hidden>
+        {steps.map((s, i) => {
+          const isActive = i === activeIndex;
+          const accentTint = s.accent ? 'var(--accent-soft)' : 'var(--text-subtle)';
+          return (
+            <span
+              key={s.label}
+              className="stage-label__stop"
+              data-active={isActive ? '' : undefined}
+              style={
+                isActive
+                  ? { color: 'var(--text-primary)', borderColor: 'var(--brand-link)', background: 'var(--brand-wash)' }
+                  : { color: 'var(--text-subtle)', borderColor: 'transparent', background: 'transparent' }
+              }
+            >
+              {s.label}
+              {isActive ? <MapPin className="stage-label__pin" aria-hidden /> : null}
+              {i < steps.length - 1 ? <span className="stage-label__sep" style={{ color: accentTint }}>·</span> : null}
+            </span>
+          );
+        })}
+      </div>
+      <p className="stage-label__note">{note}</p>
+    </div>
+  );
+}
+
+/**
+ * Visible end-of-act recap. Promotes the One-Page guide's three collapsed
+ * `<details>You now understand — Act X checklist</details>` blocks into a
+ * real checkpoint surface so a reader consolidates the act they just finished
+ * before moving on, instead of the recap being hidden behind a disclosure.
+ *
+ * Feedback (one_page.md "Missing Recap moments"): the act ends had everything
+ * a recap needs, but it was collapsed — the very readers who'd benefit most
+ * from retrieval practice were the ones least likely to click it open. This
+ * is the same content, surfaced. Each `item` is a one-sentence take-away; the
+ * `act` prop labels which act just ended.
+ */
+export function RecapCheckpoint({ act, items }: { act: string; items: string[] }) {
+  return (
+    <section className="recap-checkpoint not-prose" aria-label={`What you now understand — ${act}`}>
+      <header className="recap-checkpoint__header">
+        <CheckCircle2 className="recap-checkpoint__icon" aria-hidden />
+        <span className="recap-checkpoint__title">What you now understand · {act}</span>
+      </header>
+      <ul className="recap-checkpoint__list">
+        {items.map((item) => (
+          <li key={item} className="recap-checkpoint__item">
+            <span className="recap-checkpoint__check" aria-hidden>✓</span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export type ActNavItem = {
+  /** Fragment anchor on the page, e.g. `act-how`. */
+  href: string;
+  /** Act index shown as a number badge. */
+  n: number | string;
+  /** Display label, e.g. `How`. */
+  label: string;
+};
+
+/**
+ * Sticky five-act strip for the One-Page guide. The page teaches the whole
+ * framework in five acts (Why / How / Building / Running / Learning) but once
+ * a reader scrolls past the second mental-model flow at the top, the page
+ * offers nothing persistent to keep the "one big story" in view — feedback
+ * (one_page.md "Missing a persistent 'big picture'"): "a small progress
+ * strip at the top … then each section highlights its position."
+ *
+ * This is the no-scroll-spy version of that: five pill links that stay visible
+ * while the relevant section is on screen and let a reader jump to any act.
+ * Active-act highlighting requires IntersectionObserver; that's a separate
+ * change, deliberately not bundled here (process: ship the persistent nav
+ * first, add scroll-spy once the IA contract holds).
+ */
+export function ActNav({ acts }: { acts: ActNavItem[] }) {
+  return (
+    <nav className="act-nav not-prose" aria-label="Acts on this page">
+      <ol className="act-nav__list">
+        {acts.map((a) => (
+          <li key={a.href} className="act-nav__item">
+            <a href={`#${a.href}`} className="act-nav__link">
+              <span className="act-nav__n" aria-hidden>{a.n}</span>
+              <span className="act-nav__label">{a.label}</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
 
 const highlightIcons: Record<string, LucideIcon> = {
   zap: Zap,
@@ -333,10 +457,17 @@ export function DocPageOutline({ items }: { items: DocPageOutlineItem[] }) {
  * topic) without dropping the heading level itself — semantic heading
  * structure (h2/h3) stays intact for a11y/outline purposes; this only
  * changes the visual weight a reader perceives before they reach the text.
+ *
+ * `id` is opt-in: passing it attaches a fragment anchor to the eyebrow so the
+ * One-Page guide can link its sticky Act nav strip to each Act's eyebrow
+ * (#act-why, #act-how, …). Without `id`, behavior is unchanged.
  */
-export function DocSectionEyebrow({ children }: { children: ReactNode }) {
+export function DocSectionEyebrow({ id, children }: { id?: string; children: ReactNode }) {
   return (
-    <p className="not-prose mb-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[var(--text-subtle)]">
+    <p
+      id={id}
+      className="not-prose mb-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[var(--text-subtle)]"
+    >
       {children}
     </p>
   );

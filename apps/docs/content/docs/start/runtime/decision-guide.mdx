@@ -3,9 +3,19 @@ title: Which Runtime Should I Use?
 description: A decision guide for choosing between Node.js, Bun, Deno, edge, and serverless — the fast answer and the criteria behind each choice.
 ---
 
+<DocHero eyebrow="Decision guide">
+
 Five runtimes run the same NextRush application code unmodified. The choice isn't "which one
 works" — it's "which deployment model fits what you're building." Here's the fast answer, then
 the reasoning behind it.
+
+<div className="not-prose mt-5 flex flex-wrap gap-2">
+  <DocHeroPill>5 runtimes</DocHeroPill>
+  <DocHeroPill>Same application code</DocHeroPill>
+  <DocHeroPill>One import changes</DocHeroPill>
+</div>
+
+</DocHero>
 
 <Callout type="info" title="Already have an app in Next.js (or another framework)?">
   This page is about choosing a **JS runtime** for a standalone NextRush app. If you already have
@@ -151,9 +161,5 @@ row above — nothing in this table changes how you write a handler.
   </Card>
   <Card title="Compatibility matrix" href="/docs/help/compatibility-matrix">
     Current per-adapter version, stability tier, and how each is verified in CI.
-  </Card>
-  <Card title="Runs on any runtime" href="/docs/concepts/runtime-compatibility">
-    The capability-negotiation model that makes the same application code portable across all
-    five runtimes.
   </Card>
 </Cards>

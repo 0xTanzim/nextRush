@@ -24,9 +24,9 @@ have one here before this page ends.
 By the end of this page, three things are true and verified — not assumed:
 
 <DocStatStrip>
-  <DocStat label="Package" value="Installed" hint="nextrush, via your package manager" />
-  <DocStat label="Server" value="Running" hint="One file, listening on :8080" />
-  <DocStat label="Response" value="Verified" hint="A real request answered on localhost" />
+  <DocStat label="✓ Package" value="Installed" hint="nextrush, via your package manager" />
+  <DocStat label="✓ Server" value="Running" hint="One file, listening on :8080" />
+  <DocStat label="✓ Response" value="Verified" hint="A real request answered on localhost" />
 </DocStatStrip>
 
 ## Prerequisites
@@ -53,12 +53,15 @@ tested against. Examples on this page show all five package managers.
 
 ## Which path fits you?
 
+<DocSectionEyebrow>Recommended</DocSectionEyebrow>
+
 Two paths reach the same running server underneath — both install the same `nextrush` package;
-the scaffolder automates the folder and config around it.
+the scaffolder automates the folder and config around it. If you're unsure, scaffold — you can
+still read every file it produces afterward.
 
 <Cards>
   <Card
-    title="🚀 Scaffold a project — recommended"
+    title="🚀 Scaffold a project"
     href="/docs/start/create-nextrush"
     description="One command wires routing, middleware, scripts, and your chosen style (functional, class-based, or full)."
   />
@@ -69,19 +72,15 @@ the scaffolder automates the folder and config around it.
   />
 </Cards>
 
-If you're unsure, scaffold — you can still read every file it produces afterward. Keep reading if
-you want to see every piece land by hand, or you're adding NextRush to a project that already
-exists.
-
 ## Install manually
+
+<div className="install-steps">
 
 <Steps>
 
 <Step>
 
-### Step 1 of 4 — Create a project folder
-
-**Do:**
+### Create a project folder
 
 ```bash
 mkdir my-api && cd my-api
@@ -92,36 +91,32 @@ Add `"type": "module"` to the generated `package.json`. NextRush is ESM-only —
 CommonJS build to fall back to — so Node needs to know your `.ts`/`.js` files are ES modules
 before anything else runs.
 
-**Expected result:**
-
-```text
-my-api/
-  package.json   ← now contains "type": "module"
-```
+<p className="not-prose mt-3 flex items-start gap-2 rounded-lg bg-[color-mix(in_srgb,var(--success)_8%,var(--color-fd-card))] px-3 py-2 text-sm font-medium text-[var(--status-success-text)]">
+  <span aria-hidden>✅</span>
+  <span>Expected result — the folder appears with a <code>package.json</code> containing <code>"type": "module"</code>.</span>
+</p>
 
 </Step>
 
 <Step>
 
-### Step 2 of 4 — Install NextRush
-
-**Do:**
+### Install NextRush
 
 <PackageInstall packages={['nextrush']} dev={['tsx', 'typescript', '@types/node']} />
 
-**Why it worked:** `nextrush` is the meta-package: it re-exports `@nextrush/core`,
-`@nextrush/router`, `@nextrush/adapter-node`, `@nextrush/errors`, and `@nextrush/types`, so this
-one install covers the functional path (`createApp`, `createRouter`, `listen`) with no separate
-package to add. `tsx` runs the TypeScript entry file directly in the next step, with no separate
-compile pass.
+**Why it works:**
+
+- `nextrush` is the meta-package — re-exports `@nextrush/core`, `@nextrush/router`, `@nextrush/adapter-node`, `@nextrush/errors`, and `@nextrush/types` in one install
+- This single install covers the functional path (`createApp`, `createRouter`, `listen`) with no separate packages to add
+- `tsx` runs the TypeScript entry file directly in the next step — no separate compile pass
 
 </Step>
 
 <Step>
 
-### Step 3 of 4 — Write a server and run it
+### Write a server and run it
 
-**Do:** create `src/index.ts`:
+Create `src/index.ts`:
 
 ```ts title="src/index.ts"
 import { createApp, createRouter, listen } from 'nextrush';
@@ -137,29 +132,33 @@ app.route('/', router);
 await listen(app, 8080);
 ```
 
-Run it with `tsx` so there's no separate compile step while you're getting started:
+Run it:
 
 ```bash
 npx tsx src/index.ts
 ```
 
-**Expected result:** open `http://localhost:8080` (or `curl` it) and you should see:
+<p className="not-prose mt-3 flex items-start gap-2 rounded-lg bg-[color-mix(in_srgb,var(--success)_8%,var(--color-fd-card))] px-3 py-2 text-sm font-medium text-[var(--status-success-text)]">
+  <span aria-hidden>✅</span>
+  <span>Expected result — a JSON response on <code>http://localhost:8080</code>: <code>{"{"}"status": "ok", "framework": "NextRush"{"}"}</code></span>
+</p>
 
-```json
-{ "status": "ok", "framework": "NextRush" }
-```
+**Why it works:**
 
-**Why it worked:** `createApp()` builds the application, `createRouter()` gives you a router to
-attach routes to, `app.route('/', router)` mounts it, and `listen(app, 8080)` starts the Node
-adapter. If you see that JSON response, NextRush is installed and serving requests.
+- `createApp()` builds the application
+- `createRouter()` gives you a router to attach routes to
+- `app.route('/', router)` mounts the router
+- `listen(app, 8080)` starts the Node adapter
+
+If you see that JSON response, NextRush is installed and serving requests.
 
 </Step>
 
 <Step>
 
-### Step 4 of 4 — Configure TypeScript
+### Configure TypeScript
 
-**Do:** NextRush ships full type definitions. This `tsconfig.json` matches what the framework's
+NextRush ships full type definitions. This `tsconfig.json` matches what the framework's
 own examples and CI run against:
 
 ```json title="tsconfig.json"
@@ -188,23 +187,34 @@ own examples and CI run against:
 
 </Steps>
 
+</div>
+
+<p className="not-prose my-6 flex items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--success)_25%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--success)_6%,var(--color-fd-card))] px-4 py-3 text-sm font-semibold text-[var(--status-success-text)]">
+  <span aria-hidden className="text-lg">🎉</span>
+  <span>Installation complete — you have everything you need. Let's make sure it works.</span>
+</p>
+
 ## Verify everything works
 
-Two checks, and you're done: the runtime version, and that the server actually responds.
+Two checks and you're done — runtime version, then the server responds.
+
+**Check 1 · Runtime**
 
 ```bash
 node --version
-# → v22.x.x or newer — NextRush's package.json declares "engines": { "node": ">=22.0.0" }
-```
-
-```bash
-curl http://localhost:8080/
-# → {"status":"ok","framework":"NextRush"}
+# → v22.x.x or newer
 ```
 
 If `node --version` reports below 22, install a newer version before continuing — NextRush's
 adapters and examples aren't tested against older lines, and package installs may warn or fail
 depending on your package manager's `engines` enforcement.
+
+**Check 2 · Server**
+
+```bash
+curl http://localhost:8080/
+# → {"status":"ok","framework":"NextRush"}
+```
 
 <Callout type="info" title="🎉 Installation successful">
   Your request completed the full request path — the same one every NextRush app runs:
@@ -216,17 +226,30 @@ depending on your package manager's `engines` enforcement.
   Everything below this point is optional: pick it up whenever you need it.
 </Callout>
 
-<DocStatStrip>
-  <DocStat label="✓ Package" value="Installed" hint="nextrush, via your package manager" />
-  <DocStat label="✓ Server" value="Running" hint="One file, listening on :8080" />
-  <DocStat label="✓ Response" value="Verified" hint="A real request answered on localhost" />
-</DocStatStrip>
+## Your next step
 
-## Recommended developer toolkit
+<Callout type="info" title="🚀 Build a Task API — recommended · ~20 min">
+  The hands-on tutorial: routing, a JSON body, and a real 404 — starting from exactly where this
+  page leaves off. [Start the tutorial →](/docs/start/quick-start)
+</Callout>
 
-<div className="not-prose mb-3">
-  <DocHeroPill>⭐ Recommended</DocHeroPill>
-</div>
+Other guides:
+
+<Cards>
+  <Card title="Scaffold with create-nextrush" href="/docs/start/create-nextrush">
+    Generate a project with your style, middleware, and runtime chosen up front.
+  </Card>
+  <Card title="Runtimes" href="/docs/start/runtime/node">
+    Running on Bun, Deno, the edge, or serverless — the adapter each one needs.
+  </Card>
+  <Card title="Framework overview" href="/docs/start/overview">
+    The mental model — Application, Context, Router, and how they compose.
+  </Card>
+</Cards>
+
+Now build something.
+
+## Optional: developer toolkit
 
 <Callout type="info" title="🧰 @nextrush/dev">
   Most developers install this right after setup. Everything above ran without it —
@@ -254,39 +277,8 @@ depending on your package manager's `engines` enforcement.
   </Card>
 </Cards>
 
-## Your next step
-
-<Callout type="info" title="🚀 Build a Task API — recommended · ~20 min">
-  The hands-on tutorial: routing, a JSON body, and a real 404 — starting from exactly where this
-  page leaves off. [Start the tutorial →](/docs/start/quick-start)
-</Callout>
-
-Other guides:
-
-<Cards>
-  <Card title="Scaffold with create-nextrush" href="/docs/start/create-nextrush">
-    Generate a project with your style, middleware, and runtime chosen up front.
-  </Card>
-  <Card title="Runtimes" href="/docs/start/runtime/node">
-    Running on Bun, Deno, the edge, or serverless — the adapter each one needs.
-  </Card>
-  <Card title="Framework overview" href="/docs/start/overview">
-    The mental model — Application, Context, Router, and how they compose.
-  </Card>
-</Cards>
-
-Now build something.
-
-## Production checklist
-
-- [ ] **Pin your Node version in deployment.** `engines` in `package.json` documents the
-  requirement; it doesn't enforce it everywhere a build might run (some platforms ignore it). Set
-  the runtime version explicitly in your platform config or Dockerfile.
-- [ ] **Keep `@nextrush/dev` out of production.** It's a dev-only CLI — installing it with `-D`
-  (as above) keeps it out of `dependencies` and out of your production install.
-- [ ] **Confirm your target runtime.** Bun and Deno need their matching adapter package instead of
-  (or alongside) `@nextrush/adapter-node` — see the [Node runtime guide](/docs/start/runtime/node)
-  and its siblings for per-runtime setup, including edge and serverless targets.
+When you're ready to deploy, see the [production guide](/docs/production) for runtime pinning,
+dependency trimming, and per-platform setup — that's a deployment concern, not an install one.
 
 ## Having trouble?
 

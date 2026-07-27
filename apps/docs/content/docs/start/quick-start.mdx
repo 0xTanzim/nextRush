@@ -11,6 +11,8 @@ prerequisites: ['Routing', 'Context']
 Build a real **Task API** from an empty folder — create, read, and honest `404`s — and learn the
 request pipeline every NextRush app shares.
 
+<MentalModelFlow steps={['POST /tasks', '201 Created', 'GET /tasks/1', '200 OK', 'GET /tasks/999', '404']} />
+
 <div className="not-prose mt-5 grid gap-2 sm:grid-cols-2">
   <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
     <span className="text-[var(--accent-success-fg)]">✓</span> POST create + GET by id
@@ -257,6 +259,11 @@ Server silence is expected — the default logger is a no-op.
   <CheckpointItem>Returns JSON through `ctx.json(...)`</CheckpointItem>
 </TutorialCheckpoint>
 
+<p className="not-prose my-4 flex items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--success)_25%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--success)_6%,var(--color-fd-card))] px-4 py-3 text-sm font-semibold text-[var(--status-success-text)]">
+  <span aria-hidden className="text-lg">🎉</span>
+  <span>Part 1 complete — Adapter → Router → Handler is wired. Your server answers real requests.</span>
+</p>
+
 ---
 
 ## Part 2 — Accept data
@@ -412,6 +419,11 @@ silent bad record.
   <CheckpointItem>Real `400` on missing `title`</CheckpointItem>
 </TutorialCheckpoint>
 
+<p className="not-prose my-4 flex items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--success)_25%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--success)_6%,var(--color-fd-card))] px-4 py-3 text-sm font-semibold text-[var(--status-success-text)]">
+  <span aria-hidden className="text-lg">🎉</span>
+  <span>Part 2 complete — your API accepts JSON, stores tasks, and rejects bad input with a real 400.</span>
+</p>
+
 **Can you explain:** why throw `BadRequestError` instead of `ctx.json({ error: '...' })` with a `200`?
 
 *(The HTTP status is what clients check first — burying the signal in a `200` body forces every
@@ -552,6 +564,11 @@ clean `404` (not a crash).
   <CheckpointItem>Route params, store, and errors share one shape</CheckpointItem>
 </TutorialCheckpoint>
 
+<p className="not-prose my-4 flex items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--success)_25%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--success)_6%,var(--color-fd-card))] px-4 py-3 text-sm font-semibold text-[var(--status-success-text)]">
+  <span aria-hidden className="text-lg">🎉</span>
+  <span>Part 3 complete — create, read, and honest 404s. The full request pipeline is wired.</span>
+</p>
+
 ```text
 task-api/
   package.json
@@ -579,16 +596,18 @@ If `POST` is empty, re-check `app.use(json())` above the router. If a stored tas
 
 One last mental model — every box from Parts 1–3, live:
 
-```text
-Application
-    ↓
-Middleware  (json)
-    ↓
-Router
-    ↓
-Handler  →  Context (ctx.json / throw HttpError)
-    ↓
-Response
+```mermaid
+flowchart TD
+    Req([Incoming request]) --> App[Application]
+    App --> MW[Middleware - json]
+    MW --> Router[Router]
+    Router --> GET[GET /tasks/:id]
+    Router --> POST[POST /tasks]
+    GET --> Ctx[Context]
+    POST --> Ctx
+    Ctx --> |ctx.json| Res([Response])
+    Ctx --> |throw HttpError| Err[Error handler]
+    Err --> Res
 ```
 
 <TutorialPipeline
@@ -674,9 +693,9 @@ Mental models (not the file list):
 
 A bigger app is this same pipeline with more middleware and more routes — not a different shape.
 
-## Think like an architect
+## 🎓 Think like an architect
 
-These turn copying into understanding:
+You've finished building. Now explain why it works — that's what separates copying from understanding.
 
 <ArchitectChallenge>
   <ArchitectQuestion n={1}>
@@ -710,17 +729,17 @@ Extend the API at your level — Starter through Expert if you can. Don't peek u
 Each solution builds on the one before it.
 
 <ChallengeList>
-  <Challenge level="Starter" time="~5 min" title="Add DELETE /tasks/:id">
+  <Challenge level="⭐ Starter" time="~5 min" title="Add DELETE /tasks/:id">
     Remove a task. Real `404` if missing. `204` on success.
   </Challenge>
-  <Challenge level="Intermediate" time="~10 min" title="Add PUT /tasks/:id">
+  <Challenge level="⭐⭐ Intermediate" time="~10 min" title="Add PUT /tasks/:id">
     Replace `title` and `done`. Keep the same id. `404` if missing.
   </Challenge>
-  <Challenge level="Advanced" time="~20 min" title="Move storage into a repository">
+  <Challenge level="⭐⭐⭐ Advanced" time="~20 min" title="Move storage into a repository">
     Extract the `Map` behind `TaskRepository` with `create` / `findById` / `delete`. Handlers never
     touch the `Map`.
   </Challenge>
-  <Challenge level="Expert" time="~45 min" title="Extract shared middleware">
+  <Challenge level="⭐⭐⭐⭐ Expert" time="~45 min" title="Extract shared middleware">
     Logger middleware that prints method + path. Keep `json()` first so bodies still parse.
   </Challenge>
 </ChallengeList>
@@ -950,3 +969,11 @@ One recommended path, then depth when you need it:
     Schema-check the body instead of hand-checking `title`.
   </Card>
 </Cards>
+
+<p className="not-prose mt-8 flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--success)_25%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--success)_6%,var(--color-fd-card))] px-5 py-4 text-sm font-semibold text-[var(--status-success-text)]">
+  <span aria-hidden className="text-xl">🎉</span>
+  <span>
+    <span className="block text-base font-bold mb-1">Tutorial complete</span>
+    <span className="block font-normal text-[var(--text-secondary)]">You can now build CRUD APIs, return honest HTTP errors, understand the request pipeline, and read NextRush code. Every bigger app is this same shape — more middleware, more routes, same pipeline.</span>
+  </span>
+</p>

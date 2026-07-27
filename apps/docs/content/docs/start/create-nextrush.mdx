@@ -443,16 +443,19 @@ Class-based projects answer on `/api/health` instead of `/health`.
 
 ## What you learned
 
-<div className="not-prose mb-2">
-  <DocHeroPill>🎓 Achievement unlocked</DocHeroPill>
-</div>
+- ✓ Invoke the scaffolder with your package manager — pnpm, bun, npm, or yarn
+- ✓ Three project styles: Functional (smallest), Class-based (structured), Full (both)
+- ✓ Runtime selection changes the adapter import and scripts — Node, Bun, or Deno
+- ✓ Middleware presets wire `cors`, `body-parser`, `helmet` (API) + `rate-limit`, `compression`, `request-id` (Full) in production-safe order
+- ✓ Every style ships at least one real `vitest` unit test, not a placeholder
 
-<Cards>
-  <Card title="✅ create-nextrush" description="Invoke the scaffolder with your package manager — pnpm, bun, npm, or yarn." />
-  <Card title="✅ Project styles" description="Functional, class-based, and full — what each generates and when to pick it." />
-  <Card title="✅ Runtime selection" description="Node, Bun, or Deno — and what the scaffolder changes for each." />
-  <Card title="✅ Middleware presets" description="Minimal, API, or Full — which packages get wired and in what order." />
-</Cards>
+<p className="not-prose mt-6 flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--success)_25%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--success)_6%,var(--color-fd-card))] px-5 py-4 text-sm font-semibold text-[var(--status-success-text)]">
+  <span aria-hidden className="text-xl">🎉</span>
+  <span>
+    <span className="block text-base font-bold mb-1">Scaffold complete</span>
+    <span className="block font-normal text-[var(--text-secondary)]">Your project is generated, dependencies installed, and a real test is passing. Run <code>pnpm dev</code> to start the server.</span>
+  </span>
+</p>
 
 ## Next steps
 

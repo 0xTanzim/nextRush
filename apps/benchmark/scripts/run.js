@@ -33,6 +33,7 @@ import { QUICK_SCENARIOS, SCENARIOS } from '../config/scenarios.js';
 import { benchmarkFramework } from './bench-exec.js';
 import { generateMarkdownReport, printSummaryTable } from './report-md.js';
 import { runParityCheck } from './validate-parity.js';
+import { selectFrameworkIds } from './lib/framework-selection.js';
 import {
   ensureDir,
   getSystemInfo,
@@ -88,33 +89,16 @@ const durationOverride = args.duration
 const runsOverride = args.runs ? parseInt(args.runs, 10) : null;
 
 let frameworkIds;
-if (args.frameworks) {
-  // `--frameworks a,b,c` — an explicit, comma-separated set. Runs exactly the
-  // named servers (in the given order) without pulling in the whole
-  // DEFAULT_FRAMEWORKS cross-framework set. Used for a targeted comparison
-  // (e.g. functional-vs-class within NextRush) and by the CI perf gate, which
-  // must benchmark a fixed, small set rather than every competitor.
-  frameworkIds = String(args.frameworks)
-    .split(',')
-    .map((id) => id.trim())
-    .filter(Boolean);
-  const unknown = frameworkIds.filter((id) => !FRAMEWORKS[id]);
-  if (frameworkIds.length === 0 || unknown.length > 0) {
-    logError(
-      `Unknown framework(s): ${unknown.join(', ') || '(none provided)'}. Available: ${Object.keys(FRAMEWORKS).join(', ')}`
-    );
-    process.exit(1);
-  }
-} else if (args.framework) {
-  if (!FRAMEWORKS[args.framework]) {
-    logError(`Unknown framework: ${args.framework}. Available: ${Object.keys(FRAMEWORKS).join(', ')}`);
-    process.exit(1);
-  }
-  frameworkIds = [args.framework];
-} else if (args.compare === true) {
-  frameworkIds = [...DEFAULT_FRAMEWORKS];
-} else {
-  frameworkIds = ['nextrush-v3'];
+try {
+  frameworkIds = selectFrameworkIds({
+    args,
+    profileName,
+    frameworks: FRAMEWORKS,
+    defaultFrameworks: DEFAULT_FRAMEWORKS,
+  });
+} catch (error) {
+  logError(`${error.message}.`);
+  process.exit(1);
 }
 
 // F-L06: optionally randomize framework execution order to cancel position/thermal

@@ -12,13 +12,18 @@ export {
     DocStatStrip,
     DocTableWrap,
     HighlightGrid,
-    HighlightItem
+    HighlightItem,
+    RecapCheckpoint,
+    StageLabel,
+    ActNav
 } from './doc-page';
 export type {
     BenchmarkBarItem,
     BenchmarkCardItem,
     DocPageOutlineItem,
-    DocPrerequisiteItem
+    DocPrerequisiteItem,
+    StageStep,
+    ActNavItem
 } from './doc-page';
 export { Feature, FeatureGrid } from './feature-grid';
 export { FileTree } from './file-tree';
