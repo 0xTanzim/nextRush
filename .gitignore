@@ -4,6 +4,9 @@ node_modules/
 **/node_modules/
 deno.lock
 
+# Per-workstream git worktrees (task 1.7 / harden-security-boundaries)
+.worktrees/
+
 .internal
 .agents
 .cursor

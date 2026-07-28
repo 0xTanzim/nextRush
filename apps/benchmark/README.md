@@ -23,7 +23,8 @@ wrk --version
 
 ## Benchmark Tools
 
-The suite supports two benchmark tools. You can force a specific tool with `--tool`:
+The suite supports two benchmark tools. You can force a specific tool with `--tool` or its
+`--tools` alias:
 
 | Tool          | Type       | Process Isolation | Shares Node.js Event Loop | Install Required | When to Use                                           |
 | ------------- | ---------- | ----------------- | ------------------------- | ---------------- | ----------------------------------------------------- |
@@ -32,7 +33,8 @@ The suite supports two benchmark tools. You can force a specific tool with `--to
 
 - **wrk** is the primary tool. It runs as a separate C process and does **not** share the Node.js event loop — giving the most accurate latency and throughput measurements.
 - **autocannon** is the automatic fallback. It runs in-process (Node.js) and is always available since it's a project dependency. Good for quick comparisons or environments where you can't install system packages.
-- If neither `--tool` nor `wrk` is available, the runner automatically falls back to autocannon.
+- If neither `--tool` nor `--tools` is provided and `wrk` is unavailable, the runner automatically falls back to autocannon.
+- If `wrk` is explicitly requested but unavailable, the runner fails instead of silently measuring with autocannon.
 
 ## Quick Start
 
@@ -70,9 +72,14 @@ pnpm bench:stress
 
 ### Per Framework
 
-- **RSS Memory** — peak, average, min (sampled from `/proc/<pid>/status` on Linux)
-- **GC Events** — count, total pause, max pause (when `--trace-gc` is enabled)
-- **Concurrency Scaling** — RPS curve across connection levels
+- **RSS Memory** — peak, average, min/max (sampled from `/proc/<pid>/status` on Linux)
+- **GC Events** — count, total/max/avg pause, scavenge vs. mark-compact split (when
+  `--trace-gc` is enabled)
+- **Concurrency Scaling** — RPS curve across connection levels, one line per framework. Each
+  line uses a fixed, colorblind-safe color. Framework names are intentionally kept out of the
+  plot area because Mermaid endpoint labels clip or overlap when lines converge; a `Line color
+  | Framework` text table sits immediately below every scaling chart as the authoritative,
+  guaranteed-visible mapping.
 
 ### Statistical
 
@@ -83,7 +90,7 @@ pnpm bench:stress
 
 | Profile    | Duration | Connections     | Runs | Warmup | Publishable | Use Case                     |
 | ---------- | -------- | --------------- | ---- | ------ | ----------- | ---------------------------- |
-| `quick`    | 10s      | 64              | 1    | 5s     | ❌ No       | Dev iteration, smoke testing |
+| `quick`    | 10s      | 64, 128         | 1    | 5s     | ❌ No       | Dev iteration, smoke testing |
 | `standard` | 30s      | 1, 64, 256      | 3    | 10s    | ✅ Yes      | CI benchmark, daily checks   |
 | `full`     | 60s      | 1, 64, 256, 512 | 5    | 15s    | ✅ Yes      | Release validation           |
 | `stress`   | 120s     | 256, 512, 1024  | 3    | 15s    | ❌ No       | Breaking-point analysis      |
@@ -94,6 +101,8 @@ warning banner and their numbers must never be published (no variance / adversar
 Framework selection defaults are intentional: `quick` (and the no-profile default) runs NextRush only; `standard`, `full`, and `stress` run all six default frameworks. `--compare` also forces all-framework mode, while `--framework` and `--frameworks` always override the profile default for targeted runs.
 
 Thread count auto-scales based on CPU cores (capped at 16). `standard` and `full` include a 1-connection serial baseline for pure latency measurement.
+
+Any profile's connection ladder can be overridden with `--connections <n>` or `--connections <n1>,<n2>,...` — see [Quick checkup](#quick-checkup-dev-iteration-or-an-ai-agent-verifying-a-change) below.
 
 ## Scenarios
 
@@ -175,11 +184,21 @@ node scripts/run.js --frameworks nextrush-v3,nextrush-v3-class
 # Specific scenario
 node scripts/run.js --scenario hello-world
 
-# Force tool
-node scripts/run.js --tool wrk|autocannon
+# Explicit tool — --tool and --tools are accepted aliases; values are validated
+node scripts/run.js --tool wrk
+node scripts/run.js --tools autocannon
 
-# Override connections
-node scripts/run.js --connections 256
+# Override connections — works with EVERY profile (quick/standard/full/stress).
+# Replaces just that profile's connection ladder; duration/runs/threads stay as
+# the profile declares them. Accepts one level or a comma-separated list.
+node scripts/run.js --connections 256                       # one custom level
+node scripts/run.js --profile standard --connections 512    # standard profile, only 512c
+node scripts/run.js --compare --connections 64,256,512      # several custom levels
+
+# Override duration — --duration and --time are the same flag; --time wins if
+# both are given (it's the more discoverable spelling)
+node scripts/run.js --duration 3 --runs 3    # 3s per run, 3 runs
+node scripts/run.js --time 3 --runs 3        # identical, --time spelling
 
 # Enable GC tracking (slower, more data)
 node scripts/run.js --trace-gc
@@ -199,27 +218,128 @@ pnpm bench:validate
 # Fail if the latest run regressed vs results/baseline (CI gate)
 pnpm bench:check
 
+# Regenerate every report artifact from stored JSON — no re-measurement
+pnpm report:generate --id <run-id>
+pnpm report:regenerate-all
+
 # Combine options
 node scripts/run.js --compare --profile full --pin 2-7 --trace-gc
 ```
 
+### Quick checkup (dev iteration or an AI agent verifying a change)
+
+The full `standard`/`full` profiles take hours — for a fast sanity check at one specific
+concurrency level, override `--connections`, `--time`, and `--runs` on top of any profile
+instead of waiting for the whole ladder:
+
+```bash
+# All frameworks, only 256c, 5s per run, single run — seconds, not hours
+node scripts/run.js --compare --connections 256 --time 5 --runs 1
+
+# Then inspect the resulting report immediately (no re-measurement)
+node scripts/generate-report.js --stdout
+```
+
+This is **not publishable** (single run, short duration) — it exists to catch a regression or
+confirm a change didn't break anything, not to back a published number. A bad value to any of
+`--connections`, `--time`, or `--tool` exits immediately with a clear error, before any server
+is spawned, so a scripted/agent-driven invocation fails loudly on a typo rather than silently
+measuring the wrong thing.
+
+
 ## Results
 
-Results are saved to `results/<timestamp>/`:
+Results are saved to `results/<timestamp>/`. `results.json` is the **source of truth**; every
+other file in the folder is derived from it and can be regenerated at any time.
 
 ```
 results/
 ├── 2026-03-04T10-30-00/
-│   ├── results.json          # Full structured data
-│   ├── REPORT.md             # Formatted markdown report
+│   ├── results.json          # Source of truth — every raw measurement
+│   ├── REPORT.md             # Full report: rankings, charts, methodology
+│   ├── README-TABLES.md      # Copy-paste tables for READMEs/docs (ASCII, no Mermaid)
+│   ├── results.csv           # Flat export — one row per framework/scenario/concurrency
+│   ├── scoreboard.json       # Machine-readable rankings, points, winners
 │   ├── raw-node.json         # Per-framework details
 │   ├── nextrush-v3.json
 │   ├── fastify.json
 │   ├── express.json
 │   ├── koa.json
 │   └── hono.json
+├── HISTORY.md                # Cross-run trends (comparable runs only)
 └── latest/                   # Copy of most recent run
 ```
+
+### What REPORT.md contains
+
+In order, with nothing hidden behind a toggle above the results:
+
+1. **System Information** — platform, arch, Node.js, CPU model and core count, memory, kernel,
+   host uptime, load-tool version, CPU pinning. The device the numbers describe.
+2. **Load Configuration** — profile, tool, duration, connections, runs, threads, pipelining,
+   framework and per-scenario warmup, cooldown, pauses, server/client CPU pinning, framework
+   order, GC tracing — plus the total timed-run count so the run's size is auditable.
+3. **Frameworks Under Test** — server id, version, role (baseline/target/comparison), the exact
+   configuration each server uses, and whether it was measured or failed to start.
+4. **Scenarios Executed** — name, id, method, path, expected status, category, fairness tag.
+5. **Scoreboard** and **Scenario winners** — or, for a single-framework run, an explicit note
+   that there is nothing to rank.
+6. **Per-scenario rankings** (or results), **Latency**, **Resource Usage**, **Efficiency**,
+   **Raw results**, **Fairness and methodology**, **Reproduce this**.
+
+A value the run did not persist is printed as `not recorded in this run` rather than filled in
+from the current environment — a number read months later is not evidence about what was
+measured. Runs record their full configuration and framework versions from now on; when
+regenerating an older run's report, the framework-version table says where the versions came
+from.
+
+### Measure once, derive many
+
+A publishable run takes hours. Changing the report format must never mean re-measuring, so
+report generation is a pure function of `results.json` — no servers, no load generator:
+
+```
+wrk / autocannon  (hours, once)
+        │
+        ▼
+   results.json   ← source of truth
+        │
+        ├── REPORT.md          (rankings · charts · methodology)
+        ├── README-TABLES.md   (npm/docs tables)
+        ├── results.csv        (spreadsheets, external plotting)
+        ├── scoreboard.json    (CI gates, trend input)
+        └── HISTORY.md         (cross-run trend)
+```
+
+```bash
+pnpm report:generate                          # regenerate the latest run's artifacts
+pnpm report:generate --id 2026-03-04T10-30-00 # a specific run
+pnpm report:generate --rank-at 64             # rank at a different concurrency level
+pnpm report:regenerate-all                    # every stored run + HISTORY.md
+pnpm report:history                           # HISTORY.md only
+pnpm report:generate --stdout                 # print REPORT.md, write nothing
+pnpm report:generate --out /tmp/preview       # write elsewhere (preview a format change)
+```
+
+### How the ranking works
+
+Every framework is ranked in **each scenario at each concurrency level**. A win is worth one
+point per competing framework, last place one point (6 frameworks → 6 points for a win).
+
+- **Headline score counts like-for-like scenarios only.** `middleware-stack` and
+  `error-handling` use each framework's own idiomatic mechanism (middleware chain vs. hook vs.
+  manual call), so folding them into one number would report a mechanism difference as a
+  performance difference. They get a separate, labelled table.
+- **The headline concurrency level is the highest in the run**, not the first. The lowest level
+  is usually a single connection, which measures per-request latency rather than throughput —
+  a lead there does not survive a saturated server. `REPORT.md` shows the winner at *every*
+  level so the difference is visible rather than implied. Override with `--rank-at <conn>`.
+- **`≈` marks a gap smaller than the two frameworks' combined standard deviation** — that
+  ordering is not statistically meaningful, and the report says so instead of awarding a
+  silent win.
+- **Trend lines only connect comparable runs.** A different framework set, connection ladder,
+  scenario set, or load tool is not on the same scale — a single-framework run scores 100% of
+  its own maximum. `HISTORY.md` lists those runs with the reason they were excluded.
 
 ### View Results
 
@@ -287,7 +407,8 @@ apps/benchmark/
 ├── scripts/
 │   ├── run.js            # Orchestrator (parity pre-flight → per-framework loop → report)
 │   ├── bench-exec.js     # Measurement loop, warmup, single-run execution
-│   ├── report-md.js      # Markdown report generation
+│   ├── report-md.js      # Composes REPORT.md + every derived artifact from results.json
+│   ├── generate-report.js# Regenerate all artifacts from stored JSON (no benchmarking)
 │   ├── validate-parity.js# Fairness gate: byte-identical bodies + headers across servers
 │   ├── check-regression.js# CI gate: latest vs results/baseline
 │   ├── registration-cost.js# Class-path boot cost by controller count (spawns child per scale×run)
@@ -295,13 +416,21 @@ apps/benchmark/
 │   ├── smoke-test.js     # Server verification (status + middleware headers)
 │   ├── report.js         # Report viewer
 │   ├── utils.js          # Thin barrel re-exporting scripts/lib/*
-│   └── lib/              # Focused modules (each < 120 LOC):
+│   └── lib/              # Focused modules (each < 300 LOC):
 │       ├── logging.js args.js time.js system.js fsx.js paths.js
 │       ├── server.js     # process lifecycle
 │       ├── metrics.js    # RSS + CPU sampling/analysis
 │       ├── stats.js      # computeStats, run validity, latency aggregation
+│       ├── report/       # Pure, JSON-driven report generation:
+│       │   ├── scoreboard.js  # Ranking, points, winners, overhead (no I/O)
+│       │   ├── charts.js      # Mermaid builders (xychart, radar, quadrant)
+│       │   ├── csv.js         # Flat CSV export
+│       │   ├── history.js     # Cross-run trends, comparability filtering
+│       │   ├── format.js      # Table/number/medal formatting
+│       │   ├── readme-tables.js       # ASCII tables for npm/docs
+│       │   └── sections-*.js  # Report section builders
 │       ├── tools/        # wrk.js, autocannon.js, version.js
-│       └── __tests__/    # node:test unit tests (stats, metrics)
+│       └── __tests__/    # node:test unit tests (stats, metrics, report/*)
 ├── servers/
 │   ├── _shared/
 │   │   └── payloads.js   # Canonical response payloads + identical middleware headers

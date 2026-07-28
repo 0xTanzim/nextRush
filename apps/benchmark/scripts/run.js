@@ -7,12 +7,25 @@
  *   node scripts/run.js                          # quick, NextRush only, wrk
  *   node scripts/run.js --compare                # all frameworks
  *   node scripts/run.js --profile full           # publishable profile
- *   node scripts/run.js --tool autocannon        # force autocannon
+ *   node scripts/run.js --tool wrk|autocannon        # explicit tool (validated)
+ *   node scripts/run.js --tools autocannon           # alias for --tool
  *   node scripts/run.js --framework fastify      # specific framework
  *   node scripts/run.js --frameworks nextrush-v3,nextrush-v3-class  # explicit set (targeted comparison / CI gate)
  *   node scripts/run.js --scenario hello-world   # specific scenario
- *   node scripts/run.js --connections 256        # override connections
- *   node scripts/run.js --duration 3 --runs 3    # override per-run duration + run count (fast multi-run / CI smoke)
+ *
+ *   # --connections works with EVERY profile (quick, standard, full, stress) —
+ *   # replaces just that profile's connection ladder, everything else (duration,
+ *   # runs, threads) stays as the profile declares it.
+ *   node scripts/run.js --connections 256              # one custom level, e.g. dev checking 256c
+ *   node scripts/run.js --connections 512              # or 512c — any positive integer
+ *   node scripts/run.js --profile standard --connections 256   # standard profile, only 256c
+ *   node scripts/run.js --compare --connections 64,256,512     # comma list, several custom levels
+ *
+ *   # --duration and --time are the same flag; --time is the more discoverable
+ *   # alias. Combine with --runs for a fast but still multi-run measurement.
+ *   node scripts/run.js --time 5 --runs 3        # 5s per run, 3 runs — fast checkup
+ *   node scripts/run.js --duration 3 --runs 3    # equivalent, --duration spelling
+ *
  *   node scripts/run.js --pin 0-3                # pin servers to CPU cores (taskset)
  *   node scripts/run.js --pin 2-7 --client-pin 0-1  # ALSO pin the wrk client to a
  *                                                  # disjoint core set — isolates server
@@ -20,6 +33,10 @@
  *                                                  # on one machine (router-highload-
  *                                                  # harness-fixes, performance-gate)
  *   node scripts/run.js --no-validate            # skip the parity pre-flight (not advised)
+ *
+ * Quick dev/AI-agent checkup (seconds, not the full multi-hour suite):
+ *   node scripts/run.js --compare --connections 256 --time 5 --runs 1
+ *   node scripts/generate-report.js --stdout     # inspect the resulting report immediately
  */
 
 import { execSync } from 'node:child_process';
@@ -31,7 +48,8 @@ import { DEFAULT_FRAMEWORKS, FRAMEWORKS } from '../config/frameworks.js';
 import { DEFAULT_PROFILE, PROFILES } from '../config/profiles.js';
 import { QUICK_SCENARIOS, SCENARIOS } from '../config/scenarios.js';
 import { benchmarkFramework } from './bench-exec.js';
-import { generateMarkdownReport, printSummaryTable } from './report-md.js';
+import { generateArtifacts, printSummaryTable } from './report-md.js';
+import { readInstalledFrameworkVersions as readFrameworkVersions } from './lib/installed-versions.js';
 import { runParityCheck } from './validate-parity.js';
 import { selectFrameworkIds } from './lib/framework-selection.js';
 import {
@@ -52,6 +70,14 @@ import {
   timestamp,
 } from './utils.js';
 
+import {
+  getRequestedTool,
+  parseConnectionsOverride,
+  parseDurationOverride,
+  parseRunsOverride,
+  resolveToolName,
+} from './lib/run-options.js';
+
 const args = parseArgs();
 
 const profileName = args.profile || DEFAULT_PROFILE;
@@ -70,23 +96,45 @@ function detectWrk() {
   }
 }
 
-const toolName = args.tool || detectWrk();
+const requestedTool = getRequestedTool(args);
+let toolName;
+try {
+  toolName = resolveToolName(requestedTool, detectWrk);
+} catch (error) {
+  logError(`${error.message}.`);
+  process.exit(1);
+}
+
 const pinCores = typeof args.pin === 'string' ? args.pin : null;
 const clientPinCores = typeof args['client-pin'] === 'string' ? args['client-pin'] : null;
 const skipValidate = args['no-validate'] === true;
 const enableTraceGc = args['trace-gc'] === true;
-const connectionsOverride = args.connections ? [parseInt(args.connections, 10)] : null;
 
-// Optional overrides for a fast, still-multi-run measurement (a targeted
-// class-vs-functional comparison, or the CI perf-gate smoke) without authoring
-// a new profile. `--duration 3` is normalized to "3s" so parseDuration/wrk
-// accept it; a unit-suffixed value ("3s"/"2m"/"1h") passes through unchanged.
-const durationOverride = args.duration
-  ? /^\d+$/.test(String(args.duration))
-    ? `${args.duration}s`
-    : String(args.duration)
-  : null;
-const runsOverride = args.runs ? parseInt(args.runs, 10) : null;
+let connectionsOverride;
+try {
+  connectionsOverride = parseConnectionsOverride(args.connections);
+} catch (error) {
+  logError(`${error.message}.`);
+  process.exit(1);
+}
+
+const durationOverride = (() => {
+  try {
+    return parseDurationOverride(args);
+  } catch (error) {
+    logError(`${error.message}.`);
+    process.exit(1);
+  }
+})();
+
+const runsOverride = (() => {
+  try {
+    return parseRunsOverride(args.runs);
+  } catch (error) {
+    logError(`${error.message}.`);
+    process.exit(1);
+  }
+})();
 
 let frameworkIds;
 try {
@@ -133,6 +181,9 @@ function resolveTool() {
     execSync('command -v wrk', { stdio: 'ignore' });
     return 'wrk';
   } catch {
+    if (requestedTool === 'wrk') {
+      throw new Error('requested tool "wrk" is not installed; install wrk or use --tool autocannon');
+    }
     logWarn('wrk is not installed. Falling back to autocannon...');
     return 'autocannon';
   }
@@ -220,15 +271,29 @@ async function main() {
       connections,
       runs: runsOverride || profile.runs,
       threads: profile.threads,
+      warmupDuration: profile.warmupDuration,
+      scenarioWarmupDuration: profile.scenarioWarmupDuration,
+      cooldownMs: profile.cooldownMs,
+      pauseBetweenTestsMs: profile.pauseBetweenTestsMs,
       pinCores,
+      clientPinCores,
+      traceGc: enableTraceGc,
       order: shuffleOrder ? 'shuffled' : 'fixed',
       scenarios: scenarios.map((s) => s.id),
+      frameworkVersions: readFrameworkVersions(),
     },
     results: allResults,
   };
 
   saveResults(resultsDir, 'results.json', report);
-  saveReport(resultsDir, 'REPORT.md', generateMarkdownReport(report));
+  for (const [filename, contents] of Object.entries(
+    generateArtifacts(report, {
+      frameworkVersions: report.configuration.frameworkVersions,
+      versionSource: 'recorded at run time',
+    })
+  )) {
+    saveReport(resultsDir, filename, contents);
+  }
 
   const latestDir = join(RESULTS_DIR, 'latest');
   if (existsSync(latestDir)) rmSync(latestDir, { recursive: true });

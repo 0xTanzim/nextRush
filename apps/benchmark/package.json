@@ -32,6 +32,9 @@
     "report:latest": "node scripts/report.js --latest",
     "report:list": "node scripts/report.js --list",
     "report:trend": "node scripts/report.js --trend",
+    "report:generate": "node scripts/generate-report.js",
+    "report:regenerate-all": "node scripts/generate-report.js --all --history",
+    "report:history": "node scripts/generate-report.js --history",
     "clean": "rm -rf results/*"
   },
   "devDependencies": {

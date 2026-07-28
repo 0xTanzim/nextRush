@@ -1,85 +1,55 @@
-# NextRush Copilot Skill
+# NextRush Agent Skill
 
-AI coding skill for the [NextRush](https://github.com/0xTanzim/nextrush) framework — a minimal, modular, high-performance Node.js/Bun/Deno framework with zero runtime dependencies.
-
-## What This Skill Does
-
-Teaches AI assistants (GitHub Copilot, Claude, etc.) to write correct NextRush code by providing:
-
-- **Import architecture** — dual entry points: `nextrush` (functional) and `nextrush/class` (decorators + DI)
-- **Complete API reference** — Context, Router, Application, Middleware, Error handling
-- **28 package catalog** — core, router, errors, 10 middleware, 4 adapters, 6 plugins, DI, decorators
-- **Code patterns** — functional routes, decorator controllers, guards, param injection, middleware composition
-- **Troubleshooting** — common mistakes, import errors, tsconfig requirements
+Gives AI coding agents accurate, up-to-date knowledge of the [NextRush](https://github.com/0xTanzim/nextRush) framework — APIs, adapters (Node/Bun/Deno/Edge/Serverless/Next.js), class DI, middleware, streaming, WebSocket, testing, and best practices.
 
 ## Install
 
 ```bash
-# GitHub Copilot (VS Code)
-npx skills add https://github.com/0xTanzim/nextrush --skill nextrush
-
-# Or copy the skill folder into your project
-cp -r skills/nextrush /path/to/your/project/skills/
+npx skills add https://github.com/0xTanzim/nextRush --skill nextrush
 ```
 
-## Skill Structure
+(Adjust org/repo URL to match the published location.)
+
+Works with Agent Skills–compatible clients (Claude Code, Copilot, Codex, OpenCode, etc.).
+
+## Layout
 
 ```
 nextrush/
-├── SKILL.md                              # Main skill (loaded into AI context)
-├── LICENSE.txt                           # MIT license
-├── README.md                             # This file
-└── references/                           # Deep-dive docs (loaded on demand)
-    ├── controllers.md                    # Decorator-based controllers & guards
-    ├── dependency-injection.md           # DI container, services, scopes
-    ├── error-handling.md                 # 40+ error classes, factory functions
-    ├── middleware.md                     # 10 built-in middleware packages
-    ├── routing.md                        # Router API, params, composition
-    └── ecosystem.md                      # Plugins, adapters, dev tools
+├── AGENTS.md                # AUTO-LOADED standing orders (many hosts inject this)
+├── SKILL.md                 # full skill body (progressive disclosure entry)
+├── README.md                # this file — install / publish notes
+└── references/              # deep dives loaded on demand
+    ├── architecture.md
+    ├── adapters.md
+    ├── serverless-edge.md
+    ├── nextjs.md
+    ├── functional-api.md
+    ├── class-api.md
+    ├── context.md
+    ├── middleware.md
+    ├── errors.md
+    ├── streaming.md
+    ├── websocket-events.md
+    ├── testing.md
+    ├── scaffolding.md
+    └── best-practices.md
 ```
 
-## What It Covers
+### How agents load this
 
-| Area                    | Coverage                                                                                        |
-| ----------------------- | ----------------------------------------------------------------------------------------------- |
-| Functional routing      | `createApp`, `createRouter`, `listen`, route params, wildcards                                  |
-| Class-based controllers | `@Controller`, `@Get/@Post/...`, `@Body/@Param/@Query`                                          |
-| Dependency injection    | `@Service`, `@Repository`, `@Config`, `container`, scopes                                       |
-| Guards                  | `@UseGuard`, `GuardFn`, `CanActivate`, class + method level                                     |
-| Error handling          | `HttpError` hierarchy, `errorHandler()`, `ctx.throw()`, `ctx.assert()`                          |
-| Middleware              | body-parser, cors, helmet, rate-limit, compression, cookies, csrf, multipart, request-id, timer |
-| Adapters                | Node.js, Bun, Deno, Edge (Cloudflare/Vercel/Netlify)                                            |
-| Plugins                 | controllers, events, logger, static, template, websocket                                        |
-| Dev tools               | CLI (`nextrush dev/build/generate`), `create-nextrush` scaffolder                               |
+1. **`AGENTS.md`** — hosts that auto-discover `AGENTS.md` inject it into context when the skill
+   folder is present (install path or monorepo). Short standing orders + golden paths.
+2. **`SKILL.md`** — Agent Skills protocol entry (`name` + `description` frontmatter). Loaded when
+   the skill triggers. Points into `references/`.
+3. **`references/*`** — on-demand only.
 
-## Scaffolding a project
+Keep all three layers together after install. Do not strip `AGENTS.md` or `references/`.
 
-The npm package is **`create-nextrush`**. With **pnpm** / **npm** / **yarn** / **bun**, the word after `create` is the initializer: use a **space** — `create nextrush` — not `createnextrush`. With **npx** or **pnpm dlx**, use the **hyphenated** package name: `npx create-nextrush@latest`, `pnpm dlx create-nextrush@latest` (not `dlx create nextrush`).
+## Why this exists
 
-```bash
-pnpm create nextrush@latest
-npm create nextrush@latest
-npx create-nextrush@latest
-```
-
-Flags, presets, and templates: [create-nextrush package README](https://github.com/0xTanzim/nextRush/blob/main/packages/create-nextrush/README.md).
-
-## Framework Requirements
-
-- Node.js >= 22.0.0
-- TypeScript 5.x (strict mode)
-- For class-based: `experimentalDecorators` + `emitDecoratorMetadata` in tsconfig
-
-## Example Prompts
-
-After installing this skill, try:
-
-- _"Create a REST API for users with CRUD operations using NextRush"_
-- _"Add JWT authentication guard to my NextRush controller"_
-- _"Set up cors, helmet, and rate-limit middleware for my nextrush app"_
-- _"Help me scaffold a new nextrush project with create-nextrush"_
-- _"Convert my Express router to NextRush functional routes"_
+NextRush is newer than most model training cutoffs. Without this skill, agents invent Express/Fastify/Nest patterns that do not match NextRush. With it, agents use real package names, real Context methods, and the correct adapter for each host.
 
 ## License
 
-MIT — see [LICENSE.txt](LICENSE.txt)
+MIT
