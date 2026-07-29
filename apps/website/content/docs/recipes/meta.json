@@ -3,9 +3,15 @@
   "description": "Production-ready solutions and copy-paste patterns for common scenarios",
   "pages": [
     "index",
-    "database",
     "authentication",
-    "queue"
+    "database",
+    "email",
+    "queue",
+    "storage",
+    "payments",
+    "deployment",
+    "monitoring",
+    "ai"
   ],
   "references": ["../guides", "../getting-started", "../examples"]
 }
