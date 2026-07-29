@@ -9,11 +9,11 @@
     "guides",
     "recipes",
     "examples",
-    "help",
     "production",
     "architecture",
     "reference",
     "migrate",
-    "community"
+    "community",
+    "help"
   ]
 }
