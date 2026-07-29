@@ -124,6 +124,75 @@ container.register('USER_MAIL', {
 export { container };
 ```
 
+### 4. Class-based alternative (optional)
+
+If you prefer `@Service()` decorators, the same logic works as a class.
+
+```ts title="src/mail.service.ts"
+import { Service } from 'nextrush/class';
+import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
+
+interface SendOptions {
+  to: string | string[];
+  subject: string;
+  text?: string;
+  html?: string;
+}
+
+@Service()
+export class MailService {
+  private transporter: Transporter;
+
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST ?? 'smtp.ethereal.email',
+      port: Number(process.env.SMTP_PORT ?? 587),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER ?? '',
+        pass: process.env.SMTP_PASS ?? '',
+      },
+    });
+  }
+
+  async send({ to, subject, text, html }: SendOptions) {
+    const info = await this.transporter.sendMail({
+      from: process.env.MAIL_FROM ?? '"NextRush" <noreply@example.com>',
+      to: Array.isArray(to) ? to.join(', ') : to,
+      subject,
+      text,
+      html,
+    });
+    return info.messageId ?? null;
+  }
+
+  close() {
+    this.transporter.close();
+  }
+}
+```
+
+```ts title="src/user-mail.service.ts"
+import { Service } from 'nextrush/class';
+import { MailService } from './mail.service';
+
+@Service()
+export class UserMailService {
+  constructor(private mail: MailService) {}
+
+  async sendWelcome(email: string, name: string) {
+    await this.mail.send({
+      to: email,
+      subject: 'Welcome to NextRush!',
+      html: `<h1>Welcome, ${name}!</h1>`,
+    });
+  }
+}
+```
+
+`@Service()` defaults to singleton scope — one transport for the lifetime of the process. Constructor injection wires everything automatically.
+
 ## HTML Templates
 
 Inline HTML strings get unmanageable at scale. Use a template function.
