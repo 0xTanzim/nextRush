@@ -448,7 +448,7 @@ apps/benchmark/
 │   ├── koa.js            # Koa 3
 │   └── hono.js           # Hono 4
 ├── wrk/
-│   ├── post-json.lua     # POST body script for wrk
+│   ├── .generated/       # Per-run POST scripts generated from config/scenarios.js (gitignored)
 │   └── mixed.lua         # Mixed workload (via `pnpm bench:mixed`)
 └── results/              # Benchmark output
     ├── baseline/         # Optional pinned baseline for `bench:check` — create via `cp -r results/latest results/baseline`

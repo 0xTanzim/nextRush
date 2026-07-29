@@ -278,6 +278,7 @@ async function main() {
     pinCores,
     clientPinCores,
     traceGc: enableTraceGc,
+    runId,
   };
 
   let positionLog = null;

@@ -27,6 +27,14 @@ export {
   aggregateLatency,
   parseLatencyToMs,
 } from './lib/stats.js';
-export { runWrk, parseWrkOutput, readWrkVersion } from './lib/tools/wrk.js';
+export {
+  buildWrkPostScript,
+  cleanupGeneratedScripts,
+  generatedScriptPath,
+  runWrk,
+  parseWrkOutput,
+  readWrkVersion,
+  writeGeneratedScript,
+} from './lib/tools/wrk.js';
 export { runAutocannon, readAutocannonVersion } from './lib/tools/autocannon.js';
 export { getToolVersion } from './lib/tools/version.js';

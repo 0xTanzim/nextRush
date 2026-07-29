@@ -2,4 +2,5 @@
 # committed so `pnpm bench:check` has something to compare against in CI.
 /results/*
 !/results/baseline/
+/wrk/.generated/
 node_modules/

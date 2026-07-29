@@ -1,6 +1,52 @@
 import { execFileSync } from 'node:child_process';
 
 /**
+ * Confirm a scenario's declared request body was actually received in full,
+ * by checking that the server's response reflects the item count the declared
+ * body implies — rather than trusting that whatever the load generator sent
+ * matched the scenario's declaration. The response-body/framing checks below
+ * only prove the RESPONSE is fair; they say nothing about what request the
+ * server actually parsed.
+ *
+ * Scoped to scenarios whose declared body is a JSON object with an `items`
+ * array (the shape every POST scenario in this suite uses) and whose response
+ * is `{ itemCount: N }`. Any other shape is a no-op — this is not a general
+ * request/response schema validator.
+ *
+ * @param {{ id: string, body?: string }} scenario
+ * @param {string} responseBodyText Raw response body text from the server.
+ * @returns {string[]} problems, empty when the full declared body was received
+ */
+export function checkRequestBodyFidelity(scenario, responseBodyText) {
+  if (!scenario.body) return [];
+
+  let declared;
+  try {
+    declared = JSON.parse(scenario.body);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(declared?.items)) return [];
+
+  let response;
+  try {
+    response = JSON.parse(responseBodyText);
+  } catch {
+    return [];
+  }
+  if (typeof response?.itemCount !== 'number') return [];
+
+  const expected = declared.items.length;
+  if (response.itemCount !== expected) {
+    return [
+      `${scenario.id}: response itemCount ${response.itemCount} does not match the declared body's ` +
+        `expected ${expected} — the server did not receive the full declared request body`,
+    ];
+  }
+  return [];
+}
+
+/**
  * Response-framing parity check — every server must send `Content-Length`
  * identically for identical-work scenarios, so no server pays a chunked-
  * transfer-encoding tax the others don't (reconciliation report F-03: the

@@ -1,6 +1,7 @@
 /** wrk runner: invocation, output parsing, and version detection. */
 
 import { execSync } from 'node:child_process';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { WRK_DIR } from '../paths.js';
@@ -8,10 +9,51 @@ import { parseDuration } from '../time.js';
 import { hasTaskset } from '../system.js';
 import { logWarn } from '../logging.js';
 
-export function runWrk({ url, connections, threads, duration, script, latency = true, pinCores = null }) {
+/** Escape a string for embedding inside a double-quoted Lua string literal. */
+function escapeLuaString(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
+/**
+ * Generate a wrk Lua script's contents from a scenario's OWN declared body and
+ * headers, so the request wrk sends can never drift from `config/scenarios.js`.
+ *
+ * @param {{ body: string, headers?: Record<string,string> }} scenario
+ * @returns {string} A complete, self-contained wrk Lua script.
+ */
+export function buildWrkPostScript({ body, headers = {} }) {
+  const lines = ['wrk.method = "POST"', `wrk.body   = "${escapeLuaString(body)}"`];
+  for (const [name, value] of Object.entries(headers)) {
+    lines.push(`wrk.headers["${escapeLuaString(name)}"] = "${escapeLuaString(value)}"`);
+  }
+  return lines.join('\n') + '\n';
+}
+
+/** Path for a scenario's generated wrk script, scoped by run id so concurrent runs never collide. */
+export function generatedScriptPath(scenarioId, runId) {
+  return join(WRK_DIR, '.generated', runId, `${scenarioId}.lua`);
+}
+
+/**
+ * Write a scenario-derived wrk script to disk (creating its run-scoped
+ * directory as needed) and return the absolute path wrk should load with `-s`.
+ */
+export function writeGeneratedScript(scenario, runId) {
+  const path = generatedScriptPath(scenario.id, runId);
+  mkdirSync(join(WRK_DIR, '.generated', runId), { recursive: true });
+  writeFileSync(path, buildWrkPostScript(scenario));
+  return path;
+}
+
+/** Remove a run's generated-script directory. Safe to call even if it was never created. */
+export function cleanupGeneratedScripts(runId) {
+  rmSync(join(WRK_DIR, '.generated', runId), { recursive: true, force: true });
+}
+
+export function runWrk({ url, connections, threads, duration, scriptPath, latency = true, pinCores = null }) {
   const args = ['-c', String(connections), '-t', String(Math.min(threads, connections)), '-d', duration];
   if (latency) args.push('--latency');
-  if (script) args.push('-s', join(WRK_DIR, script));
+  if (scriptPath) args.push('-s', scriptPath);
   args.push(url);
 
   // Optional CPU pinning (taskset, Linux) for the LOAD GENERATOR — the server-side

@@ -28,10 +28,10 @@ import {
   startServer,
   stopServer,
 } from './utils.js';
-import { buildUrl, runBenchmark, warmup, warmupScenario } from './bench-exec.js';
+import { buildUrl, cleanupWrkScripts, runBenchmark, warmup, warmupScenario } from './bench-exec.js';
 
 export async function benchmarkFramework(tool, framework, opts) {
-  const { frameworkId, port, scenarios, connections, runs, duration, threads, profile, pinCores, clientPinCores, traceGc } =
+  const { frameworkId, port, scenarios, connections, runs, duration, threads, profile, pinCores, clientPinCores, traceGc, runId } =
     opts;
   const results = { framework: framework.name, frameworkId, scenarios: {} };
 
@@ -48,7 +48,7 @@ export async function benchmarkFramework(tool, framework, opts) {
 
     for (const scenario of scenarios) {
       logStep(`Scenario: ${scenario.name}`);
-      await warmupScenario(tool, scenario, profile.scenarioWarmupDuration, port);
+      await warmupScenario(tool, scenario, profile.scenarioWarmupDuration, port, runId);
 
       const scenarioResults = { scenario: scenario.name, scenarioId: scenario.id, concurrencyResults: {} };
 
@@ -65,6 +65,7 @@ export async function benchmarkFramework(tool, framework, opts) {
             duration,
             scenario,
             clientPinCores,
+            runId,
           });
           if (isInvalidRun(scenario, result)) {
             logWarn(`    Non-2xx (${result.errors.nonOk}) in a success scenario — run excluded from stats.`);
@@ -126,6 +127,7 @@ export async function benchmarkFramework(tool, framework, opts) {
       logStep(`Stopping ${framework.name} server...`);
       await stopServer(serverHandle);
     }
+    if (runId) cleanupWrkScripts(runId);
   }
 
   return results;

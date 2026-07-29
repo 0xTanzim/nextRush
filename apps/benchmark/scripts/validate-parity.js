@@ -9,7 +9,9 @@
  *   - byte-identical response bodies (after normalizing non-deterministic
  *     fields) for scenarios marked `identicalWork`, and
  *   - the same five middleware headers (values, X-Timestamp presence) on
- *     the middleware scenario.
+ *     the middleware scenario, and
+ *   - a response proving the scenario's full declared request body was
+ *     received, for scenarios whose body implies a checkable item count.
  *
  * A benchmark that has not passed this check is comparing unknown workloads.
  * Run standalone (`pnpm bench:validate`) or as run.js's pre-flight.
@@ -23,7 +25,7 @@ import { BASE_URL, PORT } from '../config/constants.js';
 import { DEFAULT_FRAMEWORKS, FRAMEWORKS } from '../config/frameworks.js';
 import { SCENARIOS } from '../config/scenarios.js';
 import { MIDDLEWARE_HEADERS } from '../servers/_shared/payloads.js';
-import { checkBacklogParity, checkFramingParity, readListenBacklog } from './lib/parity.js';
+import { checkBacklogParity, checkFramingParity, checkRequestBodyFidelity, readListenBacklog } from './lib/parity.js';
 import { log, logError, logHeader, logStep, sleep, startServer, stopServer } from './utils.js';
 
 const REFERENCE = 'raw-node';
@@ -135,6 +137,16 @@ export async function runParityCheck(frameworkIds = DEFAULT_FRAMEWORKS) {
         if (problems.length) {
           failures.push(`${id} · middleware headers: ${problems.join(', ')}`);
         }
+      }
+
+      // 3b. Request-body fidelity — the server's response must reflect the FULL
+      // declared body was received, not a smaller placeholder the load
+      // generator sent instead. This validator sends the real body itself
+      // (`fetch`, not wrk), so it also serves as ground truth confirming the
+      // scenario declaration itself is coherent for the wrk path's generated
+      // script to match.
+      for (const p of checkRequestBodyFidelity(s, r.body)) {
+        failures.push(`${id} · ${p}`);
       }
     }
 

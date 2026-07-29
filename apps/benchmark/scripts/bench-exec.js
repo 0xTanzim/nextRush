@@ -7,26 +7,27 @@
  * rotation support was added (`fix-benchmark-position-bias`).
  */
 
-import { execSync } from 'node:child_process';
-import { join } from 'node:path';
-
 import { WARMUP_CONNECTIONS, WARMUP_THREADS } from '../config/constants.js';
 import {
-  WRK_DIR,
-  log,
-  logStep,
-  logWarn,
-  parseDuration,
+  cleanupGeneratedScripts,
   runAutocannon,
   runWrk,
-  sleep,
+  writeGeneratedScript,
 } from './utils.js';
+import { execSync } from 'node:child_process';
+import { logWarn, parseDuration, sleep } from './utils.js';
 
 export function buildUrl(scenario, port) {
   return `http://localhost:${port}${scenario.path}`;
 }
 
-/** Run one measured benchmark for a scenario with a given tool. */
+/**
+ * Run one measured benchmark for a scenario with a given tool.
+ *
+ * `runId` scopes the wrk POST script generated from the scenario's OWN
+ * declared body — never a shared static literal that can drift from
+ * `config/scenarios.js` (fix-benchmark-harness-integrity, P0-001).
+ */
 export async function runBenchmark(tool, opts) {
   if (tool === 'wrk') {
     const wrkOpts = {
@@ -37,7 +38,9 @@ export async function runBenchmark(tool, opts) {
       latency: true,
       pinCores: opts.clientPinCores ?? null,
     };
-    if (opts.scenario.method === 'POST') wrkOpts.script = 'post-json.lua';
+    if (opts.scenario.method === 'POST') {
+      wrkOpts.scriptPath = writeGeneratedScript(opts.scenario, opts.runId);
+    }
     return runWrk(wrkOpts);
   }
 
@@ -53,11 +56,11 @@ export async function runBenchmark(tool, opts) {
 }
 
 /** Warm a specific URL with real traffic (framework-level or per-scenario). */
-async function warmupUrl(tool, { url, durationStr, method = 'GET', script }) {
+async function warmupUrl(tool, { url, durationStr, method = 'GET', scriptPath }) {
   const seconds = parseDuration(durationStr);
   try {
     if (tool === 'wrk') {
-      const scriptArg = script ? `-s ${join(WRK_DIR, script)} ` : '';
+      const scriptArg = scriptPath ? `-s ${scriptPath} ` : '';
       execSync(
         `wrk -c ${WARMUP_CONNECTIONS} -t ${WARMUP_THREADS} -d ${seconds}s ${scriptArg}${url}`,
         { stdio: 'ignore', timeout: (seconds + 10) * 1000 }
@@ -79,15 +82,20 @@ export async function warmup(tool, durationStr, port) {
 }
 
 /** Per-scenario warmup — primes the scenario's specific code path (FAIR-09). */
-export async function warmupScenario(tool, scenario, durationStr, port) {
+export async function warmupScenario(tool, scenario, durationStr, port, runId) {
   if (!durationStr) return;
   await warmupUrl(tool, {
     url: buildUrl(scenario, port),
     durationStr,
     method: scenario.method,
-    script: tool === 'wrk' && scenario.method === 'POST' ? 'post-json.lua' : undefined,
+    scriptPath: tool === 'wrk' && scenario.method === 'POST' ? writeGeneratedScript(scenario, runId) : undefined,
   });
   await sleep(200);
+}
+
+/** Remove every wrk script generated for one run. Safe to call even if none were ever written. */
+export function cleanupWrkScripts(runId) {
+  cleanupGeneratedScripts(runId);
 }
 
 /**

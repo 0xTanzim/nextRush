@@ -32,7 +32,7 @@ import {
   startServer,
   stopServer,
 } from './utils.js';
-import { buildUrl, runBenchmark, warmup, warmupScenario } from './bench-exec.js';
+import { buildUrl, cleanupWrkScripts, runBenchmark, warmup, warmupScenario } from './bench-exec.js';
 
 /**
  * Run ONE measurement pass for one framework: start -> warm -> per-scenario
@@ -41,7 +41,7 @@ import { buildUrl, runBenchmark, warmup, warmupScenario } from './bench-exec.js'
  * measurement position (see module doc comment).
  */
 async function benchmarkFrameworkOnePass(tool, framework, opts) {
-  const { port, scenarios, connections, duration, threads, profile, pinCores, clientPinCores, traceGc } = opts;
+  const { port, scenarios, connections, duration, threads, profile, pinCores, clientPinCores, traceGc, runId } = opts;
   const results = { framework: framework.name, scenarios: {} };
 
   let serverHandle;
@@ -57,7 +57,7 @@ async function benchmarkFrameworkOnePass(tool, framework, opts) {
 
     for (const scenario of scenarios) {
       logStep(`Scenario: ${scenario.name}`);
-      await warmupScenario(tool, scenario, profile.scenarioWarmupDuration, port);
+      await warmupScenario(tool, scenario, profile.scenarioWarmupDuration, port, runId);
 
       const scenarioResults = { scenario: scenario.name, scenarioId: scenario.id, concurrencyResults: {} };
 
@@ -70,6 +70,7 @@ async function benchmarkFrameworkOnePass(tool, framework, opts) {
           duration,
           scenario,
           clientPinCores,
+          runId,
         });
         if (isInvalidRun(scenario, result)) {
           logWarn(`    Non-2xx (${result.errors.nonOk}) in a success scenario — run excluded from stats.`);
@@ -221,6 +222,8 @@ export async function runRotatedComparison(tool, frameworksById, frameworkIds, o
   for (const id of frameworkIds) {
     resultsByFramework[id] = mergePassResults(passesByFramework[id], frameworksById[id], id);
   }
+
+  if (opts.runId) cleanupWrkScripts(opts.runId);
 
   return { resultsByFramework, positionLog };
 }
