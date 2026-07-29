@@ -104,7 +104,7 @@ export function loadConfigurationSection(scoreboard) {
         ['Pause between tests', config.pauseBetweenTestsMs === undefined ? NOT_RECORDED : seconds(config.pauseBetweenTestsMs)],
         ['CPU pinning', config.pinCores ? `server cores ${config.pinCores}` : scoreboard.system.cpuPinning || 'off'],
         ['Client pinning', config.clientPinCores ? `client cores ${config.clientPinCores}` : 'off'],
-        ['Framework order', orNotRecorded(config.order)],
+        ['Framework order', orNotRecorded(config.positionControl ?? config.order)],
         ['GC tracing', config.traceGc === undefined ? NOT_RECORDED : config.traceGc ? 'on' : 'off'],
         ...effectiveRows,
       ]

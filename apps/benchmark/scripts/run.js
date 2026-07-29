@@ -33,6 +33,13 @@
  *                                                  # on one machine (router-highload-
  *                                                  # harness-fixes, performance-gate)
  *   node scripts/run.js --no-validate            # skip the parity pre-flight (not advised)
+ *   node scripts/run.js --rotate                 # force position-bias counterbalancing (on by
+ *                                                 # default for publishable, multi-run, multi-
+ *                                                 # framework comparisons — see fix-benchmark-
+ *                                                 # position-bias). Restarts every framework's
+ *                                                 # server once per repeat, rotating who goes
+ *                                                 # first, so no framework's mean absorbs the
+ *                                                 # whole first-measured-in-the-invocation penalty.
  *   node scripts/run.js --stress --diagnostic-saturation  # explicit opt-in for adversarial-load
  *                                                  # runs — forces publishable:false regardless
  *                                                  # of run size, never masquerades as a comparison
@@ -50,7 +57,8 @@ import { PORT } from '../config/constants.js';
 import { DEFAULT_FRAMEWORKS, FRAMEWORKS } from '../config/frameworks.js';
 import { DEFAULT_PROFILE, PROFILES } from '../config/profiles.js';
 import { QUICK_SCENARIOS, SCENARIOS } from '../config/scenarios.js';
-import { benchmarkFramework } from './bench-exec.js';
+import { benchmarkFramework } from './bench-exec-single.js';
+import { runRotatedComparison } from './bench-rotation.js';
 import { generateArtifacts, printSummaryTable } from './report-md.js';
 import { readInstalledFrameworkVersions as readFrameworkVersions } from './lib/installed-versions.js';
 import { derivePublishable } from './lib/publishable.js';
@@ -155,8 +163,14 @@ try {
   process.exit(1);
 }
 
-// F-L06: optionally randomize framework execution order to cancel position/thermal
-// bias across a comparison. Off by default so the default run stays reproducible.
+// F-L06 / fix-benchmark-position-bias: `--shuffle` randomizes the STARTING
+// rotation offset once per invocation — it varies which absolute position
+// each framework begins in across separate runs, but does NOT by itself
+// counterbalance position within one reported comparison (a direct A/B
+// showed the framework measured first in an invocation scores materially
+// lower than the same framework measured later). `useRotation` below is what
+// actually counterbalances; `--rotate` forces it, and it defaults on for any
+// publishable, multi-run, multi-framework comparison.
 const shuffleOrder = args.shuffle === true;
 const diagnosticSaturation = args['diagnostic-saturation'] === true;
 if (shuffleOrder && frameworkIds.length > 1) {
@@ -214,7 +228,6 @@ async function main() {
   log(`Frameworks:   ${frameworkIds.map((id) => FRAMEWORKS[id].name).join(', ')}`);
   log(`CPU pinning:  ${pinCores ? `cores ${pinCores}` : 'off'}`);
   log(`Client pin:   ${clientPinCores ? `cores ${clientPinCores}` : 'off'}`);
-  log(`Order:        ${shuffleOrder ? 'shuffled' : 'fixed'}`);
   log(`Run ID:       ${runId}`);
 
   if (!profile.publishable) {
@@ -239,29 +252,64 @@ async function main() {
   };
   for (const [key, val] of Object.entries(sysInfo)) logResult(key, val);
 
+  const runs = runsOverride || profile.runs;
+
+  // `fix-benchmark-position-bias`: a direct A/B showed the framework measured
+  // FIRST in an invocation scores materially lower than the same framework
+  // measured later, reversible by swapping which one goes first. A fixed
+  // order therefore cannot back a cross-framework ranking. Rotation
+  // counterbalances it by restarting every framework once per repeat and
+  // rotating who goes first — the correct default whenever a result might be
+  // read as a ranking (more than one framework, more than one repeat).
+  const rotationRequested = args.rotate === true;
+  const useRotation = frameworkIds.length > 1 && runs > 1 && (rotationRequested || profile.publishable);
+  log(
+    `Position control: ${useRotation ? 'rotated (counterbalanced across repeats)' : shuffleOrder ? 'shuffled (one-shot, not counterbalanced)' : 'fixed — NOT publishable as a ranking'}`
+  );
+
   const allResults = {};
-  for (const frameworkId of frameworkIds) {
-    logHeader(`Benchmarking: ${FRAMEWORKS[frameworkId].name}`);
-    const frameworkResults = await benchmarkFramework(activeTool, FRAMEWORKS[frameworkId], {
-      frameworkId,
-      port: PORT,
-      scenarios,
-      connections,
-      runs: runsOverride || profile.runs,
-      duration: durationOverride || profile.duration,
-      threads: profile.threads,
-      profile,
-      pinCores,
-      clientPinCores,
-      traceGc: enableTraceGc,
-    });
+  const passOpts = {
+    port: PORT,
+    scenarios,
+    connections,
+    duration: durationOverride || profile.duration,
+    threads: profile.threads,
+    profile,
+    pinCores,
+    clientPinCores,
+    traceGc: enableTraceGc,
+  };
 
-    allResults[frameworkId] = frameworkResults;
-    saveResults(resultsDir, `${frameworkId}.json`, frameworkResults);
+  let positionLog = null;
+  if (useRotation) {
+    const frameworksById = Object.fromEntries(frameworkIds.map((id) => [id, FRAMEWORKS[id]]));
+    const { resultsByFramework, positionLog: log_ } = await runRotatedComparison(
+      activeTool,
+      frameworksById,
+      frameworkIds,
+      { ...passOpts, runs }
+    );
+    positionLog = log_;
+    for (const frameworkId of frameworkIds) {
+      allResults[frameworkId] = resultsByFramework[frameworkId];
+      saveResults(resultsDir, `${frameworkId}.json`, resultsByFramework[frameworkId]);
+    }
+  } else {
+    for (const frameworkId of frameworkIds) {
+      logHeader(`Benchmarking: ${FRAMEWORKS[frameworkId].name}`);
+      const frameworkResults = await benchmarkFramework(activeTool, FRAMEWORKS[frameworkId], {
+        ...passOpts,
+        frameworkId,
+        runs,
+      });
 
-    if (frameworkIds.indexOf(frameworkId) < frameworkIds.length - 1) {
-      logStep(`Cooling down ${profile.cooldownMs / 1000}s...`);
-      await sleep(profile.cooldownMs);
+      allResults[frameworkId] = frameworkResults;
+      saveResults(resultsDir, `${frameworkId}.json`, frameworkResults);
+
+      if (frameworkIds.indexOf(frameworkId) < frameworkIds.length - 1) {
+        logStep(`Cooling down ${profile.cooldownMs / 1000}s...`);
+        await sleep(profile.cooldownMs);
+      }
     }
   }
 
@@ -269,7 +317,7 @@ async function main() {
   const runConfiguration = {
     duration: durationOverride || profile.duration,
     connections,
-    runs: runsOverride || profile.runs,
+    runs,
     threads: profile.threads,
     warmupDuration: profile.warmupDuration,
     scenarioWarmupDuration: profile.scenarioWarmupDuration,
@@ -278,6 +326,8 @@ async function main() {
     pinCores,
     clientPinCores,
     traceGc: enableTraceGc,
+    positionControl: useRotation ? 'rotated' : shuffleOrder ? 'shuffled' : 'fixed',
+    positionLog,
     order: shuffleOrder ? 'shuffled' : 'fixed',
     scenarios: scenarios.map((s) => s.id),
     frameworkVersions: readFrameworkVersions(),

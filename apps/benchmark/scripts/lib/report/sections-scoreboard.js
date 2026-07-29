@@ -62,6 +62,27 @@ function headline(scoreboard) {
 }
 
 export function scoreboardSection(scoreboard) {
+  const positionControl = scoreboard.configuration?.positionControl;
+
+  // fix-benchmark-position-bias: a direct A/B showed the framework measured
+  // FIRST in an invocation scores materially lower than the same framework
+  // measured later, reversible by swapping which one goes first. A `fixed`
+  // order run therefore cannot back a ranking — render a plain warning
+  // instead of a scoreboard that would misrepresent measurement noise as a
+  // framework result.
+  if (positionControl === 'fixed') {
+    return [
+      '## Scoreboard',
+      '',
+      '> ⚠️ **Not a ranking.** This run used a fixed measurement order (no rotation, no ' +
+        'shuffle). A direct A/B on this harness showed the framework measured first in an ' +
+        "invocation scores materially lower than the same framework measured later — reversible " +
+        'by swapping which one goes first. Re-run with `--rotate` (on by default for publishable, ' +
+        'multi-run, multi-framework comparisons) before drawing any cross-framework conclusion.',
+      '',
+    ];
+  }
+
   const { likeForLike, all } = scoreboard.overall;
   const lines = ['## Scoreboard', ''];
 

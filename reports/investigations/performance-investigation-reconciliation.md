@@ -76,9 +76,9 @@ a *runtime* cost (a dedicated multi-hour pinned session) rather than a missing c
 pinning is available and measurably collapses run-to-run drift from ±25–58% to ~1–5% (see their rows
 below). Recommendation 7's F-02a portion was corrected rather than carried forward. **Before citing
 any `B/op` figure from this report, read §0 first** — the allocation harnesses are not
-cross-comparable, and one such misreading has already occurred. **Before citing any cross-framework
-RANKING, read §0a** — a fixed-measurement-order defect (A-4) was shown to invert an 11.7% raw-node
-win into an 11.7% NextRush "win", so no ranking from a fixed-order run is currently publishable.
+cross-comparable, and one such misreading has already occurred. **§0a documents A-4 (measurement-
+order position bias), now FIXED via rotation** — a publishable ranking must show `rotated` in its
+configuration table; a run showing `fixed` renders a warning instead of a scoreboard.
 
 | Rec | Addresses | Priority | Status |
 | --- | --------- | -------- | ------ |
@@ -140,25 +140,34 @@ liability rather than a measurement.
 | A-1 | Fastify was the ONLY server using `async` handlers; the other five were synchronous | handicapped a competitor | **−7.1%** to Fastify (pinned, interleaved, sync won 3/3) |
 | A-2 | NextRush listened with backlog 1024 while all five others used Node's 511 default | **favoured NextRush** | **+1.2%** at 512c (pinned, consistent 3/3) |
 | A-3 | Hono/Koa/Fastify middleware layers were `async`; NextRush/Express/raw-node were sync. Koa alone also carried `allowedMethods()` | **favoured NextRush** | not isolated; equalized |
-| **A-4** | **The harness measures frameworks in FIXED order with raw-node always first, so raw-node alone is measured on the coldest machine** | **favoured NextRush** (2nd in order) | **inverts an 11.7% raw-node win into an 11.7% NextRush "win"** |
+| A-4 | The harness measured frameworks in FIXED order with raw-node always first, so raw-node alone was measured on the coldest machine | **favoured NextRush** (2nd in order) | inverted an 11.7% raw-node win into an 11.7% NextRush "win" — **fixed via rotation, see below** |
 
-**A-4 is the serious one and it is not yet fixed.** The pinned harness reported NextRush 21,355
-beating raw-node 19,115 on `hello-world` (+11.7%). That is not credible — a bare
-`http.createServer` doing a string compare cannot lose to a full framework doing strictly more work.
-Measured directly instead, same servers, isolated and interleaved with equal warmup, pinned, 3
-rounds:
+**A-4 is FIXED (2026-07-29, `fix-benchmark-position-bias`).** The pinned harness had reported
+NextRush 21,355 beating raw-node 19,115 on `hello-world` (+11.7%) — not credible, since a bare
+`http.createServer` cannot lose to a full framework doing strictly more work. Isolated manual
+measurement confirmed the inverse (raw-node ahead by 11.7%, 3/3 rounds), and traced the cause to
+fixed measurement order (raw-node always first, on the coldest machine).
 
-| Round | raw-node | nextrush |
+**The fix**: `run.js` now restarts every framework's server once per repeat and rotates who goes
+first, so every framework occupies every measurement position an equal (±1) number of times across
+a comparison. On, by default, for any publishable multi-run multi-framework comparison
+(`--rotate` to force it elsewhere). Re-measured under the new rotated harness — not a hand-rolled
+script — 3 repeats, 6 frameworks, confirmed EXACT position balance (every framework in 3 distinct
+positions, once each) and the harness itself now reports:
+
+| Framework | RPS @256c | vs raw-node |
 | --- | --- | --- |
-| 1 | 25,975 | 23,214 |
-| 2 | 26,148 | 23,020 |
-| 3 | 25,543 | 23,276 |
-| **mean** | **25,888** | **23,170** |
+| Raw Node.js | 20,273 | baseline |
+| NextRush v3 | 17,432 | **−14.0%** |
 
-raw-node wins by 11.7%, 3/3 — the exact inverse of the harness's own output. **Consequence: no
-cross-framework ranking from a fixed-order run is publishable**, including any favourable to
-NextRush. The harness needs order rotation across runs (a `--shuffle` flag exists but defaults off)
-or a discard-first warm pass before its comparison can be trusted. This is the top open item.
+Same direction and comparable magnitude to the isolated manual A/B. The contradiction is closed.
+
+**Publishable runs must show `rotated` in their configuration table** ("Framework order" row) or
+their scoreboard section renders a "Not a ranking" warning instead of a ranking — this is now
+enforced by the report generator itself, not left to reviewer discipline. The one remaining cost:
+rotation multiplies server-restart/warmup cycles by roughly the framework count, so a `standard`/
+`full` publishable run now takes correspondingly longer — a deliberate, disclosed trade for a
+trustworthy ranking.
 
 ### Disclosure obligations created by the fix
 
