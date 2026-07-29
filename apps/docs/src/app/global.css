@@ -698,6 +698,13 @@ kbd {
   padding: 0 1rem;
 }
 
+@media (max-width: 640px) {
+  [data-highlighted-line] {
+    margin: 0;
+    padding: 0 0.5rem;
+  }
+}
+
 /* Word highlighting */
 [data-highlighted-chars] {
   background: rgba(139, 92, 246, 0.3);
@@ -710,8 +717,11 @@ kbd {
    ============================================ */
 
 .prose table {
-  display: table;
+  display: block;
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-collapse: collapse;
   font-size: 0.875rem;
   line-height: 1.55;
@@ -886,7 +896,7 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
  * (Fumadocs' own class strings), not guessed.
  */
 [class*='max-w-[900px]'] {
-  max-width: 1020px;
+  max-width: min(1020px, 100%);
 }
 
 [class*='[grid-area:toc]'] {
@@ -1351,12 +1361,24 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 }
 .act-nav__list {
   display: flex;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.4rem;
   list-style: none;
   margin: 0;
   padding: 0;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.act-nav__list::-webkit-scrollbar {
+  display: none;
+}
+@media (min-width: 640px) {
+  .act-nav__list {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
 }
 .act-nav__item {
   display: inline-flex;

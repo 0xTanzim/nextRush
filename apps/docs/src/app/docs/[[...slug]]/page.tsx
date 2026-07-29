@@ -56,7 +56,7 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
           left readers asking "what am I copying, and why twice?" (proximity + recognition). */}
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <DocsTitle>{page.data.title}</DocsTitle>
-        <div className="not-prose flex shrink-0 items-center gap-1 rounded-lg border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_45%,var(--color-fd-card))] p-0.5">
+        <div className="not-prose flex max-w-full flex-wrap items-center gap-1 rounded-lg border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_45%,var(--color-fd-card))] p-0.5">
           <LLMCopyButton markdownUrl={markdownUrl} />
           <ViewOptions markdownUrl={markdownUrl} githubUrl={githubUrl} llmsUrl={llmsUrl} />
         </div>

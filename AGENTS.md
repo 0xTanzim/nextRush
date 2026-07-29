@@ -376,7 +376,17 @@ If any answer raises significant doubt, redesign before implementation.
 
 ---
 
-# 20. Specs Are the Source of Truth
+ # 20. Git Commit Rules
+
+* Commit after completing every logical unit of work (OpenSpec tasks, features, bug fixes, refactors, docs, tests, etc.) before starting unrelated work.
+* Keep commits small, focused, and atomic—one logical change per commit.
+* Never let large numbers of uncommitted files accumulate. Keep the working tree clean.
+* Ensure the code builds and relevant tests pass before committing whenever practical.
+
+
+---
+
+# 21. Specs Are the Source of Truth
 
 NextRush uses OpenSpec (`openspec/`) for spec-driven development. It has two layers with
 opposite lifecycles — confusing them is how the system rots.

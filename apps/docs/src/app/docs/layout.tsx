@@ -7,8 +7,29 @@ import Link from 'next/link';
 
 function SidebarFooterLinks() {
   return (
-    <div className="mt-3 flex flex-col gap-3">
+    <div className="mt-3 flex flex-col gap-3 border-t border-fd-border pt-3">
+      <div className="flex flex-col gap-1 lg:hidden">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-fd-muted-foreground">
+          Navigation
+        </span>
+        <div className="grid grid-cols-2 gap-1 text-xs">
+          <Link href="/docs" className="rounded-md p-1 hover:bg-fd-accent text-fd-muted-foreground hover:text-fd-accent-foreground font-medium">
+            Docs
+          </Link>
+          <Link href="/packages" className="rounded-md p-1 hover:bg-fd-accent text-fd-muted-foreground hover:text-fd-accent-foreground font-medium">
+            Packages
+          </Link>
+          <Link href="/docs/reference" className="rounded-md p-1 hover:bg-fd-accent text-fd-muted-foreground hover:text-fd-accent-foreground font-medium">
+            Reference
+          </Link>
+          <Link href="/blog" className="rounded-md p-1 hover:bg-fd-accent text-fd-muted-foreground hover:text-fd-accent-foreground font-medium">
+            Blog
+          </Link>
+        </div>
+      </div>
+
       <SkillsSidebarPromo />
+
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-fd-muted-foreground">
         <Link href="/" className="hover:text-fd-accent-foreground">
           Home
