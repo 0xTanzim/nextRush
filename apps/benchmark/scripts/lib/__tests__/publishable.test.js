@@ -131,3 +131,67 @@ test('withRecomputedPublishable passes through a malformed report with no config
 
   assert.deepEqual(withRecomputedPublishable(report), report);
 });
+
+function multiFrameworkResults(timeoutCount = 0) {
+  return {
+    'raw-node': {
+      scenarios: {
+        'hello-world': { concurrencyResults: { 64: { runs: [{ errors: { timeout: timeoutCount } }] } } },
+      },
+    },
+    'nextrush-v3': {
+      scenarios: {
+        'hello-world': { concurrencyResults: { 64: { runs: [{ errors: { timeout: timeoutCount } }] } } },
+      },
+    },
+  };
+}
+
+test('a fixed-order multi-framework run is rejected on position control', () => {
+  const config = makeConfig({ positionControl: 'fixed' });
+  const outcome = derivePublishable(config, multiFrameworkResults());
+
+  assert.equal(outcome.publishable, false);
+  assert.match(outcome.reason, /position/i);
+});
+
+test('a multi-framework run with no recorded position control is rejected, not silently passed', () => {
+  const config = makeConfig(); // no positionControl field at all
+  const outcome = derivePublishable(config, multiFrameworkResults());
+
+  assert.equal(outcome.publishable, false);
+  assert.match(outcome.reason, /position/i);
+});
+
+test('a rotated multi-framework run is not rejected on position control', () => {
+  const config = makeConfig({ positionControl: 'rotated' });
+  const outcome = derivePublishable(config, multiFrameworkResults());
+
+  assert.equal(outcome.publishable, true);
+  assert.equal(outcome.reason, null);
+});
+
+test('a single-framework run is exempt from the position-control criterion regardless of value', () => {
+  const configFixed = makeConfig({ positionControl: 'fixed' });
+  const outcomeFixed = derivePublishable(configFixed, resultsWithTimeouts(0));
+  assert.equal(outcomeFixed.publishable, true);
+
+  const configNone = makeConfig();
+  const outcomeNone = derivePublishable(configNone, resultsWithTimeouts(0));
+  assert.equal(outcomeNone.publishable, true);
+});
+
+test('a framework entry with .error does not count toward the multi-framework threshold', () => {
+  const config = makeConfig({ positionControl: 'fixed' });
+  const results = {
+    'raw-node': {
+      scenarios: {
+        'hello-world': { concurrencyResults: { 64: { runs: [{ errors: { timeout: 0 } }] } } },
+      },
+    },
+    fastify: { error: 'failed to start' },
+  };
+  const outcome = derivePublishable(config, results);
+  // Only one framework actually measured -> exempt from position-control.
+  assert.equal(outcome.publishable, true);
+});

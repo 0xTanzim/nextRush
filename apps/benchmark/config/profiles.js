@@ -75,6 +75,33 @@ export const PROFILES = {
     publishable: false,
     description: 'Stress test (3 runs, high concurrency, 2min duration) — NOT publishable',
   },
+
+  /**
+   * Time-bounded harness-fix verification for a dev/agentic session. Satisfies the
+   * same run-count and concurrency-level floors `derivePublishable` checks (so
+   * rotation and multi-run logic are actually exercised, unlike `quick`'s single
+   * run), but completes in minutes rather than `full`'s multi-hour sweep.
+   *
+   * Marked unconditionally non-publishable — this profile verifies harness
+   * BEHAVIOR (does a gate reject what it should reject), not framework
+   * performance, so its numbers must never be mistaken for a release figure
+   * regardless of whether they'd otherwise satisfy `derivePublishable`'s
+   * criteria.
+   */
+  verify: {
+    duration: '10s',
+    connections: [64, 256],
+    threads: Math.min(cpuThreads, 4),
+    runs: 3,
+    warmupDuration: '5s',
+    scenarioWarmupDuration: '2s',
+    cooldownMs: 2000,
+    pauseBetweenTestsMs: 1000,
+    publishable: false,
+    description:
+      'Time-bounded harness-fix verification (3 rotated runs, 2 concurrency levels, ~10s/cell) — ' +
+      'for validating harness behavior, never for publishing framework performance numbers',
+  },
 };
 
 export const DEFAULT_PROFILE = 'quick';

@@ -62,15 +62,18 @@ function headline(scoreboard) {
 }
 
 export function scoreboardSection(scoreboard) {
-  const positionControl = scoreboard.configuration?.positionControl;
+  const positionControl = scoreboard.configuration?.positionControl ?? scoreboard.configuration?.order;
 
-  // fix-benchmark-position-bias: a direct A/B showed the framework measured
-  // FIRST in an invocation scores materially lower than the same framework
-  // measured later, reversible by swapping which one goes first. A `fixed`
-  // order run therefore cannot back a ranking — render a plain warning
-  // instead of a scoreboard that would misrepresent measurement noise as a
-  // framework result.
-  if (positionControl === 'fixed') {
+  // fix-benchmark-position-bias / fix-benchmark-harness-integrity: a direct A/B
+  // showed the framework measured FIRST in an invocation scores materially
+  // lower than the same framework measured later, reversible by swapping which
+  // one goes first. Anything other than a recorded rotation therefore cannot
+  // back a ranking — a missing value is treated the same as an explicit
+  // "fixed", using the same `positionControl ?? order` fallback the Load
+  // Configuration table already uses, so the two sections of one report can
+  // never disagree about whether the run backs a ranking. A single-framework
+  // report is exempt — there is no cross-framework position to counterbalance.
+  if (scoreboard.frameworks.length > 1 && positionControl !== 'rotated') {
     return [
       '## Scoreboard',
       '',

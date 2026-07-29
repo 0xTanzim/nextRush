@@ -36,7 +36,14 @@ function fixture() {
     publishable: true,
     tool: 'wrk',
     system: { cpuModel: 'Test CPU', nodeVersion: 'v26.0.0' },
-    configuration: { duration: '30s', connections: [1, 64], runs: 3, threads: 4, scenarios: ['hello-world', 'middleware-stack'] },
+    configuration: {
+      duration: '30s',
+      connections: [1, 64],
+      runs: 3,
+      threads: 4,
+      scenarios: ['hello-world', 'middleware-stack'],
+      positionControl: 'rotated',
+    },
     results: {
       'raw-node': {
         framework: 'Raw Node.js',

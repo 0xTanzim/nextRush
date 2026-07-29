@@ -32,8 +32,12 @@ function countSocketTimeouts(results) {
   return total;
 }
 
+function countMeasuredFrameworks(results) {
+  return Object.values(results).filter((framework) => !framework.error).length;
+}
+
 /**
- * @param {{ runs: number, connections: number[], duration: string }} config
+ * @param {{ runs: number, connections: number[], duration: string, positionControl?: string }} config
  *   The run's actually-recorded configuration — never the profile's declared
  *   defaults, so an override that shrinks the effective run is caught.
  * @param {Record<string, unknown>} results The run's raw per-framework results.
@@ -68,6 +72,19 @@ export function derivePublishable(config, results, options = {}) {
     return {
       publishable: false,
       reason: `duration ${config.duration} is below the ${MIN_DURATION_SECONDS}s minimum for a publishable run`,
+    };
+  }
+
+  // A cross-framework ranking requires rotated measurement position — a
+  // fixed order was measured to score whichever framework goes first lower,
+  // independent of that framework's actual behavior, so a missing or fixed
+  // value is never treated as passing by omission.
+  if (countMeasuredFrameworks(results) > 1 && config.positionControl !== 'rotated') {
+    return {
+      publishable: false,
+      reason:
+        `position control was "${config.positionControl ?? 'not recorded'}" — a cross-framework ` +
+        'ranking requires rotation (see run.js --rotate)',
     };
   }
 

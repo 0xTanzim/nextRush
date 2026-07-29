@@ -25,6 +25,7 @@
     "bench:alloc:handler": "node scripts/handler-alloc.js",
     "bench:alloc:web": "node scripts/web-context-alloc.js",
     "bench:validate": "node scripts/validate-parity.js",
+    "bench:verify": "node scripts/run.js --profile verify --rotate --compare --scenario hello-world",
     "bench:check": "node scripts/check-regression.js",
     "bench:mixed": "wrk -t4 -c64 -d10s -s wrk/mixed.lua http://localhost:8080/",
     "smoke-test": "node scripts/smoke-test.js",
