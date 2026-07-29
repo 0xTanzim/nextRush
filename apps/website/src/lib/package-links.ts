@@ -16,7 +16,7 @@ export interface PackageLinks {
 
 export const packageLinks: Readonly<Record<string, PackageLinks>> = {
   // ---- Core -------------------------------------------------------------
-  nextrush: { reference: '/docs/reference/nextrush', guide: '/docs/start' },
+  nextrush: { reference: '/docs/reference/nextrush', guide: '/docs/getting-started' },
   '@nextrush/core': { reference: '/docs/reference/core', guide: '/docs/concepts/application' },
   '@nextrush/router': { reference: '/docs/reference/router', guide: '/docs/concepts/routing' },
   '@nextrush/types': { reference: '/docs/reference/types' },
@@ -81,7 +81,7 @@ export const packageLinks: Readonly<Record<string, PackageLinks>> = {
 
   // ---- Tooling ----------------------------------------------------------------
   '@nextrush/dev': { reference: '/docs/reference/dev', guide: '/docs/guides/dev-tools' },
-  'create-nextrush': { guide: '/docs/start' },
+  'create-nextrush': { guide: '/docs/getting-started' },
 } as const;
 
 export function getPackageLinks(name: string): PackageLinks {

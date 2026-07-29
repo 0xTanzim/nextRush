@@ -23,7 +23,7 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 max-w-7xl mx-auto">
             <Link
-              href="/docs/start"
+              href="/docs/getting-started"
               className="group p-6 rounded-xl card-glow card-gradient-border"
             >
               <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--rush-blue)]/10 border border-[var(--rush-blue)]/20 mb-4">
@@ -42,7 +42,7 @@ export default function HomePage() {
             </Link>
 
             <Link
-              href="/docs/start/overview"
+              href="/docs/getting-started/overview"
               className="group p-6 rounded-xl card-glow card-gradient-border"
             >
               <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--rush-cyan)]/10 border border-[var(--rush-cyan)]/20 mb-4">

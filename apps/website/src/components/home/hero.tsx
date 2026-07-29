@@ -119,7 +119,7 @@ export function Hero() {
 
           <div className="flex flex-col sm:flex-row gap-4 mb-16 animate-fade-up animate-delay-400">
             <Link
-              href="/docs/start"
+              href="/docs/getting-started"
               className="btn-primary inline-flex items-center gap-2 text-lg"
             >
               Get Started
