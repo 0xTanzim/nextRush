@@ -1,5 +1,5 @@
 {
   "title": "AI",
   "description": "LLM integration, AI SDK, and machine learning serving recipes.",
-  "pages": []
+  "pages": ["index"]
 }

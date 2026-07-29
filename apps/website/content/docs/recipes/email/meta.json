@@ -1,5 +1,5 @@
 {
   "title": "Email",
   "description": "Transactional email, templates, and email service integration.",
-  "pages": []
+  "pages": ["index"]
 }
