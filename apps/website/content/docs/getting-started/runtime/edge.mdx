@@ -27,11 +27,11 @@ platform constraints.
 
 | Runtime | Best for | Tradeoff |
 | --- | --- | --- |
-| [Node](/docs/start/runtime/node) | Production APIs, long-running servers, full ecosystem | Heavier footprint than Bun or edge |
-| [Bun](/docs/start/runtime/bun) | Local dev speed, native TypeScript, fast cold start | Younger ecosystem, some `node:*` gaps |
-| [Deno](/docs/start/runtime/deno) | Secure by default, permission model | Smaller package ecosystem |
+| [Node](/docs/getting-started/runtime/node) | Production APIs, long-running servers, full ecosystem | Heavier footprint than Bun or edge |
+| [Bun](/docs/getting-started/runtime/bun) | Local dev speed, native TypeScript, fast cold start | Younger ecosystem, some `node:*` gaps |
+| [Deno](/docs/getting-started/runtime/deno) | Secure by default, permission model | Smaller package ecosystem |
 | **Edge · this page** | Global low latency, Cloudflare/Vercel | No long-running server, `node:*` limited |
-| [Serverless](/docs/start/runtime/serverless) | Pay-per-request, auto-scaling | Cold starts, no persistent state |
+| [Serverless](/docs/getting-started/runtime/serverless) | Pay-per-request, auto-scaling | Cold starts, no persistent state |
 
 ## What changes from Node
 
@@ -45,7 +45,7 @@ platform constraints.
 
 <RuntimeSupport
   support={{ node: 'full', bun: 'full', deno: 'full', edge: 'partial', serverless: 'partial' }}
-  links={{ node: '/docs/start/runtime/node', bun: '/docs/start/runtime/bun', deno: '/docs/start/runtime/deno', serverless: '/docs/start/runtime/serverless' }}
+  links={{ node: '/docs/getting-started/runtime/node', bun: '/docs/getting-started/runtime/bun', deno: '/docs/getting-started/runtime/deno', serverless: '/docs/getting-started/runtime/serverless' }}
 />
 
 "Partial" means the adapter is functionally complete (Beta, Internal tier — see
@@ -53,11 +53,11 @@ platform constraints.
 but not yet verified against the real platform in CI (see
 the [compatibility matrix](/docs/help/compatibility-matrix)) — not that it's missing features.
 
-Targeting a different runtime? [Node](/docs/start/runtime/node) ·
-[Bun](/docs/start/runtime/bun) · [Deno](/docs/start/runtime/deno) ·
-[Serverless](/docs/start/runtime/serverless) each implement the same Context and
+Targeting a different runtime? [Node](/docs/getting-started/runtime/node) ·
+[Bun](/docs/getting-started/runtime/bun) · [Deno](/docs/getting-started/runtime/deno) ·
+[Serverless](/docs/getting-started/runtime/serverless) each implement the same Context and
 Application contract. Not sure which one fits? See the [runtime decision
-guide](/docs/start/runtime/decision-guide).
+guide](/docs/getting-started/runtime/decision-guide).
 
 ## Before you begin
 
@@ -249,7 +249,7 @@ The code you just wrote runs on every runtime NextRush supports. Only the adapte
 
 <Callout type="info" title="🚀 Build a Task API — recommended · ~20 min">
   Go past hello-world on the runtime you set up: routing, a JSON body, and a real 404.
-  [Start the tutorial →](/docs/start/quick-start)
+  [Start the tutorial →](/docs/getting-started/quick-start)
 </Callout>
 
 <Cards>
@@ -267,7 +267,7 @@ The code you just wrote runs on every runtime NextRush supports. Only the adapte
   <Card title="Runs on any runtime" href="/docs/concepts/runtime-compatibility">
     Why Node, Bun, Deno, and the edge all run identical application code.
   </Card>
-  <Card title="Try serverless next" href="/docs/start/runtime/serverless">
+  <Card title="Try serverless next" href="/docs/getting-started/runtime/serverless">
     Same statelessness, a different invocation shape — AWS Lambda, GCF, and Azure Functions.
   </Card>
 </Cards>

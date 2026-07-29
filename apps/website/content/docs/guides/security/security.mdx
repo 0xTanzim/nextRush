@@ -259,7 +259,7 @@ class UserController {
 }
 ```
 
-See the [Validation guide](/docs/guides/validation) for complete patterns.
+See the [Validation guide](/docs/guides/api-development/validation) for complete patterns.
 
 ---
 
@@ -305,7 +305,7 @@ function requireRole(...roles: string[]): Middleware {
 adminRouter.get('/users', requireAuth, requireRole('admin'), listUsers);
 ```
 
-See the [Authentication guide](/docs/guides/authentication) for JWT implementation.
+See the [Authentication guide](/docs/guides/authentication/authentication) for JWT implementation.
 
 ---
 
@@ -379,10 +379,10 @@ uploadRouter.post('/document', bodyParser({ limit: '50mb' }), handleUpload);
 ## Next Steps
 
 <Cards>
-  <Card title="Error Handling" href="/docs/guides/error-handling">
+  <Card title="Error Handling" href="/docs/guides/api-development/error-handling">
     Build consistent error responses with typed error classes.
   </Card>
-  <Card title="Authentication" href="/docs/guides/authentication">
+  <Card title="Authentication" href="/docs/guides/authentication/authentication">
     Full JWT auth implementation with guards and RBAC.
   </Card>
   <Card title="Deployment" href="/docs/production/deployment">

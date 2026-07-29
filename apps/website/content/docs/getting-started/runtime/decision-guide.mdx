@@ -20,7 +20,7 @@ the reasoning behind it.
 <Callout type="info" title="Already have an app in Next.js (or another framework)?">
   This page is about choosing a **JS runtime** for a standalone NextRush app. If you already have
   — or are creating — a Next.js project and want to mount a NextRush API inside it, that's a
-  different question with its own page: see [Next.js integration](/docs/start/frameworks/nextjs).
+  different question with its own page: see [Next.js integration](/docs/getting-started/frameworks/nextjs).
   Next.js isn't a runtime choice; it runs on whichever runtime it's deployed to.
 </Callout>
 
@@ -28,12 +28,12 @@ the reasoning behind it.
 
 | Situation | Recommendation |
 | --- | --- |
-| ⭐ New to NextRush, or unsure | **[Node.js](/docs/start/runtime/node)** |
-| 🐳 Deploying with Docker, PM2, or a VPS | **[Node.js](/docs/start/runtime/node)** |
-| ⚡ Fastest local dev loop | **[Bun](/docs/start/runtime/bun)** |
-| 🔒 Deny-by-default, security-first | **[Deno](/docs/start/runtime/deno)** |
-| 🌍 Cloudflare Workers or Vercel Edge | **[Edge](/docs/start/runtime/edge)** |
-| ☁ AWS Lambda, GCF, or Azure Functions | **[Serverless](/docs/start/runtime/serverless)** |
+| ⭐ New to NextRush, or unsure | **[Node.js](/docs/getting-started/runtime/node)** |
+| 🐳 Deploying with Docker, PM2, or a VPS | **[Node.js](/docs/getting-started/runtime/node)** |
+| ⚡ Fastest local dev loop | **[Bun](/docs/getting-started/runtime/bun)** |
+| 🔒 Deny-by-default, security-first | **[Deno](/docs/getting-started/runtime/deno)** |
+| 🌍 Cloudflare Workers or Vercel Edge | **[Edge](/docs/getting-started/runtime/edge)** |
+| ☁ AWS Lambda, GCF, or Azure Functions | **[Serverless](/docs/getting-started/runtime/serverless)** |
 
 <Callout type="warn" title="Which package do I actually install? (Cloudflare vs. Lambda/GCF/Azure)">
   "Edge" and "serverless" both describe event-driven, no-server-to-manage deployment — but they're
@@ -86,23 +86,23 @@ the reasoning behind it.
 ## Each runtime, compressed
 
 <Cards>
-  <Card title="🟢 Node.js — recommended default" href="/docs/start/runtime/node">
+  <Card title="🟢 Node.js — recommended default" href="/docs/getting-started/runtime/node">
     Best for: REST APIs, Docker, PM2, production services. Avoid if: you only ever deploy to
     Workers or Lambda and never run a local process.
   </Card>
-  <Card title="Bun — fast local loop" href="/docs/start/runtime/bun">
+  <Card title="Bun — fast local loop" href="/docs/getting-started/runtime/bun">
     Best for: fast startup, native TypeScript with no `tsx` step. Avoid if: you need Node's
     longer production track record for a critical service.
   </Card>
-  <Card title="Deno — secure by default" href="/docs/start/runtime/deno">
+  <Card title="Deno — secure by default" href="/docs/getting-started/runtime/deno">
     Best for: deny-by-default filesystem/network/env access, enforced by the process itself.
     Avoid if: you don't want to manage `--allow-*` flags on every invocation, including local dev.
   </Card>
-  <Card title="Edge — stateless & global" href="/docs/start/runtime/edge">
+  <Card title="Edge — stateless & global" href="/docs/getting-started/runtime/edge">
     Best for: answering from the network location closest to the caller, no server to patch.
     Avoid if: your app assumes a long-running process or in-memory state between requests.
   </Card>
-  <Card title="Serverless — event-driven" href="/docs/start/runtime/serverless">
+  <Card title="Serverless — event-driven" href="/docs/getting-started/runtime/serverless">
     Best for: per-event billing and scaling with no infrastructure to manage. Avoid if: cold
     starts are unacceptable for your latency budget and you can't pin a warm instance.
   </Card>
@@ -149,14 +149,14 @@ row above — nothing in this table changes how you write a handler.
 - ⚠ **Edge isn't for stateful apps** — no instance guarantee between requests; shared state needs
   an external store, on every runtime.
 - ⚠ **Serverless needs module-scope initialization** — build the app outside the handler function
-  or warm-instance reuse never kicks in ([serverless guide, Step 3](/docs/start/runtime/serverless)).
+  or warm-instance reuse never kicks in ([serverless guide, Step 3](/docs/getting-started/runtime/serverless)).
 - ⚠ **Deno permissions are enforced by Deno, not NextRush** — `--allow-net` and friends gate the
   process itself, before any adapter code runs.
 
 ## Continue learning
 
 <Cards>
-  <Card title="Node.js guide — recommended" href="/docs/start/runtime/node">
+  <Card title="Node.js guide — recommended" href="/docs/getting-started/runtime/node">
     The default starting point — install, run, and know the baseline.
   </Card>
   <Card title="Compatibility matrix" href="/docs/help/compatibility-matrix">

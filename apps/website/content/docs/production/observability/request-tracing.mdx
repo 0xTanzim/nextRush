@@ -69,7 +69,7 @@ options for all three functions.
 
 ## Middleware order controls what a middleware can observe
 
-NextRush composes middleware in the onion model (see [Performance Tuning](/docs/performance/tuning)
+NextRush composes middleware in the onion model (see [Performance Tuning](/docs/production/performance-tuning)
 for the same rule applied to throughput): the middleware registered **first** wraps everything
 registered after it, so its code after `await next()` runs **last** — after every downstream
 middleware and the route handler have already finished.
@@ -190,4 +190,4 @@ required or provided.
 - [Logging](/docs/production/observability/logging) — `@nextrush/logger` in depth
 - [`@nextrush/request-id` reference](/docs/reference/request-id)
 - [`@nextrush/timer` reference](/docs/reference/timer)
-- [Performance Tuning](/docs/performance/tuning) — middleware ordering for throughput
+- [Performance Tuning](/docs/production/performance-tuning) — middleware ordering for throughput

@@ -27,16 +27,16 @@ unless stated otherwise.
 | Runtime | Best for | Tradeoff |
 | --- | --- | --- |
 | **Node.js · this page** | Production APIs, long-running servers, full ecosystem | Heavier footprint than Bun or edge |
-| [Bun](/docs/start/runtime/bun) | Local dev speed, fast cold start | Younger ecosystem, some `node:*` gaps |
-| [Deno](/docs/start/runtime/deno) | Secure by default, permission model | Smaller package ecosystem |
-| [Edge](/docs/start/runtime/edge) | Global low latency, Cloudflare/Vercel | No long-running server, `node:*` limited |
-| [Serverless](/docs/start/runtime/serverless) | Pay-per-request, auto-scaling | Cold starts, no persistent state |
+| [Bun](/docs/getting-started/runtime/bun) | Local dev speed, fast cold start | Younger ecosystem, some `node:*` gaps |
+| [Deno](/docs/getting-started/runtime/deno) | Secure by default, permission model | Smaller package ecosystem |
+| [Edge](/docs/getting-started/runtime/edge) | Global low latency, Cloudflare/Vercel | No long-running server, `node:*` limited |
+| [Serverless](/docs/getting-started/runtime/serverless) | Pay-per-request, auto-scaling | Cold starts, no persistent state |
 
-Not sure which runtime fits? See the [runtime decision guide](/docs/start/runtime/decision-guide).
+Not sure which runtime fits? See the [runtime decision guide](/docs/getting-started/runtime/decision-guide).
 
 <RuntimeSupport
   support={{ node: 'full', bun: 'full', deno: 'full', edge: 'partial', serverless: 'partial' }}
-  links={{ bun: '/docs/start/runtime/bun', deno: '/docs/start/runtime/deno', edge: '/docs/start/runtime/edge', serverless: '/docs/start/runtime/serverless' }}
+  links={{ bun: '/docs/getting-started/runtime/bun', deno: '/docs/getting-started/runtime/deno', edge: '/docs/getting-started/runtime/edge', serverless: '/docs/getting-started/runtime/serverless' }}
 />
 
 "Partial" means the adapter is Stable but not yet verified against the real platform in CI (see
@@ -199,7 +199,7 @@ one runtime today, but you're building toward a portable mental model.
 ## Next steps
 
 <Cards>
-  <Card title="🚀 Build a Task API" href="/docs/start/quick-start">
+  <Card title="🚀 Build a Task API" href="/docs/getting-started/quick-start">
     Go past hello-world: routing, a JSON body, and a real 404 — starting from exactly where this page leaves off.
   </Card>
   <Card title="Deploy to production" href="/docs/production/deployment/node">
@@ -216,10 +216,10 @@ one runtime today, but you're building toward a portable mental model.
   <Card title="Runs on any runtime" href="/docs/concepts/runtime-compatibility">
     Why Node, Bun, Deno, and the edge all run identical application code.
   </Card>
-  <Card title="Try Bun next" href="/docs/start/runtime/bun">
+  <Card title="Try Bun next" href="/docs/getting-started/runtime/bun">
     Same API, `Bun.serve()` underneath — the fastest way to feel the one import that changes.
   </Card>
-  <Card title="Runtime decision guide" href="/docs/start/runtime/decision-guide">
+  <Card title="Runtime decision guide" href="/docs/getting-started/runtime/decision-guide">
     Not sure which runtime? This guide matches your constraints to the right one.
   </Card>
 </Cards>

@@ -297,7 +297,7 @@ The routes above follow a consistent response shape — a `data` envelope for si
 <Callout type="info" title="Typed error classes">
   Throwing `NotFoundError`, `BadRequestError`, `UnauthorizedError`, `ForbiddenError`, or
   `ConflictError` from a handler is caught automatically and converted to the response shape
-  above — no manual try/catch needed. See [Error Handling](/docs/guides/error-handling) for the
+  above — no manual try/catch needed. See [Error Handling](/docs/guides/api-development/error-handling) for the
   full class list and custom error handling.
 </Callout>
 
@@ -510,18 +510,18 @@ usersRouter.get('/:id', (ctx) => {
   <Card
     title="Error Handling"
     description="Learn about structured error handling patterns."
-    href="/docs/guides/error-handling"
+    href="/docs/guides/api-development/error-handling"
   />
   <Card
     title="Validation"
     description="Add request validation with Zod."
-    href="/docs/guides/validation"
+    href="/docs/guides/api-development/validation"
   />
-  <Card title="Testing" description="Test your API endpoints." href="/docs/guides/testing" />
+  <Card title="Testing" description="Test your API endpoints." href="/docs/guides/testing/testing" />
   <Card
     title="Security"
     description="Harden your API with rate limiting, CORS, and helmet."
-    href="/docs/guides/security"
+    href="/docs/guides/security/security"
   />
   <Card
     title="Context API Reference"

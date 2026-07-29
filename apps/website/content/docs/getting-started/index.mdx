@@ -21,8 +21,8 @@ without hidden steps, and install only the packages you actually use.
 </div>
 
 <div className="not-prose mt-5 flex flex-wrap gap-3">
-  <a href="/docs/start/installation" className="doc-hero__cta--primary">Install →</a>
-  <a href="/docs/start/overview" className="doc-hero__cta--secondary">Read in one page</a>
+  <a href="/docs/getting-started/installation" className="doc-hero__cta--primary">Install →</a>
+  <a href="/docs/getting-started/overview" className="doc-hero__cta--secondary">Read in one page</a>
 </div>
 
 <ul className="doc-trustbar not-prose">
@@ -54,7 +54,7 @@ One request path explains every feature; nothing is hidden behind a decorator or
 Four concepts carry every request, each owning one job — the flow below doubles as the page's
 chapter index: click any concept stop to jump to its walkthrough. For the full tour with the
 request diagram, both programming styles, and the runtimes, read
-[NextRush in One Page](/docs/start/overview).
+[NextRush in One Page](/docs/getting-started/overview).
 
 <MentalModelFlow steps={['Request', 'Application', 'Middleware', 'Router', 'Handler', 'Response']} />
 
@@ -158,7 +158,7 @@ each one's habits to NextRush's, with side-by-side snippets and a difficulty rat
 One path, three stops — each hands you straight to the next.
 
 <div className="not-prose my-6 flex flex-col gap-0">
-  <a href="/docs/start/installation" className="group flex items-center gap-4 rounded-t-xl border border-b-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-blue)_6%,var(--color-fd-card))]">
+  <a href="/docs/getting-started/installation" className="group flex items-center gap-4 rounded-t-xl border border-b-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-blue)_6%,var(--color-fd-card))]">
     <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--rush-blue)] text-sm font-bold text-white shadow-[0_0_0_3px_color-mix(in_srgb,var(--rush-blue)_20%,transparent)]">1</span>
     <span className="min-w-0 flex-1">
       <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 1 · Set up</span>
@@ -168,7 +168,7 @@ One path, three stops — each hands you straight to the next.
     <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-blue)]" aria-hidden>→</span>
   </a>
   <div className="ms-[1.375rem] h-5 w-px bg-[linear-gradient(to_bottom,var(--rush-blue),var(--rush-purple))]" aria-hidden />
-  <a href="/docs/start/quick-start" className="group flex items-center gap-4 rounded-none border border-y-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-purple)_6%,var(--color-fd-card))]">
+  <a href="/docs/getting-started/quick-start" className="group flex items-center gap-4 rounded-none border border-y-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-purple)_6%,var(--color-fd-card))]">
     <span className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-[color-mix(in_srgb,var(--rush-purple)_55%,transparent)] bg-transparent text-sm font-bold text-[var(--rush-purple)]">2</span>
     <span className="min-w-0 flex-1">
       <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 2 · Build</span>
@@ -178,7 +178,7 @@ One path, three stops — each hands you straight to the next.
     <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-purple)]" aria-hidden>→</span>
   </a>
   <div className="ms-[1.375rem] h-5 w-px bg-[linear-gradient(to_bottom,var(--rush-purple),var(--rush-cyan))]" aria-hidden />
-  <a href="/docs/start/overview" className="group flex items-center gap-4 rounded-b-xl border border-t-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-cyan)_8%,var(--color-fd-card))]">
+  <a href="/docs/getting-started/overview" className="group flex items-center gap-4 rounded-b-xl border border-t-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-cyan)_8%,var(--color-fd-card))]">
     <span className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-[color-mix(in_srgb,var(--rush-cyan)_55%,transparent)] bg-transparent text-sm font-bold text-[var(--rush-cyan)]">3</span>
     <span className="min-w-0 flex-1">
       <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 3 · Go deeper</span>
@@ -196,9 +196,9 @@ building.
 
 <DocPageOutline
   items={[
-    { href: '/docs/start/overview', title: 'NextRush in one page', description: 'Every concept with a minimal example, both programming styles, and the runtimes — the whole framework on one screen.' },
-    { href: '/docs/start/quick-start', title: 'Build a Task API', description: 'A hands-on CRUD tutorial that walks through middleware, routing, validation, and errors end to end.' },
-    { href: '/docs/start/runtime/decision-guide', title: 'Pick a runtime', description: 'Node, Bun, Deno, and Edge differ in cold starts, streaming, and platform APIs. This guide tells you which to reach for and when.' },
+    { href: '/docs/getting-started/overview', title: 'NextRush in one page', description: 'Every concept with a minimal example, both programming styles, and the runtimes — the whole framework on one screen.' },
+    { href: '/docs/getting-started/quick-start', title: 'Build a Task API', description: 'A hands-on CRUD tutorial that walks through middleware, routing, validation, and errors end to end.' },
+    { href: '/docs/getting-started/runtime/decision-guide', title: 'Pick a runtime', description: 'Node, Bun, Deno, and Edge differ in cold starts, streaming, and platform APIs. This guide tells you which to reach for and when.' },
     { href: '/docs/migrate', title: 'Migrate from another framework', description: 'Side-by-side maps from Express, Fastify, Hono, and NestJS, with a difficulty rating per origin.' },
   ]}
 />

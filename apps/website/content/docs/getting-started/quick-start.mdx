@@ -97,7 +97,7 @@ curl -i http://localhost:8080/tasks/999
 
 The `999` miss returning a real `404` is the point — the `GET` hands back what the `POST` stored.
 Hand-wired on purpose so router, store, and middleware order stay visible. Prefer a scaffold?
-→ [create-nextrush](/docs/start/create-nextrush).
+→ [create-nextrush](/docs/getting-started/create-nextrush).
 
 ## The request pipeline
 
@@ -689,7 +689,7 @@ Mental models (not the file list):
 - **Routing** — params + mount — [Routing](/docs/concepts/routing)
 - **Context** — `ctx.body`, `ctx.params`, `ctx.json()`, `ctx.status` — [Context](/docs/concepts/context)
 - **Middleware order** — parser before router or `ctx.body` is empty — [Middleware](/docs/concepts/middleware)
-- **Errors** — throw `HttpError`, framework maps status — [Error handling](/docs/guides/error-handling)
+- **Errors** — throw `HttpError`, framework maps status — [Error handling](/docs/guides/api-development/error-handling)
 
 A bigger app is this same pipeline with more middleware and more routes — not a different shape.
 
@@ -943,10 +943,10 @@ parse because `json()` sits above the logger — not inside a handler, not after
 ## Next tutorial
 
 <Cards>
-  <Card title="⭐ Build a REST API — recommended next" href="/docs/guides/rest-api">
+  <Card title="⭐ Build a REST API — recommended next" href="/docs/guides/api-development/rest-api">
     Same shape further: full CRUD, validation, cleaner route layout.
   </Card>
-  <Card title="Scaffold with create-nextrush" href="/docs/start/create-nextrush">
+  <Card title="Scaffold with create-nextrush" href="/docs/getting-started/create-nextrush">
     Generate a project structure, then build on top of it.
   </Card>
 </Cards>
@@ -965,7 +965,7 @@ One recommended path, then depth when you need it:
   <Card title="Context" href="/docs/concepts/context">
     One `ctx` for input and output — every handler already uses it.
   </Card>
-  <Card title="Validation" href="/docs/guides/validation">
+  <Card title="Validation" href="/docs/guides/api-development/validation">
     Schema-check the body instead of hand-checking `title`.
   </Card>
 </Cards>

@@ -6,7 +6,7 @@ description: Generate a runnable NextRush project with one command — pick a st
 <DocHero eyebrow="Start · Scaffold">
 
 Wiring a project by hand teaches how the pieces fit — that's what
-[Installation](/docs/start/installation) and the [Task API tutorial](/docs/start/quick-start) are
+[Installation](/docs/getting-started/installation) and the [Task API tutorial](/docs/getting-started/quick-start) are
 for. Once you've done that once, `create-nextrush` generates the same foundation in one command:
 `tsconfig.json`, scripts, middleware wiring, a sample route or controller, and a real unit test.
 
@@ -53,8 +53,8 @@ By the end, a new folder runs with `pnpm dev` (or your package manager's equival
   ]}
 />
 
-Prefer wiring every file yourself first? Start with [Installation](/docs/start/installation) or the
-[Task API tutorial](/docs/start/quick-start), then come back here for your second project.
+Prefer wiring every file yourself first? Start with [Installation](/docs/getting-started/installation) or the
+[Task API tutorial](/docs/getting-started/quick-start), then come back here for your second project.
 
 ## Run it
 
@@ -115,8 +115,8 @@ Full comparison with generated trees and code: [Project styles](#project-styles)
 </Cards>
 
 <Callout type="info" title="Edge and serverless aren't scaffolder targets">
-  The runtime prompt only offers Node, Bun, and Deno. [Edge](/docs/start/runtime/edge) and
-  [Serverless](/docs/start/runtime/serverless) are paths you follow manually once a project exists.
+  The runtime prompt only offers Node, Bun, and Deno. [Edge](/docs/getting-started/runtime/edge) and
+  [Serverless](/docs/getting-started/runtime/serverless) are paths you follow manually once a project exists.
 </Callout>
 
   </WizardStep>
@@ -330,7 +330,7 @@ the controller decorator alone.
 
 Choosing `class-based` enables `experimentalDecorators` and `emitDecoratorMetadata` in
 `tsconfig.json`, and adds `reflect-metadata` plus `@nextrush/class` as explicit dependencies — same
-requirement as [Installation's TypeScript step](/docs/start/installation#configure-typescript).
+requirement as [Installation's TypeScript step](/docs/getting-started/installation#configure-typescript).
 
   </Tab>
   <Tab value="Full">
@@ -376,7 +376,7 @@ point.
 
 Deno's `dev`/`build` scripts route through `nextrush dev` and `nextrush build` (not a raw
 `deno run` on the entry file) so decorator metadata stays consistent with Node and Bun. The
-`--allow-*` flags are Deno's permission model — see [Deno onboarding](/docs/start/runtime/deno).
+`--allow-*` flags are Deno's permission model — see [Deno onboarding](/docs/getting-started/runtime/deno).
 
 </details>
 
@@ -405,7 +405,7 @@ Class-based projects answer on `/api/health` instead of `/health`.
 
 <Callout type="info" title="Code generators">
   Once the project exists, `nextrush generate` (alias `nextrush g`) adds controllers, services,
-  middleware, guards, and routes — see the [generators guide](/docs/guides/generators).
+  middleware, guards, and routes — see the [generators guide](/docs/guides/api-development/generators).
 </Callout>
 
 ## Common mistakes
@@ -463,21 +463,21 @@ Class-based projects answer on `/api/health` instead of `/health`.
   <Card
     title="⭐ Build a Task API — recommended if you skipped the tutorial"
     description="Hand-wire create, read, and honest 404s to learn the request pipeline."
-    href="/docs/start/quick-start"
+    href="/docs/getting-started/quick-start"
   />
   <Card
     title="Class-based controllers"
     description="Build on class-based or full with guards, DI, and decorators."
-    href="/docs/guides/class-based"
+    href="/docs/guides/api-development/class-based"
   />
   <Card
     title="Dev tools"
     description="Hot reload, production builds, and generator commands."
-    href="/docs/guides/dev-tools"
+    href="/docs/guides/api-development/dev-tools"
   />
   <Card
     title="Runtimes"
     description="What changes on Bun, Deno, edge, and serverless once your project exists."
-    href="/docs/start/runtime/node"
+    href="/docs/getting-started/runtime/node"
   />
 </Cards>

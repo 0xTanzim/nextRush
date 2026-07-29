@@ -9,7 +9,7 @@ signing and verification is not a NextRush package; `jsonwebtoken` is a third-pa
 you install and manage like any other.
 
 For guard-based auth with role checks and refresh tokens on class-based controllers, see the
-[Authentication guide](/docs/guides/authentication) instead — this recipe is the minimal
+[Authentication guide](/docs/guides/authentication/authentication) instead — this recipe is the minimal
 functional equivalent of its verification step alone.
 
 ## Solution
@@ -99,5 +99,5 @@ returns `{"user":{"id":"1","email":"a@example.com"}}`.
 ## Related
 
 - [Context](/docs/concepts/context) — `ctx.get()`, `ctx.state`, and `ctx.next()`
-- [Authentication guide](/docs/guides/authentication) — full guard-based auth with refresh tokens and RBAC
-- [Per-User Rate Limiting](/docs/recipes/rate-limiting) — pair with auth to limit by user rather than IP alone
+- [Authentication guide](/docs/guides/authentication/authentication) — full guard-based auth with refresh tokens and RBAC
+- [Per-User Rate Limiting](/docs/recipes/authentication/rate-limiting) — pair with auth to limit by user rather than IP alone
