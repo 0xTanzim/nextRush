@@ -31,6 +31,11 @@ export async function runAutocannon({ url, connections, duration, pipelining = 1
         errors: {
           total: result.errors || 0,
           timeouts: result.timeouts || 0,
+          // `timeout` (singular) mirrors `timeouts` so publishable.js's
+          // countSocketTimeouts (written against wrk's `errors.timeout` shape)
+          // sees the same value regardless of which load-generator tool
+          // produced the run.
+          timeout: result.timeouts || 0,
           nonOk: result.non2xx || 0,
         },
         raw: result,

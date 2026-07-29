@@ -195,3 +195,35 @@ test('a framework entry with .error does not count toward the multi-framework th
   // Only one framework actually measured -> exempt from position-control.
   assert.equal(outcome.publishable, true);
 });
+
+test('countSocketTimeouts correctly sums timeouts from an autocannon-shaped results tree (errors.timeout, singular)', () => {
+  const config = makeConfig();
+  // autocannon's adapter mirrors `timeouts` (plural) into `timeout` (singular)
+  // — this fixture exercises the reader against that mirrored shape directly,
+  // rather than only the wrk shape resultsWithTimeouts() already produces.
+  const results = {
+    'raw-node': {
+      scenarios: {
+        'hello-world': {
+          concurrencyResults: {
+            64: { runs: [{ errors: { total: 3, timeouts: 3, timeout: 3, nonOk: 0 } }] },
+          },
+        },
+      },
+    },
+    'nextrush-v3': {
+      scenarios: {
+        'hello-world': {
+          concurrencyResults: {
+            64: { runs: [{ errors: { total: 0, timeouts: 0, timeout: 0, nonOk: 0 } }] },
+          },
+        },
+      },
+    },
+  };
+
+  const outcome = derivePublishable({ ...config, positionControl: 'rotated' }, results);
+
+  assert.equal(outcome.publishable, false);
+  assert.match(outcome.reason, /timeout/i);
+});
