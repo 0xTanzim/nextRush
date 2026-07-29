@@ -99,7 +99,19 @@ router.get('/empty', (ctx) => {
   ctx.status = 204;
 });
 
-app.use(serve(join(__dirname, '..', 'public'), { defer: false }));
+// koa-static has no prefix option (its root is joined with the full request
+// path), so it is registered as a koa-router ROUTE rather than as a global
+// `app.use()` layer. Two reasons, matching nextrush-v3.js's own note:
+//  1. As a global layer it ran an fs.stat on every request before falling
+//     through — a ~1.7x throughput loss on unrelated scenarios.
+//  2. Even guarded by a path check, a global layer adds a middleware frame to
+//     every request; registering as a route keeps unrelated scenarios at zero
+//     added cost, which is how fastify/hono/nextrush serve static here.
+// Root stays `public` so `/static/bench.txt` still joins to
+// `public/static/bench.txt` (koa-static uses the full ctx.path).
+const staticServe = serve(join(__dirname, '..', 'public'), { defer: false });
+router.get('/static/*filepath', staticServe);
+
 app.use(router.routes());
 app.use(router.allowedMethods());
 

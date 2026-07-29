@@ -13,7 +13,8 @@ import { listen } from '@nextrush/adapter-node';
 import { json } from '@nextrush/body-parser';
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
-import { serveStatic } from '@nextrush/static';
+import { createSendFile } from '@nextrush/static';
+import { fileURLToPath } from 'node:url';
 
 import {
   ERROR_BODY,
@@ -89,11 +90,34 @@ app.setErrorHandler((_err, ctx) => {
   ctx.json(ERROR_BODY);
 });
 
-// Application-level middleware (runs for every request regardless of route
-// match, unlike router.use() which seals into each registered route's own
-// dispatch chain) — the correct mount point for static-file serving, which
-// must handle a path with no registered route.
-app.use(serveStatic({ root: new URL('../public', import.meta.url).pathname, fallthrough: true }));
+// Static serving is registered as a ROUTE, not as `app.use()` middleware, and
+// this is load-bearing for measurement fairness in two separate ways:
+//
+// 1. An `app.use()` layer here would run on EVERY request. Without a `prefix`
+//    that meant a `decodeURIComponent` + traversal scan + path join + async
+//    `fs.stat` per request — measured at a 2.1x throughput loss on
+//    `hello-world` (23.7k -> 11.2k RPS @128c).
+// 2. Even WITH a prefix short-circuit, an `app.use()` layer pushes
+//    `Application`'s middleware stack from 1 entry (`router.routes()`) to 2,
+//    which drops `compose()` off its `len === 1` fast path onto the general
+//    recursive-dispatch path — a further +725 B/req of promise allocation on
+//    every request (`bench:alloc:compose`: 803.6 -> 1528.7 B/op).
+//
+// Registering as a route keeps the middleware stack at exactly 1 entry, so
+// unrelated scenarios pay nothing at all — matching how fastify (route
+// registration) and hono (router-scoped) serve static in this same suite.
+// `createSendFile` keeps `safeJoin`'s path-traversal protection and the
+// dotfile policy; it is not a hand-rolled resolver.
+const sendStaticFile = createSendFile({
+  root: fileURLToPath(new URL('../public/static', import.meta.url)),
+});
+router.get('/static/*', async (ctx) => {
+  const served = await sendStaticFile(ctx, ctx.params['*'] ?? '');
+  if (!served) {
+    ctx.status = 404;
+    ctx.json({ error: 'Not Found' });
+  }
+});
 
 app.route('/', router);
 

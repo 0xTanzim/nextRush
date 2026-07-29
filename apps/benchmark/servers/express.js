@@ -74,7 +74,10 @@ app.post('/large-post', largeJsonParser, (req, res) => {
   res.json(largePostResponse(Array.isArray(req.body?.items) ? req.body.items.length : 0));
 });
 
-app.use(express.static(join(__dirname, '..', 'public')));
+// Path-scoped so unrelated routes never pay serve-static's per-request
+// fs.stat — matching how every other server in this suite scopes static
+// serving (see the fairness note in nextrush-v3.js).
+app.use('/static', express.static(join(__dirname, '..', 'public', 'static')));
 
 // 5-layer middleware stack — one header per layer, chained via next().
 const middleware = MIDDLEWARE_HEADERS.map((header) => (_req, res, next) => {
