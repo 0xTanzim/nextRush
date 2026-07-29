@@ -1,6 +1,7 @@
 ---
 title: FAQ
 description: Frequently asked questions about NextRush — setup, design decisions, migration, and production readiness.
+keywords: [faq, help, nextrush]
 ---
 
 Common questions about NextRush, answered directly.
@@ -61,7 +62,7 @@ Use the `@nextrush/dev` CLI:
 nextrush dev
 ```
 
-This watches for file changes and restarts your server automatically. See the [Dev Tools guide](/docs/guides/dev-tools).
+This watches for file changes and restarts your server automatically. See the [Dev Tools guide](/docs/guides/api-development/dev-tools).
 
 ### How do I validate request data?
 
@@ -81,7 +82,7 @@ router.post('/users', validate(CreateUserSchema), (ctx) => {
 });
 ```
 
-For class-based controllers, the `@Body({ transform })` decorator works the same way with a schema's `parseAsync`. See the [Validation guide](/docs/guides/validation) for both styles.
+For class-based controllers, the `@Body({ transform })` decorator works the same way with a schema's `parseAsync`. See the [Validation guide](/docs/guides/api-development/validation) for both styles.
 
 ### How do I handle errors?
 
@@ -94,11 +95,11 @@ if (!user) throw new NotFoundError('User not found');
 // → 404 { "error": "NotFoundError", "message": "User not found", "code": "NOT_FOUND", "status": 404 }
 ```
 
-See the [Error Handling guide](/docs/guides/error-handling) and the [Troubleshooting](/docs/help/troubleshooting) catalog for common error-related gotchas.
+See the [Error Handling guide](/docs/guides/api-development/error-handling) and the [Troubleshooting](/docs/help/troubleshooting) catalog for common error-related gotchas.
 
 ### How do I test my NextRush app?
 
-See the [Testing guide](/docs/guides/testing) for integration-test patterns against a running handler chain, and `@nextrush/testing` for the class-runtime test harness (`createTestModule().override().compile()`).
+See the [Testing guide](/docs/guides/testing/testing) for integration-test patterns against a running handler chain, and `@nextrush/testing` for the class-runtime test harness (`createTestModule().override().compile()`).
 
 ---
 

@@ -9,6 +9,7 @@
     "capability-composition",
     "package-hierarchy",
     "session-position",
+    "benchmarks",
     "---Internals---",
     "di-internals",
     "middleware-internals",
@@ -17,5 +18,6 @@
     "rfcs",
     "versioning",
     "release-handbook"
-  ]
+  ],
+  "references": ["../reference", "../getting-started", "../production"]
 }

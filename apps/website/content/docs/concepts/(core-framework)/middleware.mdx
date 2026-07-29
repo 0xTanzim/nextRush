@@ -1,6 +1,7 @@
 ---
 title: Middleware
 description: How NextRush runs every request through a Koa-style onion of async middleware — each layer sees the request going in and the response coming back out.
+keywords: [concepts, core, framework, middleware, nextrush]
 ---
 
 Every real request needs the same handful of things before it reaches your code: a parsed body, an authenticated user, a log line, a response timer. Write that work inside each handler and you copy it a hundred times. Forget it in one handler and you have a bug — or a security hole — that no one notices until production.
@@ -212,7 +213,7 @@ Middleware order is not a style choice — it is your security posture. A layer 
 
 - **Ordering.** *Threat:* auth, CORS, or rate-limit middleware registered after a route handler never runs before that handler. *Why:* the onion runs outer layers first, so a security layer must be registered before the code it guards. *Safe default:* register authentication, CORS, and rate limiting before business logic and route handlers. *Avoid:* mounting a route and then adding its guard afterward.
 - **Untrusted `ctx.state`.** *Threat:* a downstream middleware trusts a value an upstream one wrote. *Why:* `ctx.state` is shared, mutable, and only as trustworthy as whatever put data there. *Safe default:* validate anything derived from the request before writing it to `ctx.state`. *Avoid:* treating a `ctx.state` value as safe merely because it is present.
-- **Error leakage.** *Threat:* an unhandled error sends a stack trace or file path to the client. *Why:* raw error objects expose internal structure. *Safe default:* wrap the pipeline in an error boundary that maps failures to safe responses — see [error handling](/docs/guides/error-handling). *Avoid:* returning `err.message` or `err.stack` to clients in production.
+- **Error leakage.** *Threat:* an unhandled error sends a stack trace or file path to the client. *Why:* raw error objects expose internal structure. *Safe default:* wrap the pipeline in an error boundary that maps failures to safe responses — see [error handling](/docs/guides/api-development/error-handling). *Avoid:* returning `err.message` or `err.stack` to clients in production.
 
 <Callout type="warn">
   If CORS or authentication middleware runs *after* your route handler, it has no effect at all. Security middleware must be registered before the routes it protects — order is the boundary.
@@ -265,7 +266,7 @@ Middleware order is not a style choice — it is your security posture. A layer 
   <Card title="Request lifecycle" href="/docs/concepts/request-lifecycle">
     Where the middleware pipeline sits in the full journey from adapter to handler.
   </Card>
-  <Card title="Write custom middleware" href="/docs/guides/custom-middleware">
+  <Card title="Write custom middleware" href="/docs/guides/api-development/custom-middleware">
     Put the model to work — read input, share state, and pass control in your own middleware.
   </Card>
   <Card title="@nextrush/core reference" href="/docs/reference">

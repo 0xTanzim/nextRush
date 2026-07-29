@@ -16,5 +16,6 @@
     "class",
     "platforms",
     "(dev-testing)"
-  ]
+  ],
+  "references": ["../getting-started", "../guides", "../architecture"]
 }

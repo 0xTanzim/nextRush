@@ -1,6 +1,7 @@
 ---
 title: Context
 description: How NextRush folds request input, response output, and shared state into one ctx object per request — so a handler never touches raw req/res.
+keywords: [concepts, context, core, framework, nextrush]
 ---
 
 Every HTTP handler needs the same two things: the data that came in, and a way to send data back. Node's built-in model hands you those as two separate objects, `req` and `res`, and leaves you to remember which properties exist on which — and which middleware added them along the way. That ambiguity is where a surprising number of bugs live.
@@ -296,7 +297,7 @@ People learn by correcting mistakes. If any of these feel true, unlearn them now
   <Card title="Middleware" href="/docs/concepts/middleware">
     How the pipeline runs, and why ctx.state is the way to share data through it.
   </Card>
-  <Card title="Custom middleware" href="/docs/guides/custom-middleware">
+  <Card title="Custom middleware" href="/docs/guides/api-development/custom-middleware">
     Put ctx to work — read input, share state, and pass control in your own middleware.
   </Card>
   <Card title="@nextrush/core reference" href="/docs/reference">

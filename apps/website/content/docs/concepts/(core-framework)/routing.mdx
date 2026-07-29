@@ -1,6 +1,7 @@
 ---
 title: Routing
 description: How NextRush maps a URL to its handler with a segment trie — a model whose matching cost tracks URL depth, not how many routes you have registered.
+keywords: [concepts, core, framework, nextrush, routing]
 ---
 
 Every request to your application must find the correct handler. That sounds trivial until your API grows from ten routes to two thousand — at which point route matching becomes part of the hot path every single request pays for. How that match scales is the difference between a request path that stays flat and one that quietly gets slower with every feature you ship.
@@ -233,7 +234,7 @@ router.get('/users/:id', (ctx) => {
   <Card title="Middleware" href="/docs/concepts/middleware">
     How per-route and per-group middleware run around a matched handler.
   </Card>
-  <Card title="Mount and group routes" href="/docs/guides/mounting-and-grouping-routes">
+  <Card title="Mount and group routes" href="/docs/guides/api-development/mounting-and-grouping-routes">
     Put feature routers to work — compose them, mount them, share middleware across a group.
   </Card>
   <Card title="@nextrush/router reference" href="/docs/reference/router">

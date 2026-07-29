@@ -1,0 +1,200 @@
+---
+title: File Upload
+description: Handle multipart file uploads in NextRush with disk storage, size limits, and type validation.
+keywords: [data, file, guides, nextrush, upload]
+---
+
+A file upload API using `@nextrush/multipart` — disk storage, size limits, and MIME type validation.
+Handles single and multiple file uploads in the same request.
+
+## What This Example Demonstrates
+
+- Multipart form data parsing via `@nextrush/multipart`
+- Streaming files straight to disk with `DiskStorage`
+- File type and size limits enforced by the middleware
+- Reading `ctx.state.files` and `ctx.state.fields` after parsing
+- Error handling for oversized or invalid files
+
+## Prerequisites
+
+- Node.js 22+
+- `nextrush` and `@nextrush/multipart` installed
+
+<PackageInstall packages={['nextrush', '@nextrush/multipart']} />
+
+## Full Code
+
+```typescript title="src/upload.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+import { multipart, DiskStorage } from '@nextrush/multipart';
+import { BadRequestError } from 'nextrush';
+import { readdir, stat, mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import type { UploadedFile } from '@nextrush/multipart';
+
+const app = createApp();
+const router = createRouter();
+
+const UPLOAD_DIR = './uploads';
+
+// Ensure upload directory exists before the storage strategy writes to it
+await mkdir(UPLOAD_DIR, { recursive: true });
+
+// Parse multipart/form-data requests, stream files to disk, and populate
+// ctx.state.files / ctx.state.fields for every route registered after this.
+app.use(
+  multipart({
+    storage: new DiskStorage({ dest: UPLOAD_DIR }),
+    limits: { maxFileSize: '10mb', maxFiles: 5 },
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+  })
+);
+
+// Health check
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+
+// Single file upload — field name must be "file"
+router.post('/upload', async (ctx) => {
+  const files = (ctx.state as { files?: UploadedFile[] }).files ?? [];
+  const file = files.find((f) => f.fieldName === 'file');
+
+  if (!file) {
+    throw new BadRequestError('No file provided under field "file"');
+  }
+
+  ctx.status = 201;
+  ctx.json(toSavedFile(file));
+});
+
+// Multiple file upload — field name must be "files"
+router.post('/upload/batch', async (ctx) => {
+  const files = (ctx.state as { files?: UploadedFile[] }).files ?? [];
+  const uploaded = files.filter((f) => f.fieldName === 'files');
+
+  if (uploaded.length === 0) {
+    throw new BadRequestError('No files provided under field "files"');
+  }
+
+  ctx.status = 201;
+  ctx.json(uploaded.map(toSavedFile));
+});
+
+// List uploaded files on disk
+router.get('/files', async (ctx) => {
+  const names = await readdir(UPLOAD_DIR);
+  const details = await Promise.all(
+    names.map(async (name) => {
+      const stats = await stat(join(UPLOAD_DIR, name));
+      return { name, size: stats.size, uploaded: stats.birthtime };
+    })
+  );
+  ctx.json(details);
+});
+
+interface SavedFile {
+  originalName: string;
+  sanitizedName: string;
+  size: number;
+  mimeType: string;
+  path?: string;
+}
+
+function toSavedFile(file: UploadedFile): SavedFile {
+  return {
+    originalName: file.originalName,
+    sanitizedName: file.sanitizedName,
+    size: file.size,
+    mimeType: file.mimeType,
+    path: file.path,
+  };
+}
+
+app.route('/api', router);
+await listen(app, 8080);
+```
+
+<Callout type="warn" title="Field name matters">
+  `multipart()` groups uploaded files by their form field name in `ctx.state.files`. The example
+  reads the `file` field for single uploads and the `files` field for batch uploads — match these
+  names in your form or `curl -F` flags.
+</Callout>
+
+<Callout type="info" title="Limits and type checks happen in the middleware">
+  `maxFileSize`, `maxFiles`, and `allowedTypes` are enforced by `multipart()` itself, before your
+  route handler runs. A request that violates a limit never reaches `/upload` — the middleware
+  throws first, and NextRush's default error handler turns that into a JSON error response.
+</Callout>
+
+## How to Run
+
+```bash
+nextrush dev src/upload.ts
+```
+
+## Test with curl
+
+```bash
+# Single file upload — field name is "file"
+curl -X POST http://localhost:8080/api/upload \
+  -F "file=@./photo.jpg"
+
+# Multiple file upload — field name is "files"
+curl -X POST http://localhost:8080/api/upload/batch \
+  -F "files=@./photo.jpg" \
+  -F "files=@./document.pdf"
+
+# List uploaded files
+curl http://localhost:8080/api/files
+```
+
+## Expected Output
+
+Single upload response:
+
+```json
+{
+  "originalName": "photo.jpg",
+  "sanitizedName": "photo.jpg",
+  "size": 245760,
+  "mimeType": "image/jpeg",
+  "path": "uploads/photo.jpg"
+}
+```
+
+List response:
+
+```json
+[
+  {
+    "name": "photo.jpg",
+    "size": 245760,
+    "uploaded": "2026-01-01T12:00:00.000Z"
+  }
+]
+```
+
+Oversized file error (thrown by the `multipart()` middleware before the handler runs):
+
+```json
+{
+  "name": "MultipartError",
+  "message": "File \"photo.jpg\" exceeds the 10.00 MB size limit",
+  "status": 413,
+  "code": "FILE_TOO_LARGE"
+}
+```
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="@nextrush/multipart API Reference"
+    description="Full DiskStorage, MemoryStorage, and limit configuration options."
+    href="/docs/reference/multipart"
+  />
+  <Card
+    title="REST API Guide"
+    description="Combine file upload routes with a standard REST API on the same app."
+    href="/docs/guides/api-development/rest-api"
+  />
+</Cards>

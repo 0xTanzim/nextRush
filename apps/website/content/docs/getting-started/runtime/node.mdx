@@ -1,0 +1,226 @@
+---
+title: Node.js
+description: Install NextRush on Node.js, run a hello-world server, and see how the Node adapter sets the baseline every other runtime is measured against.
+keywords: [getting, nextrush, node, node.js, runtime, started]
+difficulty: beginner
+estimatedTime: 10 minutes
+prerequisites: []
+---
+
+<DocHero eyebrow="Runtime · Baseline">
+
+**The baseline runtime.** Everything in NextRush is designed here first — every capability,
+every middleware package, and every adapter contract is built and tested against Node.js before
+any other runtime. Maximum compatibility, the largest ecosystem, and every doc example assumes it
+unless stated otherwise.
+
+<div className="not-prose mt-5 flex flex-wrap gap-2">
+  <DocHeroPill>Baseline Runtime</DocHeroPill>
+  <DocHeroPill>⭐ Recommended for beginners</DocHeroPill>
+  <DocHeroPill>~10 min</DocHeroPill>
+  <DocHeroPill>Beginner</DocHeroPill>
+</div>
+
+</DocHero>
+
+## Where Node fits
+
+| Runtime | Best for | Tradeoff |
+| --- | --- | --- |
+| **Node.js · this page** | Production APIs, long-running servers, full ecosystem | Heavier footprint than Bun or edge |
+| [Bun](/docs/getting-started/runtime/bun) | Local dev speed, fast cold start | Younger ecosystem, some `node:*` gaps |
+| [Deno](/docs/getting-started/runtime/deno) | Secure by default, permission model | Smaller package ecosystem |
+| [Edge](/docs/getting-started/runtime/edge) | Global low latency, Cloudflare/Vercel | No long-running server, `node:*` limited |
+| [Serverless](/docs/getting-started/runtime/serverless) | Pay-per-request, auto-scaling | Cold starts, no persistent state |
+
+Not sure which runtime fits? See the [runtime decision guide](/docs/getting-started/runtime/decision-guide).
+
+<RuntimeSupport
+  support={{ node: 'full', bun: 'full', deno: 'full', edge: 'partial', serverless: 'partial' }}
+  links={{ bun: '/docs/getting-started/runtime/bun', deno: '/docs/getting-started/runtime/deno', edge: '/docs/getting-started/runtime/edge', serverless: '/docs/getting-started/runtime/serverless' }}
+/>
+
+"Partial" means the adapter is Stable but not yet verified against the real platform in CI (see
+the [compatibility matrix](/docs/help/compatibility-matrix)) — not that it's missing features.
+
+## Before you begin
+
+- ✓ Node.js 22+ installed ([nvm](https://github.com/nvm-sh/nvm) or [nodejs.org](https://nodejs.org/))
+- ✓ A package manager (pnpm, npm, yarn, or bun)
+- ✓ ~10 minutes
+
+<div className="install-steps">
+
+<Steps>
+
+### Confirm your Node.js version
+
+- **Why this matters:** NextRush targets **Node.js 22+** — the ESM-only policy and `node:*` APIs assume it.
+
+```bash
+node --version
+# needs to read v22.x.x or higher
+```
+
+If you're on an older line, install 22+ with [nvm](https://github.com/nvm-sh/nvm) or from
+[nodejs.org](https://nodejs.org/) before continuing.
+
+### Install NextRush
+
+- **Why this matters:** the `nextrush` meta-package already includes the Node adapter — one install is everything.
+
+<PackageInstall packages={["nextrush"]} dev={["tsx", "typescript", "@types/node"]} />
+
+Or scaffold instead:
+
+```bash
+pnpm create nextrush my-api --runtime node
+```
+
+**Behind the scenes:**
+
+- `@nextrush/core`, `@nextrush/router`, and `@nextrush/adapter-node` are all re-exported through `nextrush`
+- On every other runtime (Bun, Deno, edge, serverless) the same import stays identical — only the adapter changes
+
+### Run a hello-world server
+
+Create `src/index.ts`:
+
+```ts title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ runtime: 'node', status: 'ok' });
+});
+
+app.route('/', router);
+await listen(app, 8080);
+```
+
+Run it:
+
+```bash
+npx tsx src/index.ts
+```
+
+<p className="not-prose mt-4 flex items-start gap-2 rounded-lg bg-[color-mix(in_srgb,var(--success)_8%,var(--color-fd-card))] px-3 py-2 text-sm font-medium text-[var(--status-success-text)]">
+  <span aria-hidden>✅</span>
+  <span>Expected result — <code>curl http://localhost:8080/</code> returns <code>{"{"}"runtime": "node", "status": "ok"{"}"}</code></span>
+</p>
+
+**Behind the scenes:**
+
+- `listen(app, 8080)` calls `@nextrush/adapter-node`, which starts a plain `node:http` server
+- Each incoming request goes to NextRush's router through the Context API
+- The same four calls (`createApp`, `createRouter`, route, `listen`) are what every runtime starts from
+
+### Why Node is the baseline
+
+Your server is now running. Before moving to Bun or Deno, it's worth understanding why Node is the
+reference runtime — and what that means for portability.
+
+**What Node gives you:**
+
+- Full `node:*` module access — no restrictions
+- No cold-start behavior to design around
+- Every middleware package (`@nextrush/body-parser`, `@nextrush/static`, `@nextrush/multipart`) targets it directly
+
+<Callout type="warn">
+This does not mean Node is required — Bun, Deno, edge, and serverless adapters all implement the
+same Context and Application contract (see [each adapter's
+reference](/docs/reference/platforms)). Node is where that contract has the fewest constraints,
+so it's the reference point the [runtime compatibility
+concept](/docs/concepts/runtime-compatibility) measures every other adapter against.
+</Callout>
+
+</Steps>
+
+</div>
+
+<p className="not-prose my-6 flex items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--success)_25%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--success)_6%,var(--color-fd-card))] px-4 py-3 text-sm font-semibold text-[var(--status-success-text)]">
+  <span aria-hidden className="text-lg">🎉</span>
+  <span>Node runtime working — you're ready to verify and move on.</span>
+</p>
+
+## Node baseline complete
+
+Confirm the server answers before moving on:
+
+```bash
+curl -i http://localhost:8080/
+# → HTTP/1.1 200 OK
+# → {"runtime":"node","status":"ok"}
+```
+
+Your project now looks like:
+
+```text
+my-api/
+  package.json
+  src/
+    index.ts
+```
+
+<p className="not-prose flex items-start gap-2 rounded-lg bg-[color-mix(in_srgb,var(--success)_8%,var(--color-fd-card))] px-3 py-2 text-sm font-semibold text-[var(--status-success-text)]">
+  <span aria-hidden>✓</span>
+  <span>Baseline complete — a real NextRush server on Node.js. Every capability the framework ships targets this runtime first.</span>
+</p>
+
+## What you learned
+
+Three things describe how a request reaches your code on Node.js:
+
+- **Node is the baseline runtime** — the framework's `node:*`-using packages, the Node adapter, and the docs' default code examples all target it first
+- **One `nextrush` import covers the adapter** — `createApp`, `createRouter`, and `listen` all come from the meta-package; you never import `@nextrush/adapter-node` directly unless you need its lower-level surface
+- **The same code moves between runtimes** — nothing in `src/index.ts` above is Node-specific; swapping to Bun changes the runtime underneath, not your route handlers
+
+## The same app, every runtime
+
+This is the core promise — the code you just wrote runs on every runtime NextRush supports.
+Only the adapter import changes:
+
+<MentalModelFlow steps={['createApp()', 'Router', 'Handler', 'Node adapter', 'Running']} />
+
+Swap the adapter, same everything else:
+
+```ts
+// Node:      import { listen } from '@nextrush/adapter-node';
+// Bun:       import { listen } from '@nextrush/adapter-bun';
+// Deno:      import { listen } from '@nextrush/adapter-deno';
+// Edge:      import { serve } from '@nextrush/adapter-edge';
+// Serverless import { handler } from '@nextrush/adapter-serverless';
+```
+
+The route handler, middleware, and Context API never change. That's the point — you're learning
+one runtime today, but you're building toward a portable mental model.
+
+## Next steps
+
+<Cards>
+  <Card title="🚀 Build a Task API" href="/docs/getting-started/quick-start">
+    Go past hello-world: routing, a JSON body, and a real 404 — starting from exactly where this page leaves off.
+  </Card>
+  <Card title="Deploy to production" href="/docs/production/deployment/node">
+    Docker, PM2, and systemd deployment paths for a Node.js NextRush server.
+  </Card>
+  <Card title="Node adapter reference" href="/docs/reference/platforms/node">
+    The full `@nextrush/adapter-node` surface — `serve()`, `createHandler()`, and Node-specific utilities.
+  </Card>
+</Cards>
+
+## Continue learning
+
+<Cards>
+  <Card title="Runs on any runtime" href="/docs/concepts/runtime-compatibility">
+    Why Node, Bun, Deno, and the edge all run identical application code.
+  </Card>
+  <Card title="Try Bun next" href="/docs/getting-started/runtime/bun">
+    Same API, `Bun.serve()` underneath — the fastest way to feel the one import that changes.
+  </Card>
+  <Card title="Runtime decision guide" href="/docs/getting-started/runtime/decision-guide">
+    Not sure which runtime? This guide matches your constraints to the right one.
+  </Card>
+</Cards>

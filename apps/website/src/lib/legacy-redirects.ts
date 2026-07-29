@@ -48,12 +48,14 @@
  * and the current `apps/website/content/docs` tree (confirms no page exists at the old path today).
  */
 export const legacyRedirects: ReadonlyMap<string, string> = new Map([
-  // getting-started/* -> start/*
-  ['/docs/getting-started', '/docs/start'],
-  ['/docs/getting-started/installation', '/docs/start/installation'],
-  ['/docs/getting-started/quick-start', '/docs/start/quick-start'],
-  ['/docs/getting-started/create-nextrush', '/docs/start/create-nextrush'],
-  ['/docs/getting-started/overview', '/docs/start/overview'],
+  // docs-ia-restructure: start/* -> getting-started/* (reversed from earlier getting-started->start migration)
+  ['/docs/start', '/docs/getting-started'],
+  ['/docs/start/installation', '/docs/getting-started/installation'],
+  ['/docs/start/quick-start', '/docs/getting-started/quick-start'],
+  ['/docs/start/create-nextrush', '/docs/getting-started/create-nextrush'],
+  ['/docs/start/overview', '/docs/getting-started/overview'],
+  ['/docs/start/runtime', '/docs/getting-started/runtime'],
+  ['/docs/start/frameworks', '/docs/getting-started/frameworks'],
 
   // api-reference/* -> reference/* (T6 targets updated in place to the post-B3 flat paths)
   ['/docs/api-reference', '/docs/reference'],
@@ -197,7 +199,37 @@ export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   // tutorial, and start/quick-start.mdx is the deeper, complete "first app" tutorial the guides/
   // page's plain snippet was a thinner stand-in for. No single page is a 1:1 replacement, so this
   // points at quick-start.mdx as the closest equivalent "get a real server running" destination.
-  ['/docs/guides/hello-world', '/docs/start/quick-start'],
+  ['/docs/guides/hello-world', '/docs/getting-started/quick-start'],
+
+  // docs-ia-restructure: performance/* -> production/ or architecture/
+  ['/docs/performance', '/docs/production/benchmarking'],
+  ['/docs/performance/comparison', '/docs/architecture/benchmarks'],
+  ['/docs/performance/tuning', '/docs/production/performance-tuning'],
+
+  // docs-ia-restructure: guides/* moved to sub-categories
+  ['/docs/guides/rest-api', '/docs/guides/api-development/rest-api'],
+  ['/docs/guides/class-based', '/docs/guides/api-development/class-based'],
+  ['/docs/guides/custom-middleware', '/docs/guides/api-development/custom-middleware'],
+  ['/docs/guides/mounting-and-grouping-routes', '/docs/guides/api-development/mounting-and-grouping-routes'],
+  ['/docs/guides/error-handling', '/docs/guides/api-development/error-handling'],
+  ['/docs/guides/validation', '/docs/guides/api-development/validation'],
+  ['/docs/guides/https-http2', '/docs/guides/api-development/https-http2'],
+  ['/docs/guides/dev-tools', '/docs/guides/api-development/dev-tools'],
+  ['/docs/guides/generators', '/docs/guides/api-development/generators'],
+  ['/docs/guides/authentication', '/docs/guides/authentication/authentication'],
+  ['/docs/guides/database', '/docs/guides/data/database'],
+  ['/docs/guides/file-upload', '/docs/guides/data/file-upload'],
+  ['/docs/guides/websocket', '/docs/guides/communication/websocket'],
+  ['/docs/guides/testing', '/docs/guides/testing/testing'],
+  ['/docs/guides/security', '/docs/guides/security/security'],
+
+  // docs-ia-restructure: recipes/* moved to sub-categories
+  ['/docs/recipes/pagination', '/docs/recipes/database/pagination'],
+  ['/docs/recipes/jwt-authentication', '/docs/recipes/authentication/jwt-authentication'],
+  ['/docs/recipes/cors-multi-tenant', '/docs/recipes/authentication/cors-multi-tenant'],
+  ['/docs/recipes/rate-limiting', '/docs/recipes/authentication/rate-limiting'],
+  ['/docs/recipes/postgres-service', '/docs/recipes/database/postgres-service'],
+  ['/docs/recipes/background-jobs', '/docs/recipes/queue/background-jobs'],
 ]);
 
 /** Old `/docs/...` path -> new `/docs/...` path, or `undefined` if not a known legacy path. */

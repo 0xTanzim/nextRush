@@ -1,6 +1,7 @@
 ---
 title: Request Lifecycle
 description: Follow one request through NextRush — adapter, context, the middleware onion, the router, your handler, and back out — so you always know where a concern belongs.
+keywords: [concepts, lifecycle, nextrush, request, runtime, streaming]
 ---
 
 A request arrives as bytes on a socket and leaves as bytes on a socket. Everything your application does happens in the space between those two moments. When that space is a mystery — why is `ctx.body` empty, why did auth not run, why does a header set after `ctx.next()` behave differently — every bug turns into a hunt through unfamiliar territory. Learn the path once and you always know where to look.
@@ -224,7 +225,7 @@ In production the built-in error handler returns a generic response on purpose, 
   <Card title="Middleware" href="/docs/concepts/middleware">
     The onion model in depth — the layers the request travels through to reach your handler.
   </Card>
-  <Card title="Write custom middleware" href="/docs/guides/custom-middleware">
+  <Card title="Write custom middleware" href="/docs/guides/api-development/custom-middleware">
     Put a stage to work — read input, share state, and bracket the request in your own middleware.
   </Card>
   <Card title="@nextrush/core reference" href="/docs/reference">

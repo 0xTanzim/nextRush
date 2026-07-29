@@ -1,6 +1,7 @@
 ---
 title: Dependency Injection
 description: How NextRush resolves a class's constructor dependencies for you, and what singleton, transient, and request scope each guarantee about instance lifetime.
+keywords: [class, concepts, dependency, injection, nextrush, runtime]
 ---
 
 A service almost never works alone: a `UserService` needs a repository, the repository needs a database client, and the client needs configuration. Somewhere, something has to build that chain in the right order. Do it by hand and every class ends up knowing how to construct its dependencies — and their dependencies, and theirs.
@@ -259,7 +260,7 @@ DI decides *how long an instance and its state live*, which makes scope a correc
   <Card title="Modules" href="/docs/concepts/modules">
     Group providers and controllers, and see how module providers register into the same container.
   </Card>
-  <Card title="Class-based development" href="/docs/guides/class-based">
+  <Card title="Class-based development" href="/docs/guides/api-development/class-based">
     Put DI to work — controllers, services, and scopes in a real class-based app.
   </Card>
   <Card title="@nextrush/di reference" href="/docs/reference/class/di">

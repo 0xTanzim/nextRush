@@ -1,6 +1,7 @@
 ---
 title: Runtime Compatibility
 description: Why NextRush treats the Web Platform as the foundation and every runtime as an adapter, so the same application code runs on Node.js, Bun, Deno, and the edge with no branching.
+keywords: [compatibility, concepts, nextrush, runtime, streaming]
 ---
 
 A route handler that reads a file works on a server with a disk and throws on a platform that has none. Write that check as `if (runtime === 'node')` and the code now has an opinion about where it runs — an opinion that breaks the moment someone deploys the same handler to a platform nobody tested it against.

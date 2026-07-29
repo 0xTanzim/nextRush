@@ -3,21 +3,13 @@
   "description": "Task-oriented walkthroughs for routing, middleware, validation, testing, and more",
   "pages": [
     "index",
-    "rest-api",
-    "class-based",
-    "dev-tools",
-    "generators",
-    "error-handling",
-    "validation",
-    "custom-middleware",
-    "mounting-and-grouping-routes",
-    "database",
-    "file-upload",
+    "api-development",
     "authentication",
-    "websocket",
-    "https-http2",
+    "data",
+    "communication",
     "testing",
-    "---",
-    "security"
-  ]
+    "security",
+    "background-jobs"
+  ],
+  "references": ["../recipes", "../getting-started", "../production"]
 }

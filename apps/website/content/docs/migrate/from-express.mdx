@@ -1,6 +1,7 @@
 ---
 title: From Express
 description: Map Express req/res/next and app.use() patterns to NextRush's ctx and onion-model middleware.
+keywords: [express, from, migrate, nextrush]
 ---
 
 Most of what you know from Express transfers directly — routes, middleware, and error handling
@@ -70,7 +71,7 @@ linear chain.
 </Tabs>
 
 `createApp`, `createRouter`, and `listen` all come from the `nextrush` meta package — see the
-[Quick Start](/docs/start/quick-start) if you haven't installed it yet. `bodyParser` is a
+[Quick Start](/docs/getting-started/quick-start) if you haven't installed it yet. `bodyParser` is a
 separate install (`@nextrush/body-parser`), same as Express's `body-parser` used to be before
 `express.json()` was folded in.
 

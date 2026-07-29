@@ -1,6 +1,7 @@
 ---
 title: Extensions
 description: How app.extend() and app.ready() give long-lived, app-scoped services a boot and teardown lifecycle — and why almost nothing you write needs one.
+keywords: [concepts, extension, extensions, nextrush, system]
 ---
 
 An event bus needs to exist for the lifetime of the app, not one request. It needs to be created once, before the app starts serving traffic, and cleaned up once, when the app shuts down. Middleware runs per request and has no boot phase; a plain setup function runs once but has no teardown. Neither idiom fits a service the app itself depends on for its whole lifetime.

@@ -1,6 +1,7 @@
 ---
 title: Troubleshooting
 description: Real error messages from NextRush, what causes them, and how to fix them.
+keywords: [help, nextrush, troubleshooting]
 ---
 
 Error → cause → fix, for messages NextRush actually produces. Every error class here is
@@ -41,7 +42,7 @@ response body includes an `issues` array (`path`, `message`, `rule`, `expected` 
 always stripped from the response to avoid leaking submitted values such as passwords or tokens).
 
 **Fix:** Read `issues` client-side to show field-level messages, or call
-`error.getFirstError('fieldName')` server-side. See the [Validation guide](/docs/guides/validation).
+`error.getFirstError('fieldName')` server-side. See the [Validation guide](/docs/guides/api-development/validation).
 
 ### `UnauthorizedError` — 401 Unauthorized
 
@@ -50,7 +51,7 @@ from `@nextrush/errors`' factory functions.
 
 **Fix:** Confirm authentication middleware runs before the route handler and that it throws
 (not merely sets `ctx.status`) when credentials are missing or invalid — see
-[Authentication](/docs/guides/authentication).
+[Authentication](/docs/guides/authentication/authentication).
 
 ### `TooManyRequestsError` — 429 Too Many Requests
 
@@ -117,10 +118,10 @@ NextRush bug.
 
 **Fix:** For class-based code (`nextrush/class`, DI), set `"experimentalDecorators": true` and
 `"emitDecoratorMetadata": true` in `tsconfig.json` (see
-[Installation → Configure TypeScript](/docs/start/installation#install-manually)), and for
+[Installation → Configure TypeScript](/docs/getting-started/installation#install-manually)), and for
 production builds use `nextrush build` (from `@nextrush/dev`), which compiles with SWC
 specifically because it preserves this metadata — see the
-[Dev Tools guide](/docs/guides/dev-tools) for the full explanation and setup.
+[Dev Tools guide](/docs/guides/api-development/dev-tools) for the full explanation and setup.
 
 ### `nextrush dev` works but `nextrush build` output loses DI behavior
 
@@ -128,7 +129,7 @@ specifically because it preserves this metadata — see the
 support) is being used for the production build too.
 
 **Fix:** Use `nextrush build` for production builds — it's built specifically to solve this by
-compiling with SWC. See [Dev Tools](/docs/guides/dev-tools).
+compiling with SWC. See [Dev Tools](/docs/guides/api-development/dev-tools).
 
 ---
 

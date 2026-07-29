@@ -1,0 +1,236 @@
+---
+title: Serverless
+description: Install NextRush on AWS Lambda, Google Cloud Functions, or Azure Functions, and see what warm-instance reuse and per-invocation timeouts mean for your app.
+keywords: [getting, nextrush, runtime, serverless, started]
+difficulty: beginner
+estimatedTime: 10 minutes
+prerequisites: []
+---
+
+<DocHero eyebrow="Runtime · Event-driven">
+
+**Pay-per-request, auto-scaling.** Serverless platforms invoke your handler per event and can
+terminate the execution environment between calls — there's no process to keep alive, only a warm
+instance you might get to reuse. Same `createApp`/`createRouter` API as Node, deployed behind a
+one-line handler. The tradeoff: cold starts on a fresh instance and a deployment model built around
+short-lived invocations.
+
+<div className="not-prose mt-5 flex flex-wrap gap-2">
+  <DocHeroPill>Pay-per-request</DocHeroPill>
+  <DocHeroPill>Auto-scaling</DocHeroPill>
+  <DocHeroPill>~10 min</DocHeroPill>
+  <DocHeroPill>Beginner</DocHeroPill>
+</div>
+
+</DocHero>
+
+## Where Serverless fits
+
+| Runtime | Best for | Tradeoff |
+| --- | --- | --- |
+| [Node](/docs/getting-started/runtime/node) | Production APIs, long-running servers, full ecosystem | Heavier footprint than Bun or edge |
+| [Bun](/docs/getting-started/runtime/bun) | Local dev speed, native TypeScript, fast cold start | Younger ecosystem, some `node:*` gaps |
+| [Deno](/docs/getting-started/runtime/deno) | Secure by default, permission model | Smaller package ecosystem |
+| [Edge](/docs/getting-started/runtime/edge) | Global low latency, Cloudflare/Vercel | No long-running server, `node:*` limited |
+| **Serverless · this page** | Pay-per-request, auto-scaling, AWS/GCF/Azure | Cold starts, no persistent state |
+
+## What changes from Node
+
+| Same | Different |
+| --- | --- |
+| `createApp()` | No `listen()` — you export a handler, not start a server |
+| `createRouter()` | Per-invocation — platform invokes your handler per event |
+| Route registration | Cold starts — first invocation pays `app.ready()` cost |
+| Context API | Warm reuse — module-scope construction survives across invocations |
+| Middleware | Response buffering by default — streaming is a separate handler |
+
+<RuntimeSupport
+  support={{ node: 'full', bun: 'full', deno: 'full', edge: 'partial', serverless: 'partial' }}
+  links={{ node: '/docs/getting-started/runtime/node', bun: '/docs/getting-started/runtime/bun', deno: '/docs/getting-started/runtime/deno', edge: '/docs/getting-started/runtime/edge' }}
+/>
+
+"Partial" means the adapter is functionally complete (Beta, Internal tier — see
+[ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md))
+but not yet verified against the real platform in CI (see
+the [compatibility matrix](/docs/help/compatibility-matrix)) — not that it's missing features.
+
+Targeting a different runtime? [Node](/docs/getting-started/runtime/node) ·
+[Bun](/docs/getting-started/runtime/bun) · [Deno](/docs/getting-started/runtime/deno) ·
+[Edge](/docs/getting-started/runtime/edge) each implement the same Context and Application contract. Not
+sure which one fits? See the [runtime decision guide](/docs/getting-started/runtime/decision-guide).
+
+## Before you begin
+
+- ✓ A terminal and a package manager
+- ✓ An AWS account if you plan to deploy
+- ✓ ~10 minutes
+
+<div className="install-steps">
+
+<Steps>
+
+### Install NextRush and the serverless adapter
+
+- **Why this matters:** like the other non-Node runtimes, the `nextrush` meta-package does not bundle a runtime adapter — you add `@nextrush/adapter-serverless` alongside it.
+
+<PackageInstall packages={['nextrush', '@nextrush/adapter-serverless']} />
+
+**Behind the scenes:**
+
+- `createApp` and `createRouter` still come from `nextrush` — runtime-independent
+- `createLambdaHandler` comes from `@nextrush/adapter-serverless` — the meta-package's `listen` targets `@nextrush/adapter-node` specifically
+- Covers AWS Lambda Function URLs and both API Gateway payload formats (HTTP API v2, REST API v1) — auto-detects which event shape it received
+- Google Cloud Functions and Azure Functions have their own handlers (`createGoogleHandler`, `createAzureHandler`) from the same package
+
+### Write a hello-world Lambda handler
+
+Create `index.ts`:
+
+```ts title="index.ts"
+import { createApp, createRouter } from 'nextrush';
+import { createLambdaHandler } from '@nextrush/adapter-serverless';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => {
+  ctx.json({ runtime: ctx.runtime, status: 'ok' });
+});
+
+app.route('/', router);
+export const handler = createLambdaHandler(app);
+```
+
+Deploy behind a Lambda Function URL (or API Gateway) using your usual AWS tooling.
+
+<p className="not-prose mt-4 flex items-start gap-2 rounded-lg bg-[color-mix(in_srgb,var(--success)_8%,var(--color-fd-card))] px-3 py-2 text-sm font-medium text-[var(--status-success-text)]">
+  <span aria-hidden>✅</span>
+  <span>Expected result — <code>curl https://your-function-url.lambda-url.us-east-1.on.aws/</code> returns <code>{"{"}"runtime": "edge", "status": "ok"{"}"}</code></span>
+</p>
+
+**Behind the scenes:**
+
+- `createLambdaHandler(app)` wires AWS event mappers and reuses the edge adapter's fetch engine
+- `ctx.runtime` reports `'edge'` because the handler is built on `@nextrush/adapter-edge`'s fetch engine
+- The handler shape (`(event, context?) => Promise<result>`) is the plain AWS Lambda contract — no NextRush-specific deploy step needed
+
+### Build the handler at module scope
+
+- **Why this matters:** where you call `createApp()` and `createLambdaHandler()` determines whether warm-instance reuse actually helps.
+
+Keep app construction at module scope, never inside the handler function:
+
+```ts title="index.ts"
+import { createApp, createRouter } from 'nextrush';
+import { createLambdaHandler } from '@nextrush/adapter-serverless';
+
+// Module scope — runs once per cold start, reused across every warm invocation.
+const app = createApp();
+const router = createRouter();
+router.get('/', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+export const handler = createLambdaHandler(app);
+```
+
+<Callout type="warn">
+**Don't put mutable request state in module-scope variables.** Each invocation builds a fresh
+`Context`, so `ctx.state`, headers, and body never leak between invocations — but a module-scope
+`let` you write to yourself will leak, because that variable survives across invocations exactly
+like the app instance does.
+</Callout>
+
+### What changes with per-invocation execution
+
+Your handler is deployed. Before moving on, understand what's genuinely different.
+
+**Same:** the Context API, `createApp`, `createRouter`, route registration, and middleware all
+behave identically to Node. Nothing in your route handler is Lambda-specific, and the same app
+code moves to Google Cloud Functions or Azure Functions by swapping `createLambdaHandler` for
+`createGoogleHandler` or `createAzureHandler`.
+
+**Different:** there is no long-running process — the platform invokes your handler per event and
+may terminate the environment between invocations. The first invocation on a fresh instance pays
+a cold-start cost (`app.ready()` for the first time); warm invocations on the same instance skip
+it. `createLambdaHandler` buffers the full response body; for true streaming (lower
+time-to-first-byte), use `createLambdaStreamingHandler` instead.
+
+</Steps>
+
+</div>
+
+<p className="not-prose my-6 flex items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--success)_25%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--success)_6%,var(--color-fd-card))] px-4 py-3 text-sm font-semibold text-[var(--status-success-text)]">
+  <span aria-hidden className="text-lg">🎉</span>
+  <span>Serverless runtime working — warm reuse and all.</span>
+</p>
+
+## Serverless baseline complete
+
+Confirm the function answers:
+
+```bash
+curl -i https://your-function-url.lambda-url.us-east-1.on.aws/
+# → HTTP/1.1 200 OK
+# → {"runtime":"edge","status":"ok"}
+```
+
+Your project now looks like:
+
+```text
+my-function/
+  package.json
+  index.ts
+```
+
+<p className="not-prose flex items-start gap-2 rounded-lg bg-[color-mix(in_srgb,var(--success)_8%,var(--color-fd-card))] px-3 py-2 text-sm font-semibold text-[var(--status-success-text)]">
+  <span aria-hidden>✓</span>
+  <span>Baseline complete — a real Lambda invocation. The handler built at module scope is what makes warm reuse work.</span>
+</p>
+
+## What you learned
+
+- ✓ `nextrush` gives you the runtime-independent half — `createApp`, `createRouter`, and route registration are identical on Lambda and Node
+- ✓ `createLambdaHandler` comes from `@nextrush/adapter-serverless`, not the meta-package — along with `createGoogleHandler` and `createAzureHandler`
+- ✓ Module-scope construction is what makes warm reuse work — building the app inside the handler re-boots it on every invocation
+- ✓ Response buffering is the default; true streaming uses `createLambdaStreamingHandler`
+
+## The same app, every runtime
+
+The code you just wrote runs on every runtime NextRush supports. Only the adapter import changes:
+
+<MentalModelFlow steps={['createApp()', 'Router', 'Handler', 'Serverless adapter', 'Running']} />
+
+```ts
+// Node:      import { listen } from '@nextrush/adapter-node';
+// Bun:       import { listen } from '@nextrush/adapter-bun';
+// Deno:      import { listen } from '@nextrush/adapter-deno';
+// Edge:      import { serve } from '@nextrush/adapter-edge';
+// Serverless import { handler } from '@nextrush/adapter-serverless';  // ← you are here
+```
+
+## Next steps
+
+<Callout type="info" title="🚀 Build a Task API — recommended · ~20 min">
+  Go past hello-world on the runtime you set up: routing, a JSON body, and a real 404.
+  [Start the tutorial →](/docs/getting-started/quick-start)
+</Callout>
+
+<Cards>
+  <Card title="Deploy to AWS Lambda" href="/docs/production/deployment/aws-lambda">
+    Function URL or API Gateway, module-scope warm reuse, and response streaming.
+  </Card>
+  <Card title="Serverless adapter reference" href="/docs/reference/platforms/serverless">
+    The full `@nextrush/adapter-serverless` surface — `createLambdaHandler()`, `createLambdaStreamingHandler()`, `createGoogleHandler()`, `createAzureHandler()`, and the Tier-3 `EventMapper` API.
+  </Card>
+</Cards>
+
+## Continue learning
+
+<Cards>
+  <Card title="Runs on any runtime" href="/docs/concepts/runtime-compatibility">
+    Why Node, Bun, Deno, and the edge all run identical application code.
+  </Card>
+  <Card title="Back to Node" href="/docs/getting-started/runtime/node">
+    The baseline runtime — a long-running process instead of per-invocation execution.
+  </Card>
+</Cards>

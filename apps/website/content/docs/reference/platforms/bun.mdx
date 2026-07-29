@@ -2,6 +2,7 @@
 title: 'Bun'
 package: '@nextrush/adapter-bun'
 description: 'Bun HTTP adapter for NextRush with graceful shutdown and TLS support.'
+keywords: [bun, nextrush, platforms, reference]
 ---
 
 Connect your NextRush application to [Bun](https://bun.sh)'s native HTTP server.
@@ -208,7 +209,7 @@ const server = serve(app, {
 <Callout type="warn" title="No HTTP/2 negotiation on this option">
   Verified directly against `Bun.serve()`: its native `tls` option serves HTTPS/1.1 only — it does
   not negotiate `h2` via ALPN. `getRuntimeCapabilities().http2` reports `false` on Bun. See the
-  [HTTPS & HTTP/2 guide](/docs/guides/https-http2) for the cross-runtime picture, including where
+  [HTTPS & HTTP/2 guide](/docs/guides/api-development/https-http2) for the cross-runtime picture, including where
   Deno and Node differ.
 </Callout>
 

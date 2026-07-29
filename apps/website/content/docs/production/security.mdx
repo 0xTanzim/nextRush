@@ -1,11 +1,12 @@
 ---
 title: Security Hardening Checklist
 description: Production-readiness posture for security — what to verify before shipping.
+keywords: [checklist, hardening, nextrush, production, security]
 ---
 
 This page is a **checklist**, not a tutorial. It tells you what to verify before an
 application ships, not how to wire each piece. For the how-to — middleware order,
-configuration examples, JWT auth — see the [Security guide](/docs/guides/security).
+configuration examples, JWT auth — see the [Security guide](/docs/guides/security/security).
 
 Each item below links to the guide section or reference page that shows the
 implementation. Work through the checklist before a production release; re-run it
@@ -30,7 +31,7 @@ after any change to middleware order, CORS origins, or secret handling.
       cross-origin asset loading if left unexamined.
 
 Reference: [`@nextrush/helmet`](/docs/reference/helmet) ·
-How-to: [Security guide — Security Headers](/docs/guides/security#security-headers-helmet)
+How-to: [Security guide — Security Headers](/docs/guides/security/security#security-headers-helmet)
 
 ---
 
@@ -50,7 +51,7 @@ How-to: [Security guide — Security Headers](/docs/guides/security#security-hea
       that a CORS policy change takes days to propagate to cached browsers.
 
 Reference: [`@nextrush/cors`](/docs/reference/cors) ·
-How-to: [Security guide — CORS](/docs/guides/security#cors)
+How-to: [Security guide — CORS](/docs/guides/security/security#cors)
 
 ---
 
@@ -67,7 +68,7 @@ How-to: [Security guide — CORS](/docs/guides/security#cors)
       not left as a one-time setup value.
 
 Reference: [`@nextrush/csrf`](/docs/reference/csrf) ·
-How-to: [Security guide — CSRF Protection](/docs/guides/security#csrf-protection)
+How-to: [Security guide — CSRF Protection](/docs/guides/security/security#csrf-protection)
 
 ---
 
@@ -87,7 +88,7 @@ How-to: [Security guide — CSRF Protection](/docs/guides/security#csrf-protecti
       that matters once you run more than one instance.
 
 Reference: [`@nextrush/rate-limit`](/docs/reference/rate-limit) ·
-How-to: [Security guide — Rate Limiting](/docs/guides/security#rate-limiting)
+How-to: [Security guide — Rate Limiting](/docs/guides/security/security#rate-limiting)
 
 ---
 
@@ -120,7 +121,7 @@ For how environment variables are loaded and validated at startup, see
       client is not the same as losing observability. See
       [Observability](/docs/production/observability) for structured error logging.
 
-How-to: [Security guide — Error Handling Security](/docs/guides/security#error-handling-security)
+How-to: [Security guide — Error Handling Security](/docs/guides/security/security#error-handling-security)
 
 ---
 
@@ -172,7 +173,7 @@ Reference: [`@nextrush/timer`](/docs/reference/timer)
 ## Next steps
 
 <Cards>
-  <Card title="Security guide" href="/docs/guides/security">
+  <Card title="Security guide" href="/docs/guides/security/security">
     The how-to: middleware order, full configuration examples, JWT authentication.
   </Card>
   <Card title="Scaling" href="/docs/production/scaling">

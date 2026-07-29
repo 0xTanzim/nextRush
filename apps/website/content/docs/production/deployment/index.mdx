@@ -1,6 +1,7 @@
 ---
 title: Deployment
 description: Deploy a NextRush app to Node.js, Bun, Deno, or an edge runtime, containerize it with Docker, or deploy straight to AWS Lambda, Google Cloud Functions, or Azure Functions.
+keywords: [deployment, index, nextrush, production]
 ---
 
 NextRush ships one adapter per runtime — `@nextrush/adapter-node`, `@nextrush/adapter-bun`,
@@ -39,7 +40,7 @@ for why the serverless platforms need their own translation layer that edge plat
 A platform (the vendor you ship to) is a different question from a runtime — Vercel runs both
 Node and Edge functions, and AWS Lambda's serverless invocation model isn't a distinct runtime
 in NextRush's adapter layer at all (`createLambdaHandler` is built directly on the edge adapter's
-fetch engine — see [Serverless](/docs/start/runtime/serverless)). Platform pages document what's
+fetch engine — see [Serverless](/docs/getting-started/runtime/serverless)). Platform pages document what's
 specific to shipping there: CLI, config, IAM/permissions, and event-shape translation where one
 applies.
 

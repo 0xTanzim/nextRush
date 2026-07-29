@@ -1,0 +1,7 @@
+{
+  "title": "Authentication",
+  "description": "JWT, OAuth, session, CORS, rate limiting, and other authentication/security recipes.",
+  "pages": ["jwt-authentication", "cors-multi-tenant", "rate-limiting"],
+  "learningPath": ["jwt-authentication", "cors-multi-tenant", "rate-limiting"],
+  "references": ["../../guides/authentication", "../../guides/security"]
+}
