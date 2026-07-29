@@ -1,3 +1,5 @@
+import { DOCS_GETTING_STARTED } from '@/lib/docs-links';
+
 /**
  * Guide/reference link targets for the /packages catalog, keyed by npm
  * package name from package-registry.ts.
@@ -16,7 +18,7 @@ export interface PackageLinks {
 
 export const packageLinks: Readonly<Record<string, PackageLinks>> = {
   // ---- Core -------------------------------------------------------------
-  nextrush: { reference: '/docs/reference/nextrush', guide: '/docs/getting-started' },
+  nextrush: { reference: '/docs/reference/nextrush', guide: DOCS_GETTING_STARTED },
   '@nextrush/core': { reference: '/docs/reference/core', guide: '/docs/concepts/application' },
   '@nextrush/router': { reference: '/docs/reference/router', guide: '/docs/concepts/routing' },
   '@nextrush/types': { reference: '/docs/reference/types' },
@@ -81,7 +83,7 @@ export const packageLinks: Readonly<Record<string, PackageLinks>> = {
 
   // ---- Tooling ----------------------------------------------------------------
   '@nextrush/dev': { reference: '/docs/reference/dev', guide: '/docs/guides/dev-tools' },
-  'create-nextrush': { guide: '/docs/getting-started' },
+  'create-nextrush': { guide: DOCS_GETTING_STARTED },
 } as const;
 
 export function getPackageLinks(name: string): PackageLinks {

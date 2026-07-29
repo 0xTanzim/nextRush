@@ -2,6 +2,7 @@ import { ArrowRight, GitFork, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { CopyButton } from '@/components/copy-button';
 import { appConfig } from '@/config/appConfig';
+import { DOCS_GETTING_STARTED } from '@/lib/docs-links';
 
 const codeExample = `import { createApp, createRouter, listen } from 'nextrush';
 
@@ -119,7 +120,7 @@ export function Hero() {
 
           <div className="flex flex-col sm:flex-row gap-4 mb-16 animate-fade-up animate-delay-400">
             <Link
-              href="/docs/getting-started"
+              href={DOCS_GETTING_STARTED}
               className="btn-primary inline-flex items-center gap-2 text-lg"
             >
               Get Started
