@@ -1,10 +1,10 @@
 ---
 title: 'Authentication'
-description: 'Implement JWT authentication with guards and protected routes.'
+description: 'Implement JWT authentication with guards and protected routes — class-based and functional styles.'
 keywords: [authentication, argon2, password-hashing, jose, jwt, guards, guides, nextrush]
 ---
 
-Implement JWT authentication with guards.
+Implement JWT authentication with guards — in both **class-based** (decorators + DI) and **functional** (plain routes) styles.
 
 This example demonstrates:
 
@@ -468,6 +468,167 @@ await listen(app, 8080);
 
 ---
 
+## Functional Approach
+
+The class-based example above uses decorators (`@Service`, `@Controller`, `@UseGuard`) and
+dependency injection. The same auth logic works without `nextrush/class` imports — plain routes,
+manual middleware, no auto-discovery.
+
+<Callout type="info" title="Same AuthService">
+  The `AuthService` class from the class-based example uses `@Service()` for DI registration,
+  but its constructor and methods are plain TypeScript — no decorator dependencies in the
+  business logic. It works as-is in a functional setup:
+  `export const authService = new AuthService();`
+  The `@Service()` decorator is harmless without a DI container; skip it if you prefer.
+</Callout>
+
+### Project Structure
+
+```
+src/
+├── index.ts
+├── routes/
+│   └── auth.ts       # Auth middleware and route handlers
+├── services/
+│   └── auth.service.ts  # Same AuthService exported as singleton
+└── types/
+    └── index.ts
+```
+
+Export the AuthService as a singleton (no DI container needed):
+
+```typescript title="src/services/auth.service.ts"
+import { Service } from 'nextrush/class';   // harmless; skip if you prefer
+import { SignJWT, jwtVerify } from 'jose';
+import argon2 from 'argon2';
+
+@Service()
+export class AuthService {
+  // ... same implementation as the class-based example
+}
+
+export const authService = new AuthService();
+```
+
+### Route File
+
+Routes and middleware live in a single file, wired by hand:
+
+```typescript title="src/routes/auth.ts"
+import { createRouter } from 'nextrush';
+import { jwtVerify } from 'jose';
+import { authService } from '../services/auth.service';
+import type { LoginDto, RegisterDto } from '../types';
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET ?? '');
+
+// Middleware: Verify Bearer token
+export const authMiddleware = async (ctx: any, next: any) => {
+  const header = ctx.get('authorization');
+  if (!header?.startsWith('Bearer ')) {
+    ctx.status = 401;
+    ctx.json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const { payload } = await jwtVerify(header.slice(7), JWT_SECRET);
+    ctx.state.user = payload;
+    await next();
+  } catch {
+    ctx.status = 401;
+    ctx.json({ error: 'Invalid or expired token' });
+  }
+};
+
+// Middleware: Role check (factory)
+export const roleMiddleware = (...roles: string[]) =>
+  async (ctx: any, next: any) => {
+    const user = ctx.state.user as { role: string } | undefined;
+    if (!user || !roles.includes(user.role)) {
+      ctx.status = 403;
+      ctx.json({ error: 'Forbidden' });
+      return;
+    }
+    await next();
+  };
+
+export const authRouter = createRouter();
+
+authRouter.post('/register', async (ctx) => {
+  const result = await authService.register(ctx.body as RegisterDto);
+  ctx.status = 201;
+  ctx.json(result);
+});
+
+authRouter.post('/login', async (ctx) => {
+  const result = await authService.login(ctx.body as LoginDto);
+  ctx.json(result);
+});
+
+authRouter.post('/refresh', async (ctx) => {
+  const { refreshToken } = ctx.body as { refreshToken: string };
+  ctx.json(await authService.refresh(refreshToken));
+});
+
+authRouter.post('/logout', async (ctx) => {
+  const { refreshToken } = ctx.body as { refreshToken: string };
+  await authService.logout(refreshToken);
+  ctx.status = 204;
+});
+```
+
+### Entry Point
+
+```typescript title="src/index.ts"
+import { createApp, listen, errorHandler } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { json } from '@nextrush/body-parser';
+import { authRouter, authMiddleware, roleMiddleware } from './routes/auth';
+
+const app = createApp();
+
+app.use(errorHandler());
+app.use(cors());
+app.use(json());
+
+// Mount auth routes at /auth — no auto-discovery
+app.route('/auth', authRouter);
+
+// Protected routes with explicit middleware
+app.get('/users/me', authMiddleware, async (ctx) => {
+  const user = ctx.state.user as { sub: string; email: string; role: string };
+  ctx.json({ id: user.sub, email: user.email, role: user.role });
+});
+
+app.get('/users/admin', authMiddleware, roleMiddleware('admin'), async (ctx) => {
+  ctx.json({ message: 'Welcome, admin!', stats: { users: 100, orders: 500 } });
+});
+
+// 404
+app.use((ctx) => {
+  ctx.status = 404;
+  ctx.json({ error: 'Not Found' });
+});
+
+await listen(app, 8080);
+```
+
+### When to Choose Each
+
+| Aspect | Class-Based | Functional |
+|--------|-------------|------------|
+| Route registration | Auto-discovered via `registerControllers` | Manual `app.route()` / `app.get()` |
+| Guard/middleware | Reusable guard objects via `@UseGuard` | Inline or exported middleware |
+| AuthService wiring | DI container injects it | `new AuthService()` directly |
+| Dependencies | `nextrush/class` + decorator transpiler | No extra imports |
+| Best for | Larger apps, multiple controllers | Small APIs, quick prototypes |
+
+Pick class-based for structure and auto-discovery as your app grows. Pick functional when you
+want minimal setup and full control over the wiring.
+
+---
+
 ## Testing the API
 
 ```bash
@@ -569,5 +730,6 @@ The API returns structured error responses via `errorHandler()`:
 
 - [Database Integration](/docs/guides/data/database) — Store users in a database
 - [Rate Limiting](/docs/reference/rate-limit) — Protect auth endpoints
-- [Class-Based Controllers — Guards](/docs/guides/api-development/class-based#guards) — More guard patterns
+- [Building REST APIs](/docs/guides/api-development/rest-api) — Functional approach to route design
+- [Class-Based Controllers](/docs/guides/api-development/class-based) — Decorators, DI, guards, and modules
 - [Security Best Practices](/docs/guides/security/security) — Full security hardening guide
