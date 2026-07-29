@@ -206,13 +206,6 @@ export const legacyRedirects: ReadonlyMap<string, string> = new Map([
   ['/docs/performance/comparison', '/docs/architecture/benchmarks'],
   ['/docs/performance/tuning', '/docs/production/performance-tuning'],
 
-  // docs-ia-restructure: help/* dissolved into guides, concepts, recipes, reference
-  ['/docs/help', '/docs'],
-  ['/docs/help/faq', '/docs/guides/authentication/authentication'],
-  ['/docs/help/glossary', '/docs/concepts'],
-  ['/docs/help/troubleshooting', '/docs/recipes'],
-  ['/docs/help/compatibility-matrix', '/docs/reference'],
-
   // docs-ia-restructure: guides/* moved to sub-categories
   ['/docs/guides/rest-api', '/docs/guides/api-development/rest-api'],
   ['/docs/guides/class-based', '/docs/guides/api-development/class-based'],
