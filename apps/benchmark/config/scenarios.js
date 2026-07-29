@@ -169,10 +169,13 @@ export const SCENARIOS = [
     path: '/static/bench.txt',
     expectStatus: 200,
     description:
-      'Serves a small static file through each framework\'s own static-file middleware — ' +
-      'a code path with zero prior benchmark coverage (Rec 11)',
+      "Serves a small static file through each framework's own static-file middleware. " +
+      'Header-set divergence across frameworks (accept-ranges, cache-control, etag, ' +
+      "last-modified are present in some servers and not others) means this is each framework's " +
+      'own idiomatic mechanism, not verified byte-identical work — like `middleware-stack` and ' +
+      '`error-handling`, it is scored separately rather than folded into the headline score.',
     category: 'static',
-    identicalWork: true,
+    identicalWork: false,
   },
   {
     id: 'large-post',
