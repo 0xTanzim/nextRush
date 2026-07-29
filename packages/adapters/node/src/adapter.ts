@@ -193,12 +193,24 @@ export interface ServerInstance {
  */
 export function createHandler(
   app: Application,
-  options: HandlerOptions = {}
+  options: HandlerOptions = {},
+  /**
+   * Diagnostic-only, benchmark/test-scoped controls. Never part of the public
+   * `HandlerOptions`/`ServeOptions` contract (D4) — this parameter exists so
+   * `apps/benchmark`'s three-arm timeout experiment can disable the
+   * handler-level `Promise.race` independently of the socket-level
+   * `server.timeout` guard, which `serve()`'s single `timeout` option cannot
+   * express (F-04: one option feeding two consumers makes a two-arm A/B
+   * unattributable to either mechanism). A production call site has no
+   * reason to ever pass this.
+   */
+  diagnostics?: { disableHandlerTimeoutRace?: boolean }
 ): (req: IncomingMessage, res: ServerResponse) => void {
   const handler = app.callback();
   const proxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
+  const disableHandlerTimeoutRace = diagnostics?.disableHandlerTimeoutRace ?? false;
 
   // Hoist the constant context-options object out of the per-request path
   // (hot-path review HP-4): `proxy` is fixed for the server's lifetime, so the
@@ -239,8 +251,12 @@ export function createHandler(
       }
     };
 
-    if (timeout <= 0) {
+    if (timeout <= 0 || disableHandlerTimeoutRace) {
       // F-04: timeout disabled — behavior identical to before this change.
+      // Also taken when the diagnostic control disables just the handler
+      // race (D4): `timeout` itself is untouched here, so callers reading it
+      // elsewhere (e.g. `serve()`'s `server.timeout` assignment) still see
+      // its configured value — only this closure's own race is skipped.
       handler(ctx).then(finalizeSuccess, finalizeError);
       return;
     }
@@ -248,45 +264,47 @@ export function createHandler(
     // F-04: race the handler against the configured timeout, mirroring the
     // Bun/Deno/Edge/Serverless handler-race contract. `server.timeout` (set in
     // `serve()`) remains the independent socket-level slow-client guard.
-    const TIMEOUT_SENTINEL = Symbol('timeout');
-    let timerId: ReturnType<typeof setTimeout> | undefined;
-
+    //
+    // F-01b: an explicit settled flag replaces Promise.race's array + inner
+    // Promise construction — at most one of the two branches below can act,
+    // since both check-and-set `settled` synchronously before doing anything
+    // observable, with no await between the check and the set.
+    let settled = false;
     const handlerPromise = handler(ctx);
-    Promise.race([
-      handlerPromise.then(() => {
-        /* handler settled first */
-      }),
-      new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-        timerId = setTimeout(() => {
-          resolve(TIMEOUT_SENTINEL);
-        }, timeout);
-      }),
-    ])
-      .then((result) => {
-        if (timerId !== undefined) clearTimeout(timerId);
 
-        if (result === TIMEOUT_SENTINEL) {
-          // F-04: cancel the still-running handler cooperatively via ctx.signal.
-          ctx.triggerTimeout();
-          // Never clobber a response the handler already committed.
-          if (!ctx.responded && !res.headersSent) {
-            res.statusCode = 504;
-            res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            res.end(JSON.stringify({ error: 'Gateway Timeout' }));
-          }
-          // Swallow a late handler rejection after the timeout already
-          // responded — it has nowhere useful to go, but must not crash the
-          // process as an unhandled rejection.
-          handlerPromise.catch(() => undefined);
-          return;
-        }
+    // The late-rejection-swallow contract (a handler rejecting after the
+    // timeout already responded must not surface as an unhandled rejection)
+    // is satisfied by `onError` itself, attached below: a rejection reaching
+    // it after `settled` is already `true` still counts as "handled" by the
+    // Promise spec, so no separate `.catch()` is needed on `handlerPromise`.
+    const timerId: ReturnType<typeof setTimeout> = setTimeout(() => {
+      if (settled) return;
+      settled = true;
 
+      // F-04: cancel the still-running handler cooperatively via ctx.signal.
+      ctx.triggerTimeout();
+      // Never clobber a response the handler already committed.
+      if (!ctx.responded && !res.headersSent) {
+        res.statusCode = 504;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ error: 'Gateway Timeout' }));
+      }
+    }, timeout);
+
+    handlerPromise.then(
+      () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timerId);
         finalizeSuccess();
-      })
-      .catch((error: unknown) => {
-        if (timerId !== undefined) clearTimeout(timerId);
+      },
+      (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timerId);
         finalizeError(error);
-      });
+      }
+    );
   };
 }
 

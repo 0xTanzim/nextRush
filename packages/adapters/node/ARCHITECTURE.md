@@ -108,8 +108,8 @@ function duplicates the other's logic.
    implementation to drift out of sync.
 2. **The handler-level timeout and the socket-level timeout are independent guards.**
    `server.timeout` (Node's socket-level slow-client guard) is set unconditionally in `serve()`;
-   `createHandler()`'s `Promise.race` against `options.timeout` is what actually produces the
-   clean `504` response body. Passing `timeout: 0` disables only the second guard.
+   `createHandler()`'s explicit settled-flag race against `options.timeout` is what actually
+   produces the clean `504` response body. Passing `timeout: 0` disables only the second guard.
 3. **Per-server-lifetime state is hoisted out of the hot path.** `NodeContextOptions` (currently
    `{ trustProxy }`) is built once per `createHandler()` call and frozen, not reconstructed on
    every request -- enforced by the object literal appearing once, outside the returned closure.
@@ -319,7 +319,7 @@ The following are part of the package architecture. They do not change without a
 | Decision | Chosen | Trade-off accepted | Reference |
 | -------- | ------ | ------------------- | --------- |
 | Listen backlog | Fixed `1024`, not read from live `net.core.somaxconn` | Portable across hosts, but not tuned to any specific host's actual OS ceiling | `report/router-highload-saturation-findings.md` |
-| Handler timeout | `Promise.race` against a `setTimeout`, cancelling via `ctx.signal` | Requires handlers to cooperate with `ctx.signal` to actually stop work early; a non-cooperative handler still runs to completion in the background | ADR-0010 |
+| Handler timeout | An explicit `settled` flag races the handler against a `setTimeout`, cancelling via `ctx.signal` | Requires handlers to cooperate with `ctx.signal` to actually stop work early; a non-cooperative handler still runs to completion in the background | ADR-0010 |
 | Graceful shutdown | Opt-in (`gracefulShutdown` option), not installed by default | No signal handler exists unless explicitly requested -- avoids silently changing process exit behavior for apps that don't ask for it | docs/RFC graceful-shutdown design notes |
 | Extension teardown timing | Bounded by the same `shutdownTimeout` budget as connection drain | A slow extension `destroy()` can consume the whole shutdown budget rather than getting an independent allowance | RFC-022 / ADR-0012 |
 
