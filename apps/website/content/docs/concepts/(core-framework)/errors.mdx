@@ -1,6 +1,7 @@
 ---
 title: Errors
 description: How NextRush turns a thrown typed error into a safe, consistent HTTP response — so a handler signals failure by throwing, and never hand-builds an error body or leaks internals.
+keywords: [concepts, core, errors, framework, nextrush]
 ---
 
 A handler can fail in a dozen ways: a record is missing, a token is invalid, a database call times out. Node gives you `throw` and nothing else — so every handler grows its own `try/catch`, its own status code, and its own JSON shape. The day one of them forgets, a raw stack trace goes out to the client with a `500`, and every other handler answers failures in a slightly different shape.

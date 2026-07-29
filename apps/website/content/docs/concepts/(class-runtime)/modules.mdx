@@ -1,6 +1,7 @@
 ---
 title: Modules
 description: How @Module groups a feature's controllers and providers behind one declaration, and why registerModule composes them into a single app — without yet enforcing what a module exports.
+keywords: [class, concepts, modules, nextrush, runtime]
 ---
 
 A small class-based app registers a flat list of controllers, and each controller's services register themselves through `@Service`. That works until the app grows a "users" feature and a "billing" feature side by side — each with its own controllers, its own services, and its own sub-features it depends on. Nothing today says "this is the users feature and here is everything it owns"; the boundary lives only in which files happen to sit in the same folder.

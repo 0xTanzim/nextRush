@@ -1,6 +1,7 @@
 ---
 title: Streaming
 description: Why an LLM token stream or a live progress log needs a different response shape than JSON, and how ctx.stream()/ctx.sse()/ctx.ndjson() send many chunks over one open connection.
+keywords: [concepts, nextrush, runtime, streaming]
 ---
 
 An LLM does not return an answer — it returns tokens, one at a time, over several seconds. Wait for `ctx.json()` to have the whole thing before sending anything, and a user watches a blank screen for the entire generation instead of watching words arrive as the model produces them.

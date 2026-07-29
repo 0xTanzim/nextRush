@@ -1,6 +1,7 @@
 ---
 title: Exception Filters
 description: How NextRush lets a controller or route declare its own error-to-response mapping — scoped, typed handling that sits beside the framework's default HttpError response, not instead of it.
+keywords: [class, concepts, exception, filters, nextrush, runtime]
 ---
 
 The default error handling already turns any thrown error into a safe response — [errors](/docs/concepts/errors) covers that global boundary. But a `UserController` and a `BillingController` can want the *same* thrown error to become a different shape: one a `404` with a `resourceType` field, the other a `404` with an `invoiceId`. Push both into the one global handler and it grows a branch per controller, coupling unrelated features through shared error-handling code.

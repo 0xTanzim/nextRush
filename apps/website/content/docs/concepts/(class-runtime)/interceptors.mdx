@@ -1,6 +1,7 @@
 ---
 title: Interceptors
 description: How NextRush wraps a controller method with code that runs before and after the handler — to time it, reshape its result, or return a cached value.
+keywords: [class, concepts, interceptors, nextrush, runtime]
 ---
 
 Some behavior has to run *around* a handler, not only before it: start a timer, then read it once the response is ready; wrap every result in a consistent envelope; return a cached value without running the handler at all. A [guard](/docs/concepts/guards) answers one yes/no question before the handler and then steps aside; [middleware](/docs/concepts/middleware) wraps the whole request but never sees a controller method's typed return value. Behavior that runs on both sides of one handler — and can reshape what it returned — needs a different tool.

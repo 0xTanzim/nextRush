@@ -1,6 +1,7 @@
 ---
 title: Middleware
 description: How NextRush runs every request through a Koa-style onion of async middleware — each layer sees the request going in and the response coming back out.
+keywords: [concepts, core, framework, middleware, nextrush]
 ---
 
 Every real request needs the same handful of things before it reaches your code: a parsed body, an authenticated user, a log line, a response timer. Write that work inside each handler and you copy it a hundred times. Forget it in one handler and you have a bug — or a security hole — that no one notices until production.

@@ -1,6 +1,7 @@
 ---
 title: Dependency Injection
 description: How NextRush resolves a class's constructor dependencies for you, and what singleton, transient, and request scope each guarantee about instance lifetime.
+keywords: [class, concepts, dependency, injection, nextrush, runtime]
 ---
 
 A service almost never works alone: a `UserService` needs a repository, the repository needs a database client, and the client needs configuration. Somewhere, something has to build that chain in the right order. Do it by hand and every class ends up knowing how to construct its dependencies — and their dependencies, and theirs.

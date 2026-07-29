@@ -1,6 +1,7 @@
 ---
 title: Application Lifecycle
 description: OnInit and OnShutdown — duck-typed hooks that run once at boot and once at shutdown, distinct from the per-request lifecycle that runs on every request.
+keywords: [application, class, concepts, lifecycle, nextrush, runtime]
 ---
 
 A service that owns a resource — a database pool, a queue subscription, a background timer — needs to open that resource once, before the app takes its first request, and close it once, when the app shuts down. A constructor is the wrong place for either: constructors run the moment something first resolves the class, which can happen earlier than boot and has no equivalent moment for teardown at all.
