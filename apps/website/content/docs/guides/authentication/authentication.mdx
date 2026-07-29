@@ -1,7 +1,7 @@
 ---
 title: 'Authentication'
 description: 'Implement JWT authentication with guards and protected routes.'
-keywords: [authentication, guides, nextrush]
+keywords: [authentication, argon2, password-hashing, jose, jwt, guards, guides, nextrush]
 ---
 
 Implement JWT authentication with guards.
@@ -21,7 +21,31 @@ This example demonstrates:
 
 ---
 
-## Project Setup
+## Why Argon2?
+
+This guide uses **Argon2** (Argon2id variant) for password hashing — the current industry recommendation
+for new applications.
+
+| Criterion | Argon2 | bcrypt |
+|-----------|--------|--------|
+| GPU/ASIC resistance | Built-in memory-hard design | Limited by design era |
+| Salt | Automatic, per-hash | Automatic, per-hash |
+| Parameter tuning | Memory, time, parallelism | Cost factor only |
+| Recommended for | **New projects** | Legacy compatibility |
+
+Argon2 won the [Password Hashing Competition](https://www.password-hashing.net/) (PHC) in 2015 and is
+the recommended choice in [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html).
+The `argon2` npm package uses Argon2id by default — the safest variant against both GPU and side-channel
+attacks.
+
+<Callout type="warn" title="Legacy Note">
+  Existing projects using `bcrypt` or `bcryptjs` remain secure today. A migration is not urgent —
+  bcrypt is not broken. This guide recommends Argon2 for **new projects** and new user registrations.
+  For migration guides and bcrypt interop, see the [Security Best Practices](/docs/guides/security/security)
+  page.
+</Callout>
+
+---
 
 ```bash
 mkdir auth-api && cd auth-api
@@ -478,6 +502,19 @@ curl -X POST http://localhost:8080/auth/refresh \
 
 This example uses in-memory storage for users and refresh tokens, as noted above. In production,
 replace both with a database and a Redis-backed store using TTL-based expiration.
+
+### Password Hashing Rules
+
+- **Never encrypt passwords** — hashing is one-way by design. Encryption implies decryption, which is
+  never needed for authentication.
+- **Always hash passwords** — never store or transmit plaintext passwords.
+- **Each password gets a unique salt** — Argon2 handles this automatically per-hash. No manual salt
+  management needed.
+- **Use library defaults** — `argon2.hash()` uses memory=64MB, time=3, parallelism=4 by default.
+  Tune only if you have specific hardware or compliance requirements.
+- **Never set your own salt** — trust the library to generate a cryptographically random salt per hash.
+
+### Production Checklist
 
 - **Store users in a database**, not memory
 - **Use Redis** for refresh tokens with TTL
