@@ -28,9 +28,16 @@ export const NODE_SERVER_FLAGS = Object.freeze(['--expose-gc', '--max-old-space-
  * explicitly, so the accept queue is a controlled variable rather than a
  * per-framework accident.
  *
- * Note this means the harness OVERRIDES the competitors' own defaults; the
- * generated report must disclose that rather than presenting 1024 as their
- * native behavior.
+ * The NextRush servers are the one exception: `@nextrush/adapter-node`'s own
+ * `listen()`/`serve()` accept no backlog option, so they rely on that
+ * package's `DEFAULT_LISTEN_BACKLOG` happening to equal this constant rather
+ * than passing it explicitly. This equality is pinned by
+ * `scripts/lib/__tests__/backlog-invariant.test.js` and verified live by
+ * `bench:validate`'s backlog-parity check — either one fails loudly if the
+ * two packages' values ever diverge.
+ *
+ * The generated report discloses this override rather than presenting 1024
+ * as the competitors' native behavior.
  */
 export const LISTEN_BACKLOG = 1024;
 

@@ -106,7 +106,8 @@ Any profile's connection ladder can be overridden with `--connections <n>` or `-
 
 ## Scenarios
 
-All 10 scenarios are implemented identically across every server:
+13 scenarios exercise every server; 10 are like-for-like (byte-identical response bodies,
+statuses, and content-types, verified by `pnpm bench:validate`):
 
 | Scenario         | Method | Path                                     | Tests                        |
 | ---------------- | ------ | ---------------------------------------- | ---------------------------- |
@@ -116,14 +117,19 @@ All 10 scenarios are implemented identically across every server:
 | query-string     | GET    | `/search?q=benchmark&limit=10`           | Query string parsing         |
 | post-json        | POST   | `/users`                                 | JSON body parsing + response |
 | deep-route       | GET    | `/api/v1/orgs/123/teams/456/members/789` | Deep parameterized route     |
-| middleware-stack | GET    | `/middleware`                            | 5 idiomatic layers † |
-| error-handling   | GET    | `/error`                                 | Error handler → 500 †|
+| middleware-stack | GET    | `/middleware`                            | 5 idiomatic layers †         |
+| error-handling   | GET    | `/error`                                 | Error handler → 500 †        |
 | large-json       | GET    | `/large-json`                            | Large payload (~5KB array)   |
 | empty-response   | GET    | `/empty`                                 | 204 No Content, zero payload |
+| send-object      | GET    | `/send-object`                           | Plain-object response dispatch |
+| static-file      | GET    | `/static/bench.txt`                      | Static-file serving †        |
+| large-post       | POST   | `/large-post`                            | Body parsing at ≥1MiB         |
 
-† **Not like-for-like.** These two use each framework's idiomatic mechanism (middleware chain
-vs Fastify hooks vs raw-node manual chain / dedicated error handler vs local catch). They
-measure per-framework 5-layer and error-path cost, not a single shared mechanism.
+† **Not like-for-like.** These three use each framework's own idiomatic mechanism — middleware
+chain vs Fastify hooks vs raw-node manual chain for `middleware-stack`; dedicated error handler
+vs local catch for `error-handling`; each framework's own static-file middleware (which emits a
+different response header set per framework) for `static-file`. They measure per-framework
+mechanism cost, not a single shared mechanism, and are excluded from the headline score.
 
 The `quick` profile runs a subset: hello-world, route-params, post-json, middleware-stack.
 

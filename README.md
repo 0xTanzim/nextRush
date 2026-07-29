@@ -67,7 +67,7 @@ full templates do this for you automatically.
 
 NextRush is built for high throughput with a zero-dependency functional core, and it benchmarks
 competitively against Fastify, Hono, Koa, and Express. The suite in `apps/benchmark` compares
-six servers (including a raw Node.js baseline) across 10 scenarios using **wrk** (C-based,
+six servers (including a raw Node.js baseline) across 13 scenarios using **wrk** (C-based,
 process-isolated) and **autocannon** (Node.js-based).
 
 > **Published numbers are being re-measured on a clean, CPU-pinned environment with the
@@ -82,8 +82,8 @@ What the harness guarantees (see `apps/benchmark/README.md` and the audit report
 - **Publishable numbers are multi-run** — only the `standard` (3 runs) and `full` (5 runs)
   profiles may back published figures; each reports mean ± stddev and CV.
 - **Identical runtime config** — same Node flags, `NODE_ENV=production`, and payloads everywhere.
-- **Honest scope** — 8 scenarios do byte-identical work; the middleware and error scenarios use
-  each framework's idiomatic mechanism and are labeled as not like-for-like.
+- **Honest scope** — 10 scenarios do byte-identical work; the middleware, error, and static-file
+  scenarios use each framework's own idiomatic mechanism and are labeled as not like-for-like.
 
 ```bash
 cd apps/benchmark
