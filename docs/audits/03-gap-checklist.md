@@ -877,6 +877,25 @@ required for T060's own acceptance criteria.
   secret rotation, and the auth/session surface (blocked on T029 regardless) remain unaddressed by
   either artifact. A future T064 pass should read `security-review-remediation-index.md` first to
   avoid re-deriving what this change already fixed and verified.
+- **Update (2026-07-29, `audit-unreviewed-security-surface`):**
+  `report/security-review-unreviewed-surface-followup.md` now exists, closing the seven-area gap
+  `harden-security-boundaries`'s own proposal explicitly left open (Node request parsing beyond its
+  raw-socket suite, `@nextrush/multipart`'s parser/scanner/storage, `body-parser`'s JSON charset
+  handling, `@nextrush/template` auto-escaping, `@nextrush/class` guards/interceptors, and a
+  websocket/stream/openapi/logger sweep). Two real, evidence-cited findings surfaced (F-01: a
+  path-traversal-check bypass in `DiskStorage`'s custom-`filename()` option; F-02: `javascript:`
+  URLs pass through template escaping, an industry-standard limitation, not a code defect) plus
+  two narrower ones (F-03: websocket's open-by-default `allowedOrigins`; F-04: unsanitized CR/LF in
+  the logger's default message). All four are P2/P3, none P0/P1, and none remediated yet — this
+  new report is investigation-only by design (see its own §14). **T064 is still not closed** —
+  this pass, like `harden-security-boundaries` before it, resolves a specific named subset (this
+  time: request-parsing/multipart/body-parser/template/class/websocket/stream/openapi/logger), not
+  T064's own broader threat-model/ReDoS/prototype-pollution/dependency-CVE/secret-handling/
+  auth-session scope. Note: this pass's own investigation directly confirmed ReDoS is NOT present
+  in `@nextrush/multipart`'s boundary scanning (Boyer-Moore-Horspool, not regex) and prototype
+  pollution is NOT present in `@nextrush/body-parser`'s JSON path (native `JSON.parse` never writes
+  through the prototype chain) — two small, real data points for T064's own ReDoS/pollution
+  columns whenever that pass runs, saving it from re-deriving them from scratch.
 
 ### ☐ T065 · Produce `06-api-design-maintainability-audit.md`
 - **Domain:** API Design / Developer Experience · **Packages:** repo · **Priority:** P2 · **Effort:** M · **Difficulty:** Medium · **Runtime Impact:** None · **Breaking:** No · **Status:** □ Not Started
