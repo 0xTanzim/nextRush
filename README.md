@@ -35,7 +35,7 @@ publishing would also reintroduce the ESM/CJS dual-package hazard specifically o
 `@nextrush/di` path (`reflect-metadata`'s global patch + a `tsyringe` singleton container can
 silently split into two instances if both a CJS and an ESM copy load in one process), at the
 cost of a doubled, permanent build/test/publish matrix across ~35 packages. See
-[Module Format & Compatibility](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/internals/versioning.mdx)
+[Module Format & Compatibility](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/internals/versioning.mdx)
 for the full rationale and the documented CommonJS interop path.
 
 **Enforced in CI**, not just documented: `pnpm validate:esm-only` fails the build if any package
@@ -459,10 +459,10 @@ nextrush/
 
 ## Documentation
 
-- [Getting Started](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/getting-started/index.mdx)
-- [Core Concepts](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/concepts/index.mdx)
-- [API Reference](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/api-reference/index.mdx)
-- [Performance & benchmarks](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/performance/index.mdx)
+- [Getting Started](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/getting-started/index.mdx)
+- [Core Concepts](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/concepts/index.mdx)
+- [API Reference](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/api-reference/index.mdx)
+- [Performance & benchmarks](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/performance/index.mdx)
 - [Docs site (GitHub Pages)](https://0xtanzim.github.io/nextRush/docs)
 - [GitHub Wiki](https://github.com/0xTanzim/nextRush/wiki) — concise guides (source in repo [`wiki/`](https://github.com/0xTanzim/nextRush/tree/main/wiki); publish with `./scripts/publish-github-wiki.sh`)
 

@@ -211,7 +211,7 @@ The tiering (Tier 1 handlers → Tier 2 `{ timeout }` → Tier 3 `EventMapper`) 
 8. **P3-1** — `createHandler` alias with no deprecation signal. — **Done** — `@deprecated` TSDoc added, naming `createFetchHandler` as canonical.
 9. **P3-2** — `getContentType`/`getContentLength`'s `@deprecated` messages had no target version and leaked an internal audit ID (`F-09`). — **Done** — both now say "Will be removed in `2.0.0`"; the bare audit-ID reference was removed per this repo's comment discipline.
 10. **P4-1** — `createGoogleHandler` names the vendor where `createCloudflareHandler`/`createLambdaHandler` name the platform. — **Done** — `createGcfHandler` added as a fully-valid, non-deprecated platform-named alias (now that P1-2's drop-in rewrite landed, satisfying the finding's own stated condition for adding it).
-11. **P4-2** — cross-package discovery (`adapter-edge` vs. `adapter-serverless`) relies on prose spread across four READMEs. — **Done** — a single "which package do I install?" table added to `apps/docs/content/docs/start/runtime/decision-guide.mdx`, cross-linked from both `adapter-edge`'s and `adapter-serverless`'s READMEs instead of duplicated.
+11. **P4-2** — cross-package discovery (`adapter-edge` vs. `adapter-serverless`) relies on prose spread across four READMEs. — **Done** — a single "which package do I install?" table added to `apps/website/content/docs/start/runtime/decision-guide.mdx`, cross-linked from both `adapter-edge`'s and `adapter-serverless`'s READMEs instead of duplicated.
 
 Every finding in this report is now resolved except the one explicitly-deferred piece of P2-6 (live CI wiring for `azure-app`, pending a deliberate infrastructure decision).
 

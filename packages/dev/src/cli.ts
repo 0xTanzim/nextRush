@@ -133,7 +133,7 @@ Examples:
 
 Run "nextrush <command> --help" for command-specific help.
 
-Documentation: https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/guides/dev-tools.mdx
+Documentation: https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/guides/dev-tools.mdx
 `);
 }
 

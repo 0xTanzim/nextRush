@@ -11,14 +11,14 @@ const repoRoot = path.resolve(import.meta.dirname, '..', '..');
  * a maintained catalog").
  *
  * Every publishable package must have a row in
- * apps/docs/content/docs/resources/package-catalog.mdx, or the catalog has silently drifted
+ * apps/website/content/docs/resources/package-catalog.mdx, or the catalog has silently drifted
  * out of sync with the ecosystem it claims to enumerate.
  */
 describe('package catalog completeness', () => {
   it('every publishable workspace package has a row in the package catalog', async () => {
     const catalogPath = path.join(
       repoRoot,
-      'apps/docs/content/docs/resources/package-catalog.mdx'
+      'apps/website/content/docs/resources/package-catalog.mdx'
     );
     const catalog = await readFile(catalogPath, 'utf8');
 

@@ -72,7 +72,7 @@ exposes a thin, platform-shaped wrapper per target.
 
 > [!TIP]
 > Still unsure which of `adapter-edge` vs. `adapter-serverless` a given platform needs? See the
-> [full "which package do I install?" table](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/start/runtime/decision-guide.mdx) --
+> [full "which package do I install?" table](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/start/runtime/decision-guide.mdx) --
 > one shared answer instead of re-deriving it per package.
 
 ## Installation

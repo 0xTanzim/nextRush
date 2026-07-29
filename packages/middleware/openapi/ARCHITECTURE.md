@@ -9,7 +9,7 @@
 | **Package** | `@nextrush/openapi` |
 | **Layer** | `middleware` (above `types`/`router`; below nothing — a leaf middleware/renderer) |
 | **Depends on** | `@nextrush/types` (types only, erased at build) — no third-party runtime dependency; `zod`/`@valibot/to-json-schema` are optional, dynamically imported, never bundled |
-| **Depended on by** | Application code that calls `app.use(openapi({ router }))`; not depended on by any other `@nextrush/*` package. `apps/docs/scripts/generate-openapi.ts` imports its built `dist/` to dogfood `generateDocument()` at the docs site's build time. |
+| **Depended on by** | Application code that calls `app.use(openapi({ router }))`; not depended on by any other `@nextrush/*` package. `apps/website/scripts/generate-openapi.ts` imports its built `dist/` to dogfood `generateDocument()` at the docs site's build time. |
 | **Public entry** | `src/index.ts` (barrel — exports only) |
 | **Internal modules** | 5 files (excl. tests) — `types.ts` (37 LOC), `middleware.ts` (49 LOC), `json-schema.ts` (60 LOC), `docs-ui.ts` (40 LOC), `generate.ts` (187 LOC); largest `generate.ts`, well within the 300-line middleware cap |
 | **On the request hot path?** | Only for the two paths it intercepts (spec, docs); the document-generation work itself runs at most once per process, on the first request to the spec path — every other request is a single `ctx.path` comparison before falling through to `next()` |
@@ -261,7 +261,7 @@ This package has an unusual trust profile: **no client-supplied request data eve
 **Forbidden (sealed):**
 
 - **Adding a hard dependency on any schema-converter library** — see Constraints and Non-goals; new vendor support must follow the existing dynamic-import, safe-fallback pattern in `json-schema.ts`, not a static `import`.
-- **Making `generateDocument()` accept a `Router` instead of `RouteDefinition[]`** — see Design principle 1; this would reintroduce the router coupling the pure-transform design deliberately avoids, and would make the generator harder to unit test and to reuse outside a live app (as `apps/docs/scripts/generate-openapi.ts` already does, at build time, with no running server).
+- **Making `generateDocument()` accept a `Router` instead of `RouteDefinition[]`** — see Design principle 1; this would reintroduce the router coupling the pure-transform design deliberately avoids, and would make the generator harder to unit test and to reuse outside a live app (as `apps/website/scripts/generate-openapi.ts` already does, at build time, with no running server).
 - **Regenerating the document on every request** — see Design principle 2 and Engineering decisions; this is a deliberate performance/simplicity trade-off, not an oversight to "fix" with a cache-invalidation feature.
 
 ---
@@ -301,7 +301,7 @@ Rejected: this package's entire raison d'etre is projecting metadata that is sta
 - **Integration:** none beyond the unit suite is needed for this package's scope — `generateDocument()` is exercised directly with hand-built `RouteDefinition[]` rather than through a live router, matching Design principle 1 (no router coupling to test around).
 - **Invariant tests:** the "never throws on an unconvertible schema" invariant is directly covered by `json-schema.test.ts`'s "returns `{}` for an unknown vendor (never throws)" case; the `isAnyMethod` expansion invariant has a dedicated test with an explicit rationale comment referencing the spec.md acceptance scenario it guards.
 - **Public-surface test:** `__tests__/public-surface.test.ts` asserts the exported runtime (`openapi`, `generateDocument`, `toOpenApiPath`, `extractPathParams`) and type-only surface stay in sync with the sealed surface (ADR-0005).
-- **Conformance / cross-adapter parity:** N/A directly — the package uses no runtime API in its own code; the docs-site build script (`apps/docs/scripts/generate-openapi.ts`) additionally exercises `generateDocument()` end-to-end against real Zod 4 schemas as a build-time dogfooding check, not a formal conformance suite.
+- **Conformance / cross-adapter parity:** N/A directly — the package uses no runtime API in its own code; the docs-site build script (`apps/website/scripts/generate-openapi.ts`) additionally exercises `generateDocument()` end-to-end against real Zod 4 schemas as a build-time dogfooding check, not a formal conformance suite.
 - **Coverage:** >=90% lines/functions (CI-enforced).
 
 ## Evolution strategy
@@ -338,6 +338,6 @@ Before changing this package, confirm:
 - **README (how to use it):** [`./README.md`](./README.md)
 - **ADR:** [`ADR-0005 — package tiers & sealed surface`](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md)
 - **Route Metadata System contract:** `packages/types/src/route-metadata.ts` (`RouteDefinition`, `RouteMetadata`, `ROUTE_METADATA` symbol)
-- **Dogfooding consumer:** [`apps/docs/scripts/generate-openapi.ts`](../../../apps/docs/scripts/generate-openapi.ts) — the docs site's own build-time use of `generateDocument()`
+- **Dogfooding consumer:** [`apps/website/scripts/generate-openapi.ts`](../../../apps/website/scripts/generate-openapi.ts) — the docs site's own build-time use of `generateDocument()`
 - **Documentation site:** [nextRush docs](https://0xtanzim.github.io/nextRush/docs)
 - **Repository:** [`packages/middleware/openapi`](https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/openapi)

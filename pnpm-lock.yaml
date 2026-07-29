@@ -126,7 +126,47 @@ importers:
         specifier: 5.0.0
         version: 5.0.0
 
-  apps/docs:
+  apps/playground:
+    dependencies:
+      '@nextrush/body-parser':
+        specifier: workspace:*
+        version: link:../../packages/middleware/body-parser
+      '@nextrush/dev':
+        specifier: workspace:*
+        version: link:../../packages/dev
+      '@nextrush/di':
+        specifier: workspace:*
+        version: link:../../packages/di
+      '@nextrush/errors':
+        specifier: workspace:*
+        version: link:../../packages/errors
+      '@nextrush/openapi':
+        specifier: workspace:*
+        version: link:../../packages/middleware/openapi
+      '@nextrush/router':
+        specifier: workspace:*
+        version: link:../../packages/router
+      '@nextrush/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@nextrush/validation':
+        specifier: workspace:*
+        version: link:../../packages/middleware/validation
+      nextrush:
+        specifier: workspace:*
+        version: link:../../packages/nextrush
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  apps/website:
     dependencies:
       '@orama/orama':
         specifier: ^3.1.18
@@ -216,46 +256,6 @@ importers:
       tsx:
         specifier: 4.21.0
         version: 4.21.0
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-
-  apps/playground:
-    dependencies:
-      '@nextrush/body-parser':
-        specifier: workspace:*
-        version: link:../../packages/middleware/body-parser
-      '@nextrush/dev':
-        specifier: workspace:*
-        version: link:../../packages/dev
-      '@nextrush/di':
-        specifier: workspace:*
-        version: link:../../packages/di
-      '@nextrush/errors':
-        specifier: workspace:*
-        version: link:../../packages/errors
-      '@nextrush/openapi':
-        specifier: workspace:*
-        version: link:../../packages/middleware/openapi
-      '@nextrush/router':
-        specifier: workspace:*
-        version: link:../../packages/router
-      '@nextrush/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@nextrush/validation':
-        specifier: workspace:*
-        version: link:../../packages/middleware/validation
-      nextrush:
-        specifier: workspace:*
-        version: link:../../packages/nextrush
-      reflect-metadata:
-        specifier: ^0.2.2
-        version: 0.2.2
-      zod:
-        specifier: ^3.25.76
-        version: 3.25.76
-    devDependencies:
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -12164,7 +12164,7 @@ snapshots:
     dependencies:
       ansi-align: 3.0.1
       camelcase: 7.0.1
-      chalk: 5.0.1
+      chalk: 5.6.2
       cli-boxes: 3.0.0
       string-width: 5.1.2
       type-fest: 2.19.0

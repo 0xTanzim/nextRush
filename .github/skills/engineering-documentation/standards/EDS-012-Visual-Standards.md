@@ -50,7 +50,7 @@ Never author a diagram a surface can't render. Three surfaces, three capabilitie
 
 | Surface | Engine | What renders |
 |---|---|---|
-| **Docs site** (`apps/docs`, Fumadocs) | mermaid **11.x** | **All core + modern types**: flowchart, sequence, class, state, ER, gantt, pie, mindmap, timeline, gitgraph, quadrant, requirement, **sankey, xychart, block, packet, architecture, treemap, radar, user-journey, kanban**. **C4 = experimental** (renders, but treat as unstable — prefer `architecture` for topology unless C4's formal notation is the point). **ZenUML = NOT wired yet** (needs `registerExternalDiagrams` + `@mermaid-js/mermaid-zenuml` — a tooling task; until wired, use `sequenceDiagram`). |
+| **Docs site** (`apps/website`, Fumadocs) | mermaid **11.x** | **All core + modern types**: flowchart, sequence, class, state, ER, gantt, pie, mindmap, timeline, gitgraph, quadrant, requirement, **sankey, xychart, block, packet, architecture, treemap, radar, user-journey, kanban**. **C4 = experimental** (renders, but treat as unstable — prefer `architecture` for topology unless C4's formal notation is the point). **ZenUML = NOT wired yet** (needs `registerExternalDiagrams` + `@mermaid-js/mermaid-zenuml` — a tooling task; until wired, use `sequenceDiagram`). |
 | **GitHub** (repo `ARCHITECTURE.md`, RFCs, blog source) | GitHub mermaid | Core + most modern types. Safe for package **`ARCHITECTURE.md`** — use rich Mermaid here. |
 | **npm** (package **`README.md`**) | none | **No Mermaid at all.** Package READMEs use **ASCII** diagrams or link to the docs-site/ARCHITECTURE version. This is the portability rule. |
 

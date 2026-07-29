@@ -7,7 +7,7 @@
 | **Date**             | `2026-07-25`                                                          |
 | **Author(s)**        | Tanzim Hossain                                                        |
 | **Group**            | `documentation`                                                       |
-| **Packages touched** | `none` — this RFC affects only `apps/docs/content/docs/**` (docs-site content structure), no `@nextrush/*` package |
+| **Packages touched** | `none` — this RFC affects only `apps/website/content/docs/**` (docs-site content structure), no `@nextrush/*` package |
 | **Framework impact** | `Internal-only` — no runtime code, no public API, no package changes |
 | **Supersedes**       | `—`                                                                   |
 | **Superseded by**    | `—`                                                                   |
@@ -581,7 +581,7 @@ _Largely not applicable — this is a documentation-IA RFC with no runtime/perfo
 - **Steps:**
   - Each phase ships independently (§15); a problematic page can be removed or reverted via normal
     git revert with no cross-package dependency, no migration, and no published-package version to
-    roll back — this RFC touches only `apps/docs/content/docs/**`.
+    roll back — this RFC touches only `apps/website/content/docs/**`.
   - No cache, feature flag, or persisted state to clean up — static MDX content only.
 
 ---
@@ -656,9 +656,9 @@ _Largely not applicable — this is a documentation-IA RFC with no runtime/perfo
   RFC.
 - `.kiro/steering/documentation.instructions.md` — the docs-site content-map and MDX-component
   reference this RFC's decisions extend, and which should absorb §8.3's placement rule per §17.
-- `apps/docs/content/docs/start/runtime/edge.mdx` — the structural template this RFC's
+- `apps/website/content/docs/start/runtime/edge.mdx` — the structural template this RFC's
   `start/frameworks/nextjs.mdx` (P0) should follow.
-- `apps/docs/content/docs/reference/platforms/edge.mdx` — the structural template this RFC's
+- `apps/website/content/docs/reference/platforms/edge.mdx` — the structural template this RFC's
   `reference/platforms/nextjs.mdx` (P1) should follow.
 - Hono, [`Getting Started`](https://hono.dev/docs/getting-started/basic) sidebar — the flat-list
   conflation this RFC's three-axis split deliberately avoids (verified directly, §3.1, §9.1).

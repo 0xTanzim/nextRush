@@ -21,7 +21,7 @@ invent a new structure per RFC.
 | `dev-tooling/` | The `@nextrush/dev` toolchain: dev server, SWC build pipeline, watch/restart, CLI, generators, codemods |
 | `framework-composition/` | How NextRush's packages compose into one installable framework: the meta-package's dependency/install footprint, public-surface naming coherence, and manifest conventions |
 | `scaffolding/` | The `create-nextrush` project-generation contract: version resolution, template generation, the generated-project install/build/run guarantee |
-| `documentation/` | Docs-site information architecture: content structure, navigation, section placement rules for `apps/docs/content/docs/**` |
+| `documentation/` | Docs-site information architecture: content structure, navigation, section placement rules for `apps/website/content/docs/**` |
 
 ## All RFCs (by number)
 

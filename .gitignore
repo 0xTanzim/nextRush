@@ -23,7 +23,7 @@ dist/
 # e.g. packages/dev/src/commands/build/ — those are legitimate source modules).
 /build/
 apps/*/build/
-apps/docs/.vitepress/cache
+apps/website/.vitepress/cache
 # Turbo cache
 .turbo/
 **/.turbo/

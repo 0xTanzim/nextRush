@@ -91,7 +91,7 @@ functions.http('api', { handler: createAzureHandler(app) });
 > [!NOTE]
 > Cloudflare Workers is not a serverless-event platform (it speaks the Fetch API directly), so its
 > one-line handler -- `createCloudflareHandler` -- ships in `@nextrush/adapter-edge`, not here. See
-> the [full "which package do I install?" table](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/start/runtime/decision-guide.mdx)
+> the [full "which package do I install?" table](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/start/runtime/decision-guide.mdx)
 > if you're unsure which of the two packages a given platform needs.
 
 ### The struct-based path (`createGoogleEventHandler` / `createAzureEventHandler`)

@@ -93,7 +93,7 @@ ${renderFileTree(files)}
 
 ## Learn More
 
-- [NextRush Documentation](https://github.com/0xTanzim/nextRush/tree/main/apps/docs)
+- [NextRush Documentation](https://github.com/0xTanzim/nextRush/tree/main/apps/website)
 - [GitHub](https://github.com/0xTanzim/nextRush)
 `;
 }

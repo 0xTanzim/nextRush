@@ -117,7 +117,7 @@ close` on responses completed while draining — both reduce shutdown latency.
   No migration tooling is provided for this batch — every replacement is a one-line rename or
   import-path swap (`frameguard` is the one exception, needing a CSP directive instead of a
   function call; see the table in
-  [the upgrade guide](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/migrate/upgrade-guide.mdx)
+  [the upgrade guide](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/migrate/upgrade-guide.mdx)
   for the full old → new mapping).
 
 - Updated dependencies [2820a4c]

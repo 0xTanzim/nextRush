@@ -182,7 +182,7 @@ async function main(): Promise<void> {
     typeof import.meta.dirname === 'string'
       ? import.meta.dirname
       : dirname(fileURLToPath(import.meta.url));
-  const docsRoot = resolve(__dirname, '../../apps/docs/content/docs');
+  const docsRoot = resolve(__dirname, '../../apps/website/content/docs');
 
   console.log(`\nScanning: ${docsRoot}`);
   console.log(`Mode: ${strict ? 'STRICT (will fail on violations)' : 'WARNINGS-ONLY'}`);

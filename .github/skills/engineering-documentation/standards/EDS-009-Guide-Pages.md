@@ -32,7 +32,7 @@ A guide is a workshop: the reader finishes with something working. ⭐ marks the
 
 Close with momentum: what they built, what they learned, where to go next.
 
-> **Front-matter:** guides declare `difficulty` (`beginner|intermediate|advanced`) and `estimatedTime` in front-matter as the authoring standard. The current docs collection schema (`apps/docs/source.config.ts`) captures only `title`/`description`, so until it's extended and a header component renders them, also show them as a visible `Difficulty · time` line under Prerequisites; drop that line once the platform renders the front-matter.
+> **Front-matter:** guides declare `difficulty` (`beginner|intermediate|advanced`) and `estimatedTime` in front-matter as the authoring standard. The current docs collection schema (`apps/website/source.config.ts`) captures only `title`/`description`, so until it's extended and a header component renders them, also show them as a visible `Difficulty · time` line under Prerequisites; drop that line once the platform renders the front-matter.
 
 ## What a guide NEVER contains
 

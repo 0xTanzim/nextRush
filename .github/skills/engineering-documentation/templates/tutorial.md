@@ -6,7 +6,7 @@
   a Checkpoint every few steps. Front-matter required.
 
   difficulty/estimatedTime/prerequisites live in front-matter as the authoring standard. NOTE:
-  the docs collection schema (apps/docs/source.config.ts) currently captures only title/description
+  the docs collection schema (apps/website/source.config.ts) currently captures only title/description
   and strips the rest, so also surface them visibly under Prerequisites until the schema + a header
   component render them.
 */}
