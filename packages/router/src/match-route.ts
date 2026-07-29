@@ -16,6 +16,7 @@
 import type { HttpMethod, Middleware, RouteMatch } from '@nextrush/types';
 import { EMPTY_PARAMS } from './constants';
 import { matchNodeIndexed, collapseAndStrip, isProvablyLowerAscii } from './matching';
+import type { WalkPool } from './walk-pool';
 import type { StaticRouteMap, TrieNode } from './segment-trie';
 
 /**
@@ -43,7 +44,25 @@ export function matchRoute(
   caseSensitive: boolean,
   strict: boolean,
   decode: boolean,
-  routerMiddleware: Middleware[]
+  routerMiddleware: Middleware[],
+  /**
+   * When `true`, `rawPath` is trusted as already the output of
+   * `canonicalizePath()` (same `caseSensitive`/`strict` options) — the fold
+   * and structural-collapse steps below are skipped entirely rather than
+   * re-derived. Only valid when the caller has actually run
+   * `canonicalizePath()` on this exact input first (F-10); the router's own
+   * `routes()` dispatch path is the only caller that does. Defaults to
+   * `false`, preserving every other caller's existing behavior — including
+   * `Router.match()`, which never canonicalizes first.
+   */
+  preNormalized = false,
+  /**
+   * When supplied, the param walk reuses this router instance's pooled
+   * `WalkFrame[]`/binding-array scratch space instead of allocating fresh
+   * arrays on this call (F-02, `reduce-router-match-allocations`). Omitted,
+   * `matchRoute` behaves exactly as before.
+   */
+  walkPool?: WalkPool
 ): RouteMatch | null {
   let path = rawPath;
   // Query string must not affect path matching (RFC 3986 §3.4). Strip it here,
@@ -51,16 +70,30 @@ export function matchRoute(
   // exclude it. This strip is caller-specific: `findAllowedMethods` receives an
   // already query-free `ctx.path`, so the shared `normalizePathForMatch` does
   // not strip — only `matchRoute` does.
-  const queryIdx = path.indexOf('?');
-  if (queryIdx !== -1) path = path.slice(0, queryIdx);
+  if (!preNormalized) {
+    const queryIdx = path.indexOf('?');
+    if (queryIdx !== -1) path = path.slice(0, queryIdx);
+  }
 
   // HP-12: decide case-stability ONCE. When the path is provably case-stable
   // (case-sensitive router, or an all-lowercase-ASCII path), folding is a no-op
   // and the original-case path equals the normalized one — so we skip both the
   // `toLowerCase()` allocation and the second original-case normalize pass.
-  const caseStable = caseSensitive || isProvablyLowerAscii(path);
-  const folded = caseStable ? path : path.toLowerCase();
-  const normalized = collapseAndStrip(folded, strict);
+  //
+  // F-10: when `preNormalized` is true, the caller already ran this exact
+  // fold+collapse via `canonicalizePath()` — trust `path` as both the
+  // normalized AND original-case string, skipping the fold+collapse
+  // re-derivation entirely rather than repeating work already done upstream.
+  let normalized: string;
+  let caseStable: boolean;
+  if (preNormalized) {
+    normalized = path;
+    caseStable = true;
+  } else {
+    caseStable = caseSensitive || isProvablyLowerAscii(path);
+    const folded = caseStable ? path : path.toLowerCase();
+    normalized = collapseAndStrip(folded, strict);
+  }
 
   // FAST PATH: O(1) static route lookup (no tree traversal). Method-nested map
   // (HP-9): select the inner map by method, then probe by the normalized path —
@@ -94,9 +127,19 @@ export function matchRoute(
   // Deferred param binding (HP-11): the walk records the accepted path's
   // `:param`/`*` bindings onto these parallel stacks (pushed on descent, popped
   // on backtrack) so params are materialized ONCE here on the accepted terminal
-  // — no eager bind + backtrack `Reflect.deleteProperty`.
-  const bindNames: string[] = [];
-  const bindValues: string[] = [];
+  // — no eager bind + backtrack `Reflect.deleteProperty`. Reused from the
+  // router's pool when supplied (F-02) instead of allocated fresh.
+  const bindNames: string[] = walkPool ? walkPool.bindNames : [];
+  const bindValues: string[] = walkPool ? walkPool.bindValues : [];
+  // A pooled bindNames/bindValues array persists across calls — clear any
+  // leftover entries from a prior match before this walk starts (the walk
+  // itself pops everything it pushes on a clean miss or match, but a defensive
+  // clear here costs nothing on the common empty case and closes any future
+  // edit that might leave a stale entry behind).
+  if (walkPool) {
+    bindNames.length = 0;
+    bindValues.length = 0;
+  }
 
   const entry = matchNodeIndexed(
     root,
@@ -106,7 +149,8 @@ export function matchRoute(
     bindValues,
     method,
     decode,
-    originalPath
+    originalPath,
+    walkPool
   );
   if (!entry) return null;
 
@@ -140,6 +184,14 @@ export function matchRoute(
  * Stable router state `resolveMatch` reads on every request. All fields are
  * fixed references for the router's lifetime, so the caller memoizes this once
  * rather than rebuilding it per request.
+ *
+ * `walkPool` is the one field that is itself mutable (its contents, not the
+ * reference) — the reused `WalkFrame[]`/binding-array scratch space (F-02,
+ * `reduce-router-match-allocations`). It is `undefined` until the router has
+ * at least one param/wildcard route (no pool needed for a static-only router,
+ * per `createWalkPool(0)` never being called) and is rebuilt whenever the
+ * router's `maxDepth` grows past what the current pool was sized for — see
+ * `Router`'s own wiring, not this interface, for when that rebuild happens.
  */
 export interface MatchState {
   readonly root: TrieNode;
@@ -148,6 +200,7 @@ export interface MatchState {
   readonly strict: boolean;
   readonly decode: boolean;
   readonly routerMiddleware: Middleware[];
+  walkPool?: WalkPool;
 }
 
 /**
@@ -162,7 +215,12 @@ export function resolveMatch(
   state: MatchState,
   hasParamRoutes: boolean,
   method: HttpMethod,
-  path: string
+  path: string,
+  /**
+   * Forwarded to {@link matchRoute} — see its own doc comment for the
+   * caller contract. Defaults to `false`.
+   */
+  preNormalized = false
 ): RouteMatch | null {
   return matchRoute(
     method,
@@ -173,6 +231,8 @@ export function resolveMatch(
     state.caseSensitive,
     state.strict,
     state.decode,
-    state.routerMiddleware
+    state.routerMiddleware,
+    preNormalized,
+    state.walkPool
   );
 }

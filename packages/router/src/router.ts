@@ -22,6 +22,7 @@ import { clearNode, createNode, type StaticRouteMap, type TrieNode } from './seg
 import { type RedirectStatus } from './redirect';
 import { runRouteGroup, type RouteGroup } from './group-router';
 import { resolveMatch, type MatchState } from './match-route';
+import { createWalkPool } from './walk-pool';
 import { copyRoutes } from './composition';
 import { sealRouterMiddleware as sealRouterMiddlewareImpl } from './middleware-adapter';
 import {
@@ -100,8 +101,14 @@ export class Router {
       );
     }
     const normalized = normalizeRegistrationPath(path, this.opts.prefix, this.opts.strict);
+    const depthBefore = this.state.maxDepth;
     if (addRouteImpl(method, normalized, entries, middleware, this.state, recordIntrospection)) {
       this.hasParamRoutes = true;
+    }
+    // Rebuild the pool only when maxDepth actually grew (F-02) — a cheap,
+    // registration-time-only check; never runs per-request.
+    if (this.state.maxDepth > depthBefore) {
+      this.state.walkPool = createWalkPool(this.state.maxDepth);
     }
   }
 
@@ -260,8 +267,14 @@ export class Router {
       this._sealed = true;
       sealRouterMiddlewareImpl(this.root, this.staticRoutes, this.routerMiddleware);
     }
+    // F-10: the internal closure calls `resolveMatch` directly with
+    // `preNormalized: true` rather than going through the public `this.match()`
+    // — this is the one call path where the caller (`createRoutesMiddleware`)
+    // has already run `canonicalizePath()` on `path`, so `matchRoute`'s own
+    // fold+collapse re-derivation is skippable. `Router.match()` itself is
+    // untouched and still defaults to `false` for every other caller.
     return createRoutesMiddleware(
-      (method, path) => this.match(method, path),
+      (method, path) => resolveMatch(this.state, this.hasParamRoutes, method, path, true),
       this.opts.caseSensitive,
       this.opts.strict
     );
@@ -301,6 +314,11 @@ export class Router {
     // Clear the introspection registry too, or getRoutes()/OpenAPI would emit
     // ghost routes after a reset (audit RT-1).
     this.routeDefinitions.length = 0;
+    // Reset the walk-frame pool sizing too (F-02) — otherwise maxDepth would
+    // keep reporting a since-cleared route's depth, and the pool would stay
+    // needlessly oversized for whatever gets registered next.
+    this.state.maxDepth = 0;
+    this.state.walkPool = undefined;
     this._sealed = false;
   }
 

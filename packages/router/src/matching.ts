@@ -13,6 +13,10 @@
 
 import type { HttpMethod } from '@nextrush/types';
 import type { HandlerEntry, TrieNode } from './segment-trie';
+import { matchNodeIndexedPooled, type WalkFrame, type WalkPool } from './walk-pool';
+
+export type { WalkFrame, WalkPool } from './walk-pool';
+export { createWalkPool } from './walk-pool';
 
 /**
  * Percent-decode an extracted param/wildcard value when `decode` is enabled.
@@ -113,20 +117,10 @@ export function normalizePathForMatch(
 }
 
 /**
- * One node in the iterative walk's explicit stack. `stage` is a small state
- * machine (0 = extract + try static, 1 = try param, 2 = try wildcard/backtrack)
- * so a single frame can be revisited on backtrack without recursion. `bound`
- * records whether this frame pushed a deferred param binding, so backtracking
- * can pop it without an object-property delete.
+ * One node in the iterative walk's explicit stack — see the full doc comment
+ * on {@link WalkFrame} in `walk-pool.ts` (re-exported here for callers that
+ * only import from `matching.ts`).
  */
-interface WalkFrame {
-  node: TrieNode;
-  pos: number;
-  stage: 0 | 1 | 2;
-  seg: string;
-  next: number;
-  bound: boolean;
-}
 
 /**
  * Iterative, index-based segment-trie match (HP-11 / HP-13, design.md D4).
@@ -156,8 +150,20 @@ export function matchNodeIndexed(
   bindValues: string[],
   method: HttpMethod,
   decode: boolean,
-  originalPath?: string
+  originalPath?: string,
+  /**
+   * When provided, the walk indexes into `pool.frames` by depth (reusing
+   * each pre-allocated frame object in place) instead of `push`/`pop`-ing
+   * fresh frame literals onto a fresh array — see `walk-pool.ts`'s
+   * `matchNodeIndexedPooled`. Omitted, the walk behaves exactly as before (a
+   * fresh `stack: WalkFrame[]`) — every other caller of `matchNodeIndexed`
+   * keeps its current behavior unchanged.
+   */
+  pool?: WalkPool
 ): HandlerEntry | null {
+  if (pool) {
+    return matchNodeIndexedPooled(root, path, startPos, bindNames, bindValues, method, decode, pool, originalPath);
+  }
   const stack: WalkFrame[] = [
     { node: root, pos: startPos, stage: 0, seg: '', next: 0, bound: false },
   ];

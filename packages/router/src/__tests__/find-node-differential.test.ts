@@ -40,6 +40,7 @@ function buildRoot(
     caseSensitive,
     staticRoutes: new Map(),
     routeDefinitions: [],
+    maxDepth: 0,
   };
   for (const [method, path] of routes) {
     addRoute(method, path, [noop], [], state);

@@ -39,12 +39,22 @@ import {
 import { mergeContributions, readContribution } from './route-metadata';
 import { createRedirectHandler, type RedirectStatus } from './redirect';
 
-/** Registration state `addRoute` reads, threaded explicitly. */
+/**
+ * Registration state `addRoute` reads and writes, threaded explicitly.
+ *
+ * `maxDepth` is the deepest registered route's segment count seen so far —
+ * used to size the reused walk-frame pool (`reduce-router-match-allocations`)
+ * without guessing a constant. It only ever grows: a request path can never
+ * make the tree walk descend past the trie's own real depth (a mismatched
+ * segment backtracks rather than pushing a new frame), so this stays a
+ * registration-time-only figure, never influenced by request traffic.
+ */
 export interface RegistrationState {
   readonly root: TrieNode;
   readonly caseSensitive: boolean;
   readonly staticRoutes: StaticRouteMap;
   readonly routeDefinitions: RouteDefinition[];
+  maxDepth: number;
 }
 
 /**
@@ -114,6 +124,10 @@ export function addRoute(
   recordIntrospection = true
 ): boolean {
   const segments = parseSegments(normalized, state.caseSensitive);
+
+  if (segments.length > state.maxDepth) {
+    state.maxDepth = segments.length;
+  }
 
   let node = state.root;
 

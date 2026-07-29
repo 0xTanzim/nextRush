@@ -48,5 +48,6 @@ export function createRouterState(
     strict: opts.strict,
     decode: opts.decode,
     routerMiddleware,
+    maxDepth: 0,
   };
 }

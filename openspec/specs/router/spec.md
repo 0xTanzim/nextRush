@@ -192,6 +192,21 @@ any part of the normalization.
 - **WHEN** `//a//b`, `/a/b/`, or `///` is canonicalized under non-strict options
 - **THEN** the result is identical to today's `collapseAndStrip` output for the same options
 
+#### Scenario: The real dispatch path does not re-normalize an already-canonical string
+
+- **WHEN** a request is dispatched through `createRoutesMiddleware` (the real HTTP path, which
+  already calls `canonicalizePath()` before matching)
+- **THEN** the router's internal match step does not independently re-run its own fold/collapse
+  normalization on the already-canonical path — the "produced once per request" guarantee holds
+  for the actual dispatch path, not only in principle for a caller that chooses to honor it
+
+#### Scenario: Standalone matching still normalizes its own input
+
+- **WHEN** `Router.match(method, path)` is called directly (not through `createRoutesMiddleware`)
+  with a raw, non-canonical path — as a direct API caller or a test would
+- **THEN** the match step still normalizes the input itself, exactly as it does today, since this
+  caller never ran `canonicalizePath()` first
+
 ### Requirement: Dot segments in a request path are rejected, not resolved
 
 A request target whose path contains a `.` or `..` segment — literally or in any percent-encoded form
