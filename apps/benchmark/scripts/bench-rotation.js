@@ -163,12 +163,39 @@ function mergePassResults(passResults, framework, frameworkId) {
   return merged;
 }
 
-/** Average a named per-pass metric object's numeric fields across passes. */
-function averageMetric(passes, key) {
+const BYTE_UNIT_FACTOR = { B: 1, KB: 1024, MB: 1048576, GB: 1073741824 };
+
+/** Parse a `formatBytes()` string ("150.0 MB") back into a byte count for comparison. */
+function parseFormattedBytes(text) {
+  const match = /^([\d.]+)\s*(B|KB|MB|GB)$/.exec(String(text ?? '').trim());
+  if (!match) return null;
+  return parseFloat(match[1]) * BYTE_UNIT_FACTOR[match[2]];
+}
+
+/**
+ * Average a named per-pass metric object's numeric fields across passes.
+ *
+ * `rssPeak` is special-cased to the maximum across passes rather than their
+ * mean — "peak" means the highest value observed, and averaging per-pass
+ * maxima together produces a number that is neither a mean nor a maximum.
+ * `rssPeak` is stored as a formatted string ("150.0 MB"), not a raw number,
+ * so it is compared by parsed byte magnitude and the winning pass's own
+ * formatted string is kept (never re-formatted or numerically merged).
+ */
+export function averageMetric(passes, key) {
   if (passes.length === 0) return undefined;
   const keys = Object.keys(passes[0][key] ?? {});
   const out = {};
   for (const k of keys) {
+    if (k === 'rssPeak') {
+      const withBytes = passes
+        .map((p) => ({ raw: p[key]?.[k], bytes: parseFormattedBytes(p[key]?.[k]) }))
+        .filter((v) => v.bytes !== null);
+      out[k] = withBytes.length
+        ? withBytes.reduce((max, cur) => (cur.bytes > max.bytes ? cur : max)).raw
+        : passes[0][key]?.[k];
+      continue;
+    }
     const values = passes.map((p) => p[key]?.[k]).filter((v) => typeof v === 'number');
     out[k] = values.length ? values.reduce((a, b) => a + b, 0) / values.length : passes[0][key]?.[k];
   }

@@ -1,5 +1,6 @@
 /** Report sections that describe the run itself rather than rank it. */
 
+import { METRICS_INTERVAL_MS } from '../../../config/constants.js';
 import { int, rps, table } from './format.js';
 
 const MEGABYTE_FACTOR = { B: 1 / 1048576, KB: 1 / 1024, MB: 1, GB: 1024 };
@@ -28,9 +29,12 @@ export function headerSection(scoreboard) {
   lines.push('');
 
   if (!scoreboard.publishable) {
+    const reason = scoreboard.publishableReason;
     lines.push(
-      '> ⚠️ This profile is NOT publishable. Single-run or stress profiles carry no meaningful ' +
-        'variance. Use `--profile full` (5 runs) for numbers that leave this repo.'
+      reason
+        ? `> ⚠️ This profile is NOT publishable: ${reason}`
+        : '> ⚠️ This profile is NOT publishable. Single-run or stress profiles carry no meaningful ' +
+            'variance. Use `--profile full` (5 runs) for numbers that leave this repo.'
     );
     lines.push('');
   }
@@ -52,8 +56,8 @@ export function resourcesSection(scoreboard) {
 
   const lines = ['## Resource Usage', ''];
   lines.push(
-    'Sampled from `/proc` once per second for the server process only — the load generator runs ' +
-      'in a separate process and is not counted.'
+    `Sampled from \`/proc\` every ${METRICS_INTERVAL_MS / 1000}s for the server process only — the load ` +
+      'generator runs in a separate process and is not counted.'
   );
   lines.push('');
   lines.push(
@@ -140,7 +144,7 @@ export function efficiencySection(scoreboard) {
   if (rows.length === 0) return [];
 
   const scenarioName = scoreboard.scenarios[0]?.name || scenarioId;
-  const lines = [`## Efficiency — ${scenarioName} @ ${conn} connections`, ''];
+  const lines = [`## Efficiency — ${scenarioName} throughput vs. whole-run CPU/RSS`, ''];
   lines.push(
     ...table(
       ['Framework', 'RPS', 'CPU avg', 'RPS per CPU%', 'RSS peak', 'RPS per MB'],
@@ -156,8 +160,11 @@ export function efficiencySection(scoreboard) {
   );
   lines.push('');
   lines.push(
-    'CPU can exceed 100% — it is summed across cores. RSS peak includes heap V8 has not yet ' +
-      'reclaimed, so treat both columns as an order-of-magnitude comparison, not a precise cost model.'
+    `RPS is ${scenarioName}'s figure at ${conn} connections; CPU and RSS are a **whole-run aggregate** ` +
+      "sampled across every scenario and concurrency level this run measured, not scoped to this " +
+      'one scenario. CPU can exceed 100% — it is summed across cores. RSS peak includes heap V8 has ' +
+      'not yet reclaimed. Treat both ratio columns as an order-of-magnitude comparison across ' +
+      'mismatched measurement windows, not a precise per-scenario cost model.'
   );
   lines.push('');
   return lines;
@@ -209,6 +216,30 @@ export function rawResultsSection(scoreboard, { singleRun }) {
   return lines;
 }
 
+/** Derive the report's parity-claim sentence from what this run actually recorded. */
+function parityClaimLine(scoreboard) {
+  const parity = scoreboard.configuration?.parity;
+  if (!parity) {
+    return (
+      '- **Parity:** not recorded for this run (predates parity-outcome tracking) — re-run ' +
+      '`pnpm bench:validate` to confirm fairness independently'
+    );
+  }
+  if (parity.failures?.length > 0) {
+    return (
+      `- **Parity:** validation FAILED for this run (${parity.failures.length} mismatch(es)) — ` +
+      'do not treat this run as a fair comparison'
+    );
+  }
+  if (!parity.validated) {
+    return `- **Parity:** not validated for this run — ${parity.skippedReason || 'reason not recorded'}`;
+  }
+  return (
+    '- **Parity:** validated — response bodies AND `Content-Type` confirmed byte-identical across ' +
+    'servers before timing (`scripts/validate-parity.js`)'
+  );
+}
+
 export function methodologySection(scoreboard, { singleRun }) {
   const lines = [];
   lines.push('---');
@@ -230,20 +261,26 @@ export function methodologySection(scoreboard, { singleRun }) {
       'mean/stddev (not merely flagged)'
   );
   lines.push('- **Latency:** median of each percentile across valid runs, not a single run');
-  lines.push(
-    '- **Parity:** response bodies AND `Content-Type` validated byte-identical across servers ' +
-      'before timing (`scripts/validate-parity.js`)'
-  );
+  lines.push(parityClaimLine(scoreboard));
   lines.push(
     `- **Ranking point:** ${scoreboard.primaryConnection} connections — the highest level in this ` +
       'run. The lowest level (often 1 connection) measures per-request latency, not throughput, ' +
       'so it is reported but not used as the headline.'
   );
-  lines.push(
-    '- **Scenario fairness:** 8 scenarios do byte-identical work. `middleware-stack` and ' +
-      "`error-handling` use each framework's own idiomatic mechanism and are **excluded from the " +
-      'headline score** — they are reported separately and tagged ⚠️ idiomatic.'
-  );
+  {
+    const likeCount = scoreboard.likeForLikeScenarioIds.length;
+    const excluded = scoreboard.scenarios.filter((s) => !s.identicalWork).map((s) => s.name);
+    const summary =
+      excluded.length > 0
+        ? `${likeCount} scenario${likeCount === 1 ? '' : 's'} do${likeCount === 1 ? 'es' : ''} byte-identical work. ` +
+          `\`${excluded.join('`, `')}\` use${excluded.length === 1 ? 's' : ''} each framework's own idiomatic ` +
+          `mechanism and ${excluded.length === 1 ? 'is' : 'are'} **excluded from the headline score** — reported ` +
+          'separately and tagged ⚠️ idiomatic.'
+        : likeCount === 1
+          ? 'The one scenario in this run does byte-identical work.'
+          : `All ${likeCount} scenarios in this run do byte-identical work.`;
+    lines.push(`- **Scenario fairness:** ${summary}`);
+  }
   lines.push('');
 
   lines.push('## Reproduce this');
