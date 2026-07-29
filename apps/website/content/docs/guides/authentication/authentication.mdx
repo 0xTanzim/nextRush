@@ -29,8 +29,8 @@ npm init -y
 ```
 
 <PackageInstall
-  packages={['nextrush', '@nextrush/cors', '@nextrush/body-parser', 'jsonwebtoken', 'bcryptjs']}
-  dev={['@nextrush/dev', 'typescript', '@types/node', '@types/jsonwebtoken', '@types/bcryptjs']}
+  packages={['nextrush', '@nextrush/cors', '@nextrush/body-parser', 'jose', 'bcryptjs']}
+  dev={['@nextrush/dev', 'typescript', '@types/node', '@types/bcryptjs']}
 />
 
 The `nextrush` meta-package includes the class runtime (`nextrush/class`) and auto-imports
@@ -105,16 +105,18 @@ The auth service handles registration, login, token generation, and refresh work
 
 ```typescript title="src/services/auth.service.ts"
 import { Service } from 'nextrush/class';
-import jwt from 'jsonwebtoken';
+import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
 import { UnauthorizedError, BadRequestError, ConflictError } from 'nextrush';
 import type { User, JwtPayload, LoginDto, RegisterDto, TokenResponse } from '../types';
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET ?? '',
+);
 const JWT_EXPIRES_IN = '15m';
 const REFRESH_EXPIRES_IN = '7d';
 
-if (!JWT_SECRET || JWT_SECRET.length < 32) {
+if (JWT_SECRET.length < 32) {
   throw new Error('JWT_SECRET env variable must be at least 32 characters');
 }
 
@@ -197,8 +199,8 @@ export class AuthService {
     }
 
     try {
-      const payload = jwt.verify(refreshToken, JWT_SECRET) as JwtPayload;
-      const user = this.users.get(payload.sub);
+      const { payload } = await jwtVerify(refreshToken, JWT_SECRET);
+      const user = this.users.get(payload.sub as string);
 
       if (!user) {
         throw new UnauthorizedError('User not found');
@@ -218,9 +220,10 @@ export class AuthService {
     this.refreshTokens.delete(refreshToken);
   }
 
-  verifyToken(token: string): JwtPayload {
+  async verifyToken(token: string): Promise<JwtPayload> {
     try {
-      return jwt.verify(token, JWT_SECRET) as JwtPayload;
+      const { payload } = await jwtVerify(token, JWT_SECRET);
+      return payload as unknown as JwtPayload;
     } catch {
       throw new UnauthorizedError('Invalid or expired token');
     }
@@ -231,14 +234,23 @@ export class AuthService {
   }
 
   private generateTokens(user: User): TokenResponse {
-    const payload = {
+    const claims = {
       sub: user.id,
       email: user.email,
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-    const refreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+    const accessToken = new SignJWT(claims)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(JWT_EXPIRES_IN)
+      .sign(JWT_SECRET);
+
+    const refreshToken = new SignJWT(claims)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(REFRESH_EXPIRES_IN)
+      .sign(JWT_SECRET);
 
     // Store refresh token
     this.refreshTokens.add(refreshToken);
@@ -280,7 +292,7 @@ export const AuthGuard: GuardFn = async (ctx) => {
 
   try {
     const authService = container.resolve(AuthService);
-    const payload = authService.verifyToken(token);
+    const payload = await authService.verifyToken(token);
 
     // Store user info in state
     ctx.state.user = {
