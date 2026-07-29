@@ -16,6 +16,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { REGRESSION_TOLERANCE } from '../config/constants.js';
+import { withRecomputedPublishable } from './lib/publishable.js';
 import { RESULTS_DIR, log, logError, logHeader, logWarn, parseArgs } from './utils.js';
 
 const args = parseArgs();
@@ -30,7 +31,7 @@ function loadReport(dir) {
     return null;
   }
   try {
-    return JSON.parse(readFileSync(file, 'utf-8'));
+    return withRecomputedPublishable(JSON.parse(readFileSync(file, 'utf-8')));
   } catch (err) {
     logError(`Failed to parse ${file}: ${err.message}`);
     return null;

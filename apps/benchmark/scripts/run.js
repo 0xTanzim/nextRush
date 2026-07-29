@@ -235,13 +235,19 @@ async function main() {
   }
 
   // Fairness integrity gate: servers must return identical bodies/statuses first.
-  if (!skipValidate && frameworkIds.length > 1) {
-    const { ok } = await runParityCheck(frameworkIds);
+  let parityOutcome;
+  if (skipValidate) {
+    parityOutcome = { validated: false, skippedReason: '--no-validate was passed', failures: [] };
+  } else if (frameworkIds.length <= 1) {
+    parityOutcome = { validated: false, skippedReason: 'single-framework run — cross-server parity does not apply', failures: [] };
+  } else {
+    const { ok, failures } = await runParityCheck(frameworkIds);
     if (!ok) {
       logError('Parity validation failed — servers are not doing identical work. Aborting.');
       logError('Fix the mismatches (or re-run with --no-validate to bypass, not advised).');
       process.exit(1);
     }
+    parityOutcome = { validated: true, skippedReason: null, failures: [] };
   }
 
   logHeader('System Information');
@@ -330,6 +336,7 @@ async function main() {
     positionControl: useRotation ? 'rotated' : shuffleOrder ? 'shuffled' : 'fixed',
     positionLog,
     order: shuffleOrder ? 'shuffled' : 'fixed',
+    parity: parityOutcome,
     scenarios: scenarios.map((s) => s.id),
     frameworkVersions: readFrameworkVersions(),
     nextrushEffectiveOptions: captureNextRushEffectiveOptions({}),
