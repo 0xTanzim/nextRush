@@ -19,9 +19,9 @@ name: Performance Gate
 # BASELINE (design.md "baseline stored + updatable" + this repo's own README):
 # the gate compares against a pinned `apps/benchmark/results/baseline/` committed
 # by a maintainer from a clean, quiet, CPU-pinned run — NOT from a noisy CI runner.
-# Until that baseline is committed the gate is INACTIVE-BUT-WIRED: it runs the
-# smoke, uploads the result, and passes with a notice explaining how to seed the
-# baseline. It becomes enforcing automatically the moment a baseline lands.
+# A committed baseline landed with fix-benchmark-measurement-integrity; from that
+# point on, a MISSING baseline is treated as a defect in the gate itself (e.g. an
+# accidental deletion) and fails the job loudly rather than silently passing.
 
 on:
   pull_request:
@@ -97,7 +97,12 @@ jobs:
             # enough to justify it.
             node scripts/check-regression.js --tolerance 0.25
           else
-            echo "::notice title=Performance gate inactive::No committed baseline at apps/benchmark/results/baseline/results.json — the regression gate ran the smoke benchmark but has nothing to compare against, so it passes. To activate it, a maintainer seeds a baseline from a clean, quiet, CPU-pinned run: cd apps/benchmark && pnpm bench:validate nextrush-v3 nextrush-v3-class && node scripts/run.js --frameworks nextrush-v3,nextrush-v3-class --profile full --pin 2-7 && cp -r results/latest results/baseline, then commit results/baseline/ (it is git-exempted from the results/ ignore)."
+            # fix-benchmark-measurement-integrity landed a committed baseline (task
+            # 7.2) — a missing baseline from this point on is a real regression in
+            # the gate itself (e.g. an accidental deletion), not an expected
+            # bootstrap state, and must fail loudly rather than silently pass.
+            echo "::error title=Performance gate has no baseline::apps/benchmark/results/baseline/results.json is missing or invalid. A pinned baseline is committed to this repo — its absence means the gate cannot verify anything and must not silently pass. Restore it from git history, or re-seed per apps/benchmark/README.md if it was deliberately invalidated."
+            exit 1
           fi
 
       # Always upload the smoke result so a maintainer can inspect it or seed the
@@ -109,3 +114,31 @@ jobs:
           name: perf-gate-smoke-result
           path: apps/benchmark/results/latest
           if-no-files-found: warn
+
+      # Tight allocation gate (design.md Goal 5/D5): bytes-per-request has
+      # near-zero variance regardless of CI-runner noise, so — unlike the loose
+      # throughput gate above — any real increase is a genuine regression, not
+      # jitter. Runs every `*-alloc.js` harness fresh and compares its mean
+      # against the committed baseline at a tight tolerance.
+      - name: Allocation regression gate (all *-alloc.js harnesses)
+        working-directory: apps/benchmark
+        run: |
+          set -euo pipefail
+          # Each entry is the harness's own <name>-alloc script/output stem.
+          HARNESS_NAMES="compose dispatch context context-raw context-state router-match param-match handler web-context"
+          any_baseline=0
+          for name in $HARNESS_NAMES; do
+            baseline_file="results/baseline/${name}-alloc.json"
+            if [ ! -f "$baseline_file" ]; then
+              echo "::warning title=No baseline for ${name}-alloc::results/baseline/${name}-alloc.json is missing — skipping this harness's gate."
+              continue
+            fi
+            any_baseline=1
+            node --expose-gc "scripts/${name}-alloc.js"
+            latest_dir=$(ls -td "results/${name}-alloc-"*/ | head -1)
+            node scripts/check-alloc-regression.js --harness "${name}-alloc" --latest-file "${latest_dir}${name}-alloc.json"
+          done
+          if [ "$any_baseline" = "0" ]; then
+            echo "::error title=Allocation gate has no baseline::No committed allocation baselines exist under apps/benchmark/results/baseline/. See apps/benchmark/README.md for how to seed them."
+            exit 1
+          fi
