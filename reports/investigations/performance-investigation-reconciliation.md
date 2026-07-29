@@ -70,30 +70,64 @@ disagree, the disagreement is resolved with cited evidence rather than by prefer
 
 ## Progress Tracker
 
-**Remediation:** `[███████████████░░░░░]` ~75% — recommendations 1, 2, 5, 6, 8, 9, 10, 12 resolved
-(or the resolvable portion of 5/7 — see below), 11 half-resolved (scenario coverage done,
-dispatch-cost half investigated-and-not-viable, not open); only recommendations 3 and 4 remain
-genuinely open, both blocked on a dedicated, human-scheduled CPU-pinned hardware session rather
-than on code — recommendation 7's F-02a portion corrected below rather than carried forward
+**Remediation:** `[█████████████████░░░]` ~83% — recommendations 1, 2, 5, 6, 7 (resolvable portion),
+8, 9, 10, 11, 12 resolved; only recommendations 3 and 4 remain open, and both are now understood as
+a *runtime* cost (a dedicated multi-hour pinned session) rather than a missing capability — CPU
+pinning is available and measurably collapses run-to-run drift from ±25–58% to ~1–5% (see their rows
+below). Recommendation 7's F-02a portion was corrected rather than carried forward. **Before citing
+any `B/op` figure from this report, read §0 first** — the allocation harnesses are not
+cross-comparable, and one such misreading has already occurred.
 
 | Rec | Addresses | Priority | Status |
 | --- | --------- | -------- | ------ |
 | 1   | R-06      | P0       | ✅ Resolved — `fix-benchmark-measurement-integrity` |
 | 2   | R-03      | P0       | ✅ Resolved — `fix-benchmark-measurement-integrity` |
-| 3   | P-00      | P0       | ⬜ Open — CI gates + `bench:alloc:handler` done (`fix-benchmark-measurement-integrity`); the actual pinned `--profile full` baseline itself is not yet captured (tasks 7.1/7.2, deliberately deferred, requires a human-scheduled multi-hour CPU-pinned session) |
-| 4   | C3 (P-01/R-04) | P0  | ⬜ Open — three-arm diagnostic control built and exercised at dev-scale (`fix-benchmark-measurement-integrity`); a CPU-pinned, multi-run version of the same three-arm A/B is still outstanding |
+| 3   | P-00      | P0       | ⬜ Open — CI gates + `bench:alloc:handler` done (`fix-benchmark-measurement-integrity`); the actual pinned `--profile full` baseline itself is not yet captured. **Blocker corrected (2026-07-29): this is a RUNTIME cost, not a missing capability.** CPU pinning IS available on the dev machine — `taskset` is installed and `scripts/run.js` already supports `--pin` / `--client-pin`. Measured effect of pinning (server cores 0-3, client 4-7, 5 runs, `hello-world` @256c, repeated twice): between-batch drift falls from **±25–58% unpinned to ~1–5% pinned** — a usable ruler. What remains is that `standard` (~6h) and `full` (~26h) across 13 scenarios need a dedicated, human-scheduled session on an otherwise-idle machine. Earlier "hardware-blocked" wording overstated the blocker |
+| 4   | C3 (P-01/R-04) | P0  | ⬜ Open — three-arm diagnostic control built and exercised at dev-scale (`fix-benchmark-measurement-integrity`); a CPU-pinned, multi-run version of the same three-arm A/B is still outstanding. Same corrected blocker as Rec 3: pinning is available, runtime is the cost. **Cautionary datum (2026-07-29):** an unpinned single-batch A/B of the handler-timeout race measured a +23% gain (16,139 → 19,846 RPS) that **fully reversed** under interleaved repetition (RACE-ON 25,187 vs RACE-OFF 24,460 mean over 3 alternating rounds); the same configuration measured 16,139 in one batch and 25,540 in another, a 58% swing on identical code. Do not accept any timeout-arm conclusion from an unpinned, non-interleaved run |
 | 5   | F-GATE-01 | P0       | ✅ Resolved for the four named decisive scenarios (`hello-world`, `empty-response`, `route-params`, `post-json`) at dev-scale — see `reports/investigations/cpu-allocation-profiling-results.md` (`add-benchmark-cpu-allocation-profiling`). A CPU-pinned, multi-run version would strengthen these findings but the capability gap this recommendation named is closed |
 | 6   | OQ-1 / OQ-5 | P0     | ✅ Resolved — `fix-benchmark-measurement-integrity` |
 | 7   | P-01 (A1) + R-01 + P-02b | P1 | ✅/⬜ MIXED, corrected — the `TIMEOUT_SENTINEL` hoist shipped in `fix-benchmark-measurement-integrity`; the double-normalization de-dup (`matchRoute`'s redundant fold+collapse on the real dispatch path) shipped in `reduce-per-request-floor-cost` via an internal `preNormalized` flag. **Correction discovered while implementing `reduce-per-request-floor-cost`**: `canonicalizePath`'s result-object removal (this recommendation's original framing of "P-02b") is **not implementable as originally scoped** — `canonicalizePath`'s `{rejected, path}` shape is the ratified public contract of `RFC-029` ("the single normalization owner," cited for SEC-02/SEC-09/SEC-15), so reshaping it is an RFC-level decision, not a one-line allocation deletion; dropped from scope, not deferred. Separately, `matchRoute`'s own single-`RouteMatch`-allocation optimization (a DIFFERENT, unrelated finding this report's F-02 section also named) was found to already be shipped at HEAD independently of any of these three changes (cited as "design.md D1 / HP-10" in source) — this report's F-02 inventory had a stale entry that should not be re-implemented if referenced again |
 | 8   | R-05      | P1       | ✅ Resolved — `reduce-per-request-floor-cost` (`Application.callback()` de-async: `.then(undefined, handler)` replaces the `async`/`try`/`catch` wrapper) |
 | 9   | P-01 (A2) | P1       | ✅ Resolved — `reduce-per-request-floor-cost` (`createHandler`'s `Promise.race` replaced with an explicit `settled` flag + `.then(onSuccess, onError)`; the diagnostic bypass from `fix-benchmark-measurement-integrity` remains a separate, still-available control). **Honest caveat**: the router-focused allocation harnesses (`router-match-alloc`, `param-match-alloc`) confirmed the predicted reduction, but `handler-alloc`'s `timeout > 0` variant measured a real, reproducible ~5–7% INCREASE (647→687 B/req) rather than the predicted decrease — traced to closure-capture shape (two independent `.then` callbacks each capturing `settled`/`timerId`/their own `finalize*`, versus the old design's one shared post-race callback), not measurement noise. Three alternative closure shapes were tried and rejected (a shared settle-function: worse; `setTimeout` extra-args instead of closure capture: worse and much noisier). Shipped anyway — the explicit-flag mechanism's auditability (this recommendation's actual intent) is judged to outweigh a ~35–40 byte/request cost on this one narrow timer-arm/disarm metric, especially given no closure-shape alternative beat `Promise.race` — see `openspec/changes/archive/reduce-per-request-floor-cost/tasks.md` task 4.3 for the full investigation |
 | 10  | P-02 / R-02 | P1     | ✅ Resolved — `reduce-router-match-allocations` (`matchNodeIndexed`'s `WalkFrame[]` stack and `matchRoute`'s `bindNames`/`bindValues` arrays are pooled per-router-instance, rebuilt only when a new registered route's depth exceeds the current pool). Measured reduction: param-route hit 467.6 → 328.9 B/op (−29.7%) on `bench:alloc:router`; depth-8 param 303.3 → 271.3 B/op (−10.6%) on `bench:alloc:param-match`. The outer `RouteMatch` single-allocation contract (this report's own, separately-tracked stale F-02 note) is unaffected and unchanged — see `openspec/specs/router/spec.md`'s existing "A matched request allocates a single RouteMatch object" requirement, which this change deliberately did not touch |
-| 11  | P-03 / C2 | P2       | ✅/⬜ MIXED — `reduce-router-match-allocations` added the 3 missing benchmark scenarios this recommendation named (`send-object`, `static-file`, `large-post`, all passing `bench:validate` fairness across all 6 servers) and investigated the general-path (2+ middleware) dispatch cost. **No viable non-codegen reduction was found**: `compose()`'s general branch allocates a fresh `nextFn` closure per `dispatch(i)` call specifically to give each middleware layer's `next` a distinct, checkable target index — collapsing this to one shared closure (either via a mutable-index read or `Function.prototype.bind`, both considered) either breaks the load-bearing double-next-detection guarantee (`middleware-single-fastpath.test.ts`'s "2.5 next() called n times" test covers exactly the stored-reference-called-later case this would silently stop catching) or allocates the same amount via a different mechanism. `new Function`-based chain compilation remains permanently out of scope per this report's own "explicitly do not change" table. The scenario-coverage half is done; the dispatch-cost half is investigated-and-concluded-not-viable under the codegen-forbidden constraint, not left unattempted |
+| 11  | P-03 / C2 | P2       | ✅ Resolved — three parts, all closed. (a) The 3 missing benchmark scenarios shipped in `reduce-router-match-allocations` (`send-object`, `static-file`, `large-post`, all passing `bench:validate`). (b) The general-path (2+ middleware) per-layer closure allocation was investigated and found **not** reducible without codegen — collapsing `compose()`'s per-`dispatch(i)` closure to one shared `nextFn` breaks the load-bearing double-next-detection guarantee (`middleware-single-fastpath.test.ts`'s "next() called n times" case), and `.bind()` allocates equivalently. Backward chain compilation remains permanently out of scope (codegen forbidden). (c) **F-09 (elide `Promise.resolve` for synchronous middleware returns) is now shipped** in `elide-resolved-promise-allocation`: a shared module-level `RESOLVED` sentinel replaces four fresh-allocation sites, short-circuiting **only** on `=== undefined` so non-Promise thenables are still adopted. Measured on `bench:alloc:compose`'s new `sync` variant: **115.6 → 14.0 B/op, −87.9%** for synchronous middleware. **Honest scope limit: this moves no benchmark scenario** — every `apps/benchmark` middleware is `async` or returns `ctx.next()`, and `Promise.resolve(p) === p` means the async path never allocated there (measured flat: 806.1 → 814.5 B/op). The win is real for real-world synchronous middleware (`helmet`/`cors`/`request-id`-shaped layers), not for this suite |
 | 12  | R-04      | P2 (ADR) | ✅ Already resolved — `ADR-0010-cross-runtime-parity-hardening.md` (Status: Accepted, 2026-07) already made this exact decision under its sub-decision 2: keep `server.timeout` and the handler-level race complementary/coupled (rejecting "replace `server.timeout` with the handler race" as a slow-loris-guard regression). This report's own Rec 12 wording predated that ADR being cross-referenced back here — a documentation-linking gap, not an open decision |
 
 ---
 
+## 0. How to read the allocation harness numbers (read before citing any B/op figure)
+
+**Added 2026-07-29 after a real misreading was made while analysing this report.** The
+`bench:alloc:*` harnesses are not all measuring the same thing, and their absolute figures are
+**not comparable across harnesses**.
+
+`bench:alloc:compose` reports ~807 B/op (fast, len 1) and ~1526 B/op (general, len 2). Those are
+**not `compose()`'s per-request cost.** Per that harness's own method note, it is an allocation-RATE
+measurement that (a) uses an `async (_ctx, next) => { await next(); }` middleware — so each figure
+includes that middleware's *own* promise and async state machine — and (b) deliberately **retains
+every returned promise in an array** so mid-loop GC cannot reclaim what it measures, which also
+counts the retained promise and the array slot.
+
+Consequences:
+
+- **Valid:** the fast-vs-general *delta* (~807 vs ~1526, same methodology, same middleware) — this is
+  what the harness was built to prove, and it is why moving an `app.use()` layer off the `len === 1`
+  fast path costs a real ~719 B/req.
+- **Invalid:** ranking `compose` (807) against `bench:alloc:context` (8.2 B/req) or
+  `bench:alloc:dispatch` (57.3 B/req flat) as if they shared an axis, and concluding compose is
+  "the biggest per-request bucket." Those harnesses differ in retention strategy and in what the
+  measured unit includes. That comparison was made once during this report's follow-up work and was
+  wrong.
+
+Rule: cite a B/op figure only against another figure **from the same harness and variant**, or as a
+before/after on the same variant. Cross-harness absolute comparisons need a purpose-built harness
+that does not yet exist.
+
+---
+
 ## 1. Executive Summary
+
+
 
 Two independent teams investigated the same benchmark run (`2026-07-27T15-42-50`) from opposite
 epistemic positions and converged on the same primary suspect. That convergence is the strongest
@@ -1248,7 +1282,7 @@ Effort scale: **S** = under a day · **M** = a few days including tests · **L**
 | 8  | De-async `Application.callback()` → `fn(ctx).then(undefined, e => this.handleError(e, ctx))` | F-07 | P1 | S | ✅ Resolved — `reduce-per-request-floor-cost` |
 | 9  | Replace `Promise.race` with an explicit `settled` flag + callback; conformance suite mandatory; assert no `unhandledRejection` on post-timeout rejection | F-01 | P1 | M | ✅ Resolved — `reduce-per-request-floor-cost` (see the Progress Tracker's honest caveat on `handler-alloc`'s measured trade-off) |
 | 10 | Param-path allocation, ascending risk, one commit each: remove `RouteMatch`; then reuse bind + `WalkFrame` stacks **with** invariant comment, interleaving test and no-`async` review rule | F-02 | P1 | M | ✅ Resolved — `reduce-router-match-allocations`. The outer `RouteMatch` was already a single allocation (a ratified spec requirement, not touched); the reused `WalkFrame[]`/binding-array pooling targeted the real remaining allocation site, measured −29.7% on the param-route path |
-| 11 | Add the four missing scenarios (2–3 `app.use()` layers, `send(object)`, static file, ≥1 MB POST); then elide `Promise.resolve` for synchronous middleware returns; then backward chain compilation + unify `compose` / `compileExecutor` | F-11, F-09, F-12 | P2 | M–L | ✅/⬜ MIXED — `reduce-router-match-allocations` added the 3 missing scenarios (the `middleware-stack` scenario already covered the 5-layer `app.use()` case) and investigated the dispatch-cost reduction; concluded no non-codegen improvement exists without breaking double-next detection. Backward chain compilation remains permanently out of scope (codegen forbidden) |
+| 11 | Add the four missing scenarios (2–3 `app.use()` layers, `send(object)`, static file, ≥1 MB POST); then elide `Promise.resolve` for synchronous middleware returns; then backward chain compilation + unify `compose` / `compileExecutor` | F-11, F-09, F-12 | P2 | M–L | ✅ Resolved — scenarios shipped in `reduce-router-match-allocations` (the `middleware-stack` scenario already covered the 5-layer `app.use()` case); F-09's `Promise.resolve` elision shipped in `elide-resolved-promise-allocation` (−87.9% on synchronous middleware, flat on async by design); backward chain compilation remains permanently out of scope (codegen forbidden), and the per-layer closure was separately proven non-removable without it |
 | 12 | Open an ADR on `server.timeout`: keep coupled, decouple as a `ServeOptions` field, or replace both guards with one shared coarse timer | F-04 | P2 | ADR | ✅ Already resolved — `docs/adr/ADR-0010-cross-runtime-parity-hardening.md` made this decision (keep coupled) before this recommendation was written; a documentation cross-link gap, not an open decision |
 
 ### Conditional / deferred — recorded so each decision is explicit rather than accidental

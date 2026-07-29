@@ -71,12 +71,17 @@ function main() {
   const verdict = single.mean < general.mean ? 'PASS — fast path allocates less' : 'FAIL — no allocation reduction';
   logResult('Per-op reduction', `${reduction.toFixed(1)}%`, `→ ${verdict}`);
 
+  logStep('Measuring len === 1 with a SYNCHRONOUS middleware (F-09 elision)...');
+  const sync = measureVariant('sync');
+  logResult('Sync (len 1)', `${sync.mean.toFixed(1)} B/op ± ${sync.stddev.toFixed(1)}`, `(cv ${sync.cv}%)`);
+
   const report = {
     timestamp: new Date().toISOString(),
     runs,
     invocationsPerRun: N,
     single,
     general,
+    sync,
     reductionPercent: Number(reduction.toFixed(1)),
     verdict,
   };

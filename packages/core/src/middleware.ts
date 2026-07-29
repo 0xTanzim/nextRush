@@ -22,6 +22,15 @@ export type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
 const MULTIPLE_NEXT_MESSAGE = 'next() called multiple times';
 
 /**
+ * Shared already-resolved promise, returned wherever this module would
+ * otherwise construct a fresh one. Mirrors the router's existing `RESOLVED` /
+ * `NOOP_NEXT` sentinels.
+ *
+ * @see openspec/changes/elide-resolved-promise-allocation/design.md
+ */
+const RESOLVED: Promise<void> = Promise.resolve();
+
+/**
  * Emit the double-response warning for the middleware at `index`.
  *
  * Shared by the general path and the fast path so the text (including the
@@ -108,7 +117,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
   // FAST PATH: No middleware — just call next()
   if (len === 0) {
     return function composedMiddleware(_ctx: Context, next?: Next): Promise<void> {
-      return next ? next() : Promise.resolve();
+      return next ? next() : RESOLVED;
     };
   }
 
@@ -135,7 +144,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
           if (warnDoubleResponse && ctx.responded) {
             emitDoubleResponseWarning(0);
           }
-          return next ? next() : Promise.resolve();
+          return next ? next() : RESOLVED;
         };
 
         // Wire ctx.next() to the SAME thunk passed as the argument (design D3).
@@ -144,7 +153,11 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
         }
 
         try {
-          return Promise.resolve(only(ctx, nextFn));
+          // Only `undefined` short-circuits to the sentinel. A thenable MUST
+          // stay on the `Promise.resolve` path so its work is adopted, and a
+          // falsy-but-defined value must keep its own resolved value.
+          const result = only(ctx, nextFn);
+          return result === undefined ? RESOLVED : Promise.resolve(result);
         } catch (err: unknown) {
           return Promise.reject(err instanceof Error ? err : new Error(String(err)));
         }
@@ -176,7 +189,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
       }
 
       if (!fn) {
-        return Promise.resolve();
+        return RESOLVED;
       }
 
       const nextFn = (): Promise<void> => {
@@ -192,7 +205,9 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
       }
 
       try {
-        return Promise.resolve(fn(ctx, nextFn));
+        // See the fast path's note: `undefined` only, so thenables are adopted.
+        const result = fn(ctx, nextFn);
+        return result === undefined ? RESOLVED : Promise.resolve(result);
       } catch (err: unknown) {
         return Promise.reject(err instanceof Error ? err : new Error(String(err)));
       }

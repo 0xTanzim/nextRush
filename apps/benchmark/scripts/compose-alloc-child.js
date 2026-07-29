@@ -28,8 +28,25 @@ const passthrough = async (_ctx, next) => {
   await next();
 };
 
-// single → len === 1 fast path; general → len === 2 general dispatch path.
-const stack = variant === 'single' ? [passthrough] : [passthrough, passthrough];
+/**
+ * A genuinely SYNCHRONOUS middleware: returns `undefined`, never awaits, never
+ * calls next(). This is the only shape that can observe the shared-resolved-
+ * promise elision (elide-resolved-promise-allocation / F-09) — an `async`
+ * middleware already returns a promise, and `Promise.resolve(p) === p`, so the
+ * `single`/`general` variants above are expected to be FLAT for that change.
+ */
+const passthroughSync = (ctx) => {
+  ctx.state.n = (ctx.state.n ?? 0) + 1;
+};
+
+// single → len === 1 fast path; general → len === 2 general dispatch path;
+// sync → len === 1 fast path with a synchronous (undefined-returning) middleware.
+const stack =
+  variant === 'single'
+    ? [passthrough]
+    : variant === 'sync'
+      ? [passthroughSync]
+      : [passthrough, passthrough];
 const composed = compose(stack);
 
 /** Minimal context whose setNext/next mirror the real Context surface. */
