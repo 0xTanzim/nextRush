@@ -475,6 +475,46 @@ describe('Application', () => {
       expect(errorSpy).toHaveBeenCalled();
     });
 
+    it('routes a synchronously-thrown handler error to the error handler without an async wrapper (F-07)', async () => {
+      // callback()'s returned function must not be an async function itself —
+      // compose() already converts every synchronous middleware throw into a
+      // rejected promise, so callback() only needs to attach a rejection
+      // handler, not wrap the call in its own try/catch.
+      const errorSpy = vi.fn();
+      const loggedApp = createApp({
+        logger: { info: vi.fn(), warn: vi.fn(), error: errorSpy, debug: vi.fn() },
+      });
+      loggedApp.use(() => {
+        throw new Error('sync boom');
+      });
+
+      const fn = loggedApp.callback();
+      expect(fn.constructor.name).not.toBe('AsyncFunction');
+
+      const ctx = createMockContext();
+      await fn(ctx);
+
+      expect(ctx.status).toBe(500);
+      expect(errorSpy).toHaveBeenCalled();
+    });
+
+    it('routes an asynchronously-rejected handler error to the error handler (F-07)', async () => {
+      const errorSpy = vi.fn();
+      const loggedApp = createApp({
+        logger: { info: vi.fn(), warn: vi.fn(), error: errorSpy, debug: vi.fn() },
+      });
+      loggedApp.use(async () => {
+        await Promise.resolve();
+        throw new Error('async boom');
+      });
+
+      const ctx = createMockContext();
+      await loggedApp.callback()(ctx);
+
+      expect(ctx.status).toBe(500);
+      expect(errorSpy).toHaveBeenCalled();
+    });
+
     it('should hide error details in production', async () => {
       const prodApp = createApp({ env: 'production' });
       prodApp.use(async () => {

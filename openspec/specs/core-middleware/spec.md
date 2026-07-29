@@ -121,7 +121,7 @@ path.
 
 #### Scenario: The rejection reaches the application error handler
 - **WHEN** the fast path is used via `Application.callback()` and the middleware throws
-- **THEN** the error is caught by `callback()`'s try/catch and routed to the configured/default error handler, not left unhandled
+- **THEN** the error is routed to the configured/default error handler, not left unhandled — regardless of whether `callback()` implements this via a `try`/`catch` or a `.then()` rejection handler
 
 ### Requirement: The double-response warning is preserved on the fast path
 

@@ -707,13 +707,8 @@ export class Application {
       warnDoubleResponse: !this.isProduction,
     });
 
-    return async (ctx: Context): Promise<void> => {
-      try {
-        await fn(ctx);
-      } catch (error) {
-        await this.handleError(error, ctx);
-      }
-    };
+    return (ctx: Context): Promise<void> =>
+      fn(ctx).then(undefined, (error: unknown) => this.handleError(error, ctx));
   }
 
   /**
