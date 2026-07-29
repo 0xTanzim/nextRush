@@ -1,18 +1,222 @@
 ---
-title: Email Recipes
-description: Transactional email, SMTP integration, template rendering, and email queue patterns.
-keywords: [nextrush, email, recipes, coming-soon]
+title: Sending Email with SMTP
+description: Wire Nodemailer into a DI-managed service for transactional email — SMTP transport, HTML templates, and alternatives.
+keywords: [nextrush, email, smtp, nodemailer, gmail, resend, sendgrid, recipes]
+difficulty: intermediate
+readingTime: 15
+status: stable
 ---
 
-<Callout type="info" title="Coming soon">
+Transactional email — welcome messages, password resets, order confirmations — is a standard backend need. This recipe wraps [Nodemailer](https://nodemailer.com/) (not part of NextRush) in a `@Service()` so the transport is created once and injected wherever needed.
 
-Email recipes are being prepared. Topics will include:
+## SMTP Transport Service
 
-- SMTP transport setup with Nodemailer
-- Transactional email templates
-- Email queue with retry logic
-- Email verification flows
+Nodemailer creates a reusable transporter from SMTP credentials. The service below reads config from environment variables and exposes a `send` method.
 
-Check back for production-ready patterns.
+```ts title="src/services/mail.service.ts"
+import { Service } from 'nextrush/class';
+import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
+interface SendOptions {
+  to: string | string[];
+  subject: string;
+  text?: string;
+  html?: string;
+}
+
+@Service()
+export class MailService {
+  private transporter: Transporter;
+
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST ?? 'smtp.ethereal.email',
+      port: Number(process.env.SMTP_PORT ?? 587),
+      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
+      auth: {
+        user: process.env.SMTP_USER ?? '',
+        pass: process.env.SMTP_PASS ?? '',
+      },
+    });
+  }
+
+  async send({ to, subject, text, html }: SendOptions): Promise<string | null> {
+    const info = await this.transporter.sendMail({
+      from: process.env.MAIL_FROM ?? '"NextRush" <noreply@example.com>',
+      to: Array.isArray(to) ? to.join(', ') : to,
+      subject,
+      text,
+      html,
+    });
+
+    return info.messageId ?? null;
+  }
+
+  async close(): Promise<void> {
+    this.transporter.close();
+  }
+}
+```
+
+<Callout type="tip" title="SMTP_PORT and secure">
+  Port **587** with `secure: false` uses STARTTLS (most common). Port **465** with `secure: true` uses implicit TLS. Gmail uses 465. Most transactional providers (SendGrid, Mailgun, Resend) use 587.
 </Callout>
+
+```ts title="src/services/user-mail.service.ts"
+import { Service } from 'nextrush/class';
+import { MailService } from './mail.service';
+
+@Service()
+export class UserMailService {
+  constructor(private mail: MailService) {}
+
+  async sendWelcome(email: string, name: string): Promise<void> {
+    await this.mail.send({
+      to: email,
+      subject: 'Welcome to NextRush!',
+      html: `<h1>Welcome, ${name}!</h1><p>Thanks for joining.</p>`,
+    });
+  }
+
+  async sendPasswordReset(email: string, token: string): Promise<void> {
+    const resetUrl = `${process.env.APP_URL}/reset-password?token=${token}`;
+    await this.mail.send({
+      to: email,
+      subject: 'Reset your password',
+      text: `Reset your password here: ${resetUrl}`,
+      html: `<p>Reset your password: <a href="${resetUrl}">${resetUrl}</a></p>`,
+    });
+  }
+}
+```
+
+## HTML Templates
+
+For production emails, inline HTML strings get unmanageable. Use a template engine or simple template function.
+
+```ts title="src/services/email-templates.ts"
+export function welcomeTemplate(name: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: sans-serif; padding: 24px;">
+      <h1>Welcome, ${name}!</h1>
+      <p>Thanks for joining NextRush.</p>
+      <hr>
+      <p style="color: #666;">The NextRush Team</p>
+    </body>
+    </html>
+  `;
+}
+```
+
+<Callout type="tip" title="Template engines">
+  For complex emails with layouts, buttons, and responsive design, use dedicated tools:
+  - [Handlebars](https://handlebarsjs.com/) — logic-less templates compiled at build time
+  - [MJML](https://mjml.io/) — responsive email markup compiled to HTML
+  - [React Email](https://react.email/) — React components rendered to HTML email
+</Callout>
+
+## Using the Service in a Controller
+
+```ts title="src/controllers/auth.controller.ts"
+import { Controller, Post, Body } from 'nextrush/class';
+import { UserMailService } from '../services/user-mail.service';
+
+@Controller('/auth')
+export class AuthController {
+  constructor(private mail: UserMailService) {}
+
+  @Post('/register')
+  async register(@Body('email') email: string, @Body('name') name: string) {
+    // ... create user in DB ...
+
+    await this.mail.sendWelcome(email, name);
+
+    return { ok: true };
+  }
+}
+```
+
+## Google SMTP (Gmail)
+
+Gmail's SMTP servers work with Nodemailer, but **you cannot use your regular password**. Google requires an **App Password**.
+
+### Step-by-step
+
+1. Enable [2-Step Verification](https://myaccount.google.com/security) on your Google Account.
+2. Generate an [App Password](https://myaccount.google.com/apppasswords) — select **Mail** as the app and your device.
+3. Use the generated 16-character password in place of your Gmail password.
+
+### Transporter config
+
+```ts
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  auth: {
+    user: 'your-email@gmail.com',
+    pass: 'abcd efgh ijkl mnop', // Gmail App Password (spaces optional)
+  },
+});
+```
+
+<Callout type="warn" title="Gmail sending limits">
+  Gmail restricts outbound email to **500 recipients per day** and **100 per message**. For production volume, use a transactional provider instead. Also check Gmail's `mail.google.com` **API** limits — queries per day, messages per day — via the Google Cloud Console.
+</Callout>
+
+## Alternatives
+
+SMTP works everywhere, but dedicated transactional email services offer better deliverability, analytics, and templates.
+
+| Service | SMTP | HTTP API | Free tier | Notes |
+|---|---|---|---|---|
+| [Resend](https://resend.com) | ✓ (587) | ✓ | 100/day | React Email support, SDK |
+| [SendGrid](https://sendgrid.com) | ✓ (587) | ✓ | 100/day | Template editor, analytics |
+| [Mailgun](https://mailgun.com) | ✓ (587/465) | ✓ | 100/day | Flexible API, EU/US regions |
+| [Postmark](https://postmarkapp.com) | ✓ (587) | ✓ | — | High deliverability, 100/mo trial |
+| [Amazon SES](https://aws.amazon.com/ses) | ✓ (587/465) | ✓ | 62k/mo from EC2 | Low cost, needs domain verify |
+| [Mailtrap](https://mailtrap.io) (testing) | ✓ | ✓ | 500/mo | Catch-all for dev/testing |
+
+All accept the same Nodemailer config — swap `host`/`port`/`auth` and you're done.
+
+### Example: Resend via SMTP
+
+```ts
+const transporter = nodemailer.createTransport({
+  host: 'smtp.resend.com',
+  port: 587,
+  secure: false,
+  auth: {
+    user: 'resend', // literal
+    pass: 're_abc123...', // Resend API key
+  },
+});
+```
+
+## Shutdown
+
+Nodemailer's transporter keeps a connection pool. Close it on app shutdown.
+
+```ts
+import { container } from 'nextrush/class';
+
+process.on('SIGTERM', async () => {
+  const mail = container.get(MailService);
+  await mail.close();
+  process.exit(0);
+});
+```
+
+<Callout type="warn" title="Close the pool on shutdown">
+  An unclosed transporter holds the process open and may leak connections on redeploy.
+</Callout>
+
+## Related
+
+- [Environment Configuration guide](/docs/guides/api-development/environment-configuration) — managing SMTP credentials in `.env`
+- [Dependency Injection](/docs/concepts/dependency-injection) — scopes and constructor injection
+- [Extensions](/docs/concepts/extensions) — lifecycle hooks for app shutdown
