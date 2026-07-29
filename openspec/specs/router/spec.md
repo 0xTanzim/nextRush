@@ -10,9 +10,7 @@ how a match is materialized (single `RouteMatch`, null-prototype params, shared 
 (≤300-line files), internal-dedup, documentation-accuracy, and future-radix-RFC discipline that
 keep the package correct and honest. Behavior is pinned byte-identical to the pre-optimization
 matcher by a differential harness, allocation micro-benchmarks, and CPU-pinned A/Bs.
-
 ## Requirements
-
 ### Requirement: Static route lookup drops the per-request key string
 
 The static-route store SHALL be method-nested so lookup selects by method and probes by path,
@@ -644,3 +642,31 @@ publishable CPU-pinned A/B deferred. Per-package coverage MUST NOT decrease.
 #### Scenario: Coverage is maintained and the changed branches are covered
 - **WHEN** the router test suite runs with coverage
 - **THEN** per-package line coverage stays at or above 90% and the de-async'd `createRoutesMiddleware` (match/miss/404) and `len === 0` executor (void/promise/thenable/throw) branches are covered
+
+### Requirement: Reused internal walk state is never shared across concurrent in-flight matches
+
+If `@nextrush/router`'s tree-walk match path reuses internal scratch state (a frame stack, binding
+arrays) across calls to avoid per-call allocation, that reused state SHALL be scoped so that no two
+concurrent in-flight `matchRoute()` calls on the same router instance can observe or corrupt each
+other's walk progress. The walk SHALL remain fully synchronous end-to-end for this guarantee to
+hold; introducing any `await` inside the walk without re-deriving this invariant is a breaking
+change to this requirement, not a safe extension.
+
+#### Scenario: Sequential matches reuse state safely
+
+- **WHEN** the same router instance handles two requests one after another, and both use pooled
+  internal walk state
+- **THEN** the second match's result is unaffected by the first match's params, path, or outcome
+
+#### Scenario: The walk never awaits mid-frame
+
+- **WHEN** the tree-walk match path executes
+- **THEN** no frame of the walk suspends on a promise before the match completes — the entire walk
+  from entry to a matched or unmatched result runs in one synchronous pass
+
+#### Scenario: A matched request's observable result is unchanged by internal reuse
+
+- **WHEN** a request matches a parameterized route on a router using pooled internal walk state
+- **THEN** the returned `RouteMatch`'s `params`, `handler`, `middleware`, and `executor` are
+  identical to what an unpooled implementation would return for the same input
+

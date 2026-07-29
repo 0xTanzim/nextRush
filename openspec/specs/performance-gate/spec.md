@@ -7,9 +7,7 @@ NextRush's CI performance-regression defense and its benchmark methodology: a fa
 from the slow multi-run profile used for publishable figures), plus a reproducible, fairness-
 validated benchmark that measures the class/DI path's registration/boot cost at multiple
 controller-count scales and its per-request overhead relative to the functional path.
-
 ## Requirements
-
 ### Requirement: The per-PR performance gate is fast enough to run routinely
 The CI performance gate SHALL use a fast, low-sample "smoke" benchmark profile distinct from the
 slower, multi-run profile used for publishable figures, so it can run on relevant PRs without
@@ -271,3 +269,40 @@ runs, and SHALL be excluded from version control by default.
 - **WHEN** `apps/benchmark/.gitignore` is inspected
 - **THEN** it excludes profile artifact paths by the same pattern used for other non-baseline
   result directories
+
+### Requirement: The benchmark suite covers object-body dispatch, static-file serving, and large request bodies
+
+The comparative benchmark suite SHALL include scenarios exercising `send(object)`-style response
+dispatch, static-file serving, and a request body at or above 1 MB — in addition to the scenarios
+already covering JSON serialization, routing, query/param parsing, and the existing 5-layer
+middleware stack — so that a change to the general request-dispatch or body-handling path can be
+measured against real coverage rather than an unmeasured gap.
+
+#### Scenario: An object-dispatch scenario exists and is measured
+
+- **WHEN** the benchmark suite runs
+- **THEN** a scenario exists that dispatches a plain object through each framework's response
+  helper (not a pre-serialized string), and every compared framework's response for that scenario
+  is validated for fairness the same way the other scenarios already are
+
+#### Scenario: A static-file scenario exists and is measured
+
+- **WHEN** the benchmark suite runs
+- **THEN** a scenario exists that serves a static file through each framework's static-file
+  mechanism, and its response is validated for byte-for-byte parity across frameworks where the
+  frameworks' own static-serving mechanisms make that possible
+
+#### Scenario: A large-request-body scenario exists and is measured
+
+- **WHEN** the benchmark suite runs
+- **THEN** a scenario exists that sends a request body at or above 1 MB and measures the framework's
+  body-parsing and response cost at that size, distinct from the existing smaller `post-json`
+  scenario
+
+#### Scenario: A static-file scenario does not itself distort the other scenarios
+
+- **WHEN** a framework's static-file mechanism is wired into a benchmark server
+- **THEN** it SHALL be scoped (by path prefix, by route registration, or by that framework's own
+  router) so that requests to unrelated scenarios do not execute static-file work — no filesystem
+  probe and no additional global middleware layer on the shared request path
+
