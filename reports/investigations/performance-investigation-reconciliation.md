@@ -76,7 +76,9 @@ a *runtime* cost (a dedicated multi-hour pinned session) rather than a missing c
 pinning is available and measurably collapses run-to-run drift from ±25–58% to ~1–5% (see their rows
 below). Recommendation 7's F-02a portion was corrected rather than carried forward. **Before citing
 any `B/op` figure from this report, read §0 first** — the allocation harnesses are not
-cross-comparable, and one such misreading has already occurred.
+cross-comparable, and one such misreading has already occurred. **Before citing any cross-framework
+RANKING, read §0a** — a fixed-measurement-order defect (A-4) was shown to invert an 11.7% raw-node
+win into an 11.7% NextRush "win", so no ranking from a fixed-order run is currently publishable.
 
 | Rec | Addresses | Priority | Status |
 | --- | --------- | -------- | ------ |
@@ -125,7 +127,56 @@ that does not yet exist.
 
 ---
 
+## 0a. Benchmark fairness audit (2026-07-29) — four defects, three favoured NextRush
+
+A fairness audit of the six benchmark servers found **four** defects that every existing
+response-parity check passed straight through, because parity validated *output* and none of these
+live in the output. Fixed in `equalize-benchmark-server-config`. Recorded here in full because three
+of the four flattered NextRush, and a benchmark that flatters its own framework is a reputational
+liability rather than a measurement.
+
+| # | Defect | Direction | Measured magnitude |
+| --- | --- | --- | --- |
+| A-1 | Fastify was the ONLY server using `async` handlers; the other five were synchronous | handicapped a competitor | **−7.1%** to Fastify (pinned, interleaved, sync won 3/3) |
+| A-2 | NextRush listened with backlog 1024 while all five others used Node's 511 default | **favoured NextRush** | **+1.2%** at 512c (pinned, consistent 3/3) |
+| A-3 | Hono/Koa/Fastify middleware layers were `async`; NextRush/Express/raw-node were sync. Koa alone also carried `allowedMethods()` | **favoured NextRush** | not isolated; equalized |
+| **A-4** | **The harness measures frameworks in FIXED order with raw-node always first, so raw-node alone is measured on the coldest machine** | **favoured NextRush** (2nd in order) | **inverts an 11.7% raw-node win into an 11.7% NextRush "win"** |
+
+**A-4 is the serious one and it is not yet fixed.** The pinned harness reported NextRush 21,355
+beating raw-node 19,115 on `hello-world` (+11.7%). That is not credible — a bare
+`http.createServer` doing a string compare cannot lose to a full framework doing strictly more work.
+Measured directly instead, same servers, isolated and interleaved with equal warmup, pinned, 3
+rounds:
+
+| Round | raw-node | nextrush |
+| --- | --- | --- |
+| 1 | 25,975 | 23,214 |
+| 2 | 26,148 | 23,020 |
+| 3 | 25,543 | 23,276 |
+| **mean** | **25,888** | **23,170** |
+
+raw-node wins by 11.7%, 3/3 — the exact inverse of the harness's own output. **Consequence: no
+cross-framework ranking from a fixed-order run is publishable**, including any favourable to
+NextRush. The harness needs order rotation across runs (a `--shuffle` flag exists but defaults off)
+or a discard-first warm pass before its comparison can be trusted. This is the top open item.
+
+### Disclosure obligations created by the fix
+
+- The harness now **overrides** every competitor's default backlog to 1024 to match what
+  `@nextrush/adapter-node` ships. That is an intervention and must be labeled as one; the framework
+  default itself is unchanged and legitimate.
+- Servers run at ~83-91% peak of a single core — **near but not at saturation**. Part of the
+  throughput ceiling is client/loopback/kernel, not framework CPU, so these numbers do not support
+  a pure framework-efficiency claim in either direction.
+- GC now measured for the first time (the prior "zero GC events" was a parser bug, retracted in
+  `cpu-allocation-profiling-results.md`): all frameworks under 1% of wall time, so GC is not the
+  bottleneck — but NextRush shows the *fewest* GC events with a *longer* total pause and the
+  *highest* RSS, consistent with its pooling/sentinel work trading allocation rate for retained heap.
+
+---
+
 ## 1. Executive Summary
+
 
 
 

@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+
 /**
  * Response-framing parity check — every server must send `Content-Length`
  * identically for identical-work scenarios, so no server pays a chunked-
@@ -51,5 +53,76 @@ export function checkFramingParity(headersById, { skip = false, strictLength = t
     }
   }
 
+  return problems;
+}
+
+/**
+ * Read a listening socket's TCP accept-queue depth from the OS.
+ *
+ * Read back from `ss` rather than trusted from each server's source argument:
+ * a framework may ignore, clamp, or silently drop a `backlog` option, and the
+ * whole point of this check is to catch the case where the configured value and
+ * the effective value disagree.
+ *
+ * @param {number} port
+ * @returns {number | null} the backlog, or null when it could not be determined
+ */
+export function readListenBacklog(port) {
+  try {
+    // Send-Q on a LISTEN row is the accept-queue depth.
+    const out = execFileSync('ss', ['-tln'], { encoding: 'utf8' });
+    for (const line of out.split('\n')) {
+      if (!line.includes('LISTEN')) continue;
+      const cols = line.trim().split(/\s+/);
+      const local = cols[3] ?? '';
+      if (local.endsWith(`:${String(port)}`)) {
+        const backlog = Number.parseInt(cols[2] ?? '', 10);
+        return Number.isFinite(backlog) ? backlog : null;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fail when the compared servers do not share one accept-queue depth.
+ *
+ * A deeper queue absorbs connection bursts, so an unequal backlog silently
+ * advantages one server at high concurrency while every response-level parity
+ * check still passes — this is exactly how a 2x skew went unnoticed
+ * (`equalize-benchmark-server-config`). Reported as a failure, not a warning,
+ * matching how `checkFramingParity` treats a framing mismatch.
+ *
+ * @param {Record<string, number | null>} backlogById
+ * @returns {string[]} problems, empty when every server agrees
+ */
+export function checkBacklogParity(backlogById) {
+  const entries = Object.entries(backlogById);
+  const readable = entries.filter(([, v]) => typeof v === 'number');
+  const unreadable = entries.filter(([, v]) => typeof v !== 'number').map(([id]) => id);
+
+  const problems = [];
+  if (readable.length < 2) {
+    // Cannot compare — surfaced explicitly rather than passing silently.
+    problems.push(
+      `accept-queue backlog could not be read for ${unreadable.join(', ') || 'any server'} ` +
+        '(is `ss` available?) — backlog parity was NOT verified'
+    );
+    return problems;
+  }
+
+  const values = [...new Set(readable.map(([, v]) => v))];
+  if (values.length > 1) {
+    const detail = readable.map(([id, v]) => `${id}=${String(v)}`).join(', ');
+    problems.push(
+      `servers disagree on TCP accept-queue backlog (${detail}). A deeper queue ` +
+        'advantages that server at high concurrency; set the same LISTEN_BACKLOG everywhere'
+    );
+  }
+  if (unreadable.length > 0) {
+    problems.push(`backlog unreadable for: ${unreadable.join(', ')} — not verified for those`);
+  }
   return problems;
 }

@@ -23,7 +23,7 @@ import { BASE_URL, PORT } from '../config/constants.js';
 import { DEFAULT_FRAMEWORKS, FRAMEWORKS } from '../config/frameworks.js';
 import { SCENARIOS } from '../config/scenarios.js';
 import { MIDDLEWARE_HEADERS } from '../servers/_shared/payloads.js';
-import { checkFramingParity } from './lib/parity.js';
+import { checkBacklogParity, checkFramingParity, readListenBacklog } from './lib/parity.js';
 import { log, logError, logHeader, logStep, sleep, startServer, stopServer } from './utils.js';
 
 const REFERENCE = 'raw-node';
@@ -42,6 +42,10 @@ async function collectResponses(frameworkId) {
   const fw = FRAMEWORKS[frameworkId];
   const handle = await startServer(fw.file, PORT);
   const out = {};
+  // Read the EFFECTIVE accept-queue depth from the OS while this server is the
+  // one listening. Captured here because the harness runs servers one at a time
+  // on a shared port, so it cannot be read after they have all stopped.
+  out.__backlog = readListenBacklog(PORT);
   try {
     for (const s of SCENARIOS) {
       const opts = { method: s.method };
@@ -150,8 +154,19 @@ export async function runParityCheck(frameworkIds = DEFAULT_FRAMEWORKS) {
     }
   }
 
+  // 5. Server-CONSTRUCTION parity: equal TCP accept-queue depth. Checked
+  // separately from the response loop because it is a property of how each
+  // server was built, not of any one response — the blind spot that let a 2x
+  // backlog skew pass every response-level check
+  // (`equalize-benchmark-server-config`).
+  const backlogById = {};
+  for (const id of ids) backlogById[id] = collected[id].__backlog;
+  for (const p of checkBacklogParity(backlogById)) failures.push(`config · ${p}`);
+
   if (failures.length === 0) {
+    const shown = ids.map((id) => `${id}=${String(backlogById[id])}`).join(', ');
     log(`\n✓ Parity OK — ${ids.length} servers agree on bodies, content types, statuses, and middleware headers.`);
+    log(`  Accept-queue backlog equal across all servers: ${shown}`);
   } else {
     logError(`Parity FAILED with ${failures.length} mismatch(es):`);
     for (const f of failures) log(`  ✗ ${f}`);

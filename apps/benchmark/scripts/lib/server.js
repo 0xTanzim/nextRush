@@ -14,6 +14,34 @@ import { SERVERS_DIR } from './paths.js';
 import { hasTaskset } from './system.js';
 import { sleep } from './time.js';
 
+/**
+ * `--trace-gc` record parser.
+ *
+ * The optional `pooled: N MB, ` segment is what current Node (observed on 26)
+ * emits between the heap figures and the pause times; matching it optionally
+ * keeps older formats working too. Global so a chunk carrying several records
+ * yields all of them rather than only the first.
+ */
+const GC_TRACE_PATTERN =
+  /\[(\d+):[^\]]*\]\s+(\d+)\s+ms:\s+(Scavenge|Mark-Compact|Mark-compact|MinorGC|MajorGC)\s+[\d.]+\s+\([\d.]+\)\s+->\s+[\d.]+\s+\([\d.]+\)\s+MB,(?:\s+pooled:\s+[\d.]+\s+MB,)?\s+([\d.]+)\s+\/\s+([\d.]+)\s+ms/g;
+
+/**
+ * Append every `--trace-gc` record found in a stream chunk to `sink`.
+ *
+ * @param {string} chunk
+ * @param {Array<{ timestamp: number, type: string, pauseMs: number, totalMs: number }>} sink
+ */
+function collectGcEvents(chunk, sink) {
+  for (const m of chunk.matchAll(GC_TRACE_PATTERN)) {
+    sink.push({
+      timestamp: parseInt(m[2], 10),
+      type: m[3],
+      pauseMs: parseFloat(m[4]),
+      totalMs: parseFloat(m[5]),
+    });
+  }
+}
+
 async function waitForServer(url, timeoutMs) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -66,22 +94,19 @@ export async function startServer(
 
   const gcEvents = [];
   let stderr = '';
-
   child.stderr.on('data', (data) => {
     const line = data.toString();
     stderr += line;
+    collectGcEvents(line, gcEvents);
+  });
 
-    const gcMatch = line.match(
-      /\[(\d+):.*\]\s+(\d+)\s+ms:\s+(Scavenge|Mark-Compact|MinorGC|MajorGC)\s+[\d.]+\s+\([\d.]+\)\s+->\s+[\d.]+\s+\([\d.]+\)\s+MB,\s+([\d.]+)\s+\/\s+([\d.]+)\s+ms/
-    );
-    if (gcMatch) {
-      gcEvents.push({
-        timestamp: parseInt(gcMatch[2], 10),
-        type: gcMatch[3],
-        pauseMs: parseFloat(gcMatch[4]),
-        totalMs: parseFloat(gcMatch[5]),
-      });
-    }
+  // Node writes `--trace-gc` records to STDOUT, not stderr. Listening only on
+  // stderr meant GC was never captured on any run, which surfaced as
+  // "GC events: —" and was mistakenly read as "zero GC events occurred" rather
+  // than "GC was never measured" (equalize-benchmark-server-config). Both
+  // streams are parsed so the capture does not depend on which one Node picks.
+  child.stdout.on('data', (data) => {
+    collectGcEvents(data.toString(), gcEvents);
   });
 
   const ready = await waitForServer(`http://localhost:${port}/`, SERVER_START_TIMEOUT_MS);

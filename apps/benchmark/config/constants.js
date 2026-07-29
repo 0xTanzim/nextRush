@@ -18,6 +18,22 @@ export const BASE_URL = `http://localhost:${PORT}`;
  */
 export const NODE_SERVER_FLAGS = Object.freeze(['--expose-gc', '--max-old-space-size=512']);
 
+/**
+ * TCP accept-queue depth (`server.listen`'s `backlog`) applied by EVERY server.
+ *
+ * `@nextrush/adapter-node` ships `DEFAULT_LISTEN_BACKLOG = 1024` while Node's
+ * own default is 511, so leaving the competitors on their default gave NextRush
+ * a 2x deeper accept queue — worth a measured +1.2% at 512 connections and
+ * invisible to a response-parity check. Every server now passes this same value
+ * explicitly, so the accept queue is a controlled variable rather than a
+ * per-framework accident.
+ *
+ * Note this means the harness OVERRIDES the competitors' own defaults; the
+ * generated report must disclose that rather than presenting 1024 as their
+ * native behavior.
+ */
+export const LISTEN_BACKLOG = 1024;
+
 /** Interval (ms) for /proc RSS + CPU sampling. */
 export const METRICS_INTERVAL_MS = 500;
 

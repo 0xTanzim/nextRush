@@ -8,6 +8,7 @@
  */
 
 import express from 'express';
+import { LISTEN_BACKLOG } from '../config/constants.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -101,7 +102,7 @@ app.use((_err, _req, res, _next) => {
   res.status(500).json(ERROR_BODY);
 });
 
-const server = app.listen(PORT, () => {
+const server = app.listen({ port: PORT, backlog: LISTEN_BACKLOG }, () => {
   console.log(`Express server listening on http://localhost:${PORT}`);
 });
 

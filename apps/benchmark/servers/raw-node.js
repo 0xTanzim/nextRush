@@ -11,6 +11,7 @@
  * - Content-Type includes `charset=utf-8` to match the frameworks' JSON headers.
  */
 
+import { LISTEN_BACKLOG } from '../config/constants.js';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -203,7 +204,7 @@ const server = createServer((req, res) => {
   sendJson(res, 404, { error: 'Not Found' });
 });
 
-server.listen(PORT, () => {
+server.listen({ port: PORT, backlog: LISTEN_BACKLOG }, () => {
   console.log(`Raw Node.js server listening on http://localhost:${PORT}`);
 });
 

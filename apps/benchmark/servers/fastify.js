@@ -10,6 +10,7 @@
 
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
+import { LISTEN_BACKLOG } from '../config/constants.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -35,28 +36,28 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const fastify = Fastify({ logger: false });
 
-fastify.get('/', async () => HELLO_WORLD);
-fastify.get('/json', async () => JSON_USER);
-fastify.get('/large-json', async () => LARGE_JSON);
+fastify.get('/', () => HELLO_WORLD);
+fastify.get('/json', () => JSON_USER);
+fastify.get('/large-json', () => LARGE_JSON);
 
-fastify.get('/users/:id', async (req) => userById(req.params.id));
+fastify.get('/users/:id', (req) => userById(req.params.id));
 
-fastify.get('/search', async (req) => searchResponse(req.query.q, req.query.limit));
+fastify.get('/search', (req) => searchResponse(req.query.q, req.query.limit));
 
-fastify.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', async (req) =>
+fastify.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (req) =>
   deepRoute(req.params.orgId, req.params.teamId, req.params.memberId)
 );
 
-fastify.post('/users', async (req) => postUserResponse(req.body));
+fastify.post('/users', (req) => postUserResponse(req.body));
 
-fastify.get('/send-object', async () => SEND_OBJECT_BODY);
+fastify.get('/send-object', () => SEND_OBJECT_BODY);
 
 // bodyLimit raised past the default (default is exactly 1MB — the scenario
 // body is ~1.5MB by design so it never rides the boundary of a default).
 fastify.post(
   '/large-post',
   { bodyLimit: 5 * 1024 * 1024 },
-  async (req) => largePostResponse(Array.isArray(req.body?.items) ? req.body.items.length : 0)
+  (req) => largePostResponse(Array.isArray(req.body?.items) ? req.body.items.length : 0)
 );
 
 fastify.register(fastifyStatic, {
@@ -66,18 +67,22 @@ fastify.register(fastifyStatic, {
 // 5-layer middleware stack — one onRequest hook per layer, scoped to /middleware.
 fastify.register(async (instance) => {
   for (const header of MIDDLEWARE_HEADERS) {
-    instance.addHook('onRequest', async (_req, reply) => {
+    // Sync `done`-callback hook form, matching every other server's sync
+    // middleware layer — an `async` hook would allocate a promise per layer
+    // per request that no other server pays.
+    instance.addHook('onRequest', (_req, reply, done) => {
       reply.header(header.name, mwHeaderValue(header));
+      done();
     });
   }
-  instance.get('/middleware', async () => MIDDLEWARE_BODY);
+  instance.get('/middleware', () => MIDDLEWARE_BODY);
 });
 
-fastify.get('/error', async () => {
+fastify.get('/error', () => {
   throw new Error(ERROR_MESSAGE);
 });
 
-fastify.get('/empty', async (_req, reply) => {
+fastify.get('/empty', (_req, reply) => {
   reply.code(204).send();
 });
 
@@ -86,7 +91,7 @@ fastify.setErrorHandler(async (_error, _req, reply) => {
 });
 
 const start = async () => {
-  await fastify.listen({ port: PORT, host: '0.0.0.0' });
+  await fastify.listen({ port: PORT, host: '0.0.0.0', backlog: LISTEN_BACKLOG });
   console.log(`Fastify server listening on http://localhost:${PORT}`);
 };
 start();

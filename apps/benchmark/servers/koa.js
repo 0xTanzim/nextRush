@@ -15,6 +15,7 @@ import Koa from 'koa';
 import bodyParser from 'koa-bodyparser';
 import Router from 'koa-router';
 import serve from 'koa-static';
+import { LISTEN_BACKLOG } from '../config/constants.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -83,9 +84,12 @@ router.post('/large-post', largeJsonParser, (ctx) => {
 });
 
 // 5-layer middleware stack — one header per layer, chained via await next().
-const middleware = MIDDLEWARE_HEADERS.map((header) => async (ctx, next) => {
+// Sync layer returning next() rather than `async`/`await next()` — Koa awaits
+// the returned promise either way, but the async form allocates an extra
+// promise + state machine per layer that the sync servers do not pay.
+const middleware = MIDDLEWARE_HEADERS.map((header) => (ctx, next) => {
   ctx.set(header.name, mwHeaderValue(header));
-  await next();
+  return next();
 });
 router.get('/middleware', ...middleware, (ctx) => {
   ctx.body = MIDDLEWARE_BODY;
@@ -113,9 +117,13 @@ const staticServe = serve(join(__dirname, '..', 'public'), { defer: false });
 router.get('/static/*filepath', staticServe);
 
 app.use(router.routes());
-app.use(router.allowedMethods());
+// `router.allowedMethods()` is deliberately NOT mounted. It made Koa the only
+// server answering a wrong-method request with 405 + `Allow` (verified: every
+// other server, NextRush included, returns 404), so Koa alone paid a
+// per-request layer for a behavior no scenario exercises and no competitor
+// provides. Removing it equalizes the measured path; it does not handicap Koa.
 
-const server = app.listen(PORT, () => {
+const server = app.listen({ port: PORT, backlog: LISTEN_BACKLOG }, () => {
   console.log(`Koa server listening on http://localhost:${PORT}`);
 });
 

@@ -6,10 +6,12 @@
  * - `app.onError` is idiomatic and fires only on error (no per-request cost).
  */
 
-import { serve } from '@hono/node-server';
+import { createAdaptorServer } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { fileURLToPath } from 'node:url';
+
+import { LISTEN_BACKLOG } from '../config/constants.js';
 
 import {
   ERROR_BODY,
@@ -67,9 +69,11 @@ app.use('/static/*', serveStatic({ root: fileURLToPath(new URL('../public', impo
 
 // 5-layer middleware stack — one header per layer.
 for (const header of MIDDLEWARE_HEADERS) {
-  app.use('/middleware', async (c, next) => {
+  // Sync layer returning next() — see the koa/fastify notes: the async form
+  // costs a promise per layer per request that the sync servers do not pay.
+  app.use('/middleware', (c, next) => {
     c.header(header.name, mwHeaderValue(header));
-    await next();
+    return next();
   });
 }
 app.get('/middleware', (c) => jsonRes(c, MIDDLEWARE_BODY));
@@ -82,8 +86,12 @@ app.get('/empty', (c) => c.newResponse(null, 204));
 
 app.onError((_err, c) => jsonRes(c, ERROR_BODY, 500));
 
-const server = serve({ fetch: app.fetch, port: PORT }, (info) => {
-  console.log(`Hono server listening on http://localhost:${info.port}`);
+// `serve()` has no backlog option, so the server is created without listening
+// and `listen` is called directly — the only way to give Hono the same
+// accept-queue depth as the other five servers.
+const server = createAdaptorServer({ fetch: app.fetch });
+server.listen({ port: PORT, backlog: LISTEN_BACKLOG }, () => {
+  console.log(`Hono server listening on http://localhost:${PORT}`);
 });
 
 const shutdown = () => server.close(() => process.exit(0));

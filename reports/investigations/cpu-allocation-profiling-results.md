@@ -75,7 +75,20 @@ version of `scripts/profile.js` does not yet do.
 | `route-params` | 0 | 0 |
 | `post-json` | 0 | 0 |
 
-**Finding — directly confirms reconciliation report §9.5.** Zero GC events fired during any of
+> **⚠️ RETRACTED 2026-07-29 — this finding was a parser failure, not a measurement.** The harness
+> captured zero GC events because of two independent bugs, not because zero GC occurred: (1) the
+> `--trace-gc` regex did not match current Node, which emits `pooled: 0.0 MB,` between the heap
+> figures and the pause times (proven against a real log: old regex 0 events, fixed regex 69); and
+> (2) Node writes `--trace-gc` records to **stdout**, while the harness listened only on `stderr`
+> (proven by separating the streams: 8 GC lines on stdout, 0 on stderr). Both are fixed in
+> `equalize-benchmark-server-config`. Real measured data (pinned, 256c, 3 runs) shows GC firing in
+> every framework — raw-node 607 events/313.72ms, nextrush 578/205.61ms, fastify 586/236.14ms, hono
+> 815/245.28ms, koa 718/270.65ms, express 699/727.03ms. All are under 1% of wall time, so the
+> *conclusion* that GC is not the bottleneck survives — but it now rests on evidence rather than on
+> a broken parser. This retraction is recorded because the false reading was used to support a
+> NextRush-favourable conclusion.
+
+**Finding — SUPERSEDED, see the retraction above.** Zero GC events fired during any of
 the four 20-second, 64-connection runs. This is a direct trace-level confirmation of §9.5's
 tail-latency-based inference that "GC pauses are not the mechanism" for NextRush's per-request
 cost — previously supported only by p99/p50 ratio evidence, now additionally confirmed by the
@@ -115,7 +128,10 @@ remains correctly flagged as needing its own decision (recommendation 12's ADR).
   allocation-count argument for the first time via an independent measurement method.
 - **F-05** (no CPU/allocation profiling capability): closed by this change — the tooling now
   exists and has produced its first real evidence.
-- **§9.5** (GC pauses are not the mechanism): confirmed directly — zero GC events across all four
+- **§9.5** (GC pauses are not the mechanism): **conclusion holds, evidence retracted and replaced.**
+  The "zero GC events" reading was a double parser/stream bug, not a measurement (see the retraction
+  above). Re-measured with the fixed harness, GC fires in every framework but stays under 1% of wall
+  time, so GC still is not the mechanism — on real data this time.
   scenarios at representative load.
 - **§16** (concurrency collapse is a per-request-cost artifact, not a distinct defect): directly
   supported — event-loop utilization is already ~99.96% at only 64 connections, well below the
