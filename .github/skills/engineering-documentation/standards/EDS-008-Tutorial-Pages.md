@@ -42,7 +42,7 @@ Each step introduces **one** new idea and follows the same rhythm — teaching o
 A reader should never wonder "did that work?" — every step ends by showing what "working" looks like.
 
 > **Front-matter:** tutorials declare `difficulty`, `estimatedTime`, and `prerequisites`. The docs
-> collection schema (`apps/docs/source.config.ts`) currently captures only `title`/`description`
+> collection schema (`apps/website/source.config.ts`) currently captures only `title`/`description`
 > and strips the rest, so also show them as a visible line under Prerequisites until the schema +
 > a header component render them.
 

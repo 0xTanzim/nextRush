@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // (RFC-024 §8.3 — "resolved once"), so each scenario needs a fresh module
 // registry: vi.resetModules() + a dynamic re-import of the code under test,
 // rather than relying on whatever `next` happens to be on disk in this
-// monorepo (apps/docs pulls in a real `next`, making ambient-absence tests
+// monorepo (apps/website pulls in a real `next`, making ambient-absence tests
 // non-deterministic).
 describe('handle() — ctx.waitUntil / after() capability probe', () => {
   /** Every real Next.js invocation always supplies a context. */

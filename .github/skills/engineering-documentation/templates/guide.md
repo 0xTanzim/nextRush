@@ -6,7 +6,7 @@
   (those are Concept / Reference / Architecture, linked). Take a position. Front-matter required.
 
   difficulty + estimatedTime live in front-matter as the authoring standard. NOTE: the current
-  docs collection schema (apps/docs/source.config.ts) captures only title/description, so until
+  docs collection schema (apps/website/source.config.ts) captures only title/description, so until
   it's extended + a header component renders them, ALSO surface them as a visible line under
   Prerequisites. Drop the visible line once the platform renders the front-matter.
 */}

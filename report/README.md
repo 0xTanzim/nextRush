@@ -43,7 +43,7 @@ empty folders.
 - **`docs/RFC/`:** durable architectural *decisions* that come out of a review (an audit may
   recommend a change; the ratified decision is an RFC).
 - **`openspec/`:** the *requirements* a change implements (delta specs → living capability specs).
-- **`apps/docs/`:** user-facing documentation and blog posts.
+- **`apps/website/`:** user-facing documentation and blog posts.
 
 A review here often spawns an RFC and an OpenSpec change; cross-link between them rather than
 duplicating content.

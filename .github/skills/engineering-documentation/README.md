@@ -53,7 +53,7 @@ Start with the problem · explain *why* before *how* · one page, one mental mod
 
 ## Using it in a repo
 
-The skill is **tool-agnostic** — it teaches the craft. Repo-specific facts (which MDX components exist, where content lives, package tiers) belong in that repo's steering. For NextRush, that's `.kiro/steering/documentation.instructions.md`; read it alongside the skill when writing for `apps/docs`.
+The skill is **tool-agnostic** — it teaches the craft. Repo-specific facts (which MDX components exist, where content lives, package tiers) belong in that repo's steering. For NextRush, that's `.kiro/steering/documentation.instructions.md`; read it alongside the skill when writing for `apps/website`.
 
 ---
 

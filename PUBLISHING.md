@@ -3,7 +3,7 @@
 Quick reference for NextRush's package tiers, current Changesets config, and the GitHub setup a
 release depends on. For the actual step-by-step release procedure — what to run, in what order,
 and every real mistake we've already hit and fixed — read the
-[Release Handbook](apps/docs/content/docs/architecture/release-handbook.mdx) instead. This file is
+[Release Handbook](apps/website/content/docs/architecture/release-handbook.mdx) instead. This file is
 the table you keep open in a second tab; that one is what you follow.
 
 ## Versioning model
@@ -133,7 +133,7 @@ bump type; `ci.yml` doesn't call it independently yet.
 | --- | --- | --- |
 | `ci.yml` | push/PR to `main` | `pnpm verify` (build, test, typecheck, lint) + changeset-presence guard + scaffolder install matrix + cross-platform dev-CLI smoke test |
 | `release.yml` | push to `main` (paths: `.changeset/**`, `packages/**`, lockfile, root `package.json`) | Opens/updates the "Version Packages" PR via `changesets/action`; on merge, publishes to npm |
-| `docs-pages.yml` | push to `main` (paths: `apps/docs/**`) | Builds and deploys the docs site to GitHub Pages |
+| `docs-pages.yml` | push to `main` (paths: `apps/website/**`) | Builds and deploys the docs site to GitHub Pages |
 | `runtime-conformance.yml` | push/PR to `main` | Real Bun/Deno/workerd conformance tests, plus a bundle-size budget check |
 | `performance-gate.yml` | PR touching perf-sensitive paths | Benchmark smoke test against a committed baseline (inactive-but-wired until a baseline is committed) |
 | `deploy-verification.yml` | nightly cron + manual | Real cloud deploys (Lambda, Cloudflare, Vercel, GCF) — skips cleanly if secrets are missing |
@@ -188,7 +188,7 @@ pnpm changeset publish --tag pr-123 --no-git-tag
 
 ## Further reading
 
-- [Release Handbook](apps/docs/content/docs/architecture/release-handbook.mdx) — the full lifecycle,
+- [Release Handbook](apps/website/content/docs/architecture/release-handbook.mdx) — the full lifecycle,
   the CLI-vs-CI decision, mermaid diagrams for the release-time flow, and every real edge case
   found running this process for the first time. Read this before running any release.
 - [Hybrid Versioning RFC](report/RFC-HYBRID-VERSIONING-AND-RELEASE-STRATEGY.md)

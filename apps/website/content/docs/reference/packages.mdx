@@ -1,0 +1,42 @@
+---
+title: 'All Packages (A-Z)'
+description: Every publishable NextRush package in one alphabetical index, tagged by capability category and linked to its API reference.
+---
+
+import { PackagesAZTable } from '@/components/mdx';
+import { packageRegistry } from '@/lib/package-registry';
+
+Every publishable package, searchable and filterable by category. This table renders directly
+from the package registry — the same source `/packages` and the sidebar's capability groups
+read from — so it can never drift out of sync with the real package set. For the dependency
+chain and package tiers, see [Package Hierarchy](/docs/architecture/package-hierarchy).
+
+<PackagesAZTable packages={packageRegistry} />
+
+## Category legend
+
+| Category | Meaning |
+| --- | --- |
+| Core | Foundation packages (`types`, `errors`, `core`, `router`, `runtime`, `stream`) plus the `nextrush` meta package that re-exports them |
+| Class Runtime | Decorators, DI, controllers, modules, guards, interceptors, filters (`@nextrush/class`, `@nextrush/di`) |
+| Security | CORS, security headers, CSRF, and rate limiting middleware |
+| Request Data | Body parsing, file uploads, cookies, and request validation middleware |
+| Responses | Compression, static files, templates, and OpenAPI generation middleware |
+| Observability | Logging, request IDs, and response-time tracking middleware |
+| Real-time & Events | Long-lived, app-scoped services registered with `app.extend()` — WebSocket and the event emitter |
+| Adapters | Runtime adapters — connect `Application` to a specific runtime's HTTP primitives (see the [Adapter Contract](/docs/architecture/contracts)) |
+| Tooling | Build-time and CLI tooling, not runtime dependencies of a deployed app |
+
+<Callout type="info" title="Keeping this index accurate">
+  This table renders from `apps/website/src/lib/package-registry.ts`, not a hand-typed list — a
+  new package only needs a registry entry, never a second edit here. `pnpm docs:verify-registry`
+  fails the build if the registry and the real `packages/**/package.json` set ever disagree.
+</Callout>
+
+## See also
+
+<Cards>
+  <Card title="Package Hierarchy" href="/docs/architecture/package-hierarchy">
+    The dependency order between packages — which ones sit below which.
+  </Card>
+</Cards>

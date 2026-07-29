@@ -217,7 +217,7 @@ This is the **best single property of the codebase**: dependency direction is ne
 | **Getting started** | 7/10 | README quick-start is strong; class first-run needs the metadata-emitting toolchain |
 | **CLI** | 7.5/10 | `nextrush dev|build|generate` + codemods + diagnostics; Windows/`rm -rf`/`--watch` issues fixed (audit history) |
 | **Error messages** | 9/10 | **DI errors are best-in-class** — structured with numbered remediation (`di/errors.ts`); guard/controller errors typed |
-| **Documentation** | 7/10 | Elite RFC/ADR + tiered standards; user-facing depth partial (Fumadocs site in `apps/docs`) |
+| **Documentation** | 7/10 | Elite RFC/ADR + tiered standards; user-facing depth partial (Fumadocs site in `apps/website`) |
 | **Examples** | 6.5/10 | Playground + `examples/openapi-basic`; needs a broad cookbook + an enterprise example (`03` T036) |
 | **IDE / IntelliSense** | 7/10 | Strong types; class barrel + shims add autocomplete noise (D-02) |
 | **Debugging / stack traces** | 6.5/10 | Reflection + registrar layers add frames; no source-map-aware handler naming; diagnostics help |
@@ -296,7 +296,7 @@ This is the **best single property of the codebase**: dependency direction is ne
 | **ADRs** | ✅ Good | 6 ADRs in `docs/adr/` (decorator dialect, extension model, class consolidation, reflection boundary, tiers, deferred features) |
 | **Architecture docs** | ✅ | `07-runtime-architecture.md` + steering instructions |
 | **API documentation** | ⚠️ Partial | Tiered standards exist; not every public API has a reference entry (D-12) |
-| **Tutorials / guides** | ⚠️ Partial | Fumadocs site (`apps/docs`); getting-started good; enterprise topics thin |
+| **Tutorials / guides** | ⚠️ Partial | Fumadocs site (`apps/website`); getting-started good; enterprise topics thin |
 | **Examples** | ⚠️ Sparse | `examples/openapi-basic` + playground; no broad cookbook |
 | **Migration guides** | ✅ | `docs/migrations/*` (class consolidation, extension model) |
 

@@ -103,7 +103,7 @@ Paths are relative to this skill's root. Read a file at the moment its row appli
 | Reviewing before returning a page | `checklists/EDS-014-Documentation-Review-Checklist.md` |
 | Final pre-publish pass | `checklists/EDS-015-Documentation-Publish-Checklist.md` |
 
-> **Repo seam.** This skill is tool-agnostic — it teaches the craft. Which MDX components actually exist in *this* repo's docs site (Fumadocs), where content lives, and the package tiers are in `.kiro/steering/documentation.instructions.md`. Read that too when writing for `apps/docs`.
+> **Repo seam.** This skill is tool-agnostic — it teaches the craft. Which MDX components actually exist in *this* repo's docs site (Fumadocs), where content lives, and the package tiers are in `.kiro/steering/documentation.instructions.md`. Read that too when writing for `apps/website`.
 
 ---
 

@@ -12,7 +12,7 @@ This project follows [Semantic Versioning](https://semver.org/) and uses a unifi
   `@nextrush/*` package's `exports` map will ever declare a `require` condition, and
   CommonJS output is banned — not deferred, not "currently unsupported," not a roadmap
   item. Dual-publish (ESM + CommonJS) was formally evaluated and explicitly **rejected**:
-  see `apps/docs/content/docs/internals/versioning.mdx` ("Module format: ESM-only,
+  see `apps/website/content/docs/internals/versioning.mdx` ("Module format: ESM-only,
   permanently") and `openspec/changes/archive/2026-07-17-module-format-policy/design.md`
   for the full rationale (dual-package hazard on the `@nextrush/di`
   `reflect-metadata`/`tsyringe` path; Node ≥22's native `require(esm)` already covering

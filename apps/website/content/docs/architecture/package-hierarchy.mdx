@@ -1,0 +1,639 @@
+---
+title: Package Hierarchy
+description: NextRush's modular package structure — understand dependencies, responsibilities, and how packages fit together.
+---
+
+import { Mermaid } from '@/components/mdx';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+NextRush uses a modular monorepo architecture. Each package has a single responsibility and explicit dependencies.
+
+This page has two diagrams: "The Big Picture" below is a curated, hand-arranged diagram grouped
+by architectural layer (Foundation, Core, Adapters, …) for readability. The [Dependency Graph
+(Generated from Source)](#dependency-graph-generated-from-source) further down is mechanically
+produced from every package's real `package.json` — see the callout there for how, and trust it
+first if the two ever disagree.
+
+## The Big Picture
+
+<Mermaid chart={`
+graph TB
+    subgraph "Your Application"
+        APP[Your App]
+    end
+
+    subgraph "Meta Package"
+        NEXTRUSH[nextrush]
+    end
+
+    subgraph "Extensions Layer"
+        CLASS[class]
+        LOGGER[logger]
+        STATIC[static]
+        TEMPLATE[template]
+        WS[websocket]
+        STREAM[stream]
+        OPENAPI[openapi]
+    end
+
+    subgraph "Middleware Layer"
+        CORS[cors]
+        HELMET[helmet]
+        BODY[body-parser]
+        COMPRESS[compression]
+        RATE[rate-limit]
+        VALIDATION[validation]
+    end
+
+    subgraph "Core Layer"
+        CORE[core]
+        ROUTER[router]
+        DI[di]
+    end
+
+    subgraph "Adapter Layer"
+        NODE[adapter-node]
+        BUN[adapter-bun]
+        DENO[adapter-deno]
+        EDGE[adapter-edge]
+    end
+
+    subgraph "Foundation"
+        TYPES[types]
+        ERRORS[errors]
+        RUNTIME[runtime]
+    end
+
+    APP --> NEXTRUSH
+    NEXTRUSH --> CORE
+    NEXTRUSH --> ROUTER
+    NEXTRUSH --> NODE
+    NEXTRUSH --> ERRORS
+
+    CLASS --> DI
+    CLASS --> ERRORS
+    CLASS --> TYPES
+    CLASS -.->|peer| ROUTER
+    CLASS -.->|peer| CORE
+
+    CORE --> TYPES
+    CORE --> ERRORS
+    ROUTER --> TYPES
+    DI --> TYPES
+    ERRORS --> TYPES
+    RUNTIME --> TYPES
+    RUNTIME --> ERRORS
+
+    NODE --> CORE
+    NODE --> RUNTIME
+    BUN --> CORE
+    BUN --> RUNTIME
+    DENO --> CORE
+    DENO --> RUNTIME
+    EDGE --> CORE
+    EDGE --> RUNTIME
+
+    NEXTRUSH --> TYPES
+
+    CORS --> TYPES
+    HELMET --> TYPES
+    BODY --> TYPES
+    COMPRESS --> TYPES
+    RATE --> TYPES
+    VALIDATION --> TYPES
+    STREAM --> TYPES
+    OPENAPI --> TYPES
+
+`} />
+
+## Package Categories
+
+### Foundation Layer
+
+These packages form the base of the hierarchy. They depend only on each other — never on higher layers.
+
+| Package             | Responsibility                  | Dependencies  |
+| ------------------- | -------------------------------- | ------------- |
+| `@nextrush/types`   | TypeScript types and interfaces | None          |
+| `@nextrush/errors`  | HTTP error classes              | types         |
+| `@nextrush/runtime` | Runtime detection, BodySource   | types, errors |
+
+```ts
+import type { Context, Middleware, Extension } from '@nextrush/types';
+import { NotFoundError, BadRequestError } from '@nextrush/errors';
+import { getRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
+```
+
+### Core Layer
+
+The essential packages that make up the framework:
+
+| Package            | Responsibility                      | Dependencies               |
+| ------------------- | ------------------------------------ | --------------------------- |
+| `@nextrush/core`   | Application, middleware composition | types, errors              |
+| `@nextrush/router` | Segment trie routing                | types                      |
+| `@nextrush/di`     | Dependency injection container      | reflect-metadata, tsyringe |
+
+```ts
+import { createApp, compose } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { Service, Repository, container } from '@nextrush/di';
+```
+
+### Adapter Layer
+
+Platform-specific HTTP handling:
+
+| Package                  | Runtime                 | Dependencies                 |
+| ------------------------ | ------------------------ | ----------------------------- |
+| `@nextrush/adapter-node` | Node.js 22+              | core, runtime, errors, types |
+| `@nextrush/adapter-bun`  | Bun 1.0+                 | core, runtime, errors, types |
+| `@nextrush/adapter-deno` | Deno 2.0+                | core, runtime, errors, types |
+| `@nextrush/adapter-edge` | Cloudflare, Vercel Edge  | core, runtime, errors, types |
+
+```ts
+import { listen } from '@nextrush/adapter-node';
+import { serve } from '@nextrush/adapter-bun';
+import { createHandler } from '@nextrush/adapter-edge';
+```
+
+### Middleware Layer
+
+Reusable middleware packages. All middleware depends only on `@nextrush/types`.
+
+| Package                 | Responsibility                     |
+| ------------------------ | ----------------------------------- |
+| `@nextrush/body-parser` | Parse JSON, form, multipart bodies |
+| `@nextrush/cors`        | Cross-Origin Resource Sharing       |
+| `@nextrush/helmet`      | Security headers                    |
+| `@nextrush/compression` | Response compression                |
+| `@nextrush/rate-limit`  | Rate limiting                       |
+| `@nextrush/request-id`  | Request ID generation               |
+| `@nextrush/timer`       | Response time tracking              |
+| `@nextrush/cookies`     | Cookie parsing and setting          |
+| `@nextrush/validation`  | Standard Schema request validation |
+
+```ts
+import { json, urlencoded } from '@nextrush/body-parser';
+import { cors } from '@nextrush/cors';
+import { helmet } from '@nextrush/helmet';
+import { compression } from '@nextrush/compression';
+import { rateLimit } from '@nextrush/rate-limit';
+import { validate } from '@nextrush/validation';
+```
+
+### Class Runtime, Extensions & Registrars Layer
+
+`@nextrush/class` is the unified class-based API — it consolidates the former
+`@nextrush/decorators` and `@nextrush/controllers` split (both packages have been removed — see
+[Deprecations](/docs/migrate/deprecations)), and re-exports `@nextrush/di`. Beyond that, the
+remaining extensions layer is mostly middleware, plus one registrar and one Extension:
+
+| Package               | Responsibility                                                      | Dependencies                |
+| ---------------------- | --------------------------------------------------------------------- | ----------------------------- |
+| `@nextrush/class`     | Decorators, controller registration, modules, guards, interceptors, filters, lifecycle, request scope. Re-exports `@nextrush/di`. | di, errors, router, types, core (also declared as peerDependencies — see note below) |
+| `@nextrush/logger`    | Structured logging                                                    | @nextrush/log, types        |
+| `@nextrush/static`    | Static file serving                                                    | types                        |
+| `@nextrush/template`  | Template engine support                                               | types                        |
+| `@nextrush/websocket` | WebSocket support                                                      | types                        |
+| `@nextrush/events`    | Event system (pub/sub) — the one Extension                            | —                             |
+
+```ts
+import { registerControllers, registerModule } from 'nextrush/class';
+import { logger } from '@nextrush/logger';
+import { serveStatic } from '@nextrush/static';
+```
+
+<Callout type="info" title="Decorators/controllers shims removed — import from nextrush/class">
+  `@nextrush/decorators` and `@nextrush/controllers` — the pre-consolidation split — have been
+  removed from the workspace. Import everything from `nextrush/class` directly; see
+  [Deprecations](/docs/migrate/deprecations) for the exact old-import → new-import map and the
+  automated codemod.
+</Callout>
+
+### Dev Tools
+
+| Package         | Responsibility                        | Dependencies                        |
+| ---------------- | --------------------------------------- | -------------------------------------- |
+| `@nextrush/dev` | Development server, build tools, CLI  | @swc-node/register, @swc/core, tsx  |
+
+### Meta Package
+
+Convenience package that re-exports essentials:
+
+| Dependency               | Exports                               |
+| ------------------------- | ---------------------------------------- |
+| `@nextrush/core`         | `createApp`, `compose`, `Application`   |
+| `@nextrush/router`       | `createRouter`, `Router`, `endpoint`   |
+| `@nextrush/adapter-node` | `listen`, `serve`, `createHandler`     |
+| `@nextrush/errors`       | `HttpError`, all error subclasses      |
+| `@nextrush/types`        | `ContentType`, `HttpStatus`            |
+
+```ts
+import { createApp, createRouter, listen } from 'nextrush';
+```
+
+`nextrush/class` is a separate subpath export of the same meta package — it re-exports
+`@nextrush/class`'s full surface (decorators, DI, modules, guards, interceptors, filters,
+lifecycle) without pulling those symbols into the root `nextrush` import.
+
+## Dependency Rules
+
+NextRush follows strict dependency rules: lower packages never import from higher packages, and
+circular dependencies are blocked at CI. If you encounter an import error, check the hierarchy
+diagram above.
+
+### 1. types is the root — no internal dependencies
+
+```
+@nextrush/types → (none)
+```
+
+### 2. Foundation packages depend only on types
+
+```
+@nextrush/errors → types
+@nextrush/runtime → types, errors
+```
+
+### 3. Core packages depend on foundation
+
+```
+@nextrush/core → types, errors
+@nextrush/router → types
+@nextrush/di → reflect-metadata, tsyringe
+```
+
+### 4. Adapters depend on core + runtime + foundation
+
+```
+@nextrush/adapter-node → core, runtime, errors, types
+@nextrush/adapter-bun → core, runtime, errors, types
+```
+
+### 5. Middleware depends only on types
+
+```
+@nextrush/cors → types
+@nextrush/body-parser → types
+```
+
+### 6. The class runtime depends on di + foundation + core/router
+
+```
+@nextrush/class → di, errors, router, types, core
+```
+
+<Callout type="warn" title="core and router are dependencies AND peerDependencies, not peer-only">
+  `packages/class/package.json` lists `@nextrush/core` and `@nextrush/router` in both its
+  `dependencies` and its `peerDependencies` — verified directly against the file, not inferred.
+  This is a deliberate double-declaration (common for a package that both needs a peer's types
+  at compile time and re-exercises its runtime behavior), not a peer-only relationship. Treat
+  `@nextrush/class` as depending on the full stack below it, same as any other package in this
+  hierarchy. Separately, `@nextrush/di` uses `@nextrush/types` at compile time (devDependency)
+  only — its production dependencies are `reflect-metadata` and `tsyringe`.
+</Callout>
+
+## Dependency Graph (Generated from Source)
+
+<Callout type="info" title="This graph is generated, not hand-drawn">
+  Everything below this line is produced by
+  [`apps/website/scripts/internals/generate-dependency-graph.mjs`](https://github.com/0xTanzim/nextRush/blob/main/apps/website/scripts/internals/generate-dependency-graph.mjs),
+  a script that walks every `packages/**/package.json`, reads its real `dependencies` field, and
+  emits the edges below. It does not read this `.mdx` file or any hand-maintained list — re-run
+  it after adding or changing a package's dependencies and the graph updates itself. Run it from
+  the repo root: `node apps/website/scripts/internals/generate-dependency-graph.mjs`.
+</Callout>
+
+The script scanned **36 `package.json` files** under `packages/` (35 publishable packages plus
+the private, never-published `@nextrush/adapter-conformance` test suite — see [Versioning &
+Compatibility](/docs/architecture/versioning)) and found **67 internal `@nextrush/*` edges**
+(external dependencies like `tsyringe` and `reflect-metadata` are listed per-package below the
+graph, not as graph nodes — the graph's job is the internal hierarchy).
+
+<Mermaid chart={`
+graph LR
+    adapter_bun["adapter-bun"]
+    adapter_conformance["adapter-conformance"]
+    adapter_deno["adapter-deno"]
+    adapter_edge["adapter-edge"]
+    adapter_node["adapter-node"]
+    body_parser["body-parser"]
+    class["class"]
+    compression["compression"]
+    controllers["controllers"]
+    cookies["cookies"]
+    core["core"]
+    cors["cors"]
+    csrf["csrf"]
+    decorators["decorators"]
+    dev["dev"]
+    di["di"]
+    errors["errors"]
+    events["events"]
+    helmet["helmet"]
+    logger["logger"]
+    multipart["multipart"]
+    openapi["openapi"]
+    rate_limit["rate-limit"]
+    request_id["request-id"]
+    router["router"]
+    runtime["runtime"]
+    static["static"]
+    stream["stream"]
+    template["template"]
+    testing["testing"]
+    timer["timer"]
+    types["types"]
+    validation["validation"]
+    websocket["websocket"]
+    create_nextrush["create-nextrush"]
+    nextrush["nextrush"]
+
+    adapter_bun --> core
+    adapter_bun --> errors
+    adapter_bun --> runtime
+    adapter_bun --> stream
+    adapter_bun --> types
+    adapter_deno --> core
+    adapter_deno --> errors
+    adapter_deno --> runtime
+    adapter_deno --> stream
+    adapter_deno --> types
+    adapter_edge --> core
+    adapter_edge --> errors
+    adapter_edge --> runtime
+    adapter_edge --> stream
+    adapter_edge --> types
+    adapter_node --> core
+    adapter_node --> errors
+    adapter_node --> runtime
+    adapter_node --> stream
+    adapter_node --> types
+    body_parser --> types
+    class --> core
+    class --> di
+    class --> errors
+    class --> router
+    class --> types
+    compression --> types
+    controllers --> class
+    controllers --> di
+    cookies --> types
+    core --> errors
+    core --> types
+    cors --> types
+    csrf --> types
+    decorators --> class
+    di --> types
+    errors --> types
+    helmet --> types
+    logger --> types
+    multipart --> types
+    openapi --> types
+    rate_limit --> types
+    request_id --> types
+    router --> types
+    runtime --> errors
+    runtime --> types
+    static --> types
+    stream --> types
+    template --> types
+    testing --> class
+    testing --> core
+    testing --> di
+    testing --> router
+    testing --> types
+    timer --> types
+    validation --> errors
+    validation --> types
+    websocket --> types
+    nextrush --> adapter_node
+    nextrush --> class
+    nextrush --> controllers
+    nextrush --> core
+    nextrush --> decorators
+    nextrush --> di
+    nextrush --> errors
+    nextrush --> router
+    nextrush --> types
+`} />
+
+### Findings from the generated scan (not visible in the curated diagram above)
+
+Running the script surfaced two facts worth stating plainly rather than folding into the curated
+diagram, since a hand-arranged diagram can hide exactly this kind of detail:
+
+- **`@nextrush/logger` depends on `@nextrush/log` (`^0.2.1`) — a separately published external
+  package, not a workspace member.** It is the one genuine external-runtime-dependency case
+  outside the three named exceptions in [Design Principles](/docs/architecture/design-principles)
+  (`reflect-metadata`, `tsyringe`, `@clack/prompts`). Verified directly against
+  `packages/middleware/logger/package.json` — this is not a typo in the graph script, `@nextrush/log`
+  really is declared as a runtime dependency there.
+- **`nextrush` (the meta package) no longer depends on `@nextrush/decorators` or
+  `@nextrush/controllers`** — both were removed from its `dependencies` when the two shim
+  packages were deleted from the workspace (see [Deprecations](/docs/migrate/deprecations)). It
+  depends only on `@nextrush/class` for the class-based API surface now.
+
+<details>
+<summary>Full generated edge list (34 packages, exact `dependencies` field)</summary>
+
+- **@nextrush/adapter-bun** `1.0.0` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
+- **@nextrush/adapter-conformance** `1.0.0` → (none)
+- **@nextrush/adapter-deno** `1.0.0` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
+- **@nextrush/adapter-edge** `1.0.0` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
+- **@nextrush/adapter-node** `3.1.0` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
+- **@nextrush/body-parser** `3.1.0` → @nextrush/types
+- **@nextrush/class** `3.1.0` → @nextrush/core, @nextrush/di, @nextrush/errors, @nextrush/router, @nextrush/types [external: reflect-metadata]
+- **@nextrush/compression** `3.1.0` → @nextrush/types
+- **@nextrush/cookies** `1.0.0` → @nextrush/types
+- **@nextrush/core** `3.1.0` → @nextrush/errors, @nextrush/types
+- **@nextrush/cors** `3.1.0` → @nextrush/types
+- **@nextrush/csrf** `1.0.0` → @nextrush/types
+- **@nextrush/dev** `1.0.0` → (none) [external: @swc-node/register, @swc/core, tsx]
+- **@nextrush/di** `3.1.0` → @nextrush/types [external: reflect-metadata, tsyringe]
+- **@nextrush/errors** `3.1.0` → @nextrush/types
+- **@nextrush/events** `1.0.0` → (none)
+- **@nextrush/helmet** `3.1.0` → @nextrush/types
+- **@nextrush/logger** `1.0.0` → @nextrush/log, @nextrush/types
+- **@nextrush/multipart** `1.0.0` → @nextrush/types
+- **@nextrush/openapi** `1.0.0` → @nextrush/types
+- **@nextrush/rate-limit** `1.0.0` → @nextrush/types
+- **@nextrush/request-id** `1.0.0` → @nextrush/types
+- **@nextrush/router** `3.1.0` → @nextrush/types
+- **@nextrush/runtime** `3.1.0` → @nextrush/errors, @nextrush/types
+- **@nextrush/static** `1.0.0` → @nextrush/types
+- **@nextrush/stream** `3.1.0` → @nextrush/types
+- **@nextrush/template** `1.0.0` → @nextrush/types
+- **@nextrush/testing** `1.0.0` → @nextrush/class, @nextrush/core, @nextrush/di, @nextrush/router, @nextrush/types [external: reflect-metadata]
+- **@nextrush/timer** `1.0.0` → @nextrush/types
+- **@nextrush/types** `3.1.0` → (none)
+- **@nextrush/validation** `1.0.0` → @nextrush/errors, @nextrush/types
+- **@nextrush/websocket** `1.0.0` → @nextrush/types
+- **create-nextrush** `1.0.0` → (none) [external: @clack/prompts]
+- **nextrush** `3.1.0` → @nextrush/adapter-node, @nextrush/class, @nextrush/core, @nextrush/di, @nextrush/errors, @nextrush/router, @nextrush/types [external: reflect-metadata]
+
+</details>
+
+## Package Size Targets
+
+Each package has a maximum size to keep the framework lean:
+
+| Package                  | Max LOC |
+| -------------------------- | -------- |
+| `@nextrush/types`        | 500      |
+| `@nextrush/errors`       | 600      |
+| `@nextrush/core`         | 1,500    |
+| `@nextrush/router`       | 1,000    |
+| `@nextrush/di`           | 400      |
+| `@nextrush/adapter-*`    | 500      |
+| `@nextrush/middleware/*` | 300      |
+| `@nextrush/extensions/*` | 600      |
+| `@nextrush/stream`       | 300      |
+| `@nextrush/openapi`      | 600      |
+| `@nextrush/validation`   | 300      |
+
+`@nextrush/class` has no fixed LOC ceiling in the current targets — it consolidates what were
+previously three separately-budgeted packages (decorators, di re-export, controllers).
+
+## Common Installation Patterns
+
+Choose the pattern that matches your project needs.
+
+<Tabs items={['Minimal', 'Meta Package', 'Full API', 'Class-based DI']}>
+  <Tab value="Minimal">
+    Functional style with direct package imports:
+
+    ```bash
+    npm install @nextrush/core @nextrush/router @nextrush/adapter-node
+    ```
+
+    ```ts
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
+    import { listen } from '@nextrush/adapter-node';
+
+    const app = createApp();
+    const router = createRouter();
+
+    router.get('/', (ctx) => ctx.json({ hello: 'world' }));
+    app.route('/', router);
+    await listen(app, 8080);
+    ```
+
+  </Tab>
+  <Tab value="Meta Package">
+    Single package that re-exports all essentials:
+
+    ```bash
+    npm install nextrush
+    ```
+
+    ```ts
+    import { createApp, createRouter, listen } from 'nextrush';
+
+    const app = createApp();
+    const router = createRouter();
+
+    router.get('/', (ctx) => ctx.json({ hello: 'world' }));
+    app.route('/', router);
+    await listen(app, 8080);
+    ```
+
+  </Tab>
+  <Tab value="Full API">
+    Example stack with security and parsing middleware:
+
+    ```bash
+    npm install nextrush @nextrush/cors @nextrush/helmet @nextrush/body-parser @nextrush/rate-limit
+    ```
+
+    ```ts
+    import { createApp, createRouter, listen } from 'nextrush';
+    import { cors } from '@nextrush/cors';
+    import { helmet } from '@nextrush/helmet';
+    import { json } from '@nextrush/body-parser';
+    import { rateLimit } from '@nextrush/rate-limit';
+
+    const app = createApp();
+    app.use(cors());
+    app.use(helmet());
+    app.use(json());
+    app.use(rateLimit({ window: '1m', max: 100 }));
+
+    const router = createRouter();
+    router.get('/', (ctx) => ctx.json({ hello: 'world' }));
+    app.route('/', router);
+
+    await listen(app, 8080);
+    ```
+
+  </Tab>
+  <Tab value="Class-based DI">
+    Decorator-based controllers with dependency injection:
+
+    ```bash
+    npm install nextrush
+    ```
+
+    ```ts
+    import { createApp, listen } from 'nextrush';
+    import { Controller, Get, Service, registerControllers } from 'nextrush/class';
+
+    @Service()
+    class GreetingService {
+      greet() {
+        return { hello: 'world' };
+      }
+    }
+
+    @Controller('/')
+    class HomeController {
+      constructor(private greeting: GreetingService) {}
+
+      @Get()
+      index() {
+        return this.greeting.greet();
+      }
+    }
+
+    const app = createApp();
+    await registerControllers(app, {
+      root: './src',
+      prefix: '/api',
+    });
+    await listen(app, 8080);
+    ```
+
+  </Tab>
+</Tabs>
+
+## Explore Packages
+
+<Cards>
+  <Card
+    title="Core Packages"
+    description="types, errors, core, router, runtime, di"
+    href="/docs/reference"
+  />
+  <Card
+    title="Adapters"
+    description="Node.js, Bun, Deno, Edge"
+    href="/docs/reference/platforms"
+  />
+  <Card
+    title="Middleware"
+    description="body-parser, cors, helmet, compression, and more"
+    href="/docs/reference"
+  />
+  <Card
+    title="Class Runtime"
+    description="Decorators, DI, modules, guards, interceptors, filters, lifecycle"
+    href="/docs/reference/class"
+  />
+  <Card
+    title="Tooling"
+    description="nextrush meta package, dev tools"
+    href="/docs/reference"
+  />
+</Cards>

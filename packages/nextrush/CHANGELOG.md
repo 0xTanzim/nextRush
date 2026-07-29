@@ -94,7 +94,7 @@
   No migration tooling is provided for this batch — every replacement is a one-line rename or
   import-path swap (`frameguard` is the one exception, needing a CSP directive instead of a
   function call; see the table in
-  [the upgrade guide](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/migrate/upgrade-guide.mdx)
+  [the upgrade guide](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/migrate/upgrade-guide.mdx)
   for the full old → new mapping).
 
 - 7a05218: **BREAKING**: Removed `@nextrush/controllers` and `@nextrush/decorators`.
@@ -123,7 +123,7 @@
 
   Every symbol either package re-exported remains available at its current location in
   `nextrush/class` (or `@nextrush/di` directly) — only the two old import paths are gone. See
-  [Deprecations](https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/migrate/deprecations.mdx)
+  [Deprecations](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/migrate/deprecations.mdx)
   for the complete symbol-by-symbol map.
 
   `nextrush` (the meta package) had `@nextrush/controllers` and `@nextrush/decorators` listed as
