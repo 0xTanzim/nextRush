@@ -7,6 +7,7 @@ HTTP framework benchmark for NextRush v3 with **2 built-in benchmark tools** —
 - **Node.js** >= 22.0.0
 - **pnpm** (monorepo package manager)
 - **wrk** (recommended) — C-based HTTP benchmarking tool
+- **ss** (iproute2) — TCP socket statistics (used by the fairness pre-flight to read the effective accept-queue backlog). The parity gate falls back gracefully with `--no-validate` when `ss` is unavailable.
 
 ### Install wrk
 
@@ -359,8 +360,11 @@ point per competing framework, last place one point (6 frameworks → 6 points f
 pnpm report              # Show latest report
 pnpm report:latest       # Same as above
 
-node scripts/report.js --list           # List all runs
-node scripts/report.js --id <run-id>    # Show specific run
+pnpm report:generate -- --id <run-id>   # Show/regenerate a specific run
+pnpm report:regenerate-all              # Regenerate every stored run + HISTORY.md
+
+# No direct --list flag — browse results/<timestamp>/ (see Directory Structure above)
+# for the available run ids.
 ```
 
 ## Methodology
@@ -374,8 +378,8 @@ node scripts/report.js --id <run-id>    # Show specific run
    path (body parsing, middleware chain, deep-route descent) is JIT-warm before timing.
 4. **Cooldown** — pause between frameworks to prevent resource carryover.
 5. **No pipelining** — pipelining=1 for realistic client simulation.
-6. **Identical work** — the 8 core scenarios return byte-identical responses; middleware-stack
-   and error-handling are per-framework idiomatic (mechanisms differ, disclosed above).
+6. **Identical work** — 10 of the 13 scenarios return byte-identical responses; middleware-stack,
+   error-handling, and static-file are per-framework idiomatic (mechanisms differ, disclosed above).
 7. **Non-2xx guard** — any non-2xx in a success scenario flags the run invalid.
 8. **Memory tracking** — RSS sampled from `/proc/<pid>/status` during the benchmark (Linux).
 9. **Statistical rigor** — mean ± sample stddev + CV across runs; **only `standard`/`full`
@@ -426,8 +430,19 @@ apps/benchmark/
 │   ├── registration-cost.js# Class-path boot cost by controller count (spawns child per scale×run)
 │   ├── registration-cost-child.js# Child harness: boots N controllers, prints { n, bootMs }
 │   ├── smoke-test.js     # Server verification (status + middleware headers)
-│   ├── report.js         # Report viewer
 │   ├── utils.js          # Thin barrel re-exporting scripts/lib/*
+│   ├── alloc/            # Bytes-per-op allocation harnesses (see Allocation Harnesses below)
+│   │   ├── compose-alloc.js compose-alloc-child.js
+│   │   ├── context-alloc.js context-alloc-child.js
+│   │   ├── context-raw-alloc.js context-raw-alloc-child.js
+│   │   ├── context-state-alloc.js context-state-alloc-child.js
+│   │   ├── dispatch-alloc.js dispatch-alloc-child.js
+│   │   ├── handler-alloc.js handler-alloc-child.js
+│   │   ├── param-match-alloc.js param-match-alloc-child.js
+│   │   ├── router-match-alloc.js router-match-alloc-child.js
+│   │   ├── web-context-alloc.js web-context-alloc-child.js
+│   │   ├── web-context-microtrims-alloc.js
+│   │   └── check-alloc-regression.js
 │   └── lib/              # Focused modules (each < 300 LOC):
 │       ├── logging.js args.js time.js system.js fsx.js paths.js
 │       ├── server.js     # process lifecycle
@@ -464,7 +479,7 @@ apps/benchmark/
 
 ## Allocation Harnesses
 
-Alongside the throughput benchmarks above, `scripts/*-alloc.js` measure deterministic
+Alongside the throughput benchmarks above, `scripts/alloc/*-alloc.js` measure deterministic
 **bytes-per-request** (or bytes-per-match, bytes-per-op) for specific hot-path code — the metric
 throughput can't isolate, since it moves with hardware/scheduler noise while a fixed allocation
 count does not. Each runs the REAL, built code in an isolated `--expose-gc` child process, forces

@@ -230,3 +230,33 @@ test('Load Configuration reports the NextRush adapter effective options when rec
   assert.ok(md.includes('30000') || md.includes('30,000'), 'expected the effective timeout to appear');
   assert.ok(md.includes('5000') || md.includes('5,000'), 'expected the effective keepAliveTimeout to appear');
 });
+
+test('Load Configuration renders the OS-read backlog value and the override note when parity was validated', () => {
+  const r = report({
+    configuration: { parity: { validated: true, skippedReason: null, failures: [], backlog: 1024 } },
+  });
+  const md = generateMarkdownReport(r);
+  const section = md.slice(md.indexOf('## Load Configuration'));
+
+  assert.match(section, /\| Accept-queue backlog \|.*1024.*\|/);
+  assert.match(section, /overrides/i, 'expected a note that the value overrides each framework\'s own default');
+});
+
+test('Load Configuration states the backlog was not verified when parity was skipped', () => {
+  const r = report({
+    configuration: { parity: { validated: false, skippedReason: '--no-validate was passed', failures: [], backlog: null } },
+  });
+  const md = generateMarkdownReport(r);
+  const section = md.slice(md.indexOf('## Load Configuration'));
+
+  assert.match(section, /\| Accept-queue backlog \|.*not verified.*\|/i);
+  assert.doesNotMatch(section, /\| Accept-queue backlog \|.*1024.*\|/, 'must not fabricate a value that was never read');
+});
+
+test('Load Configuration states the backlog was not verified when parity was never run (no configuration.parity at all)', () => {
+  const r = report({ configuration: {} });
+  const md = generateMarkdownReport(r);
+  const section = md.slice(md.indexOf('## Load Configuration'));
+
+  assert.match(section, /\| Accept-queue backlog \|.*not verified.*\|/i);
+});

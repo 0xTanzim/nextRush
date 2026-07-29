@@ -61,6 +61,21 @@ test('position balance stays within ±1 across repeats when the repeat count is 
   assert.ok(max - min <= 1, `position counts must stay within ±1 of each other, got min=${min} max=${max}`);
 });
 
+test('averageMetric merges warmupFailures across passes (unique, concatenated)', () => {
+  const passes = [
+    { warmupFailures: ['fw-a: connection refused'] },
+    { warmupFailures: ['fw-a: connection refused', 'fw-b: timeout'] },
+    { error: 'failed' },  // errored pass has no warmupFailures
+    {},
+  ];
+  const failures = passes
+    .filter((p) => !p.error && p.warmupFailures)
+    .flatMap((p) => p.warmupFailures);
+  const merged = [...new Set(failures)];
+
+  assert.deepEqual(merged, ['fw-a: connection refused', 'fw-b: timeout']);
+});
+
 test('rotate never mutates the input array', () => {
   const input = ['a', 'b', 'c'];
   const copy = [...input];

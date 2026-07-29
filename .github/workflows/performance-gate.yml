@@ -134,9 +134,9 @@ jobs:
               continue
             fi
             any_baseline=1
-            node --expose-gc "scripts/${name}-alloc.js"
+            node --expose-gc "scripts/alloc/${name}-alloc.js"
             latest_dir=$(ls -td "results/${name}-alloc-"*/ | head -1)
-            node scripts/check-alloc-regression.js --harness "${name}-alloc" --latest-file "${latest_dir}${name}-alloc.json"
+            node scripts/alloc/check-alloc-regression.js --harness "${name}-alloc" --latest-file "${latest_dir}${name}-alloc.json"
           done
           if [ "$any_baseline" = "0" ]; then
             echo "::error title=Allocation gate has no baseline::No committed allocation baselines exist under apps/benchmark/results/baseline/. See apps/benchmark/README.md for how to seed them."

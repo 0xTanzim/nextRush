@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { captureGitProvenance, captureNextRushEffectiveOptions } from '../provenance.js';
+import { captureEffectiveServerOptions, captureGitProvenance, captureNextRushEffectiveOptions } from '../provenance.js';
 
 test('captureGitProvenance returns a commit SHA and a boolean dirty flag', () => {
   const provenance = captureGitProvenance();
@@ -33,4 +33,19 @@ test('captureNextRushEffectiveOptions reflects an explicitly passed override', (
   assert.equal(effective.timeout, 0);
   assert.equal(effective.keepAliveTimeout, 1000);
   assert.equal(effective.shutdownTimeout, 30_000);
+});
+
+test('captureEffectiveServerOptions reads timeout/keepAliveTimeout from a server-like object', () => {
+  const server = { timeout: 0, keepAliveTimeout: 5000 };
+  const effective = captureEffectiveServerOptions(server);
+
+  assert.equal(effective.timeout, 0);
+  assert.equal(effective.keepAliveTimeout, 5000);
+});
+
+test('captureEffectiveServerOptions returns null for objects with no timeout introspection', () => {
+  const server = {};
+  const effective = captureEffectiveServerOptions(server);
+
+  assert.equal(effective, null);
 });

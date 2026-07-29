@@ -21,11 +21,11 @@
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
-import { computeStats } from './lib/stats.js';
-import { RESULTS_DIR } from './lib/paths.js';
-import { logError, logHeader, logResult, logStep, parseArgs } from './utils.js';
-import { ensureDir, saveResults } from './lib/fsx.js';
-import { timestamp } from './lib/time.js';
+import { computeStats } from '../lib/stats.js';
+import { RESULTS_DIR } from '../lib/paths.js';
+import { logError, logHeader, logResult, logStep, parseArgs } from '../utils.js';
+import { ensureDir, saveResults } from '../lib/fsx.js';
+import { timestamp } from '../lib/time.js';
 
 const args = parseArgs();
 const runs = args.runs ? Number.parseInt(String(args.runs), 10) : 5;

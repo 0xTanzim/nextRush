@@ -237,17 +237,22 @@ async function main() {
   // Fairness integrity gate: servers must return identical bodies/statuses first.
   let parityOutcome;
   if (skipValidate) {
-    parityOutcome = { validated: false, skippedReason: '--no-validate was passed', failures: [] };
+    parityOutcome = { validated: false, skippedReason: '--no-validate was passed', failures: [], backlog: null };
   } else if (frameworkIds.length <= 1) {
-    parityOutcome = { validated: false, skippedReason: 'single-framework run — cross-server parity does not apply', failures: [] };
+    parityOutcome = {
+      validated: false,
+      skippedReason: 'single-framework run — cross-server parity does not apply',
+      failures: [],
+      backlog: null,
+    };
   } else {
-    const { ok, failures } = await runParityCheck(frameworkIds);
+    const { ok, failures, backlog } = await runParityCheck(frameworkIds);
     if (!ok) {
       logError('Parity validation failed — servers are not doing identical work. Aborting.');
       logError('Fix the mismatches (or re-run with --no-validate to bypass, not advised).');
       process.exit(1);
     }
-    parityOutcome = { validated: true, skippedReason: null, failures: [] };
+    parityOutcome = { validated: true, skippedReason: null, failures: [], backlog };
   }
 
   logHeader('System Information');

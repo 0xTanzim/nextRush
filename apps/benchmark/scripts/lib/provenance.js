@@ -46,3 +46,27 @@ export function captureNextRushEffectiveOptions(passedOptions = {}) {
     host: passedOptions.host ?? DEFAULT_HOST,
   };
 }
+
+/**
+ * Captures effective timeout/keepAliveTimeout settings from a running server
+ * instance (Node.js http.Server or any object exposing the same property
+ * shape). Returns null with a stated reason when the object lacks timeout
+ * introspection, so every framework in the benchmark matrix is treated
+ * symmetrically rather than silently omitted.
+ *
+ * This is the framework-agnostic counterpart of
+ * `captureNextRushEffectiveOptions` — it reads the *actual* values in effect
+ * at runtime rather than re-deriving the declared defaults.
+ *
+ * @param {{ timeout?: number, keepAliveTimeout?: number } | null | undefined} server
+ * @returns {{ timeout: number, keepAliveTimeout: number, _note?: string } | null}
+ */
+export function captureEffectiveServerOptions(server) {
+  if (!server || typeof server.timeout === 'undefined') {
+    return null;
+  }
+  return {
+    timeout: server.timeout,
+    keepAliveTimeout: server.keepAliveTimeout,
+  };
+}

@@ -104,7 +104,16 @@ export function concurrencyScalingChart(scoreboard, scenarioId) {
   const peak = Math.max(...series.flatMap((s) => s.values.filter((v) => v !== null)));
   const palette = LINE_PALETTE.slice(0, series.length).join(', ');
 
-  return fence([
+  const omittedCells = [];
+  for (const s of series) {
+    for (let i = 0; i < connections.length; i++) {
+      if (s.values[i] === null) {
+        omittedCells.push(`${s.name} @ ${connections[i]}c`);
+      }
+    }
+  }
+
+  const chart = fence([
     '---',
     'config:',
     '  xyChart:',
@@ -121,10 +130,18 @@ export function concurrencyScalingChart(scoreboard, scenarioId) {
     // plot boundary. Keep attribution in the stable legend table emitted next
     // to the chart instead of placing text inside the data area.
     ...series.map((s) => {
-      const points = s.values.map((v) => (v === null ? 0 : Math.round(v)));
+      const points = s.values.filter((v) => v !== null).map((v) => Math.round(v));
       return `    line [${points.join(', ')}]`;
     }),
   ]);
+
+  if (omittedCells.length === 0) return chart;
+
+  const caption =
+    omittedCells.length === 1
+      ? `\n> **Note:** ${omittedCells[0]} had no valid measurement and would have rendered as zero.\n`
+      : `\n> **Note:** The following cells had no valid measurement and would have rendered as zero: ${omittedCells.join(', ')}.\n`;
+  return `${chart}${caption}`;
 }
 
 /**
@@ -142,34 +159,50 @@ export function scenarioProfileRadar(scoreboard, connection = scoreboard.primary
     axes.map((s) => [s.id, rankedCells(scoreboard, s.id, connection)[0].rps])
   );
 
+  const omittedCells = [];
   const curves = scoreboard.frameworks
     .map((fw) => {
       const values = axes.map((s) => {
         const rps = scoreboard.cells[fw.id]?.[s.id]?.[connection]?.rps;
         const top = best.get(s.id);
-        return rps && top ? Math.round((rps / top) * 100) : 0;
+        return rps && top ? Math.round((rps / top) * 100) : null;
       });
-      return { fw, values };
+      const filtered = values.filter((v) => v !== null);
+      if (filtered.length < values.length) {
+        axes.forEach((s, i) => {
+          if (values[i] === null) omittedCells.push(`${fw.name} / ${s.name}`);
+        });
+      }
+      return { fw, values: filtered };
     })
-    .filter((c) => c.values.some((v) => v > 0));
+    .filter((c) => c.values.length > 0);
 
-  return fence([
-    '---',
-    'config:',
-    '  radar:',
-    '    width: 700',
-    '    height: 700',
-    '---',
-    'radar-beta',
-    `    title ${label(`Scenario profile @ ${connection} connections (% of scenario best)`)}`,
-    ...axes.map((s) => `    axis ${identifier(s.id)}[${label(s.name)}]`),
-    ...curves.map(
-      (c) => `    curve ${identifier(c.fw.id)}[${label(c.fw.name)}]{${c.values.join(', ')}}`
-    ),
-    '    graticule polygon',
-    '    max 100',
-    '    min 0',
-  ]);
+  if (curves.length === 0) return '';
+
+  const caption = omittedCells.length
+    ? `> **Note:** Omitted from radar profile — ${[...new Set(omittedCells)].join(', ')}. ${omittedCells.length === 1 ? 'This cell' : 'These cells'} had no valid measurement and would have rendered as zero.`
+    : null;
+
+  return [
+    ...fence([
+      '---',
+      'config:',
+      '  radar:',
+      '    width: 700',
+      '    height: 700',
+      '---',
+      'radar-beta',
+      `    title ${label(`Scenario profile @ ${connection} connections (% of scenario best)`)}`,
+      ...axes.map((s) => `    axis ${identifier(s.id)}[${label(s.name)}]`),
+      ...curves.map(
+        (c) => `    curve ${identifier(c.fw.id)}[${label(c.fw.name)}]{${c.values.join(', ')}}`
+      ),
+      '    graticule polygon',
+      '    max 100',
+      '    min 0',
+    ]),
+    caption ? `\n${caption}\n` : '',
+  ].join('');
 }
 
 /** Overall like-for-like points total per framework. */

@@ -44,6 +44,7 @@ async function benchmarkFrameworkOnePass(tool, framework, opts) {
   const { port, scenarios, connections, duration, threads, profile, pinCores, clientPinCores, traceGc, runId } = opts;
   const results = { framework: framework.name, scenarios: {} };
 
+  const warmupFailures = [];
   let serverHandle;
   try {
     logStep(`Starting ${framework.name} server...`);
@@ -51,13 +52,13 @@ async function benchmarkFrameworkOnePass(tool, framework, opts) {
     logStep(`Server started (PID: ${serverHandle.child.pid})`);
 
     logStep(`Warming up framework (${profile.warmupDuration})...`);
-    await warmup(tool, profile.warmupDuration, port);
+    await warmup(tool, profile.warmupDuration, port, warmupFailures);
 
     const metrics = startMetricsSampling(serverHandle.child.pid, METRICS_INTERVAL_MS);
 
     for (const scenario of scenarios) {
       logStep(`Scenario: ${scenario.name}`);
-      await warmupScenario(tool, scenario, profile.scenarioWarmupDuration, port, runId);
+      await warmupScenario(tool, scenario, profile.scenarioWarmupDuration, port, runId, warmupFailures);
 
       const scenarioResults = { scenario: scenario.name, scenarioId: scenario.id, concurrencyResults: {} };
 
@@ -85,6 +86,8 @@ async function benchmarkFrameworkOnePass(tool, framework, opts) {
       results.scenarios[scenario.id] = scenarioResults;
       await sleep(profile.pauseBetweenTestsMs);
     }
+
+    if (warmupFailures.length > 0) results.warmupFailures = warmupFailures;
 
     const samples = metrics.stop();
     results.memory = analyzeMemorySamples(samples);
@@ -159,6 +162,14 @@ function mergePassResults(passResults, framework, frameworkId) {
   merged.memory = averageMetric(passesWithMetrics, 'memory');
   merged.cpu = averageMetric(passesWithMetrics, 'cpu');
   merged.gc = averageMetric(passesWithMetrics, 'gc');
+
+  // Warmup failures: collect unique failures across passes
+  const allFailures = passResults
+    .filter((p) => !p.error && p.warmupFailures)
+    .flatMap((p) => p.warmupFailures);
+  if (allFailures.length > 0) {
+    merged.warmupFailures = [...new Set(allFailures)];
+  }
 
   return merged;
 }

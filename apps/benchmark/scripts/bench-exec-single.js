@@ -35,6 +35,7 @@ export async function benchmarkFramework(tool, framework, opts) {
     opts;
   const results = { framework: framework.name, frameworkId, scenarios: {} };
 
+  const warmupFailures = [];
   let serverHandle;
   try {
     logStep(`Starting ${framework.name} server...`);
@@ -42,13 +43,13 @@ export async function benchmarkFramework(tool, framework, opts) {
     logStep(`Server started (PID: ${serverHandle.child.pid})`);
 
     logStep(`Warming up framework (${profile.warmupDuration})...`);
-    await warmup(tool, profile.warmupDuration, port);
+    await warmup(tool, profile.warmupDuration, port, warmupFailures);
 
     const metrics = startMetricsSampling(serverHandle.child.pid, METRICS_INTERVAL_MS);
 
     for (const scenario of scenarios) {
       logStep(`Scenario: ${scenario.name}`);
-      await warmupScenario(tool, scenario, profile.scenarioWarmupDuration, port, runId);
+      await warmupScenario(tool, scenario, profile.scenarioWarmupDuration, port, runId, warmupFailures);
 
       const scenarioResults = { scenario: scenario.name, scenarioId: scenario.id, concurrencyResults: {} };
 
@@ -114,6 +115,8 @@ export async function benchmarkFramework(tool, framework, opts) {
       results.scenarios[scenario.id] = scenarioResults;
       await sleep(profile.pauseBetweenTestsMs);
     }
+
+    if (warmupFailures.length > 0) results.warmupFailures = warmupFailures;
 
     const samples = metrics.stop();
     results.memory = analyzeMemorySamples(samples);

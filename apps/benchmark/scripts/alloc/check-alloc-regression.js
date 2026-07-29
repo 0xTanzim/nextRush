@@ -17,9 +17,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { findAllocRegressions } from './lib/alloc-regression.js';
-import { logError, logHeader, log, parseArgs } from './utils.js';
-import { RESULTS_DIR } from './lib/paths.js';
+import { findAllocRegressions } from '../lib/alloc-regression.js';
+import { logError, logHeader, log, parseArgs } from '../utils.js';
+import { RESULTS_DIR } from '../lib/paths.js';
 
 const args = parseArgs();
 const tolerance = args.tolerance ? parseFloat(args.tolerance) : 0.05;

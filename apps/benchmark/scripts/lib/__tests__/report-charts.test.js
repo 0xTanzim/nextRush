@@ -88,6 +88,30 @@ test('concurrencyScalingChart plots one unnamed line per framework across connec
   assert.doesNotMatch(chart, /"NextRush v3"\]/, 'framework names must not be endpoint labels');
 });
 
+test('concurrencyScalingChart omits a null data point instead of emitting 0', () => {
+  const report = fixture();
+  // Add a third connection level, leave express with no data there
+  report.configuration.connections = [1, 64, 256];
+  report.results['raw-node'].scenarios['hello-world'].concurrencyResults[256] = cell(18000);
+  report.results['nextrush-v3'].scenarios['hello-world'].concurrencyResults[256] = cell(16000);
+  // express intentionally omitted for c256
+
+  const chart = concurrencyScalingChart(buildScoreboard(report), 'hello-world');
+
+  // raw-node and nextrush-v3 have full 3-value lines
+  assert.match(chart, /line \[1000, 9000, 18000\]/);
+  assert.match(chart, /line \[1200, 8000, 16000\]/);
+  // express has only 2 values (c256 is null — omitted from the series)
+  const lines = chart.match(/line \[([^\]]+)\]/g);
+  const expressLine = lines.find((l) => l.includes(', 3000'));
+  assert.equal(expressLine, 'line [800, 3000]');
+  // raw-node and nextrush-v3 have all 3 values
+  assert.ok(lines.some((l) => l.includes(', 18000')));
+  assert.ok(lines.some((l) => l.includes(', 16000')));
+  // No line contains a zero for a missing cell
+  assert.doesNotMatch(chart, /line .*?\b0\b/);
+});
+
 test('concurrencyScalingChart assigns a fixed, visually distinct color per framework', () => {
   const chart = concurrencyScalingChart(buildScoreboard(fixture()), 'hello-world');
 
@@ -95,6 +119,40 @@ test('concurrencyScalingChart assigns a fixed, visually distinct color per frame
   const palette = chart.match(/plotColorPalette:\s*'([^']+)'/)[1].split(',').map((c) => c.trim());
   assert.equal(new Set(palette).size, palette.length, 'palette colors must be unique');
   assert.ok(palette.length >= 3, 'fixture has 3 frameworks worth of series');
+});
+
+test('scenarioProfileRadar omits a null axis value instead of emitting 0', () => {
+  const report = fixture();
+  // Make express missing for middleware-stack at primary connection
+  delete report.results.express.scenarios['middleware-stack'].concurrencyResults[64];
+
+  const radar = scenarioProfileRadar(buildScoreboard(report));
+
+  // middleware-stack is NOT like-for-like so it's filtered by axes anyway...
+  // Make one like-for-like axis have a null for one framework
+  // Add a 3rd like-for-like scenario via the fixture, leave express missing
+  const id = 'json-serialize';
+  report.results['raw-node'].scenarios[id] = {
+    scenario: 'JSON Serialize',
+    scenarioId: id,
+    concurrencyResults: { 64: cell(15000) },
+  };
+  report.results['nextrush-v3'].scenarios[id] = {
+    scenario: 'JSON Serialize',
+    scenarioId: id,
+    concurrencyResults: { 64: cell(14000) },
+  };
+  // express omitted for json-serialize
+  report.configuration.scenarios.push(id);
+
+  const chart = scenarioProfileRadar(buildScoreboard(report));
+  // The omitted framework's curve should not have extra values for the missing axis
+  // Match the express curve — it should not contain a trailing 0
+  const expressCurve = chart.match(/curve express[^}]*\{([^}]+)\}/)?.[1];
+  if (expressCurve) {
+    const values = expressCurve.split(',').map(Number);
+    assert.ok(values.every((v) => v > 0), 'curve should not contain a zero from a missing cell');
+  }
 });
 
 test('scenarioProfileRadar normalizes each like-for-like scenario to percent of best', () => {
@@ -108,12 +166,12 @@ test('scenarioProfileRadar normalizes each like-for-like scenario to percent of 
   assert.match(radar, /max 100/);
 });
 
-test('overallPointsChart plots the like-for-like points total per framework', () => {
+test('overallPointsChart plots the like-for-like points total per framework (headline excludes c1)', () => {
   const chart = overallPointsChart(buildScoreboard(fixture()));
 
   assert.match(chart, /xychart-beta horizontal/);
-  // raw-node and nextrush-v3 each win one concurrency level, so they tie at 5.
-  assert.match(chart, /bar \[5, 5, 2\]/);
+  // With c1 excluded, only c64 contributes: raw-node wins with 3, nextrush-v3 gets 2, express gets 1.
+  assert.match(chart, /bar \[3, 2, 1\]/);
 });
 
 test('trendChart plots one point per historical run', () => {

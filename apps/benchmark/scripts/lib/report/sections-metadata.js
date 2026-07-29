@@ -15,9 +15,21 @@ import { getScenario } from '../../../config/scenarios.js';
 import { fairnessTag, table } from './format.js';
 
 const NOT_RECORDED = 'not recorded in this run';
+const BACKLOG_NOT_VERIFIED = 'not verified for this run';
 
 const seconds = (ms) => (typeof ms === 'number' ? `${ms / 1000}s` : NOT_RECORDED);
 const orNotRecorded = (value) => (value === null || value === undefined || value === '' ? NOT_RECORDED : value);
+
+/** States the effective accept-queue backlog only when the parity gate actually read it back. */
+function backlogRow(parity) {
+  if (parity?.validated && typeof parity.backlog === 'number') {
+    return [
+      'Accept-queue backlog',
+      `${parity.backlog} (overrides each framework's own native default — see LISTEN_BACKLOG)`,
+    ];
+  }
+  return ['Accept-queue backlog', BACKLOG_NOT_VERIFIED];
+}
 
 /** `wrk` + `wrk 4.2.0` must read as "wrk 4.2.0", not "wrk wrk 4.2.0". */
 function toolLabel(scoreboard) {
@@ -106,6 +118,7 @@ export function loadConfigurationSection(scoreboard) {
         ['Client pinning', config.clientPinCores ? `client cores ${config.clientPinCores}` : 'off'],
         ['Framework order', orNotRecorded(config.positionControl ?? config.order)],
         ['GC tracing', config.traceGc === undefined ? NOT_RECORDED : config.traceGc ? 'on' : 'off'],
+        backlogRow(config.parity),
         ...effectiveRows,
       ]
     )

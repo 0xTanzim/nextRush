@@ -86,7 +86,7 @@ function checkMiddlewareHeaders(headers) {
 
 /**
  * Run the full parity check across the given frameworks.
- * @returns {Promise<{ ok: boolean, failures: string[] }>}
+ * @returns {Promise<{ ok: boolean, failures: string[], backlog: number | null }>}
  */
 export async function runParityCheck(frameworkIds = DEFAULT_FRAMEWORKS) {
   const ids = frameworkIds.includes(REFERENCE) ? frameworkIds : [REFERENCE, ...frameworkIds];
@@ -184,7 +184,12 @@ export async function runParityCheck(frameworkIds = DEFAULT_FRAMEWORKS) {
     for (const f of failures) log(`  ✗ ${f}`);
   }
 
-  return { ok: failures.length === 0, failures };
+  // Report the single agreed-upon value for disclosure in the generated report.
+  // `checkBacklogParity` above already asserts every readable value matches, so
+  // the first readable one represents the run's effective backlog.
+  const backlog = Object.values(backlogById).find((v) => typeof v === 'number') ?? null;
+
+  return { ok: failures.length === 0, failures, backlog };
 }
 
 // ─── CLI ───

@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   buildScoreboard,
+  pointsForRank,
   POINTS_FOR_LAST_PLACE,
   rankEntries,
 } from '../report/scoreboard.js';
@@ -115,6 +116,44 @@ test('rankEntries flags a gap smaller than combined stddev as within noise', () 
   assert.equal(ranked[2].withinNoiseOfNext, false);
 });
 
+test('rankEntries shares rank and splits points when a gap is within combined stddev', () => {
+  const ranked = rankEntries([
+    { fwId: 'a', rps: 1000, stddev: 40 },
+    { fwId: 'b', rps: 1010, stddev: 40 },
+    { fwId: 'c', rps: 500, stddev: 5 },
+  ]);
+
+  // b (rps 1010) and a (rps 1000) are within noise of each other -> share
+  // rank 1 and split the combined rank-1 + rank-2 points (3 + 2) / 2 = 2.5.
+  assert.deepEqual(
+    ranked.map((r) => [r.fwId, r.rank, r.points]),
+    [
+      ['b', 1, 2.5],
+      ['a', 1, 2.5],
+      ['c', 3, 1],
+    ]
+  );
+});
+
+test('rankEntries does not add or modify any property on its input objects', () => {
+  const entries = [
+    { fwId: 'a', rps: 100, stddev: 1 },
+    { fwId: 'b', rps: 300, stddev: 1 },
+    { fwId: 'c', rps: 200, stddev: 1 },
+  ];
+  const inputSnapshot = entries.map((e) => ({ ...e }));
+
+  rankEntries(entries);
+
+  assert.deepEqual(entries, inputSnapshot);
+});
+
+test('pointsForRank derives the last-ranked score from POINTS_FOR_LAST_PLACE', () => {
+  const count = 5;
+
+  assert.equal(pointsForRank(count, count), POINTS_FOR_LAST_PLACE);
+});
+
 test('buildScoreboard excludes errored frameworks and keeps their ids reportable', () => {
   const sb = buildScoreboard(fixture());
 
@@ -157,14 +196,14 @@ test('buildScoreboard reports a winner per scenario at the primary concurrency l
 test('buildScoreboard headline score counts only like-for-like scenarios', () => {
   const sb = buildScoreboard(fixture());
 
-  // hello-world only, 2 concurrency levels, 3 frameworks => max 6 points.
-  assert.equal(sb.overall.likeForLike.maxPoints, 6);
+  // hello-world only, headline excludes c1, 3 frameworks => max 3 points.
+  assert.equal(sb.overall.likeForLike.maxPoints, 3);
   assert.deepEqual(
     sb.overall.likeForLike.rows.map((r) => [r.fwId, r.points]),
     [
-      ['raw-node', 5],
-      ['nextrush-v3', 4],
-      ['express', 3],
+      ['raw-node', 3],
+      ['express', 2],
+      ['nextrush-v3', 1],
     ]
   );
   assert.deepEqual(sb.likeForLikeScenarioIds, ['hello-world']);
@@ -173,13 +212,29 @@ test('buildScoreboard headline score counts only like-for-like scenarios', () =>
 test('buildScoreboard all-scenarios score includes the non-like-for-like scenarios', () => {
   const sb = buildScoreboard(fixture());
 
-  assert.equal(sb.overall.all.maxPoints, 12);
+  assert.equal(sb.overall.all.maxPoints, 6);
   assert.deepEqual(
     sb.overall.all.rows.map((r) => [r.fwId, r.points]),
     [
-      ['raw-node', 10],
-      ['nextrush-v3', 9],
-      ['express', 5],
+      ['raw-node', 5],
+      ['nextrush-v3', 4],
+      ['express', 3],
+    ]
+  );
+});
+
+test('buildScoreboard headline aggregates exclude c1 while pointsPerConnection still reports it', () => {
+  const sb = buildScoreboard(fixture());
+
+  // pointsPerConnection is untouched by the headline filter — c1's own
+  // like-for-like ranking is still reported separately.
+  assert.equal(sb.pointsPerConnection[1].maxPoints, 3);
+  assert.deepEqual(
+    sb.pointsPerConnection[1].rows.map((r) => [r.fwId, r.points]),
+    [
+      ['nextrush-v3', 3],
+      ['raw-node', 2],
+      ['express', 1],
     ]
   );
 });

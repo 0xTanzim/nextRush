@@ -56,7 +56,7 @@ export async function runBenchmark(tool, opts) {
 }
 
 /** Warm a specific URL with real traffic (framework-level or per-scenario). */
-async function warmupUrl(tool, { url, durationStr, method = 'GET', scriptPath }) {
+async function warmupUrl(tool, { url, durationStr, method = 'GET', scriptPath }, failures) {
   const seconds = parseDuration(durationStr);
   try {
     if (tool === 'wrk') {
@@ -71,25 +71,26 @@ async function warmupUrl(tool, { url, durationStr, method = 'GET', scriptPath })
         autocannon({ url, connections: WARMUP_CONNECTIONS, duration: seconds, method }, resolve);
       });
     }
-  } catch {
+  } catch (err) {
     logWarn(`Warmup for ${url} encountered an error (non-fatal)`);
+    if (failures) failures.push(`Warmup for ${url}: ${err?.message || err || 'unknown error'}`);
   }
 }
 
 /** Framework-level warmup — primes core dispatch via the root route. */
-export async function warmup(tool, durationStr, port) {
-  await warmupUrl(tool, { url: `http://localhost:${port}/`, durationStr });
+export async function warmup(tool, durationStr, port, failures) {
+  await warmupUrl(tool, { url: `http://localhost:${port}/`, durationStr }, failures);
 }
 
 /** Per-scenario warmup — primes the scenario's specific code path (FAIR-09). */
-export async function warmupScenario(tool, scenario, durationStr, port, runId) {
+export async function warmupScenario(tool, scenario, durationStr, port, runId, failures) {
   if (!durationStr) return;
   await warmupUrl(tool, {
     url: buildUrl(scenario, port),
     durationStr,
     method: scenario.method,
     scriptPath: tool === 'wrk' && scenario.method === 'POST' ? writeGeneratedScript(scenario, runId) : undefined,
-  });
+  }, failures);
   await sleep(200);
 }
 

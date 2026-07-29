@@ -18,33 +18,57 @@ export const POINTS_FOR_LAST_PLACE = 1;
 
 const round1 = (n) => Math.round(n * 10) / 10;
 
+/** Points for a given rank out of `count` entries, anchored to `POINTS_FOR_LAST_PLACE`. */
+export function pointsForRank(rank, count) {
+  return count - (rank - 1) + (POINTS_FOR_LAST_PLACE - 1);
+}
+
 /**
  * Rank RPS entries fastest-first and award `count..1` points.
  *
  * Exact ties share a rank and its points, and the next distinct value resumes at
- * its positional rank (standard competition ranking). `withinNoiseOfNext` marks a
- * gap narrower than the two entries' combined stddev — reported so a reader can
- * see which orderings are not statistically meaningful; it never alters points.
+ * its positional rank (standard competition ranking). A gap narrower than the
+ * two entries' combined stddev is not statistically meaningful, so those two
+ * entries also share a rank and split the combined points across both rank
+ * positions evenly — a noise-sized ordering is scored as the tie it actually is.
+ *
+ * Returns new objects; the input array and its entries are left untouched.
  */
 export function rankEntries(entries) {
   const sorted = [...entries].sort((a, b) => b.rps - a.rps);
   const count = sorted.length;
+  const ranks = new Map();
 
-  return sorted.map((entry, index) => {
+  const initial = sorted.map((entry, index) => {
     const prev = sorted[index - 1];
     const next = sorted[index + 1];
-    const rank = prev && prev.rps === entry.rps ? prev.__rank : index + 1;
-    entry.__rank = rank;
+    const rank = prev && prev.rps === entry.rps ? ranks.get(prev) : index + 1;
+    ranks.set(entry, rank);
 
     return {
       ...entry,
       rank,
-      points: count - (rank - 1),
+      points: pointsForRank(rank, count),
       withinNoiseOfNext: next
         ? entry.rps - next.rps < (entry.stddev || 0) + (next.stddev || 0)
         : false,
     };
   });
+
+  for (let index = 0; index < initial.length - 1; index += 1) {
+    const entry = initial[index];
+    const next = initial[index + 1];
+    if (!entry.withinNoiseOfNext || entry.rank === next.rank) continue;
+
+    const sharedRank = entry.rank;
+    const sharedPoints = round1((entry.points + next.points) / 2);
+    entry.rank = sharedRank;
+    entry.points = sharedPoints;
+    next.rank = sharedRank;
+    next.points = sharedPoints;
+  }
+
+  return initial;
 }
 
 function readCell(fwResult, scenarioId, conn) {
@@ -238,6 +262,9 @@ export function buildScoreboard(report, options = {}) {
 
   const likeForLikeScenarioIds = scenarios.filter((s) => s.identicalWork).map((s) => s.id);
   const allScenarioIds = scenarios.map((s) => s.id);
+  // c1 measures per-request latency, not throughput (see methodologySection) —
+  // excluded from the headline aggregate; pointsPerConnection still reports it.
+  const headlineConnections = connections.filter((c) => c > 1);
 
   return {
     runId: report.runId,
@@ -267,8 +294,8 @@ export function buildScoreboard(report, options = {}) {
       ])
     ),
     overall: {
-      likeForLike: buildOverall(rankings, likeForLikeScenarioIds, connections, frameworks),
-      all: buildOverall(rankings, allScenarioIds, connections, frameworks),
+      likeForLike: buildOverall(rankings, likeForLikeScenarioIds, headlineConnections, frameworks),
+      all: buildOverall(rankings, allScenarioIds, headlineConnections, frameworks),
     },
   };
 }

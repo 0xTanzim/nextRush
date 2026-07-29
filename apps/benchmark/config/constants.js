@@ -15,6 +15,12 @@ export const BASE_URL = `http://localhost:${PORT}`;
  * V8 flags passed to every server process — identical for all frameworks so the
  * runtime configuration is a controlled variable, not a per-framework choice.
  * `--expose-gc` enables optional GC tracing; the heap cap keeps memory bounded.
+ *
+ * NOTE: `--max-old-space-size=512` sets an IDENTICAL heap cap for every
+ * framework, but that does NOT guarantee a uniform memory-pressure effect.
+ * Frameworks with higher baseline heap usage reach the GC trigger threshold
+ * earlier, so the same numeric limit can produce different GC behavior across
+ * frameworks. The flag ensures a level ceiling, not a level playing field.
  */
 export const NODE_SERVER_FLAGS = Object.freeze(['--expose-gc', '--max-old-space-size=512']);
 
