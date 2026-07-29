@@ -1,5 +1,6 @@
 {
   "title": "Production",
   "description": "Configuration, deployment, reliability, observability, security, caching, scaling, and performance tuning for running NextRush in production.",
-  "pages": ["index", "configuration", "deployment", "reliability", "observability", "security", "caching", "scaling", "performance-tuning", "benchmarking"]
+  "pages": ["index", "configuration", "deployment", "reliability", "observability", "security", "caching", "scaling", "performance-tuning", "benchmarking"],
+  "references": ["../getting-started", "../guides/security", "../architecture"]
 }

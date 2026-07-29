@@ -43,7 +43,7 @@ Never mix these responsibilities.
 Use the Diátaxis model.
 
 | Documentation Type | Purpose |
-|--------------------|---------|
+|--------------------|--------|
 | Tutorial | Learn by building |
 | Guide | Solve one practical task |
 | Concept | Explain mental models |
@@ -52,9 +52,54 @@ Use the Diátaxis model.
 | Production | Operations & deployment |
 | Architecture | Internal implementation |
 
+**Guides, Recipes, and Examples have distinct page templates.** Each
+solves a different developer problem and must look different so the
+developer knows what they're reading before they read the title.
+See `DESIGN/PAGE_TEMPLATES.md` for the exact layout, cross-linking rules,
+and visual differentiation for each type.
+
 If content belongs somewhere else, move it.
 
 Do not duplicate it.
+
+Every page carries a metadata card (difficulty, time, version, runtime
+compatibility) so developers decide relevance in seconds. See
+`DESIGN/PAGE_TEMPLATES.md` for the unified metadata card spec — managed
+in frontmatter, rendered as a visual bar below the title.
+
+Guides, Recipes, and Examples also follow the page templates in
+`DESIGN/PAGE_TEMPLATES.md`, which define:
+
+- **Purpose banner** ("Before you start") — checklists of outcomes,
+  prerequisites, and assumptions so a developer decides in 5 seconds
+  whether this page is for them.
+- **Decision support** — "When to use / When NOT to use" + comparison
+  tables + lightweight decision trees to teach engineering judgment.
+- **Inline linking** — first occurrence of major APIs and concepts only.
+  Not every repetition (prevents visual noise).
+- **Standardized callout taxonomy** — 💡 Tip / ⚠️ Warning / ⚙️ Production /
+  ⚡ Performance / 🔒 Security / ❌ Common mistake. These are the ONLY
+  callout types. Never invent ad-hoc ones.
+- **Search keywords** in frontmatter for every page.
+- **Future page types** — Comparison pages, Checklists, Troubleshooting hub.
+- **Section classification** — Required / Recommended / Conditional (not
+  all Required) so authors focus on teaching, not checkbox-ticking.
+- **Page lifecycle** — draft → review → stable → deprecated → archived,
+  managed in frontmatter.
+- **Accessibility** — heading hierarchy, table captions, alt text, Mermaid
+  fallbacks, color-independent callouts.
+- **Mobile rules** — vertical diagram fallback, scrollable tables, wrapped
+  metadata card.
+- **Empty-state rules** — omit cross-link blocks when nothing links. No
+  "None yet" placeholders.
+- **Visual Components Registry** — every reusable UI component documented
+  once (MetadataCard, BeforeYouStart, DecisionTree, ComparisonTable,
+  Callout, etc.). Build each as a shared MDX component, never ad-hoc markup.
+- **Author Guidelines** — how to write: one persona, one objective per page,
+  active voice, explain-before-code in Guides, code-first in Recipes, don't
+  duplicate Reference or Comparison content.
+- **Content governance** — decision matrix for choosing between Guide /
+  Recipe / Example / Concept / Reference / Comparison / Checklist.
 
 ---
 

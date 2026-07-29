@@ -1,5 +1,0 @@
-{
-  "title": "Performance",
-  "description": "Benchmarks, comparisons, and performance characteristics",
-  "pages": ["index", "comparison", "tuning"]
-}

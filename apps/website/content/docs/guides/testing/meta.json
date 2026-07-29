@@ -1,0 +1,7 @@
+{
+  "title": "Testing",
+  "description": "Testing NextRush applications — unit, integration, and E2E.",
+  "pages": ["testing"],
+  "learningPath": ["testing"],
+  "references": ["../api-development", "../data"]
+}

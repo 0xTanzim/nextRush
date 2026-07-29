@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react';
 import { FeedbackWidget } from '@/components/feedback-widget';
 import { LLMCopyButton, ViewOptions } from '@/components/page-actions';
 import { toAbsoluteUrl } from '@/config/appConfig';
@@ -61,6 +62,14 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
           <ViewOptions markdownUrl={markdownUrl} githubUrl={githubUrl} llmsUrl={llmsUrl} />
         </div>
       </div>
+      {page.data.status === 'deprecated' ? (
+        <div className="not-prose mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+          <div>
+            <strong className="font-semibold">Deprecated</strong> — This page documents a deprecated feature. It may be removed in a future major version.
+          </div>
+        </div>
+      ) : null}
       <DocsDescription className="mb-4 max-w-[70ch] text-base">{page.data.description}</DocsDescription>
       <DocsBody>
         <MDX

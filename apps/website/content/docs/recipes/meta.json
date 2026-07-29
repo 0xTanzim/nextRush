@@ -1,13 +1,11 @@
 {
   "title": "Recipes",
-  "description": "Short, copy-paste solutions to common NextRush tasks.",
+  "description": "Production-ready solutions and copy-paste patterns for common scenarios",
   "pages": [
     "index",
-    "pagination",
-    "jwt-authentication",
-    "rate-limiting",
-    "cors-multi-tenant",
-    "postgres-service",
-    "background-jobs"
-  ]
+    "database",
+    "authentication",
+    "queue"
+  ],
+  "references": ["../guides", "../getting-started", "../examples"]
 }

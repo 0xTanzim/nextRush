@@ -23,6 +23,13 @@ export const docs = defineDocs({
     // Recall). Mirrors the same optional field on the `skills` collection below.
     schema: frontmatterSchema.extend({
       package: z.string().optional(),
+      difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+      readingTime: z.string().optional(),
+      // Accept string (e.g. "Node.js 22+, pnpm") or array (e.g. ["Routing", "Context"])
+      prerequisites: z.union([z.string(), z.array(z.string())]).optional(),
+      keywords: z.array(z.string()).default([]),
+      seeAlso: z.array(z.string()).default([]),
+      status: z.enum(['draft', 'review', 'stable', 'deprecated']).optional(),
     }),
     postprocess: {
       includeProcessedMarkdown: {
@@ -42,7 +49,13 @@ export const docs = defineDocs({
     },
   },
   meta: {
-    schema: metaSchema,
+    schema: metaSchema.extend({
+      // Custom fields for content governance — validated at build time
+      difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+      learningPath: z.array(z.string()).optional(),
+      seeAlso: z.array(z.string()).optional(),
+      references: z.array(z.string()).optional(),
+    }),
   },
 });
 
