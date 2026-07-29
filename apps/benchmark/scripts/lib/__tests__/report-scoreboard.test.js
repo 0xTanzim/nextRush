@@ -192,6 +192,21 @@ test('buildScoreboard computes overhead against the baseline framework', () => {
   assert.equal(overhead['nextrush-v3'], Math.round((1 - 8000 / 9000) * 1000) / 10);
 });
 
+test('buildScoreboard passes through git provenance unchanged', () => {
+  const report = fixture();
+  report.git = { commit: 'abc1234', dirty: false };
+
+  const sb = buildScoreboard(report);
+
+  assert.deepEqual(sb.git, { commit: 'abc1234', dirty: false });
+});
+
+test('buildScoreboard defaults git provenance to null fields when the run predates capture', () => {
+  const sb = buildScoreboard(fixture());
+
+  assert.deepEqual(sb.git, { commit: null, dirty: null });
+});
+
 test('buildScoreboard honours an explicit rankAt connection', () => {
   const sb = buildScoreboard(fixture(), { rankAt: 1 });
 

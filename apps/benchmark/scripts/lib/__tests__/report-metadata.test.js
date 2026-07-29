@@ -206,3 +206,27 @@ test('resolveFrameworkVersions omits a framework whose package is not installed'
   assert.equal(versions.fastify, undefined);
   assert.equal(versions['raw-node'], 'Node v26.4.0');
 });
+
+test('Load Configuration reports the captured git commit and dirty-tree flag', () => {
+  const r = report();
+  r.git = { commit: 'abc1234def', dirty: false };
+  const md = generateMarkdownReport(r);
+
+  assert.ok(md.includes('abc1234def'), 'expected the captured commit SHA to appear in the report');
+});
+
+test('Load Configuration flags a dirty working tree explicitly rather than silently omitting it', () => {
+  const r = report();
+  r.git = { commit: 'abc1234def', dirty: true };
+  const md = generateMarkdownReport(r);
+
+  assert.match(md, /dirty/i);
+});
+
+test('Load Configuration reports the NextRush adapter effective options when recorded', () => {
+  const r = report({ configuration: { nextrushEffectiveOptions: { timeout: 30000, keepAliveTimeout: 5000 } } });
+  const md = generateMarkdownReport(r);
+
+  assert.ok(md.includes('30000') || md.includes('30,000'), 'expected the effective timeout to appear');
+  assert.ok(md.includes('5000') || md.includes('5,000'), 'expected the effective keepAliveTimeout to appear');
+});

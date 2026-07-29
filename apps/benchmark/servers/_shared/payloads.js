@@ -13,6 +13,18 @@
  * validator normalizes those fields before comparing (see scripts/validate-parity.js).
  */
 
+/** GET /empty — 204 No Content, zero serialization (no payload needed). */
+
+/** GET /send-object — plain-object dispatch through each framework's own response helper. */
+export const SEND_OBJECT_BODY = Object.freeze({ dispatched: 'object', ok: true });
+
+/** GET /static/bench.txt — served from apps/benchmark/public/bench.txt by every server. */
+
+/** POST /large-post — echoes only the received item count, never the ≥1MB payload back. */
+export function largePostResponse(itemCount) {
+  return { received: true, itemCount };
+}
+
 /** GET / — baseline hello world. */
 export const HELLO_WORLD = Object.freeze({ message: 'Hello World' });
 

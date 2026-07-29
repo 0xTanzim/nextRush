@@ -188,3 +188,86 @@ equivalent), not solely inferred from the throughput/idle-time pattern.
 #### Scenario: An empty queue during a collapse redirects the investigation
 - **WHEN** the sampled queue stays near empty throughout a run that still shows the throughput collapse
 - **THEN** the accept queue is ruled out as the dominant cause for that run, and the finding records that some other factor (e.g. client/loopback contention) is the more likely explanation
+
+### Requirement: The benchmark harness can capture a CPU profile for a single scenario under load
+
+A diagnostic entry point SHALL exist that spawns one benchmark server, drives load against one
+named scenario for a fixed duration using the existing load-generator integration, and captures a
+standard V8 CPU profile (`.cpuprofile`) covering the server process for that duration, without
+requiring any instrumentation to be added to the server file under profile.
+
+#### Scenario: A CPU profile is captured for a named scenario
+- **WHEN** the profiling entry point is invoked with a scenario name and the NextRush benchmark
+  server
+- **THEN** a `.cpuprofile` file is written covering the server process's execution during the
+  load run, openable in a standard CPU-profile viewer
+
+#### Scenario: No benchmark server file requires added instrumentation
+- **WHEN** any benchmark server file (`apps/benchmark/servers/*.js`) is inspected, excluding the
+  one diagnostic-only route described below
+- **THEN** none of them contain CPU-profiling-specific code; profiling is achieved entirely from
+  the external profiling entry point
+
+### Requirement: The benchmark harness can capture before/after heap snapshots for a single scenario under load
+
+The same diagnostic entry point SHALL capture a heap snapshot immediately before and immediately
+after the load run, via a debugger-protocol connection to the spawned server process, so retained-
+object growth across the run is inspectable.
+
+#### Scenario: Before and after heap snapshots are captured
+- **WHEN** the profiling entry point completes a run for a named scenario
+- **THEN** two heap snapshot files exist for that run — one taken before load generation started
+  and one taken immediately after it completed
+
+#### Scenario: Heap snapshot capture does not require server-file changes
+- **WHEN** heap snapshots are captured for the NextRush benchmark server
+- **THEN** the snapshot is triggered externally via a debugger-protocol connection, not by a
+  signal handler or diagnostic code added to the server file
+
+### Requirement: The benchmark harness surfaces GC pause statistics already captured by the server-lifecycle helper
+
+The profiling entry point SHALL consume the GC event data already captured by the existing
+server-lifecycle helper's `--trace-gc` integration and report summary statistics (event count,
+total pause duration, breakdown by GC type) for the profiled run, rather than introducing a
+second GC-trace parser.
+
+#### Scenario: GC summary statistics are reported for a profiled run
+- **WHEN** the profiling entry point completes a run
+- **THEN** its output includes a GC summary derived from the same `gcEvents` data structure the
+  existing server-lifecycle helper already produces, with event count, total pause duration, and
+  a breakdown by GC event type
+
+### Requirement: The benchmark harness samples event-loop utilization during a profiled run
+
+The profiling entry point SHALL sample the profiled NextRush server's own event-loop utilization
+at a fixed interval during the load run, using the server process's own `perf_hooks` measurement,
+and report the idle/active ratio observed — distinct from sampling the profiling script's own
+event loop, which would not measure the server under test.
+
+#### Scenario: Event-loop utilization is sampled from the server process, not the profiling script
+- **WHEN** the profiling entry point runs against the NextRush benchmark server
+- **THEN** the reported event-loop utilization reflects samples taken on the profiled server
+  process itself, not on the process running the profiling entry point
+
+#### Scenario: The event-loop utilization sampling route is excluded from fairness comparisons
+- **WHEN** `apps/benchmark/config/scenarios.js` and `apps/benchmark/scripts/validate-parity.js`
+  are inspected
+- **THEN** neither includes the diagnostic event-loop-utilization sampling route as a scenario or
+  a parity-checked endpoint
+
+### Requirement: Profile artifacts are stored per run ID and excluded from version control
+
+Profile artifacts (CPU profiles, heap snapshots, and a summary file) SHALL be written under the
+existing `results/<run-id>/` directory convention, associated with the same provenance data
+(commit SHA, dirty flag, effective adapter options) already captured for throughput-comparison
+runs, and SHALL be excluded from version control by default.
+
+#### Scenario: Profile artifacts inherit the existing provenance fields
+- **WHEN** a profiling run completes
+- **THEN** its summary artifact records the same git commit SHA and dirty-working-tree flag
+  already wired into throughput-comparison result artifacts
+
+#### Scenario: Profile artifacts are git-ignored by default
+- **WHEN** `apps/benchmark/.gitignore` is inspected
+- **THEN** it excludes profile artifact paths by the same pattern used for other non-baseline
+  result directories

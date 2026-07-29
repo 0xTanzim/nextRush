@@ -23,6 +23,7 @@ import { join } from 'node:path';
 
 import { generateArtifacts } from './report-md.js';
 import { readInstalledFrameworkVersions } from './lib/installed-versions.js';
+import { withRecomputedPublishable } from './lib/publishable.js';
 import { buildHistory } from './lib/report/history.js';
 import { RESULTS_DIR, ensureDir, log, logError, logHeader, logStep, parseArgs } from './utils.js';
 
@@ -45,7 +46,7 @@ function loadReport(runId) {
     return null;
   }
   try {
-    return JSON.parse(readFileSync(file, 'utf-8'));
+    return withRecomputedPublishable(JSON.parse(readFileSync(file, 'utf-8')));
   } catch (error) {
     logError(`Failed to parse ${file}: ${error.message}`);
     return null;

@@ -12,6 +12,8 @@
  */
 
 import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 import {
   ERROR_BODY,
@@ -21,21 +23,28 @@ import {
   LARGE_JSON,
   MIDDLEWARE_BODY,
   MIDDLEWARE_HEADERS,
+  SEND_OBJECT_BODY,
   deepRoute,
+  largePostResponse,
   mwHeaderValue,
   postUserResponse,
   searchResponse,
   userById,
 } from './_shared/payloads.js';
 
+const STATIC_ROOT = fileURLToPath(new URL('../public', import.meta.url));
+
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' };
 /** Max POST body size (bytes) — bounds buffering, comparable to framework parser defaults. */
 const MAX_BODY_BYTES = 1024 * 1024;
+/** Raised cap for /large-post — the scenario body is ~1.5MB by design. */
+const MAX_LARGE_BODY_BYTES = 5 * 1024 * 1024;
 
 function sendJson(res, status, data) {
-  res.writeHead(status, JSON_HEADERS);
-  res.end(JSON.stringify(data));
+  const body = JSON.stringify(data);
+  res.writeHead(status, { ...JSON_HEADERS, 'Content-Length': Buffer.byteLength(body) });
+  res.end(body);
 }
 
 // Genuine 5-layer middleware chain — each layer is a function that sets one
@@ -91,6 +100,30 @@ const server = createServer((req, res) => {
       return void sendJson(res, 200, userById(url.slice(7)));
     }
 
+    if (url === '/send-object') {
+      return void sendJson(res, 200, SEND_OBJECT_BODY);
+    }
+
+    // /static/bench.txt — the one fixture file this benchmark serves; no
+    // general traversal-safe resolver is implemented here (raw-node is the
+    // zero-framework baseline, not a security-hardened static server), so
+    // this deliberately matches only the exact known fixture path rather
+    // than accepting an arbitrary decoded path.
+    if (url === '/static/bench.txt') {
+      readFile(STATIC_ROOT + '/static/bench.txt')
+        .then((data) => {
+          res.writeHead(200, {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Content-Length': data.length,
+          });
+          res.end(data);
+        })
+        .catch(() => {
+          sendJson(res, 404, { error: 'Not Found' });
+        });
+      return;
+    }
+
     // /search?...
     if (url.startsWith('/search')) {
       const qIdx = url.indexOf('?');
@@ -129,6 +162,37 @@ const server = createServer((req, res) => {
       if (aborted) return;
       try {
         sendJson(res, 200, postUserResponse(JSON.parse(body)));
+      } catch {
+        sendJson(res, 400, { error: 'Invalid JSON' });
+      }
+    });
+    return;
+  }
+
+  // POST /large-post — same shape as /users but with a raised cap, since the
+  // scenario body is ~1.5MB by design (past the default 1MB floor other
+  // frameworks' parsers also had to raise for this route).
+  if (method === 'POST' && url === '/large-post') {
+    let body = '';
+    let size = 0;
+    let aborted = false;
+    req.on('data', (chunk) => {
+      if (aborted) return;
+      size += chunk.length;
+      if (size > MAX_LARGE_BODY_BYTES) {
+        aborted = true;
+        sendJson(res, 413, { error: 'Payload Too Large' });
+        req.destroy();
+        return;
+      }
+      body += chunk;
+    });
+    req.on('end', () => {
+      if (aborted) return;
+      try {
+        const parsed = JSON.parse(body);
+        const items = parsed?.items;
+        sendJson(res, 200, largePostResponse(Array.isArray(items) ? items.length : 0));
       } catch {
         sendJson(res, 400, { error: 'Invalid JSON' });
       }

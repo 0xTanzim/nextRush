@@ -14,6 +14,9 @@
 import Koa from 'koa';
 import bodyParser from 'koa-bodyparser';
 import Router from 'koa-router';
+import serve from 'koa-static';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 import {
   ERROR_MESSAGE,
@@ -22,12 +25,16 @@ import {
   LARGE_JSON,
   MIDDLEWARE_BODY,
   MIDDLEWARE_HEADERS,
+  SEND_OBJECT_BODY,
   deepRoute,
+  largePostResponse,
   mwHeaderValue,
   postUserResponse,
   searchResponse,
   userById,
 } from './_shared/payloads.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const app = new Koa();
@@ -63,6 +70,18 @@ router.post('/users', jsonBodyParser, (ctx) => {
   ctx.body = postUserResponse(ctx.request.body);
 });
 
+router.get('/send-object', (ctx) => {
+  ctx.body = SEND_OBJECT_BODY;
+});
+
+// A second parser instance with a raised jsonLimit (default is 1mb — the
+// scenario body is ~1.5MB by design so it never rides that boundary).
+const largeJsonParser = bodyParser({ enableTypes: ['json'], jsonLimit: '5mb' });
+router.post('/large-post', largeJsonParser, (ctx) => {
+  const items = ctx.request.body?.items;
+  ctx.body = largePostResponse(Array.isArray(items) ? items.length : 0);
+});
+
 // 5-layer middleware stack — one header per layer, chained via await next().
 const middleware = MIDDLEWARE_HEADERS.map((header) => async (ctx, next) => {
   ctx.set(header.name, mwHeaderValue(header));
@@ -80,6 +99,7 @@ router.get('/empty', (ctx) => {
   ctx.status = 204;
 });
 
+app.use(serve(join(__dirname, '..', 'public'), { defer: false }));
 app.use(router.routes());
 app.use(router.allowedMethods());
 

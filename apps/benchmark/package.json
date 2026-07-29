@@ -22,6 +22,7 @@
     "bench:alloc:context-state": "node scripts/context-state-alloc.js",
     "bench:alloc:router": "node scripts/router-match-alloc.js",
     "bench:alloc:param-match": "node scripts/param-match-alloc.js",
+    "bench:alloc:handler": "node scripts/handler-alloc.js",
     "bench:alloc:web": "node scripts/web-context-alloc.js",
     "bench:validate": "node scripts/validate-parity.js",
     "bench:check": "node scripts/check-regression.js",
@@ -38,6 +39,7 @@
     "clean": "rm -rf results/*"
   },
   "devDependencies": {
+    "@fastify/static": "10.1.2",
     "@hono/node-server": "2.0.10",
     "@nextrush/adapter-node": "workspace:*",
     "@nextrush/body-parser": "workspace:*",
@@ -45,6 +47,7 @@
     "@nextrush/core": "workspace:*",
     "@nextrush/router": "workspace:*",
     "@nextrush/runtime": "workspace:*",
+    "@nextrush/static": "workspace:*",
     "@nextrush/types": "workspace:*",
     "autocannon": "8.0.0",
     "express": "5.2.1",
@@ -52,7 +55,8 @@
     "hono": "4.12.30",
     "koa": "3.2.1",
     "koa-bodyparser": "4.4.1",
-    "koa-router": "14.0.0"
+    "koa-router": "14.0.0",
+    "koa-static": "5.0.0"
   },
   "engines": {
     "node": ">=22.0.0"

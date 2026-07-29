@@ -30,7 +30,11 @@ async function waitForServer(url, timeoutMs) {
 
 export { waitForServer };
 
-export async function startServer(serverFile, port = 8080, { traceGc = false, pinCores = null } = {}) {
+export async function startServer(
+  serverFile,
+  port = 8080,
+  { traceGc = false, pinCores = null, inspectPort = null, cpuProfDir = null } = {}
+) {
   const serverPath = join(SERVERS_DIR, serverFile);
   if (!existsSync(serverPath)) {
     throw new Error(`Server file not found: ${serverPath}`);
@@ -38,6 +42,11 @@ export async function startServer(serverFile, port = 8080, { traceGc = false, pi
 
   const nodeArgs = [...NODE_SERVER_FLAGS];
   if (traceGc) nodeArgs.push('--trace-gc');
+  // Diagnostic-only flags for scripts/profile.js (add-benchmark-cpu-allocation-
+  // profiling) — additive, opt-in, and never set by run.js/validate-parity.js's
+  // existing call sites, so this changes nothing for the throughput comparison.
+  if (inspectPort) nodeArgs.push(`--inspect=${inspectPort}`);
+  if (cpuProfDir) nodeArgs.push('--cpu-prof', `--cpu-prof-dir=${cpuProfDir}`);
   nodeArgs.push(serverPath);
 
   // Optional CPU pinning (taskset, Linux) to reduce scheduler noise on clean-env runs.

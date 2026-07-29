@@ -8,6 +8,8 @@
  */
 
 import express from 'express';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 import {
   ERROR_BODY,
@@ -17,12 +19,16 @@ import {
   LARGE_JSON,
   MIDDLEWARE_BODY,
   MIDDLEWARE_HEADERS,
+  SEND_OBJECT_BODY,
   deepRoute,
+  largePostResponse,
   mwHeaderValue,
   postUserResponse,
   searchResponse,
   userById,
 } from './_shared/payloads.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const app = express();
@@ -56,6 +62,19 @@ app.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (req, res) => {
 app.post('/users', jsonParser, (req, res) => {
   res.json(postUserResponse(req.body));
 });
+
+app.get('/send-object', (_req, res) => {
+  res.json(SEND_OBJECT_BODY);
+});
+
+// Raised past Express's default 100kb limit — the scenario body is ~1.5MB
+// by design so it never rides the boundary of a default.
+const largeJsonParser = express.json({ limit: '5mb' });
+app.post('/large-post', largeJsonParser, (req, res) => {
+  res.json(largePostResponse(Array.isArray(req.body?.items) ? req.body.items.length : 0));
+});
+
+app.use(express.static(join(__dirname, '..', 'public')));
 
 // 5-layer middleware stack — one header per layer, chained via next().
 const middleware = MIDDLEWARE_HEADERS.map((header) => (_req, res, next) => {

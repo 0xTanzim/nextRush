@@ -9,6 +9,9 @@
  */
 
 import Fastify from 'fastify';
+import fastifyStatic from '@fastify/static';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 import {
   ERROR_BODY,
@@ -18,12 +21,16 @@ import {
   LARGE_JSON,
   MIDDLEWARE_BODY,
   MIDDLEWARE_HEADERS,
+  SEND_OBJECT_BODY,
   deepRoute,
+  largePostResponse,
   mwHeaderValue,
   postUserResponse,
   searchResponse,
   userById,
 } from './_shared/payloads.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const fastify = Fastify({ logger: false });
@@ -41,6 +48,20 @@ fastify.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', async (req) =
 );
 
 fastify.post('/users', async (req) => postUserResponse(req.body));
+
+fastify.get('/send-object', async () => SEND_OBJECT_BODY);
+
+// bodyLimit raised past the default (default is exactly 1MB — the scenario
+// body is ~1.5MB by design so it never rides the boundary of a default).
+fastify.post(
+  '/large-post',
+  { bodyLimit: 5 * 1024 * 1024 },
+  async (req) => largePostResponse(Array.isArray(req.body?.items) ? req.body.items.length : 0)
+);
+
+fastify.register(fastifyStatic, {
+  root: join(__dirname, '..', 'public'),
+});
 
 // 5-layer middleware stack — one onRequest hook per layer, scoped to /middleware.
 fastify.register(async (instance) => {

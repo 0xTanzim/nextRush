@@ -33,6 +33,9 @@
  *                                                  # on one machine (router-highload-
  *                                                  # harness-fixes, performance-gate)
  *   node scripts/run.js --no-validate            # skip the parity pre-flight (not advised)
+ *   node scripts/run.js --stress --diagnostic-saturation  # explicit opt-in for adversarial-load
+ *                                                  # runs — forces publishable:false regardless
+ *                                                  # of run size, never masquerades as a comparison
  *
  * Quick dev/AI-agent checkup (seconds, not the full multi-hour suite):
  *   node scripts/run.js --compare --connections 256 --time 5 --runs 1
@@ -50,6 +53,9 @@ import { QUICK_SCENARIOS, SCENARIOS } from '../config/scenarios.js';
 import { benchmarkFramework } from './bench-exec.js';
 import { generateArtifacts, printSummaryTable } from './report-md.js';
 import { readInstalledFrameworkVersions as readFrameworkVersions } from './lib/installed-versions.js';
+import { derivePublishable } from './lib/publishable.js';
+import { captureGitProvenance, captureNextRushEffectiveOptions } from './lib/provenance.js';
+import { checkRunIdCollision } from './lib/run-collision.js';
 import { runParityCheck } from './validate-parity.js';
 import { selectFrameworkIds } from './lib/framework-selection.js';
 import {
@@ -152,6 +158,7 @@ try {
 // F-L06: optionally randomize framework execution order to cancel position/thermal
 // bias across a comparison. Off by default so the default run stays reproducible.
 const shuffleOrder = args.shuffle === true;
+const diagnosticSaturation = args['diagnostic-saturation'] === true;
 if (shuffleOrder && frameworkIds.length > 1) {
   for (let i = frameworkIds.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -198,7 +205,7 @@ async function main() {
 
   logHeader('NextRush Professional Benchmark');
   log(`Profile:      ${profileName} — ${profile.description}`);
-  log(`Publishable:  ${profile.publishable ? 'yes' : 'NO (dev/stress profile)'}`);
+  log(`Publishable:  ${profile.publishable ? 'yes, if this run stays compliant' : 'NO (dev/stress profile)'}`);
   log(`Tool:         ${activeTool}`);
   log(`Duration:     ${durationOverride || profile.duration} per test`);
   log(`Connections:  ${connections.join(', ')}`);
@@ -259,31 +266,55 @@ async function main() {
   }
 
   logHeader('Generating Report');
+  const runConfiguration = {
+    duration: durationOverride || profile.duration,
+    connections,
+    runs: runsOverride || profile.runs,
+    threads: profile.threads,
+    warmupDuration: profile.warmupDuration,
+    scenarioWarmupDuration: profile.scenarioWarmupDuration,
+    cooldownMs: profile.cooldownMs,
+    pauseBetweenTestsMs: profile.pauseBetweenTestsMs,
+    pinCores,
+    clientPinCores,
+    traceGc: enableTraceGc,
+    order: shuffleOrder ? 'shuffled' : 'fixed',
+    scenarios: scenarios.map((s) => s.id),
+    frameworkVersions: readFrameworkVersions(),
+    nextrushEffectiveOptions: captureNextRushEffectiveOptions({}),
+  };
+  const publishableOutcome = derivePublishable(runConfiguration, allResults, { diagnosticSaturation });
+  if (!publishableOutcome.publishable) {
+    logWarn(`Not publishable: ${publishableOutcome.reason}`);
+  }
+
   const report = {
     runId,
     timestamp: new Date().toISOString(),
     profile: profileName,
-    publishable: profile.publishable,
+    publishable: publishableOutcome.publishable,
+    publishableReason: publishableOutcome.reason,
+    git: captureGitProvenance(),
     tool: activeTool,
     system: sysInfo,
-    configuration: {
-      duration: durationOverride || profile.duration,
-      connections,
-      runs: runsOverride || profile.runs,
-      threads: profile.threads,
-      warmupDuration: profile.warmupDuration,
-      scenarioWarmupDuration: profile.scenarioWarmupDuration,
-      cooldownMs: profile.cooldownMs,
-      pauseBetweenTestsMs: profile.pauseBetweenTestsMs,
-      pinCores,
-      clientPinCores,
-      traceGc: enableTraceGc,
-      order: shuffleOrder ? 'shuffled' : 'fixed',
-      scenarios: scenarios.map((s) => s.id),
-      frameworkVersions: readFrameworkVersions(),
-    },
+    configuration: runConfiguration,
     results: allResults,
   };
+
+  const collision = checkRunIdCollision(RESULTS_DIR, runId, report);
+  if (collision.collision && !collision.identical) {
+    logError(
+      `Run ID "${runId}" collides with existing directory "${collision.existingDir}" (different content). ` +
+        'Refusing to overwrite or duplicate — this is the exact defect that produced ' +
+        '2026-07-27T15-42-22/15-42-50 as two directories embedding the same run_id.'
+    );
+    process.exit(1);
+  }
+  if (collision.collision && collision.identical) {
+    logWarn(`Run ID "${runId}" already exists as "${collision.existingDir}" with identical content — not duplicating.`);
+    rmSync(resultsDir, { recursive: true, force: true });
+    process.exit(0);
+  }
 
   saveResults(resultsDir, 'results.json', report);
   for (const [filename, contents] of Object.entries(

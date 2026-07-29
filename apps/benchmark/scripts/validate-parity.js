@@ -23,6 +23,7 @@ import { BASE_URL, PORT } from '../config/constants.js';
 import { DEFAULT_FRAMEWORKS, FRAMEWORKS } from '../config/frameworks.js';
 import { SCENARIOS } from '../config/scenarios.js';
 import { MIDDLEWARE_HEADERS } from '../servers/_shared/payloads.js';
+import { checkFramingParity } from './lib/parity.js';
 import { log, logError, logHeader, logStep, sleep, startServer, stopServer } from './utils.js';
 
 const REFERENCE = 'raw-node';
@@ -131,6 +132,21 @@ export async function runParityCheck(frameworkIds = DEFAULT_FRAMEWORKS) {
           failures.push(`${id} · middleware headers: ${problems.join(', ')}`);
         }
       }
+    }
+
+    // 4. Response-framing parity (Content-Length/Transfer-Encoding) — checked once
+    // per scenario across every collected server, not per-id (reconciliation
+    // report F-03: a chunked-vs-fixed-length mismatch invalidates every
+    // throughput comparison for that scenario, and the odd server out is not
+    // necessarily the reference).
+    if (s.identicalWork) {
+      const headersById = {};
+      for (const id of ids) headersById[id] = collected[id][s.id].headers;
+      const framingProblems = checkFramingParity(headersById, {
+        skip: s.expectStatus === 204,
+        strictLength: !s.variableLength,
+      });
+      for (const p of framingProblems) failures.push(`${s.id} · framing: ${p}`);
     }
   }
 

@@ -7,7 +7,9 @@
  */
 
 import { serve } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
+import { fileURLToPath } from 'node:url';
 
 import {
   ERROR_BODY,
@@ -17,7 +19,9 @@ import {
   LARGE_JSON,
   MIDDLEWARE_BODY,
   MIDDLEWARE_HEADERS,
+  SEND_OBJECT_BODY,
   deepRoute,
+  largePostResponse,
   mwHeaderValue,
   postUserResponse,
   searchResponse,
@@ -50,6 +54,16 @@ app.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (c) =>
 );
 
 app.post('/users', async (c) => jsonRes(c, postUserResponse(await c.req.json())));
+
+app.get('/send-object', (c) => jsonRes(c, SEND_OBJECT_BODY));
+
+app.post('/large-post', async (c) => {
+  const body = await c.req.json();
+  const items = body?.items;
+  return jsonRes(c, largePostResponse(Array.isArray(items) ? items.length : 0));
+});
+
+app.use('/static/*', serveStatic({ root: fileURLToPath(new URL('../public', import.meta.url)) }));
 
 // 5-layer middleware stack — one header per layer.
 for (const header of MIDDLEWARE_HEADERS) {

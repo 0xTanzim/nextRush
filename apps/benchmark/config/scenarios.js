@@ -9,6 +9,31 @@
  * any non-2xx response invalidates the run; the error scenario expects 500.
  */
 
+/**
+ * A request body at or above 1MB for the `large-post` scenario, built once at
+ * module load (same pattern as `LARGE_JSON` below) rather than per-request —
+ * a fixed JSON array of small objects, sized comfortably past the 1MB floor
+ * (target ~1.5MB) so the scenario isn't a coin-flip against a parser's exact
+ * default limit (`@nextrush/body-parser`'s default JSON limit is exactly
+ * 1MB — every server's route for this scenario configures a higher limit
+ * explicitly rather than relying on a default sized right at the boundary).
+ */
+function buildLargePostBody() {
+  const items = [];
+  let size = 0;
+  let i = 0;
+  const target = 1_572_864; // 1.5 MiB
+  while (size < target) {
+    const item = { id: i, name: `item-${i}`, value: 'x'.repeat(50) };
+    items.push(item);
+    size += JSON.stringify(item).length + 1; // +1 for the array separator
+    i++;
+  }
+  return JSON.stringify({ items });
+}
+
+const LARGE_POST_BODY = buildLargePostBody();
+
 export const SCENARIOS = [
   {
     id: 'hello-world',
@@ -62,6 +87,10 @@ export const SCENARIOS = [
     category: 'parsing',
     // Body contains a random id + timestamp — bodies are equal after normalization.
     identicalWork: true,
+    // The random id's digit count varies (1-4 digits), so byte-identical work does
+    // not guarantee byte-identical Content-Length — only the framing MECHANISM
+    // (fixed-length vs. chunked) is checked for parity, not the exact byte count.
+    variableLength: true,
   },
   {
     id: 'deep-route',
@@ -119,6 +148,46 @@ export const SCENARIOS = [
     description: 'Absolute minimum — 204 No Content, zero serialization',
     category: 'baseline',
     identicalWork: true,
+  },
+  {
+    id: 'send-object',
+    name: 'Send Object',
+    method: 'GET',
+    path: '/send-object',
+    expectStatus: 200,
+    description:
+      'Dispatches a plain object through each framework\'s own response-serialization ' +
+      'helper (not a pre-serialized string) — the general object-dispatch code path ' +
+      'named by the performance reconciliation report\'s Rec 11 / F-09',
+    category: 'serialization',
+    identicalWork: true,
+  },
+  {
+    id: 'static-file',
+    name: 'Static File',
+    method: 'GET',
+    path: '/static/bench.txt',
+    expectStatus: 200,
+    description:
+      'Serves a small static file through each framework\'s own static-file middleware — ' +
+      'a code path with zero prior benchmark coverage (Rec 11)',
+    category: 'static',
+    identicalWork: true,
+  },
+  {
+    id: 'large-post',
+    name: 'Large POST Body',
+    method: 'POST',
+    path: '/large-post',
+    headers: { 'Content-Type': 'application/json' },
+    body: LARGE_POST_BODY,
+    expectStatus: 200,
+    description:
+      'A request body at or above 1MB — measures body-parsing/response cost at a size ' +
+      'distinct from the existing smaller `post-json` scenario (Rec 11)',
+    category: 'parsing',
+    identicalWork: true,
+    variableLength: true,
   },
 ];
 

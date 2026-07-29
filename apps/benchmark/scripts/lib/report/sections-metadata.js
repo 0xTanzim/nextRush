@@ -72,6 +72,21 @@ export function loadConfigurationSection(scoreboard) {
   );
   lines.push('');
 
+  const git = scoreboard.git || { commit: null, dirty: null };
+  lines.push(
+    `**Commit:** ${git.commit ? '\`' + git.commit + '\`' : NOT_RECORDED}` +
+      (git.dirty === true ? ' — **dirty working tree at measurement time**' : git.dirty === false ? ' (clean)' : '')
+  );
+  lines.push('');
+
+  const effective = config.nextrushEffectiveOptions;
+  const effectiveRows = effective
+    ? [
+        ['NextRush effective timeout', `${effective.timeout} ms`],
+        ['NextRush effective keepAliveTimeout', `${effective.keepAliveTimeout} ms`],
+      ]
+    : [];
+
   lines.push(
     ...table(
       ['Parameter', 'Value'],
@@ -91,6 +106,7 @@ export function loadConfigurationSection(scoreboard) {
         ['Client pinning', config.clientPinCores ? `client cores ${config.clientPinCores}` : 'off'],
         ['Framework order', orNotRecorded(config.order)],
         ['GC tracing', config.traceGc === undefined ? NOT_RECORDED : config.traceGc ? 'on' : 'off'],
+        ...effectiveRows,
       ]
     )
   );

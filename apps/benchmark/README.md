@@ -224,6 +224,12 @@ pnpm report:regenerate-all
 
 # Combine options
 node scripts/run.js --compare --profile full --pin 2-7 --trace-gc
+
+# Diagnostic-saturation run — explicit opt-in for a deliberately adversarial-load
+# run (e.g. an intentionally high-concurrency stress probe). Forces
+# publishable:false regardless of run count or concurrency levels — this run's
+# results are retained but never mistaken for a comparison-grade number.
+node scripts/run.js --stress --diagnostic-saturation
 ```
 
 ### Quick checkup (dev iteration or an AI agent verifying a change)
@@ -449,6 +455,54 @@ apps/benchmark/
     ├── latest/           # Copy of most recent run (gitignored)
     └── <timestamp>/      # Historical runs (gitignored)
 ```
+
+## Allocation Harnesses
+
+Alongside the throughput benchmarks above, `scripts/*-alloc.js` measure deterministic
+**bytes-per-request** (or bytes-per-match, bytes-per-op) for specific hot-path code — the metric
+throughput can't isolate, since it moves with hardware/scheduler noise while a fixed allocation
+count does not. Each runs the REAL, built code in an isolated `--expose-gc` child process, forces
+GC before/after, and reports `heapUsed` delta ÷ N — near-zero coefficient of variation is the
+expected signature of a clean run; a run in which GC fired mid-loop is rejected and retried.
+
+```bash
+pnpm bench:alloc:handler          # @nextrush/adapter-node's createHandler per-request closure
+pnpm bench:alloc:param-match      # @nextrush/router's param-match path (gross, includes transient)
+pnpm bench:alloc:router           # @nextrush/router's match path (net-retained)
+pnpm bench:alloc:context          # NodeContext construction
+pnpm bench:alloc:context-raw      # ctx.raw lazy-wrapper trim
+pnpm bench:alloc:context-state    # ctx.state lazy-init
+pnpm bench:alloc:dispatch         # middleware dispatch
+pnpm bench:alloc:web              # web-standard Context construction
+```
+
+`bench:alloc:handler` reports two figures — the default (`timeout > 0`) handler-vs-timeout race
+path, and the `timeout <= 0` disabled path — so a future change to `createHandler`'s timeout
+mechanism cannot land without an allocation signal on either branch.
+
+CI wires every `*-alloc.js` harness into a **tight** allocation-regression gate (near-zero
+tolerance) against a committed baseline, complementing the throughput gate's loose tolerance — see
+[Latest Results](#latest-results) and `.github/workflows/performance-gate.yml`.
+
+### CPU / heap / GC / event-loop profiling (`scripts/profile.js`)
+
+A separate, deeper diagnostic entry point for inspecting ONE server on ONE named scenario under
+load — distinct from `run.js`'s six-server throughput comparison. Produces a V8 `.cpuprofile`,
+before/after heap snapshots, a GC-event summary (reusing `--trace-gc` capture already collected by
+the server-lifecycle helper), and event-loop-utilization samples, all saved under
+`results/<run-id>/profile/` with the same commit/dirty-flag provenance as a throughput run.
+
+```bash
+node scripts/profile.js --scenario hello-world              # 20s default duration
+node scripts/profile.js --scenario route-params --duration 30s
+node scripts/profile.js --scenario post-json --heap-snapshot=false --cpu-prof=false
+```
+
+Diagnostic-only — never wired into CI, never part of the six-server fairness comparison. Requires
+`wrk` on `PATH`. Opens a debugger port (`--inspect`) on the profiled server process only; `run.js`'s
+comparison flow never does this. See
+`reports/investigations/cpu-allocation-profiling-results.md` for the first findings produced with
+this tool.
 
 ## Class-Path Overhead (functional vs class/DI)
 

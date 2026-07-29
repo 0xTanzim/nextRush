@@ -244,6 +244,7 @@ export function buildScoreboard(report, options = {}) {
     timestamp: report.timestamp,
     profile: report.profile,
     publishable: Boolean(report.publishable),
+    git: report.git || { commit: null, dirty: null },
     tool: report.tool,
     system: report.system || {},
     configuration: report.configuration || {},
