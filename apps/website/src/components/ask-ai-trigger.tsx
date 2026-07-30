@@ -50,10 +50,9 @@ export function AskAiTrigger() {
       <PopoverTrigger
         title="Ask AI — real search over NextRush docs content, no fabricated answers"
         aria-label="Ask AI"
-        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium text-fd-muted-foreground transition-colors hover:text-fd-foreground cursor-pointer"
+        className="inline-flex items-center gap-1.5 rounded-md p-2 text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-foreground cursor-pointer"
       >
         <Sparkles className="size-4" aria-hidden />
-        <span className="hidden sm:inline">Ask AI</span>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[22rem] p-3">
         <p className="mb-3 text-xs text-fd-muted-foreground">

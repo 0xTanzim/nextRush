@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Docs site smoke tests — run against `pnpm dev` (default port 8080).
+ * Docs site smoke tests — run against `pnpm dev` (default port 3020).
  * First time: `pnpm exec playwright install chromium`
  */
 export default defineConfig({
@@ -11,13 +11,13 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:8080',
+    baseURL: 'http://127.0.0.1:3020',
     trace: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: 'pnpm dev',
-    url: 'http://127.0.0.1:8080',
+    url: 'http://127.0.0.1:3020',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

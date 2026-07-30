@@ -887,11 +887,9 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
  * Reading-experience refinements (product feedback pass)
  * ============================================
  * Fumadocs' default content column caps at max-w-[900px] against a much
- * wider grid track, and the TOC column pads its own top (pt-12 = 48px)
- * independently of where the title sits — together they read as "narrow
- * content, oversized whitespace on both sides" even though 900px sits
- * inside the range technical docs typically use. Widening it and trimming
- * the TOC's own top offset closes both gaps without touching Fumadocs'
+ * wider grid track, reading as "narrow content, oversized whitespace on
+ * both sides" even though 900px sits inside the range technical docs
+ * typically use. Widening it closes that gap without touching Fumadocs'
  * grid math directly. Selectors verified against the real rendered DOM
  * (Fumadocs' own class strings), not guessed.
  */
@@ -899,8 +897,30 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   max-width: min(1020px, 100%);
 }
 
+/*
+ * The TOC column starts in the same grid row as the sticky header, so its
+ * own top padding is the only lever that visually separates "On this page"
+ * from the navbar (feedback/toc.md: the TOC's heading landed at the same
+ * height as Search/Ask AI/version, reading as if page-local navigation
+ * belonged to global navigation). 64px gives it clear, intentional
+ * breathing room; the previous 24px had trimmed too far solving a
+ * different problem (title-to-content spacing) and reintroduced this one.
+ */
 [class*='[grid-area:toc]'] {
-  padding-top: 1.5rem;
+  padding-top: 4rem;
+}
+
+/*
+ * Fumadocs renders the TOC heading as a plain h3 with muted, unweighted text
+ * (`text-sm text-fd-muted-foreground`), which is a big part of why it read
+ * as low-emphasis chrome rather than the document's own section heading
+ * (feedback/toc.md: "everything has almost equal emphasis"). Bumping weight
+ * and color and adding room below it gives the TOC one clear entry point.
+ */
+[class*='[grid-area:toc]'] > h3 {
+  color: var(--color-fd-foreground);
+  font-weight: 600;
+  margin-bottom: 0.75rem;
 }
 
 /* Deeper, more separated neutral levels for --color-fd-muted-foreground: no

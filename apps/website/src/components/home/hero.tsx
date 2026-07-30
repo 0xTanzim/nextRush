@@ -1,8 +1,18 @@
-import { ArrowRight, GitFork, Zap } from 'lucide-react';
+import { ArrowRight, GitFork, Package, ShieldCheck, Star, Zap } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { CopyButton } from '@/components/copy-button';
+import { HeroCodeExample } from '@/components/home/hero-code-example';
 import { appConfig } from '@/config/appConfig';
 import { DOCS_GETTING_STARTED } from '@/lib/docs-links';
+
+const runtimeBadges = [
+  { name: 'Node.js', icon: '/icons/nodejs.svg' },
+  { name: 'Bun', icon: '/icons/bun.svg' },
+  { name: 'Deno', icon: '/icons/deno-svgrepo-com.svg' },
+  { name: 'Edge', icon: '/icons/azure-edge-management.svg' },
+  { name: 'TypeScript', icon: '/icons/typescript.svg' },
+] as const;
 
 const codeExample = `import { createApp, createRouter, listen } from 'nextrush';
 
@@ -83,81 +93,91 @@ const highlightedCode = (
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden">
+    <section aria-label="Why NextRush" className="relative overflow-hidden">
       <div className="absolute inset-0 -z-10">
-        <div className="absolute -top-32 left-1/4 w-[600px] h-[600px] bg-[var(--rush-blue)]/15 dark:bg-[var(--rush-blue)]/20 rounded-full blur-[120px]" />
-        <div className="absolute top-0 right-1/3 w-[500px] h-[500px] bg-[var(--rush-purple)]/10 dark:bg-[var(--rush-purple)]/15 rounded-full blur-[120px]" />
-        <div className="absolute -bottom-20 left-1/2 w-[400px] h-[400px] bg-[var(--rush-cyan)]/8 dark:bg-[var(--rush-cyan)]/10 rounded-full blur-[120px]" />
+        <div className="absolute -top-32 left-1/4 size-[600px] rounded-full bg-[var(--rush-blue)]/15 blur-[120px] dark:bg-[var(--rush-blue)]/20" />
+        <div className="absolute right-1/3 top-0 size-[500px] rounded-full bg-[var(--rush-purple)]/10 blur-[120px] dark:bg-[var(--rush-purple)]/15" />
+        <div className="absolute -bottom-20 left-1/2 size-[400px] rounded-full bg-[var(--rush-cyan)]/8 blur-[120px] dark:bg-[var(--rush-cyan)]/10" />
       </div>
 
-      <div className="container mx-auto px-4 py-24 md:py-32">
-        <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-8 rounded-full border border-fd-border bg-fd-card/50 backdrop-blur-md animate-fade-up">
-            <span className="relative flex h-2 w-2" role="status" aria-label="Live">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--success)] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--success)]" />
+      <div className="container mx-auto px-4 py-8 md:py-10">
+        <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
+          {/* Group 1: identity — badge sits tight against the logo */}
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/50 px-4 py-1.5 backdrop-blur-md animate-fade-up">
+            <span className="relative flex size-2" role="status" aria-label="Live">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--success)] opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-[var(--success)]" />
             </span>
             <span className="text-sm text-fd-muted-foreground">
               v{appConfig.version} &middot; Node.js 22+, Bun, Deno, Edge
             </span>
           </div>
 
-          <div className="flex items-center gap-3 mb-6 animate-fade-up animate-delay-100">
-            <Zap className="size-12 md:size-16 text-[var(--rush-blue)]" aria-hidden="true" />
-            <h1 className="text-5xl md:text-7xl font-bold gradient-text">NextRush</h1>
+          <div className="mb-5 flex items-center gap-2.5 animate-fade-up animate-delay-100">
+            <Zap className="size-10 text-[var(--rush-blue)] md:size-14" aria-hidden="true" />
+            <h1 className="text-4xl font-bold gradient-text md:text-6xl">NextRush</h1>
           </div>
 
-          <p className="text-xl md:text-2xl text-fd-muted-foreground mb-4 max-w-2xl animate-fade-up animate-delay-200">
-            TypeScript-first HTTP stack for Node.js and other runtimes.
+          {/* Group 2: message — headline, description, and trust row read as one unit */}
+          <p className="mb-3 max-w-2xl text-2xl text-fd-muted-foreground md:text-3xl animate-fade-up animate-delay-200">
+            Explicit architecture. Zero hidden behavior.
           </p>
-          <p className="text-lg text-fd-muted-foreground mb-8 max-w-xl animate-fade-up animate-delay-300">
-            Composable middleware, segment trie routing, optional DI and decorators.{' '}
-            <Link href="/docs/performance" className="text-[var(--rush-cyan)] font-medium underline-offset-4 hover:underline">
+          <p className="mb-5 max-w-2xl text-lg text-fd-muted-foreground animate-fade-up animate-delay-300">
+            NextRush is the backend framework for developers who want to reason about every request, not guess what a
+            framework did for them. Start with a small functional core; add segment-trie routing, middleware, and the
+            class runtime only when your application needs them.{' '}
+            <Link href="/docs/performance" className="font-medium text-[var(--rush-cyan)] underline-offset-4 hover:underline">
               Benchmarks
             </Link>{' '}
-            use a fixed setup so you can reproduce numbers on your own hardware.
+            publish the methodology so you can reproduce results on your own hardware.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 mb-16 animate-fade-up animate-delay-400">
+          <div className="mb-8 flex max-w-3xl flex-col items-center gap-3 animate-fade-up animate-delay-300">
+            <div aria-label="Runtime support" className="flex flex-wrap items-center justify-center gap-2">
+              {runtimeBadges.map((runtime) => (
+                <span
+                  key={runtime.name}
+                  className="inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/60 px-3 py-1.5 text-sm text-fd-muted-foreground transition-transform hover:-translate-y-0.5 hover:border-[var(--rush-blue)]/40"
+                >
+                  <Image src={runtime.icon} alt="" width={16} height={16} className="size-4" aria-hidden="true" />
+                  {runtime.name}
+                </span>
+              ))}
+            </div>
+            <div aria-label="Framework guarantees" className="flex flex-wrap items-center justify-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-fd-border bg-fd-card/40 px-3 py-1 text-xs text-fd-muted-foreground">
+                <ShieldCheck className="size-3.5 text-[var(--success)]" aria-hidden="true" />
+                <strong className="font-semibold text-fd-foreground">Zero</strong> runtime deps
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-fd-border bg-fd-card/40 px-3 py-1 text-xs text-fd-muted-foreground">
+                <Package className="size-3.5 text-[var(--rush-purple)]" aria-hidden="true" />
+                <strong className="font-semibold text-fd-foreground">MIT</strong> licensed
+              </span>
+            </div>
+          </div>
+
+          {/* Group 3: action — CTAs stay visually attached to the code proof below them */}
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row animate-fade-up animate-delay-400">
             <Link
               href={DOCS_GETTING_STARTED}
-              className="btn-primary inline-flex items-center gap-2 text-lg"
+              className="btn-primary inline-flex items-center justify-center gap-2 text-lg transition-shadow hover:shadow-[0_0_24px_-4px_var(--rush-blue)]"
             >
-              Get Started
+              Get started
               <ArrowRight className="size-5" aria-hidden="true" />
             </Link>
             <a
               href="https://github.com/0xTanzim/nextrush"
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-outline inline-flex items-center gap-2 text-lg"
+              className="inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-base font-medium text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-foreground"
             >
               <GitFork className="size-5" aria-hidden="true" />
-              GitHub
+              View on GitHub
+              <Star className="size-4" aria-hidden="true" />
             </a>
           </div>
 
-          <div className="w-full max-w-2xl animate-fade-up animate-delay-500">
-            <div className="relative rounded-xl overflow-hidden border border-[var(--code-border)] bg-[var(--code-bg)] code-glow">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--code-border)] bg-[var(--code-bg-header)]">
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1.5" aria-hidden="true">
-                    <div className="w-3 h-3 rounded-full bg-[var(--danger)]" />
-                    <div className="w-3 h-3 rounded-full bg-[var(--warning)]" />
-                    <div className="w-3 h-3 rounded-full bg-[var(--success)]" />
-                  </div>
-                  <span className="ml-2 text-sm text-[var(--code-punctuation)] font-mono">
-                    src/index.ts
-                  </span>
-                </div>
-                <CopyButton code={codeExample} label="Copy code example" />
-              </div>
-
-              <pre className="p-4 overflow-x-auto text-left" tabIndex={0} role="code">
-                <code className="text-sm font-mono">{highlightedCode}</code>
-              </pre>
-            </div>
-          </div>
+          <HeroCodeExample />
         </div>
       </div>
     </section>

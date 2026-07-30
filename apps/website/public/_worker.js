@@ -221,6 +221,41 @@ const OAUTH_METADATA = new Map([
   }],
 ]);
 
+/**
+ * Attempts to fetch an asset with clean-URL fallback.
+ * Cloudflare Pages ASSETS binding does NOT auto-resolve clean URLs
+ * (unlike the default Pages worker).  We try the exact path first,
+ * then .html extension, then index.html for directory-like paths.
+ */
+async function fetchAsset(request, env, pathname) {
+  // 1. Try exact path
+  let res = await env.ASSETS.fetch(request);
+  if (res.ok) return res;
+
+  // 2. Try + .html (Next.js static export generates .html files)
+  const htmlUrl = new URL(request.url);
+  const trimmed = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  htmlUrl.pathname = trimmed + '.html';
+  res = await env.ASSETS.fetch(new Request(htmlUrl, request));
+  if (res.ok) return res;
+
+  // 3. Try /index.html
+  htmlUrl.pathname = pathname.replace(/\/?$/, '/') + 'index.html';
+  res = await env.ASSETS.fetch(new Request(htmlUrl, request));
+  if (res.ok) return res;
+
+  // 4. Try path without trailing slash
+  if (pathname !== '/' && pathname.endsWith('/')) {
+    const noSlash = new URL(request.url);
+    noSlash.pathname = pathname.slice(0, -1);
+    res = await env.ASSETS.fetch(new Request(noSlash, request));
+    if (res.ok) return res;
+  }
+
+  // None worked — return the original 404
+  return res;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -250,7 +285,7 @@ export default {
 
     // Fast path: skip content negotiation when markdown isn't requested
     if (!accept.includes('text/markdown')) {
-      const res = await env.ASSETS.fetch(request);
+      const res = await fetchAsset(request, env, url.pathname);
       return fixMimeType(res, url.pathname);
     }
 
@@ -258,7 +293,7 @@ export default {
 
     // No markdown version exists — serve HTML
     if (!markdownPath) {
-      const res = await env.ASSETS.fetch(request);
+      const res = await fetchAsset(request, env, url.pathname);
       return fixMimeType(res, url.pathname);
     }
 
@@ -269,7 +304,7 @@ export default {
 
     if (!mdRes.ok) {
       // Markdown file not found — fall through to HTML
-      const res = await env.ASSETS.fetch(request);
+      const res = await fetchAsset(request, env, url.pathname);
       return fixMimeType(res, url.pathname);
     }
 

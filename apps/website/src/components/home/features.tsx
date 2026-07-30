@@ -1,79 +1,80 @@
 import { Globe, Lock, Package, Puzzle, Shield, Zap } from 'lucide-react';
+import { RequestLifecycle } from '@/components/home/request-lifecycle';
 
 const features = [
   {
     icon: Zap,
-    title: 'Lean request path',
-    description:
-      'Segment-trie routing and a small core. Measure throughput on your machine — see the Benchmarks docs for methodology.',
+    title: 'Segment-trie routing',
+    description: 'Route matching scales with URL segments rather than route count, while keeping application code explicit.',
     colorVar: '--warning',
   },
   {
     icon: Shield,
-    title: 'Type Safe',
-    description:
-      'Full TypeScript with zero `any`. Catch errors at compile time, not in production.',
+    title: 'Typed request flow',
+    description: 'Context, routes, middleware, and errors share TypeScript contracts without loosening to `any`.',
     colorVar: '--rush-blue',
   },
   {
     icon: Package,
-    title: 'Modular',
-    description: '30 packages in the monorepo. Install what you need. Core is under 3,000 lines of code.',
+    title: 'Small core, optional modules',
+    description: 'Start with the functional core, then add middleware, streaming, or class-based composition when needed.',
     colorVar: '--rush-purple',
   },
   {
     icon: Globe,
-    title: 'Multi-Runtime',
-    description: 'Node.js, Bun, Deno, and Edge. Write once, deploy anywhere.',
+    title: 'Web-standard adapters',
+    description: 'Write against Request, Response, streams, and AbortSignal; adapters carry runtime-specific details.',
     colorVar: '--rush-cyan',
   },
   {
     icon: Puzzle,
-    title: 'Plugin System',
-    description: 'Controllers, WebSocket, static files, and more register through the plugin interface.',
+    title: 'Class runtime when it helps',
+    description: 'Controllers, modules, request scopes, guards, and lifecycle hooks remain an opt-in path.',
     colorVar: '--rush-green',
   },
   {
     icon: Lock,
-    title: 'Security middleware',
-    description:
-      'Helmet, CORS, rate limiting, and CSRF as installable packages — wire what your deployment needs.',
+    title: 'Security as composition',
+    description: 'Add CORS, headers, CSRF protection, rate limits, and validation as intentional middleware choices.',
     colorVar: '--danger',
   },
 ];
 
 export function Features() {
   return (
-    <section className="relative py-24">
-      <hr className="section-divider absolute top-0 left-0 right-0" />
+    <section aria-labelledby="framework-capabilities" className="relative py-24">
+      <hr className="section-divider absolute inset-x-0 top-0" />
       <div className="container mx-auto px-4">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">What you get</h2>
-          <p className="text-lg text-fd-muted-foreground max-w-2xl mx-auto">
-            Explicit wiring, readable request flow, and packages you enable only when you need them.
+        <div className="mx-auto mb-16 max-w-2xl text-center">
+          <h2 id="framework-capabilities" className="mb-4 text-3xl font-bold md:text-4xl">
+            An explicit stack, not a magic box
+          </h2>
+          <p className="mb-8 text-lg text-fd-muted-foreground">
+            Keep the request path understandable and add capabilities only where they solve a real application need.
           </p>
+          <RequestLifecycle />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => {
             const Icon = feature.icon;
             const color = `var(${feature.colorVar})`;
             return (
               <div
                 key={feature.title}
-                className="group p-6 rounded-xl card-glow card-gradient-border"
+                className="group rounded-xl p-6 card-glow card-gradient-border transition-transform hover:-translate-y-1"
                 style={{ '--feature-color': color } as React.CSSProperties}
               >
                 <div
-                  className="inline-flex items-center justify-center w-10 h-10 rounded-lg mb-4"
+                  className="mb-4 inline-flex size-14 items-center justify-center rounded-xl"
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${color} 8%, transparent)`,
-                    border: `1px solid color-mix(in srgb, ${color} 12%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
                   }}
                 >
-                  <Icon className="size-5" style={{ color }} aria-hidden="true" />
+                  <Icon className="size-7" style={{ color }} aria-hidden="true" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                <h3 className="mb-2 text-xl font-semibold">{feature.title}</h3>
                 <p className="text-fd-muted-foreground">{feature.description}</p>
               </div>
             );

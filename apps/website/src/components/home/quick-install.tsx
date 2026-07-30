@@ -1,19 +1,19 @@
 'use client';
 
 import { Check, Copy } from 'lucide-react';
+import Image from 'next/image';
 import { useState } from 'react';
 
 const packageManagers = [
-  { name: 'pnpm', command: 'pnpm add nextrush' },
-  { name: 'npm', command: 'npm install nextrush' },
-  { name: 'yarn', command: 'yarn add nextrush' },
-  { name: 'bun', command: 'bun add nextrush' },
+  { name: 'pnpm', icon: '/icons/pnpm.svg', command: 'pnpm add nextrush' },
+  { name: 'npm', icon: '/icons/npm.svg', command: 'npm install nextrush' },
+  { name: 'yarn', icon: '/icons/yarn-svgrepo-com.svg', command: 'yarn add nextrush' },
+  { name: 'bun', icon: '/icons/bun.svg', command: 'bun add nextrush' },
 ] as const;
 
 export function QuickInstall() {
   const [activeTab, setActiveTab] = useState<(typeof packageManagers)[number]['name']>('pnpm');
   const [copied, setCopied] = useState(false);
-
   const activeCommand = packageManagers.find((pm) => pm.name === activeTab)?.command ?? '';
 
   const copyCommand = async () => {
@@ -23,40 +23,56 @@ export function QuickInstall() {
   };
 
   return (
-    <section className="relative py-24">
-      <hr className="section-divider absolute top-0 left-0 right-0" />
+    <section aria-labelledby="install-first-app" className="relative py-24">
+      <hr className="section-divider absolute inset-x-0 top-0" />
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Start building in seconds</h2>
-          <p className="text-lg text-fd-muted-foreground">Install the package and follow the getting-started guide.</p>
+        <div className="mb-12 text-center">
+          <h2 id="install-first-app" className="mb-4 text-3xl font-bold md:text-4xl">
+            Install your first app
+          </h2>
+          <p className="text-lg text-fd-muted-foreground">Choose a package manager, install the core, then follow the introduction.</p>
         </div>
 
-        <div className="max-w-xl mx-auto">
-          <div className="rounded-xl overflow-hidden border border-fd-border bg-fd-card code-glow">
-            <div className="flex border-b border-fd-border">
-              {packageManagers.map((pm) => (
-                <button
-                  key={pm.name}
-                  onClick={() => setActiveTab(pm.name)}
-                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                    activeTab === pm.name
-                      ? 'bg-fd-muted text-fd-foreground border-b-2 border-[var(--rush-blue)]'
-                      : 'text-fd-muted-foreground hover:text-fd-foreground hover:bg-fd-muted/50'
-                  }`}
-                >
-                  {pm.name}
-                </button>
-              ))}
+        <div className="mx-auto max-w-xl">
+          <div className="overflow-hidden rounded-xl border border-fd-border bg-fd-card code-glow">
+            <div role="group" aria-label="Package manager" className="flex border-b border-fd-border">
+              {packageManagers.map((pm) => {
+                const isActive = activeTab === pm.name;
+                return (
+                  <button
+                    key={pm.name}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() => setActiveTab(pm.name)}
+                    className={`min-h-11 flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'border-b-2 border-[var(--rush-blue)] bg-fd-muted text-fd-foreground'
+                        : 'text-fd-muted-foreground hover:bg-fd-muted/50 hover:text-fd-foreground'
+                    }`}
+                  >
+                    <Image
+                      src={pm.icon}
+                      alt=""
+                      width={16}
+                      height={16}
+                      className="mr-1.5 inline-block size-4 align-text-bottom"
+                      aria-hidden="true"
+                    />
+                    {pm.name}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="flex items-center justify-between p-4">
-              <code className="font-mono text-[var(--rush-cyan)]">
+            <div className="flex items-center justify-between gap-3 p-4">
+              <code aria-live="polite" className="overflow-x-auto font-mono text-[var(--rush-cyan)]">
                 <span className="text-fd-muted-foreground">$ </span>
                 {activeCommand}
               </code>
               <button
+                type="button"
                 onClick={copyCommand}
-                className="p-2 rounded-md hover:bg-fd-border transition-colors text-fd-muted-foreground hover:text-fd-foreground"
+                className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-fd-muted-foreground transition-colors hover:bg-fd-border hover:text-fd-foreground"
                 aria-label="Copy command"
               >
                 {copied ? (
