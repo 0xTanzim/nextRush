@@ -92,32 +92,32 @@
 
 ## 7. D6 — Charts omit missing cells instead of zero-filling (P2-004)
 
-- [ ] 7.1 RED: add a failing test asserting `concurrencyScalingChart` omits a data point (rather than
+- [x] 7.1 RED: add a failing test asserting `concurrencyScalingChart` omits a data point (rather than
       emitting `0`) for a series value of `null` in its input, and that the chart's caption mentions
       the omitted cell.
-- [ ] 7.2 GREEN: implement the omission in `concurrencyScalingChart`.
-- [ ] 7.3 RED→GREEN: repeat for `scenarioProfileRadar`.
-- [ ] 7.4 Verify: render a chart from a fixture with one missing cell and visually confirm (or assert
+- [x] 7.2 GREEN: implement the omission in `concurrencyScalingChart`.
+- [x] 7.3 RED→GREEN: repeat for `scenarioProfileRadar`.
+- [x] 7.4 Verify: render a chart from a fixture with one missing cell and visually confirm (or assert
       against the generated Mermaid source) that no data point renders at value 0 for that cell.
 
 ## 8. D7 — Documentation and capture-completeness fixes (P3-005, 007, 008, 010)
 
-- [ ] 8.1 Add `ss` (iproute2) to `apps/benchmark/README.md`'s Prerequisites section; state
+- [x] 8.1 Add `ss` (iproute2) to `apps/benchmark/README.md`'s Prerequisites section; state
       `--no-validate` as the documented fallback when it is unavailable.
-- [ ] 8.2 RED: add a failing test asserting a run's artifact records a `warmupFailures` array
+- [x] 8.2 RED: add a failing test asserting a run's artifact records a `warmupFailures` array
       (or equivalent field) when a warmup request throws, in addition to the existing log line.
-- [ ] 8.3 GREEN: implement in `bench-exec.js#warmupUrl` and thread the field into the persisted
+- [x] 8.3 GREEN: implement in `bench-exec.js#warmupUrl` and thread the field into the persisted
       per-framework result.
-- [ ] 8.4 Add the `--max-old-space-size=512` uniform-value-not-uniform-effect caveat to
+- [x] 8.4 Add the `--max-old-space-size=512` uniform-value-not-uniform-effect caveat to
       `constants.js`'s `NODE_SERVER_FLAGS` doc comment and to the Load Configuration table's note.
-- [ ] 8.5 RED: add a failing test asserting `captureNextRushEffectiveOptions`'s generalized
+- [x] 8.5 RED: add a failing test asserting `captureNextRushEffectiveOptions`'s generalized
       equivalent captures effective timeout/keep-alive values for every framework exposing them,
       recording `null` with a stated reason for frameworks with no equivalent introspection point.
-- [ ] 8.6 GREEN: implement the generalized capture in `provenance.js`.
+- [x] 8.6 GREEN: implement the generalized capture in `provenance.js`.
 
 ## 9. D3 (test process fix) — P3-006
 
-- [ ] 9.1 Rewrite `warmup-provenance.test.js` to spawn `run.js` against a real ephemeral test server
+- [x] 9.1 Rewrite `warmup-provenance.test.js` to spawn `run.js` against a real ephemeral test server
       and assert the recorded provenance field's value, replacing the regex-against-source-text
       assertions. Confirm the rewritten test still fails if warmup provenance recording is broken
       (mutate the implementation locally, confirm RED, revert).

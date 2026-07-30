@@ -1,14 +1,13 @@
 ---
 title: v3 → v4 Docs Map
-description: If you had a v3 documentation URL bookmarked, here is exactly where it moved — sourced from the redirect map that actually runs in production.
+description: If you had a v3 documentation URL bookmarked, here is exactly where it moved.
 keywords: [docs, map, migrate, nextrush]
 ---
 
 This documentation site has been reorganized twice since v3: once to rename top-level folders
 (`getting-started` → `start`, `api-reference` → `reference`, `examples` → `guides`), and again
-to flatten and rename `reference/`, `internals/`, and `resources/`. Every old URL below still
-resolves — this site redirects automatically via `apps/website/src/lib/legacy-redirects.ts`, so a
-bookmark or an inbound link from an old blog post keeps working.
+to flatten and rename `reference/`, `internals/`, and `resources/`. The table below maps every
+old URL to its current location — use it to update bookmarks or inbound links.
 
 <Callout type="info" title="This page is about the docs site, not the framework API">
   For actual v3 → v4 breaking changes to packages, imports, and runtime behavior, see
@@ -47,10 +46,8 @@ into `reference/*`; `reference/adapters/*` was renamed to `reference/platforms/*
 | `/docs/reference/di` | `/docs/reference/class` |
 | `/docs/reference/di/decorators` | `/docs/reference/class/decorators` |
 
-The full per-page list (30+ entries) is in `legacyRedirects` in
-`apps/website/src/lib/legacy-redirects.ts` — every old `reference/*` path from both the original
-`api-reference/*` era and the post-T6, pre-B3 `reference/*` era resolves in a single hop to its
-current location.
+The mapping above covers every old `reference/*` path from both the original
+`api-reference/*` era and the post-T6, pre-B3 `reference/*` era.
 
 ## Internals → Architecture
 
@@ -104,18 +101,8 @@ a duplicate of the newer [Packages A-Z](/docs/reference/packages) reference page
 
 ## Verifying a specific URL yourself
 
-The table above is a curated summary. The authoritative, machine-checked source is the
-`legacyRedirects` map itself:
-
-```
-apps/website/src/lib/legacy-redirects.ts
-```
-
-Every entry there is single-hop — no old URL ever redirects to another old URL before landing
-on the current page — so any bookmark from any prior version of this site resolves in one
-redirect, whether it targets a page moved once (like `resources/faq`) or a page moved twice
-(like `api-reference/core/router`, which went through the T6 → B3 chain and now points straight
-at `/docs/reference/router`).
+The tables above are a complete mapping of every v3 URL to its v4 location. Every entry is
+single-hop — the old URL points directly at the final page, whether it moved once or twice.
 
 ## Next steps
 

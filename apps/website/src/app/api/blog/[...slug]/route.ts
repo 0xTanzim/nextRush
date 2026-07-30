@@ -1,4 +1,4 @@
-import { getLLMText, source } from '@/lib/source';
+import { blogSource } from '@/lib/source';
 
 export const dynamic = 'force-static';
 export const revalidate = false;
@@ -26,15 +26,13 @@ function routeSlugToPageSlugs(routeSlugs: string[]): string[] | undefined {
 }
 
 function estimateTokens(text: string): number {
-  // Rough token estimate: ~1.3 tokens per word for technical English.
-  // Used for x-markdown-tokens header — agents use this to estimate
-  // context-window consumption. Not a precise count.
+  // Rough token estimate: ~1.3 tokens per word for technical English
   const words = text.split(/\s+/).filter(Boolean).length;
   return Math.ceil(words * 1.3);
 }
 
 export function generateStaticParams() {
-  const pages = source.getPages();
+  const pages = blogSource.getPages();
 
   return pages
     .map((page) => {
@@ -53,13 +51,16 @@ export function generateStaticParams() {
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string[] }> }) {
   const { slug } = await params;
   const pageSlugs = routeSlugToPageSlugs(slug);
-  const page = source.getPage(pageSlugs);
+  const page = blogSource.getPage(pageSlugs);
 
   if (!page) {
     return new Response('Page not found', { status: 404 });
   }
 
-  const text = await getLLMText(page);
+  // Blog collection uses defineCollections which doesn't include
+  // includeProcessedMarkdown — fall through to raw markdown directly.
+  const body = await page.data.getText('raw');
+  const text = `# ${page.data.title}\n\n${body}`;
   const tokens = estimateTokens(text);
 
   return new Response(text, {

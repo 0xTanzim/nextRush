@@ -6,8 +6,7 @@
  * regex-against-source-text approach (which caught the same regression but
  * tested source shape rather than actual behavior).
  *
- * Regression guard for reconciliation report F-13: the recorded configuration
- * must be the VALUES actually passed to warmup()/sleep(), not merely the
+ * Regression guard: the recorded configuration must be the VALUES actually passed to warmup()/sleep(), not merely the
  * profile's declared defaults with an unrecorded override path. If a future
  * CLI override is added for any of these fields, this test forces that change
  * to also update the provenance recording — exactly what the regex test did,

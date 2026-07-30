@@ -99,6 +99,19 @@ pnpm bench:stress
 Single-run (`quick`) and stress profiles are marked **NOT publishable** — their reports carry a
 warning banner and their numbers must never be published (no variance / adversarial load).
 
+> **⏱ Time estimates** (6 frameworks, 13 scenarios, wall-clock):
+>
+> | Profile    | Per pass | Total (all frameworks × repeats) |
+> | ---------- | -------- | -------------------------------- |
+> | `quick`    | ~2 min   | **~12 min**                      |
+> | `standard` | ~21 min  | **~6 hours**                     |
+> | `full`     | ~54 min  | **~27 hours**                    |
+> | `stress`   | ~45 min  | **~4.5 hours**                   |
+>
+> A "pass" = one framework start → warmup → all scenarios × all connection levels → stop.
+> Rotation mode (default for publishable multi-framework runs) restarts every framework per
+> repeat, so total wall-clock ≈ passes × pass-time + cooldowns.
+
 Framework selection defaults are intentional: `quick` (and the no-profile default) runs NextRush only; `standard`, `full`, and `stress` run all six default frameworks. `--compare` also forces all-framework mode, while `--framework` and `--frameworks` always override the profile default for targeted runs.
 
 Thread count auto-scales based on CPU cores (capped at 16). `standard` and `full` include a 1-connection serial baseline for pure latency measurement.
