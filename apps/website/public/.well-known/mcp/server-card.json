@@ -1,0 +1,20 @@
+{
+  "serverInfo": {
+    "name": "NextRush Documentation",
+    "version": "1.0.0"
+  },
+  "endpoint": "/.well-known/agent-skills/index.json",
+  "capabilities": {
+    "resources": {
+      "list": true,
+      "subscribe": false
+    },
+    "tools": {
+      "list": false
+    },
+    "prompts": {
+      "list": false
+    }
+  },
+  "description": "Agent-accessible documentation for the NextRush framework. Provides skills discovery, API catalog, and markdown content negotiation."
+}

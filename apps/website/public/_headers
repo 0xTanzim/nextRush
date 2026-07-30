@@ -10,6 +10,36 @@
 /.well-known/api-catalog
   Content-Type: application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"
 
+/.well-known/agent-skills/index.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD
+
+/.well-known/agent-skills/*.md
+  Content-Type: text/markdown; charset=utf-8
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD
+
+/.well-known/oauth-protected-resource
+  Content-Type: application/oauth-protected-resource-v1+json
+
+/.well-known/oauth-authorization-server
+  Content-Type: application/json
+
+/.well-known/mcp/server-card.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+
+/.well-known/agent-card.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+
+/auth.md
+  Content-Type: text/markdown; charset=utf-8
+
+/.well-known/auth.md
+  Content-Type: text/markdown; charset=utf-8
+
 /api/mdx/*
   Content-Type: text/markdown
   X-Markdown-Tokens: full
