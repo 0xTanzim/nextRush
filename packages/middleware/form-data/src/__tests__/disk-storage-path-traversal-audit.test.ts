@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Disk storage path-traversal guard
+ * @nextrush/form-data - Disk storage path-traversal guard
  * (`audit-unreviewed-security-surface`, area 2: multipart storage).
  *
  * `DiskStorage.handle()`'s default filename path (`sanitizedName`, already

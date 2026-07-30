@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Type Definitions
+ * @nextrush/form-data - Type Definitions
  *
  * All interfaces and types for multipart file upload handling.
  * Uses Web APIs exclusively — works on Node.js, Bun, Deno, and Edge.
@@ -11,7 +11,7 @@
 // Error Codes
 // ---------------------------------------------------------------------------
 
-export type MultipartErrorCode =
+export type FormDataErrorCode =
   | 'FILE_TOO_LARGE'
   | 'FILES_LIMIT_EXCEEDED'
   | 'FIELDS_LIMIT_EXCEEDED'
@@ -51,7 +51,7 @@ export interface UploadedFile {
 }
 
 /** Represents a non-file form field */
-export interface MultipartField {
+export interface FormDataField {
   readonly name: string;
   readonly value: string;
   readonly encoding: string;
@@ -94,7 +94,7 @@ export interface StorageStrategy {
 // Limits
 // ---------------------------------------------------------------------------
 
-export interface MultipartLimits {
+export interface FormDataLimits {
   /** Maximum file size in bytes or human-readable string (e.g., '10mb'). Default: '5mb' */
   maxFileSize?: number | string;
   /** Maximum number of files. Default: 10 */
@@ -105,7 +105,7 @@ export interface MultipartLimits {
   maxParts?: number;
   /** Maximum field name size in bytes. Default: 200 */
   maxFieldNameSize?: number;
-  /** Maximum field value size in bytes. Default: '1mb' */
+  /** Maximum field value size in bytes or human-readable string (e.g., '1mb'). Default: '1mb' */
   maxFieldSize?: number | string;
   /** Maximum header pairs per part. Default: 2000 */
   maxHeaderPairs?: number;
@@ -117,11 +117,11 @@ export interface MultipartLimits {
 // Options
 // ---------------------------------------------------------------------------
 
-export interface MultipartOptions {
+export interface FormDataOptions {
   /** Storage strategy for uploaded files. Default: MemoryStorage */
   storage?: StorageStrategy;
   /** Upload limits */
-  limits?: MultipartLimits;
+  limits?: FormDataLimits;
   /**
    * Allowed MIME types. Supports wildcards (e.g., 'image/*').
    * If not set, all file types are accepted.
@@ -144,8 +144,8 @@ export interface MultipartOptions {
 // Context Extension
 // ---------------------------------------------------------------------------
 
-/** Shape of ctx.state after multipart middleware runs */
-export interface MultipartState {
+/** Shape of ctx.state after form-data middleware runs */
+export interface FormDataState {
   /** Uploaded files */
   files: UploadedFile[];
   /** Non-file form fields */

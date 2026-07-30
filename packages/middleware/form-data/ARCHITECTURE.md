@@ -1,4 +1,4 @@
-# @nextrush/multipart — Architecture
+# @nextrush/form-data — Architecture
 
 > Internal design of the collect-then-scan-then-store pipeline: how a `multipart/form-data`
 > request body becomes bounded in-memory bytes, how boundaries are located with Boyer-Moore-
@@ -8,10 +8,10 @@
 
 |  |  |
 | --- | --- |
-| **Package** | `@nextrush/multipart` |
+| **Package** | `@nextrush/form-data` |
 | **Layer** | `middleware` (above `types`; below nothing — a leaf middleware) |
 | **Depends on** | `@nextrush/types` (types only, erased at build) — no third-party runtime deps |
-| **Depended on by** | Application code that calls `app.use(multipart())`; not depended on by any other `@nextrush/*` package |
+| **Depended on by** | Application code that calls `app.use(formData())`; not depended on by any other `@nextrush/*` package |
 | **Public entry** | `src/index.ts` (barrel — exports only) |
 | **Internal modules** | 14 files (excl. tests) · 1,646 LOC · largest `parser.ts` (520 LOC — over the 300-line middleware package cap; see the callout under [Module structure](#module-structure)) |
 | **On the request hot path?** | Yes — runs on every request matching `multipart/form-data`; body collection, boundary scanning, and per-part parsing all happen per request |
@@ -29,7 +29,7 @@
 - **Enforcing per-part and per-request limits** — file size, field size, file/field/part counts, field-name length, header-pair count (`parser.ts`, against `constants.ts` defaults)
 - **Security guards specific to multipart** — prototype-pollution field-name blocking, filename sanitization (path traversal, null bytes, Windows-reserved names), MIME-type allowlisting
 - **Routing each file's bytes to a storage strategy** and each field's decoded value into `ctx.state.fields`
-- **Typed error reporting** — every failure mode surfaces as a `MultipartError` with an HTTP `status` and a machine-readable `code`
+- **Typed error reporting** — every failure mode surfaces as a `FormDataError` with an HTTP `status` and a machine-readable `code`
 
 **This package does NOT own:**
 
@@ -89,7 +89,7 @@ block-beta
     block:mw:5
         columns 5
         bodyparser["body-parser"]:1
-        THIS["multipart (this package)"]:1
+        THIS["form-data (this package)"]:1
         validation["validation"]:1
         static["static"]:1
         etc["... other middleware"]:1
@@ -102,14 +102,14 @@ block-beta
 ```
 
 > [!IMPORTANT]
-> Imports flow **downward only**. `@nextrush/multipart` imports from `@nextrush/types` only, and
+> Imports flow **downward only**. `@nextrush/form-data` imports from `@nextrush/types` only, and
 > MUST NOT be imported by `types`, `errors`, `core`, `router`, `class`, or any adapter
 > (project-rules §1). It sits at the middleware layer as a leaf: nothing in the framework core
-> depends on it — an application opts in by calling `app.use(multipart())`.
+> depends on it — an application opts in by calling `app.use(formData())`.
 
 **Dependency rules:**
-- **Allowed:** `multipart → types`
-- **Forbidden:** `multipart → core / router / class / adapters / any other middleware package`
+- **Allowed:** `form-data → types`
+- **Forbidden:** `form-data → core / router / class / adapters / any other middleware package`
 
 ---
 
@@ -144,7 +144,7 @@ write.
    chunk and throws `Errors.bodySizeExceeded()` the instant it's crossed — enforced independently
    of any per-file or per-field limit.
 2. **Boundary search reuses one precomputed scanner for the whole request.** `BoundaryScanner`'s
-   skip table (`buildSkipTable()`) is built once per `parseMultipart()` call from the boundary
+   skip table (`buildSkipTable()`) is built once per `parseFormData()` call from the boundary
    string, then `scanner.indexOf()` is called once per part — the pattern is never
    recompiled mid-request.
 3. **A part is either a file or a field, never ambiguous.** `parseContentDisposition()`'s
@@ -165,12 +165,12 @@ write.
 ```text
 src/
 ├── index.ts              # Public API barrel (exports only, no implementation)
-├── types.ts               # UploadedFile, MultipartField, MultipartOptions, StorageStrategy, etc.
+├── types.ts               # UploadedFile, FormDataField, FormDataOptions, StorageStrategy, etc.
 ├── constants.ts           # DEFAULT_MAX_*, FORBIDDEN_KEYS, UNSAFE_FILENAME_CHARS, extractBoundary()
-├── errors.ts              # MultipartError class + the Errors factory functions
+├── errors.ts              # FormDataError class + the Errors factory functions
 ├── scanner.ts              # BoundaryScanner — Boyer-Moore-Horspool byte pattern search
-├── parser.ts               # parseMultipart() — the collect/scan/parse/store pipeline
-├── middleware.ts           # multipart() — the Koa-style middleware wrapper
+├── parser.ts               # parseFormData() — the collect/scan/parse/store pipeline
+├── middleware.ts           # formData() — the Koa-style middleware wrapper
 ├── utils/
 │   ├── index.ts            # Utils re-exports
 │   ├── sanitize.ts         # sanitizeFilename() — path traversal / control-char / reserved-name guard
@@ -186,16 +186,16 @@ src/
 > `parser.ts` is 520 lines — over this repository's 300-line middleware-package file cap
 > (`architecture.instructions.md`'s per-package targets). It is a known structural debt: the
 > collect/boundary-search/header-parse/limit-check/storage-dispatch logic for both file and field
-> parts currently lives in one function (`parseMultipart()`). Splitting it (e.g. a dedicated
+> parts currently lives in one function (`parseFormData()`). Splitting it (e.g. a dedicated
 > per-part-type handler module) is a candidate follow-up, not yet scheduled as an RFC.
 
 ### Module responsibilities
 
 | Module | Responsibility (the one thing it owns) |
 | ------ | -------------------------------------- |
-| `types.ts` | The public option/data contracts (`UploadedFile`, `MultipartOptions`, `StorageStrategy`, etc.) — no logic. |
+| `types.ts` | The public option/data contracts (`UploadedFile`, `FormDataOptions`, `StorageStrategy`, etc.) — no logic. |
 | `constants.ts` | Every default limit, the `FORBIDDEN_KEYS` blocklist, filename-unsafe-character pattern, and `extractBoundary()`. |
-| `errors.ts` | The `MultipartError` class and every error-construction factory — no other module constructs one directly. |
+| `errors.ts` | The `FormDataError` class and every error-construction factory — no other module constructs one directly. |
 | `scanner.ts` | The Boyer-Moore-Horspool skip-table build and byte-pattern search — no knowledge of multipart semantics, purely a byte scanner. |
 | `parser.ts` | The full collect-scan-parse pipeline: body collection, per-part header/`Content-Disposition` parsing, limit enforcement, and dispatch to a `StorageStrategy` or the `fields` record. |
 | `middleware.ts` | Request-level gating (method, `Content-Type`, boundary extraction) and cross-runtime body-stream acquisition; delegates all parsing to `parser.ts`. |
@@ -210,9 +210,9 @@ src/
 ```mermaid
 block-beta
     columns 3
-    Middleware["middleware.ts: multipart()"]:3
+    Middleware["middleware.ts: formData()"]:3
     space:3
-    Parser["parser.ts: parseMultipart()"]:3
+    Parser["parser.ts: parseFormData()"]:3
     space:3
     Scanner["scanner.ts: BoundaryScanner"]:1
     Sanitize["utils/sanitize.ts"]:1
@@ -253,14 +253,14 @@ parsing/limit logic fully decoupled from where a file's bytes ultimately land.
 
 ### Request → response (execution sequence)
 
-How a single request with one file part and one field part flows through `multipart()`, including
+How a single request with one file part and one field part flows through `formData()`, including
 where the body-size ceiling, boundary scan, and per-part limit checks run:
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant MW as multipart() middleware
-    participant Parser as parser.ts: parseMultipart
+    participant MW as formData() middleware
+    participant Parser as parser.ts: parseFormData
     participant Collect as streamToUint8Array
     participant Scan as BoundaryScanner
     participant Storage as StorageStrategy
@@ -271,7 +271,7 @@ sequenceDiagram
     MW->>MW: BODYLESS_METHODS check / Content-Type prefix check
     MW->>MW: extractBoundary(contentType)
     MW->>MW: getRequestBody(ctx) -- acquire ReadableStream or Uint8Array
-    MW->>Parser: parseMultipart(body, boundary, options)
+    MW->>Parser: parseFormData(body, boundary, options)
 
     Parser->>Collect: streamToUint8Array(body, maxBodySize)
     Note over Collect: running total checked on every chunk
@@ -381,8 +381,8 @@ stateDiagram-v2
 
 | Owner | State it owns | Scope |
 | ----- | -------------- | ----- |
-| `parseMultipart()`'s local variables (`files`, `fields`, `storageResults`, counters) | The accumulating parse result and per-request counts | per request — created fresh on every call, discarded after return |
-| `BoundaryScanner` instance | Its precomputed skip table for one boundary string | per request — constructed once per `parseMultipart()` call |
+| `parseFormData()`'s local variables (`files`, `fields`, `storageResults`, counters) | The accumulating parse result and per-request counts | per request — created fresh on every call, discarded after return |
+| `BoundaryScanner` instance | Its precomputed skip table for one boundary string | per request — constructed once per `parseFormData()` call |
 | `DiskStorage` instance | `dirCreated` (has `mkdir` already run for this destination) | app — one `DiskStorage` instance is typically shared across all requests via the middleware option |
 | `Context` (owned by `core`/the adapter) | `ctx.state.files`, `ctx.state.fields` — written once per request by the middleware | per request |
 
@@ -425,7 +425,7 @@ storage strategy produced the file, without needing a separate discriminant prop
 | Path | Complexity | Allocations | Notes |
 | ---- | ---------- | ------------ | ----- |
 | `streamToUint8Array()` | O(n) in body size | one final `Uint8Array` (plus the transient chunk array) | Bounded by `maxBodySize`; throws as soon as the running total crosses it, without waiting for the stream to end. |
-| `BoundaryScanner` construction | O(boundary length) | one 256-byte skip table | Built once per `parseMultipart()` call, reused for every part. |
+| `BoundaryScanner` construction | O(boundary length) | one 256-byte skip table | Built once per `parseFormData()` call, reused for every part. |
 | `scanner.indexOf()` (repeated, per part) | O(n) average / O(n·m) worst case (Boyer-Moore-Horspool) | none | The dominant cost for the per-part loop; avoids re-scanning already-passed bytes on a mismatch. |
 | `findBytes()` (first boundary, header terminator) | O(n·m) naive linear scan | none | Used only for the one first-boundary search and each part's `\r\n\r\n` header-terminator search — not the repeated inner-loop search. |
 | `sanitizeFilename()` | O(filename length) | one or more intermediate strings (multi-step `.replace()` pipeline) | Runs once per file part, not per request. |
@@ -444,10 +444,10 @@ storage strategy produced the file, without needing a separate discriminant prop
 
 ## Concurrency & edge behaviour
 
-- **Shared, immutable after construction:** a `DiskStorage`/`MemoryStorage` instance's configuration (`dest`, `filenameFn`); the `BoundaryScanner`'s skip table once built for a given `parseMultipart()` call.
+- **Shared, immutable after construction:** a `DiskStorage`/`MemoryStorage` instance's configuration (`dest`, `filenameFn`); the `BoundaryScanner`'s skip table once built for a given `parseFormData()` call.
 - **Per-request, never shared:** the collected body buffer, the `files`/`fields` accumulator, all part-parsing cursors and counters.
 - **Idempotency:** parsing the same bytes with the same options always produces the same result — no per-request randomness, except `DiskStorage`'s default filename generator, which calls `crypto.randomUUID()` per file (by design, to avoid on-disk name collisions).
-- **Abort / disconnect / timeout:** `streamToUint8Array()`'s `reader.releaseLock()` runs in a `finally` block regardless of how the read loop exits; a client that disconnects mid-upload surfaces as whatever error the underlying `ReadableStream` throws from `reader.read()`, which propagates up through `parseMultipart()` uncaught by this package (no `MultipartError` wrapping for a mid-read connection failure — only `maxBodySize` overruns get a typed `Errors.bodySizeExceeded()`).
+- **Abort / disconnect / timeout:** `streamToUint8Array()`'s `reader.releaseLock()` runs in a `finally` block regardless of how the read loop exits; a client that disconnects mid-upload surfaces as whatever error the underlying `ReadableStream` throws from `reader.read()`, which propagates up through `parseFormData()` uncaught by this package (no `FormDataError` wrapping for a mid-read connection failure — only `maxBodySize` overruns get a typed `Errors.bodySizeExceeded()`).
 - **Cleanup on error:** `cleanupOnError()` calls `storage.remove()` (best-effort, errors swallowed) for every file already stored in the current request before a limit/type/name violation is thrown with `abortOnError: true` — but only for that request's own `storageResults`; a request that never throws (including one that runs to completion with `abortOnError: false`) never calls `cleanupOnError()`.
 
 > [!WARNING]
@@ -465,7 +465,7 @@ Client-supplied request body (untrusted)
 streamToUint8Array()  -- maxBodySize ceiling enforced during collection            <- size boundary (whole body)
    │
    ▼
-parseMultipart() part loop  -- per-part limit checks (maxFileSize/maxFields/maxParts/etc.)   <- size boundary (per part)
+parseFormData() part loop  -- per-part limit checks (maxFileSize/maxFields/maxParts/etc.)   <- size boundary (per part)
    │
    ▼ (both file and field parts)
 FORBIDDEN_KEYS.has(name)  -- __proto__ / constructor / prototype rejected            <- pollution boundary
@@ -509,9 +509,9 @@ any write.
 - **`StorageStrategy`** — the sanctioned way to add a new upload destination (S3, GCS, a
   virus-scanning proxy, etc.) without forking the parser; implement `handle()` and optionally
   `remove()`.
-- **`MultipartOptions.filename`** and **`DiskStorageOptions.filename`** — override the on-disk
+- **`FormDataOptions.filename`** and **`DiskStorageOptions.filename`** — override the on-disk
   filename generator; both receive the already-`sanitizeFilename()`-processed `info.sanitizedName`.
-- **`parseMultipart()` and `BoundaryScanner`** — exported for advanced use when building a custom
+- **`parseFormData()` and `BoundaryScanner`** — exported for advanced use when building a custom
   middleware or parser variant on the same primitives (per the README's API overview).
 
 **Forbidden (sealed):**
@@ -584,15 +584,15 @@ always throw, with no `truncated` flag equivalent.
 ## Testing strategy
 
 - **Unit:** `sanitizeFilename()` against path-traversal/null-byte/reserved-name inputs; `isAllowedType()` against exact and wildcard MIME patterns; `parseLimit()` round-trips; `BoundaryScanner` against boundaries split across chunk-like inputs.
-- **Integration:** `parseMultipart()` and `multipart()` against constructed multipart bodies covering file parts, field parts, oversized parts (both `abortOnError` values), forbidden field names, disallowed MIME types, and both `MemoryStorage`/`DiskStorage` (`src/__tests__/multipart.test.ts`).
+- **Integration:** `parseFormData()` and `formData()` against constructed multipart bodies covering file parts, field parts, oversized parts (both `abortOnError` values), forbidden field names, disallowed MIME types, and both `MemoryStorage`/`DiskStorage` (`src/__tests__/multipart.test.ts`).
 - **Public-surface test:** `src/__tests__/public-surface.test.ts` guards the exported API shape against accidental additions/removals.
 - **Conformance / cross-adapter parity:** N/A directly for the parsing path — it uses no runtime API, and cross-runtime body-stream acquisition (`middleware.ts`'s `getRequestBody()`) is exercised indirectly through `packages/adapters/conformance`. `DiskStorage` is Node-coupled by design and is not part of the Edge conformance surface.
 - **Coverage:** >=90% lines/functions (CI-enforced).
 
 ## Evolution strategy
 
-- **Stable (semver-guarded):** the sealed public surface — `multipart`, `parseMultipart`, `BoundaryScanner`, `MemoryStorage`, `DiskStorage`, `MultipartError`, every type in `types.ts` (ADR-0005).
-- **May change without notice:** the internal split of `parser.ts` (a candidate future refactor to bring it under the 300-line cap), the exact wording of `MultipartError` messages, `DiskStorage`'s default filename format.
+- **Stable (semver-guarded):** the sealed public surface — `formData`, `parseFormData`, `BoundaryScanner`, `MemoryStorage`, `DiskStorage`, `FormDataError`, every type in `types.ts` (ADR-0005).
+- **May change without notice:** the internal split of `parser.ts` (a candidate future refactor to bring it under the 300-line cap), the exact wording of `FormDataError` messages, `DiskStorage`'s default filename format.
 - **Changes only via RFC:** the default value of any size/count limit, the `FORBIDDEN_KEYS` blocklist, the collect-then-scan parsing strategy, and `DiskStorage`'s path-containment enforcement mechanism.
 
 **Timeline:** 1.0 — initial streaming-storage / in-memory-scan multipart parser with file and field limits, MIME allowlisting, and filename sanitization.
@@ -611,7 +611,7 @@ document's invariants.
 Before changing this package, confirm:
 
 - [ ] Does this preserve the architectural invariants above (especially the pollution blocklist, the `maxBodySize` ceiling, and `DiskStorage`'s path-containment check)?
-- [ ] Does this increase coupling or cross a dependency rule (`multipart → types` only)?
+- [ ] Does this increase coupling or cross a dependency rule (`form-data → types` only)?
 - [ ] Does this affect the request hot path (allocations in `streamToUint8Array()`, `scanner.indexOf()`, or a `StorageStrategy.handle()` implementation)?
 - [ ] Does this change the sealed public API (semver / ADR-0005)? Does it need an RFC?
 - [ ] If this touches a limit default, the pollution blocklist, or the path-containment check, does it remain fail-secure (reject on ambiguity, never silently accept past a bound)?
@@ -624,4 +624,4 @@ Before changing this package, confirm:
 - **ADR:** [`ADR-0005 — package tiers & sealed surface`](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md)
 - **Security boundary reference:** `.kiro/steering/project-rules.instructions.md` §4 (request body parsing must enforce size limits — this package's `streamToUint8Array()`/per-part checks are that enforcement point for multipart bodies)
 - **Documentation site:** [nextRush docs](https://0xtanzim.github.io/nextRush/docs)
-- **Repository:** [`packages/middleware/multipart`](https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/multipart)
+- **Repository:** [`packages/middleware/form-data`](https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/form-data)

@@ -1,5 +1,5 @@
 {
-  "name": "@nextrush/multipart",
+  "name": "@nextrush/form-data",
   "version": "1.0.1-beta.0",
   "description": "Streaming multipart/form-data parser and file upload middleware for NextRush",
   "type": "module",
@@ -35,9 +35,9 @@
   },
   "keywords": [
     "nextrush",
-    "multipart",
-    "file-upload",
     "form-data",
+    "file-upload",
+    "multipart",
     "middleware",
     "streaming"
   ],
@@ -50,12 +50,12 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/0xTanzim/nextRush.git",
-    "directory": "packages/middleware/multipart"
+    "directory": "packages/middleware/form-data"
   },
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/multipart#readme",
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/form-data#readme",
   "engines": {
     "node": ">=22.0.0"
   },

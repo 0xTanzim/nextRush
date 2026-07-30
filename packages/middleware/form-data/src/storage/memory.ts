@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Memory Storage
+ * @nextrush/form-data - Memory Storage
  *
  * Stores uploaded files in memory as Uint8Array.
  * Suitable for small files or when files are processed immediately.
@@ -17,9 +17,9 @@ import type { FileInfo, StorageResult, StorageStrategy } from '../types.js';
  *
  * @example
  * ```typescript
- * import { multipart, MemoryStorage } from '@nextrush/multipart';
+ * import { formData, MemoryStorage } from '@nextrush/form-data';
  *
- * app.use(multipart({
+ * app.use(formData({
  *   storage: new MemoryStorage(),
  *   limits: { maxFileSize: '5mb' },
  * }));

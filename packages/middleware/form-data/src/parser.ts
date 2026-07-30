@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Streaming Multipart Parser
+ * @nextrush/form-data - Streaming Multipart Parser
  *
  * Zero-dependency multipart/form-data parser built on Web Streams API.
  * Works on Node.js, Bun, Deno, and Edge runtimes.
@@ -25,7 +25,7 @@ import {
 import { Errors } from './errors.js';
 import { BoundaryScanner } from './scanner.js';
 import { MemoryStorage } from './storage/memory.js';
-import type { MultipartOptions, StorageResult, StorageStrategy, UploadedFile } from './types.js';
+import type { FormDataOptions, StorageResult, StorageStrategy, UploadedFile } from './types.js';
 import { isAllowedType, parseLimit, sanitizeFilename } from './utils/index.js';
 
 // ---------------------------------------------------------------------------
@@ -66,13 +66,13 @@ const encoder = new TextEncoder();
  *
  * @param body - The request body as a ReadableStream or Uint8Array
  * @param boundary - The boundary string from the Content-Type header
- * @param options - Multipart parsing configuration
+ * @param options - FormData parsing configuration
  * @returns Parsed files and fields
  */
 export async function parseMultipart(
   body: ReadableStream<Uint8Array> | Uint8Array,
   boundary: string,
-  options: MultipartOptions = {}
+  options: FormDataOptions = {}
 ): Promise<ParsedResult> {
   const storage: StorageStrategy = options.storage ?? new MemoryStorage();
   const limits = resolveLimits(options);
@@ -483,7 +483,7 @@ function advancePastBoundary(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function resolveLimits(options: MultipartOptions): ResolvedLimits {
+function resolveLimits(options: FormDataOptions): ResolvedLimits {
   const limits = options.limits ?? {};
 
   return {

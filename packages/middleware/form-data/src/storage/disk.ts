@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Disk Storage
+ * @nextrush/form-data - Disk Storage
  *
  * Streams uploaded files directly to the filesystem.
  * Suitable for large files that shouldn't be held in memory.
@@ -36,9 +36,9 @@ export interface DiskStorageOptions {
  *
  * @example
  * ```typescript
- * import { multipart, DiskStorage } from '@nextrush/multipart';
+ * import { formData, DiskStorage } from '@nextrush/form-data';
  *
- * app.use(multipart({
+ * app.use(formData({
  *   storage: new DiskStorage({ dest: './uploads' }),
  *   limits: { maxFileSize: '50mb' },
  * }));

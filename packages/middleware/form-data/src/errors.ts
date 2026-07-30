@@ -1,12 +1,12 @@
 /**
- * @nextrush/multipart - Error Classes
+ * @nextrush/form-data - Error Classes
  *
  * Custom error class for multipart parsing failures.
  *
  * @packageDocumentation
  */
 
-import type { MultipartErrorCode } from './types.js';
+import type { FormDataErrorCode } from './types.js';
 
 const V8Error = Error as ErrorConstructor & {
   captureStackTrace?: (targetObject: object, constructorOpt?: Function) => void;
@@ -18,20 +18,20 @@ const V8Error = Error as ErrorConstructor & {
  * Includes HTTP status code, error code, and whether
  * the message is safe to expose to clients.
  */
-export class MultipartError extends Error {
+export class FormDataError extends Error {
   public readonly status: number;
-  public readonly code: MultipartErrorCode;
+  public readonly code: FormDataErrorCode;
   public readonly expose: boolean;
 
-  constructor(message: string, status: number, code: MultipartErrorCode) {
+  constructor(message: string, status: number, code: FormDataErrorCode) {
     super(message);
-    this.name = 'MultipartError';
+    this.name = 'FormDataError';
     this.status = status;
     this.code = code;
     this.expose = status < 500;
 
     if (V8Error.captureStackTrace) {
-      V8Error.captureStackTrace(this, MultipartError);
+      V8Error.captureStackTrace(this, FormDataError);
     }
   }
 
@@ -39,7 +39,7 @@ export class MultipartError extends Error {
     name: string;
     message: string;
     status: number;
-    code: MultipartErrorCode;
+    code: FormDataErrorCode;
   } {
     return {
       name: this.name,
@@ -51,80 +51,80 @@ export class MultipartError extends Error {
 }
 
 export const Errors = {
-  fileTooLarge(filename: string, limit: number): MultipartError {
-    return new MultipartError(
+  fileTooLarge(filename: string, limit: number): FormDataError {
+    return new FormDataError(
       `File "${safeDisplay(filename)}" exceeds the ${formatBytes(limit)} size limit`,
       413,
       'FILE_TOO_LARGE'
     );
   },
 
-  filesLimitExceeded(limit: number): MultipartError {
-    return new MultipartError(
+  filesLimitExceeded(limit: number): FormDataError {
+    return new FormDataError(
       `Maximum number of files (${limit}) exceeded`,
       413,
       'FILES_LIMIT_EXCEEDED'
     );
   },
 
-  fieldsLimitExceeded(limit: number): MultipartError {
-    return new MultipartError(
+  fieldsLimitExceeded(limit: number): FormDataError {
+    return new FormDataError(
       `Maximum number of fields (${limit}) exceeded`,
       413,
       'FIELDS_LIMIT_EXCEEDED'
     );
   },
 
-  partsLimitExceeded(limit: number): MultipartError {
-    return new MultipartError(
+  partsLimitExceeded(limit: number): FormDataError {
+    return new FormDataError(
       `Maximum number of parts (${limit}) exceeded`,
       413,
       'PARTS_LIMIT_EXCEEDED'
     );
   },
 
-  invalidContentType(contentType: string): MultipartError {
-    return new MultipartError(
+  invalidContentType(contentType: string): FormDataError {
+    return new FormDataError(
       `Expected multipart/form-data but received "${safeDisplay(contentType)}"`,
       415,
       'INVALID_CONTENT_TYPE'
     );
   },
 
-  invalidFieldName(name: string): MultipartError {
-    return new MultipartError(
+  invalidFieldName(name: string): FormDataError {
+    return new FormDataError(
       `Invalid field name: "${safeDisplay(name)}"`,
       400,
       'INVALID_FIELD_NAME'
     );
   },
 
-  invalidFileType(filename: string, mimeType: string, allowed: string[]): MultipartError {
-    return new MultipartError(
+  invalidFileType(filename: string, mimeType: string, allowed: string[]): FormDataError {
+    return new FormDataError(
       `File "${safeDisplay(filename)}" has type "${safeDisplay(mimeType)}" which is not in allowed types: ${allowed.join(', ')}`,
       415,
       'INVALID_FILE_TYPE'
     );
   },
 
-  storageError(message: string): MultipartError {
-    return new MultipartError(`Storage error: ${message}`, 500, 'STORAGE_ERROR');
+  storageError(message: string): FormDataError {
+    return new FormDataError(`Storage error: ${message}`, 500, 'STORAGE_ERROR');
   },
 
-  parseError(message: string): MultipartError {
-    return new MultipartError(`Multipart parse error: ${message}`, 400, 'PARSE_ERROR');
+  parseError(message: string): FormDataError {
+    return new FormDataError(`Multipart parse error: ${message}`, 400, 'PARSE_ERROR');
   },
 
-  requestAborted(): MultipartError {
-    return new MultipartError(
+  requestAborted(): FormDataError {
+    return new FormDataError(
       'Request aborted by client during file upload',
       400,
       'REQUEST_ABORTED'
     );
   },
 
-  bodySizeExceeded(limit: number): MultipartError {
-    return new MultipartError(
+  bodySizeExceeded(limit: number): FormDataError {
+    return new FormDataError(
       `Request body exceeds the ${formatBytes(limit)} size limit`,
       413,
       'BODY_SIZE_EXCEEDED'

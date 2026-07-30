@@ -1,7 +1,7 @@
 /**
- * @nextrush/multipart - Tests
+ * @nextrush/form-data - Tests
  *
- * Comprehensive tests for all multipart modules:
+ * Comprehensive tests for all form-data modules:
  * - Utility functions (sanitize, mime, limit)
  * - Storage strategies (memory, disk)
  * - Parser (zero-dep Web API parser)
@@ -15,8 +15,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MultipartError } from '../errors.js';
-import { multipart } from '../middleware.js';
+import { FormDataError } from '../errors.js';
+import { formData } from '../middleware.js';
 import { parseMultipart } from '../parser.js';
 import { BoundaryScanner } from '../scanner.js';
 import { DiskStorage } from '../storage/disk.js';
@@ -437,14 +437,14 @@ describe('DiskStorage', () => {
 });
 
 // ---------------------------------------------------------------------------
-// MultipartError
+// FormDataError
 // ---------------------------------------------------------------------------
 
-describe('MultipartError', () => {
+describe('FormDataError', () => {
   it('has correct properties', () => {
-    const error = new MultipartError('test', 400, 'PARSE_ERROR');
+    const error = new FormDataError('test', 400, 'PARSE_ERROR');
 
-    expect(error.name).toBe('MultipartError');
+    expect(error.name).toBe('FormDataError');
     expect(error.message).toBe('test');
     expect(error.status).toBe(400);
     expect(error.code).toBe('PARSE_ERROR');
@@ -452,16 +452,16 @@ describe('MultipartError', () => {
   });
 
   it('does not expose 5xx errors', () => {
-    const error = new MultipartError('internal', 500, 'STORAGE_ERROR');
+    const error = new FormDataError('internal', 500, 'STORAGE_ERROR');
     expect(error.expose).toBe(false);
   });
 
   it('serializes to JSON properly', () => {
-    const error = new MultipartError('file too large', 413, 'FILE_TOO_LARGE');
+    const error = new FormDataError('file too large', 413, 'FILE_TOO_LARGE');
     const json = error.toJSON();
 
     expect(json).toEqual({
-      name: 'MultipartError',
+      name: 'FormDataError',
       message: 'file too large',
       status: 413,
       code: 'FILE_TOO_LARGE',
@@ -732,10 +732,10 @@ describe('parseMultipart', () => {
 });
 
 // ---------------------------------------------------------------------------
-// multipart middleware
+// formData middleware
 // ---------------------------------------------------------------------------
 
-describe('multipart middleware', () => {
+describe('formData middleware', () => {
   it('parses multipart request and populates ctx.state', async () => {
     const body = createMultipartBody([
       { name: 'title', content: 'My Upload' },
@@ -743,7 +743,7 @@ describe('multipart middleware', () => {
     ]);
 
     const ctx = createMockContext('POST', body);
-    const mw = multipart();
+    const mw = formData();
     const next = vi.fn();
 
     await mw(ctx as unknown as Parameters<typeof mw>[0], next);
@@ -760,7 +760,7 @@ describe('multipart middleware', () => {
     ]);
 
     const ctx = createMockContext('GET', body);
-    const mw = multipart();
+    const mw = formData();
     const next = vi.fn();
 
     await mw(ctx as unknown as Parameters<typeof mw>[0], next);
@@ -771,7 +771,7 @@ describe('multipart middleware', () => {
 
   it('skips HEAD requests', async () => {
     const ctx = createMockContext('HEAD', new Uint8Array(0));
-    const mw = multipart();
+    const mw = formData();
     const next = vi.fn();
 
     await mw(ctx as unknown as Parameters<typeof mw>[0], next);
@@ -783,7 +783,7 @@ describe('multipart middleware', () => {
   it('skips non-multipart content types', async () => {
     const body = encoder.encode('{"name":"json"}');
     const ctx = createMockContext('POST', body, 'application/json');
-    const mw = multipart();
+    const mw = formData();
     const next = vi.fn();
 
     await mw(ctx as unknown as Parameters<typeof mw>[0], next);
@@ -798,7 +798,7 @@ describe('multipart middleware', () => {
     ]);
 
     const ctx = createMockContext('POST', body);
-    const mw = multipart({ allowedTypes: ['image/*'] });
+    const mw = formData({ allowedTypes: ['image/*'] });
     const next = vi.fn();
 
     await expect(mw(ctx as unknown as Parameters<typeof mw>[0], next)).rejects.toThrow(
@@ -810,7 +810,7 @@ describe('multipart middleware', () => {
     const body = createMultipartBody([{ name: 'data', content: 'value' }]);
 
     const ctx = createMockContext('POST', body);
-    const mw = multipart();
+    const mw = formData();
     const steps: string[] = [];
 
     await mw(ctx as unknown as Parameters<typeof mw>[0], async () => {
@@ -823,7 +823,7 @@ describe('multipart middleware', () => {
   it('handles empty multipart request', async () => {
     const body = encoder.encode(`--${BOUNDARY}--\r\n`);
     const ctx = createMockContext('POST', body);
-    const mw = multipart();
+    const mw = formData();
     const next = vi.fn();
 
     await mw(ctx as unknown as Parameters<typeof mw>[0], next);
@@ -840,7 +840,7 @@ describe('multipart middleware', () => {
     ]);
 
     const ctx = createMockContext('POST', body);
-    const mw = multipart();
+    const mw = formData();
     const next = vi.fn();
 
     await mw(ctx as unknown as Parameters<typeof mw>[0], next);
@@ -858,7 +858,7 @@ describe('multipart middleware', () => {
       ]);
 
       const ctx = createMockContext('POST', body);
-      const mw = multipart({
+      const mw = formData({
         storage: new DiskStorage({ dest: tmpDir }),
       });
       const next = vi.fn();

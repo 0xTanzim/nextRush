@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Constants
+ * @nextrush/form-data - Constants
  *
  * Default values, limits, patterns, and forbidden keys.
  *
@@ -70,7 +70,7 @@ export const MAX_FILENAME_LENGTH = 255;
 // Content Type
 // ---------------------------------------------------------------------------
 
-export const MULTIPART_CONTENT_TYPE = 'multipart/form-data';
+export const FORM_DATA_CONTENT_TYPE = 'multipart/form-data';
 
 /** HTTP methods that typically carry a request body */
 export const BODYLESS_METHODS = new Set(['GET', 'HEAD', 'DELETE', 'OPTIONS']);

@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Property/fuzz suite for extractBoundary (task 8.4)
+ * @nextrush/form-data - Property/fuzz suite for extractBoundary (task 8.4)
  *
  * Invariants: never an unhandled throw, and bounded time even against
  * pathological input crafted to probe the boundary regex for ReDoS.

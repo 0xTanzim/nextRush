@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Filename Sanitization
+ * @nextrush/form-data - Filename Sanitization
  *
  * Multi-step pipeline to make client-supplied filenames safe for filesystem use.
  * Prevents path traversal, null byte injection, and platform-specific issues.

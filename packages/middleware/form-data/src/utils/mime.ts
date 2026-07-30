@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - MIME Type Validation
+ * @nextrush/form-data - MIME Type Validation
  *
  * Utilities for matching MIME types against allowlists with wildcard support.
  *

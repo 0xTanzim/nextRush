@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Boundary Scanner
+ * @nextrush/form-data - Boundary Scanner
  *
  * Boyer-Moore-Horspool-based byte sequence scanner for finding
  * multipart boundaries in binary data streams.

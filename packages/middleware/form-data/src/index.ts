@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart
+ * @nextrush/form-data
  *
  * Zero-dependency multipart/form-data middleware for NextRush.
  * Uses Web Streams API — works on Node.js, Bun, Deno, and Edge runtimes.
@@ -8,7 +8,7 @@
  */
 
 // Middleware factory
-export { multipart } from './middleware.js';
+export { formData } from './middleware.js';
 
 // Storage strategies
 export { DiskStorage } from './storage/disk.js';
@@ -24,16 +24,16 @@ export { BoundaryScanner } from './scanner.js';
 export type { ScanResult } from './scanner.js';
 
 // Errors
-export { MultipartError } from './errors.js';
+export { FormDataError } from './errors.js';
 
 // Types
 export type {
   FileInfo,
-  MultipartErrorCode,
-  MultipartField,
-  MultipartLimits,
-  MultipartOptions,
-  MultipartState,
+  FormDataErrorCode,
+  FormDataField,
+  FormDataLimits,
+  FormDataOptions,
+  FormDataState,
   StorageResult,
   StorageStrategy,
   UploadedFile

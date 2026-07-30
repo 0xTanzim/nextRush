@@ -1,13 +1,13 @@
-# @nextrush/multipart
+# @nextrush/form-data
 
 > Zero-dependency multipart/form-data parsing and file-upload middleware for NextRush -- buffers the request body once, then streams each file's already-buffered bytes into a pluggable storage strategy (in-memory or disk).
 
-[![npm version](https://img.shields.io/npm/v/@nextrush/multipart.svg)](https://www.npmjs.com/package/@nextrush/multipart)
-[![downloads](https://img.shields.io/npm/dm/@nextrush/multipart.svg)](https://www.npmjs.com/package/@nextrush/multipart)
-[![bundle size](https://img.shields.io/bundlephobia/minzip/@nextrush/multipart.svg)](https://bundlephobia.com/package/@nextrush/multipart)
-[![types](https://img.shields.io/npm/types/@nextrush/multipart.svg)](https://www.npmjs.com/package/@nextrush/multipart)
+[![npm version](https://img.shields.io/npm/v/@nextrush/form-data.svg)](https://www.npmjs.com/package/@nextrush/form-data)
+[![downloads](https://img.shields.io/npm/dm/@nextrush/form-data.svg)](https://www.npmjs.com/package/@nextrush/form-data)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@nextrush/form-data.svg)](https://bundlephobia.com/package/@nextrush/form-data)
+[![types](https://img.shields.io/npm/types/@nextrush/form-data.svg)](https://www.npmjs.com/package/@nextrush/form-data)
 [![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
-[![license](https://img.shields.io/npm/l/@nextrush/multipart.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
+[![license](https://img.shields.io/npm/l/@nextrush/form-data.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
 
 |  |  |
 | --- | --- |
@@ -63,7 +63,7 @@ that a client-supplied filename is attacker-controlled input, not a trusted path
 
 ## When to use
 
-**Use `@nextrush/multipart` if:**
+**Use `@nextrush/form-data` if:**
 
 - You need to accept file uploads (`multipart/form-data`) with enforced size/count limits
 - You want filename sanitization (path traversal, null bytes, Windows-reserved names) without writing your own
@@ -80,23 +80,23 @@ that a client-supplied filename is attacker-controlled input, not a trusted path
 ## Installation
 
 ```bash
-pnpm add @nextrush/multipart
-# npm i @nextrush/multipart . yarn add @nextrush/multipart . bun add @nextrush/multipart
+pnpm add @nextrush/form-data
+# npm i @nextrush/form-data . yarn add @nextrush/form-data . bun add @nextrush/form-data
 ```
 
 > [!NOTE]
-> `@nextrush/multipart` is not re-exported by the `nextrush` meta package -- install and import
+> `@nextrush/form-data` is not re-exported by the `nextrush` meta package -- install and import
 > it directly, as shown above.
 
 ## Quick start
 
 ```ts
 import { createApp, listen } from 'nextrush';
-import { multipart } from '@nextrush/multipart';
+import { formData } from '@nextrush/form-data';
 
 const app = createApp();
 
-app.use(multipart({ limits: { maxFileSize: '5mb', maxFiles: 3 } }));
+app.use(formData({ limits: { maxFileSize: '5mb', maxFiles: 3 } }));
 
 app.post('/upload', async (ctx) => {
   const { files, fields } = ctx.state as { files: unknown[]; fields: Record<string, string> };
@@ -107,15 +107,15 @@ app.post('/upload', async (ctx) => {
 listen(app, 8080);
 ```
 
-`multipart()` skips requests with a bodyless method or a non-multipart `Content-Type`, buffers
+`formData()` skips requests with a bodyless method or a non-multipart `Content-Type`, buffers
 the body (up to `maxBodySize`, default `10mb`), and populates `ctx.state.files` /
 `ctx.state.fields` before your handler runs.
 
 ## Capabilities
 
 **Parsing**
-- `multipart()` -- middleware factory; parses `multipart/form-data` bodies into `ctx.state.files` and `ctx.state.fields`
-- `parseMultipart()` -- the underlying parser, exported for advanced/direct use without the middleware wrapper
+- `formData()` -- middleware factory; parses `multipart/form-data` bodies into `ctx.state.files` and `ctx.state.fields`
+- `parseFormData()` -- the underlying parser, exported for advanced/direct use without the middleware wrapper
 - `BoundaryScanner` -- the Boyer-Moore-Horspool byte scanner, exported for custom parsing built on the same primitive
 - Handles boundaries split across the header/body regions, quoted and unquoted `Content-Disposition` values, and RFC 5987 (`filename*=UTF-8''...`) encoded filenames
 
@@ -136,7 +136,7 @@ the body (up to `maxBodySize`, default `10mb`), and populates `ctx.state.files` 
 
 ## Mental model
 
-`multipart()` collects the whole (size-bounded) request body into memory first, then walks it
+`formData()` collects the whole (size-bounded) request body into memory first, then walks it
 part by part -- it does not stream individual parts live off the network into storage.
 
 ```text
@@ -168,7 +168,7 @@ being collected.
 ### Accept uploads with size and count limits
 
 ```ts
-import { multipart } from '@nextrush/multipart';
+import { formData } from '@nextrush/form-data';
 
 app.use(
   multipart({
@@ -201,7 +201,7 @@ app.post('/avatar', async (ctx) => {
 ### Stream large uploads to disk instead of buffering in memory
 
 ```ts
-import { multipart, DiskStorage } from '@nextrush/multipart';
+import { formData, DiskStorage } from '@nextrush/form-data';
 
 app.use(
   multipart({
@@ -237,10 +237,10 @@ app.post('/bulk-upload', async (ctx) => {
 ### Use the parser directly, without the middleware
 
 ```ts
-import { parseMultipart } from '@nextrush/multipart';
+import { parseFormData } from '@nextrush/form-data';
 
 const boundary = '----WebKitFormBoundaryABC123';
-const { files, fields } = await parseMultipart(requestBodyStream, boundary, {
+const { files, fields } = await parseFormData(requestBodyStream, boundary, {
   limits: { maxFileSize: '5mb' },
 });
 ```
@@ -251,32 +251,32 @@ The sealed public surface (ADR-0005).
 
 | Export | Signature | Since | Stability | Description |
 | ------ | --------- | ----- | --------- | ----------- |
-| `multipart` | `(options?: MultipartOptions) => Middleware` | 1.0.0 | Stable | Middleware factory; parses the request into `ctx.state.files`/`ctx.state.fields`. |
-| `parseMultipart` | `(body: ReadableStream<Uint8Array> \| Uint8Array, boundary: string, options?: MultipartOptions) => Promise<ParsedResult>` | 1.0.0 | Stable | The underlying parser, usable without the middleware wrapper. |
+| `formData` | `(options?: FormDataOptions) => Middleware` | 1.0.0 | Stable | Middleware factory; parses the request into `ctx.state.files`/`ctx.state.fields`. |
+| `parseFormData` | `(body: ReadableStream<Uint8Array> \| Uint8Array, boundary: string, options?: FormDataOptions) => Promise<ParsedResult>` | 1.0.0 | Stable | The underlying parser, usable without the middleware wrapper. |
 | `type ParsedResult` | -- | 1.0.0 | Stable | `{ files: UploadedFile[]; fields: Record<string, string> }`. |
 | `BoundaryScanner` | `class` | 1.0.0 | Stable | Boyer-Moore-Horspool boundary scanner, for custom parsing. |
 | `type ScanResult` | -- | 1.0.0 | Stable | `{ index: number; isFinal: boolean }`. |
 | `MemoryStorage` | `class implements StorageStrategy` | 1.0.0 | Stable | Buffers file bytes into a `Uint8Array`. |
 | `DiskStorage` | `class implements StorageStrategy` | 1.0.0 | Stable | Streams file bytes to the filesystem (Node/Bun/Deno only). |
 | `type DiskStorageOptions` | -- | 1.0.0 | Stable | `{ dest: string; filename?: (info: FileInfo) => string }`. |
-| `MultipartError` | `class` | 1.0.0 | Stable | Thrown on any parse/limit/security failure; carries `status` and `code`. |
-| `type FileInfo` / `MultipartErrorCode` / `MultipartField` / `MultipartLimits` / `MultipartOptions` / `MultipartState` / `StorageResult` / `StorageStrategy` / `UploadedFile` | -- | 1.0.0 | Stable | Public option and data contracts. |
+| `FormDataError` | `class` | 1.0.0 | Stable | Thrown on any parse/limit/security failure; carries `status` and `code`. |
+| `type FileInfo` / `FormDataErrorCode` / `FormDataField` / `FormDataLimits` / `FormDataOptions` / `FormDataState` / `StorageResult` / `StorageStrategy` / `UploadedFile` | -- | 1.0.0 | Stable | Public option and data contracts. |
 
 ## Options
 
 Every default below is read directly from `src/constants.ts` and each module's destructuring defaults.
 
-**`multipart(options?)` / `parseMultipart(body, boundary, options?)`**
+**`multipart(options?)` / `parseFormData(body, boundary, options?)`**
 
 | Option | Type | Required | Default | Security-sensitive | Description |
 | ------ | ---- | -------- | ------- | ------------------- | ----------- |
 | `storage` | `StorageStrategy` | No | `new MemoryStorage()` | No | Where uploaded file bytes end up. |
-| `limits` | `MultipartLimits` | No | see below | Yes | Size/count ceilings for the whole request. |
+| `limits` | `FormDataLimits` | No | see below | Yes | Size/count ceilings for the whole request. |
 | `allowedTypes` | `string[]` | No | `undefined` (all types accepted) | Yes | MIME allowlist; supports `type/*` wildcards. |
 | `filename` | `(info: FileInfo) => string` | No | `undefined` | No | Custom filename generator (used by `DiskStorage` if not overridden there). |
 | `abortOnError` | `boolean` | No | `true` | Yes | `true`: throw on the first limit/type/name violation. `false`: skip the offending part (or mark a file `truncated: true`) and continue. |
 
-**`limits` (`MultipartLimits`)**
+**`limits` (`FormDataLimits`)**
 
 | Option | Type | Required | Default | Security-sensitive | Description |
 | ------ | ---- | -------- | ------- | ------------------- | ----------- |
@@ -302,12 +302,12 @@ Every default below is read directly from `src/constants.ts` and each module's d
 (`parseLimit()` in `src/utils/limit.ts`, the same pattern as `@nextrush/body-parser`):
 
 ```ts
-app.use(multipart({ limits: { maxFileSize: 5242880 } }));  // equivalent
-app.use(multipart({ limits: { maxFileSize: '5mb' } }));    // equivalent
+app.use(formData({ limits: { maxFileSize: 5242880 } }));  // equivalent
+app.use(formData({ limits: { maxFileSize: '5mb' } }));    // equivalent
 ```
 
 **What happens when a limit is exceeded** depends on which limit and `abortOnError`:
-- **`maxBodySize`** -- always throws `MultipartError` (`BODY_SIZE_EXCEEDED`, 413) the moment the running total crosses the ceiling while the stream is still being read; `abortOnError` has no effect on this check.
+- **`maxBodySize`** -- always throws `FormDataError` (`BODY_SIZE_EXCEEDED`, 413) the moment the running total crosses the ceiling while the stream is still being read; `abortOnError` has no effect on this check.
 - **`maxFileSize`** -- with `abortOnError: true` (default), throws `FILE_TOO_LARGE` (413) and cleans up any files already stored for this request; with `abortOnError: false`, the file is kept with its bytes cut off at the limit and `truncated: true`.
 - **`maxFiles` / `maxFields` / `maxParts`** -- with `abortOnError: true`, throws the matching `*_LIMIT_EXCEEDED` error (413); with `abortOnError: false`, the offending part is skipped and parsing continues.
 - **`maxFieldSize`** -- always throws `PARSE_ERROR`-coded via `Errors.parseError` (400), regardless of `abortOnError` -- there is no truncation path for over-limit field values.
@@ -352,7 +352,7 @@ around one primitive: bounded, single-pass, in-memory boundary scanning.
 **Integration**
 - **Peer dependencies:** none -- depends only on `@nextrush/types` (types, erased at build).
 - **Works with:** any NextRush middleware chain; register before route handlers so `ctx.state.files`/`ctx.state.fields` are populated when they run.
-- **Incompatible with:** none directly, but registering `multipart()` after a body parser that has already consumed the body (`ctx.bodySource.consumed`) leaves multipart with nothing to read.
+- **Incompatible with:** none directly, but registering `formData()` after a body parser that has already consumed the body (`ctx.bodySource.consumed`) leaves multipart with nothing to read.
 
 > [!IMPORTANT]
 > NextRush is **ESM-only, permanently** -- no CommonJS build. On Node >=22, CommonJS consumers
@@ -372,7 +372,7 @@ read. **Fix:** raise `maxBodySize` to accommodate the combined size of everythin
 send in one request.
 
 ```ts
-app.use(multipart({ limits: { maxBodySize: '100mb', maxFileSize: '20mb' } }));
+app.use(formData({ limits: { maxBodySize: '100mb', maxFileSize: '20mb' } }));
 ```
 
 </details>
@@ -411,7 +411,7 @@ entirely to use the built-in UUID-prefixed default.
 
 ## FAQ
 
-**Does `@nextrush/multipart` stream file uploads without buffering them?**
+**Does `@nextrush/form-data` stream file uploads without buffering them?**
 No. The full request body is collected into one in-memory `Uint8Array` (bounded by
 `maxBodySize`) before any part is parsed. "Streaming" in this package's API refers to how a
 file's already-buffered bytes move into a `StorageStrategy` (e.g. piped to disk), not to
@@ -436,14 +436,14 @@ accepts anything satisfying the interface.
 
 ```text
                        depends on           @nextrush/types  (Middleware contract, types only)
-@nextrush/multipart -------------->
+@nextrush/form-data -------------->
                        often used with      @nextrush/validation  (validate ctx.state.fields after parsing)
                        usually used after   @nextrush/body-parser  (JSON/form/text bodies this package doesn't handle)
 ```
 
 - **Depends on:** [`@nextrush/types`](../../types) -- the `Middleware`/`Context` type contracts (types only, erased at build).
 - **Often used with:** [`@nextrush/validation`](../validation) -- validate the shape of `ctx.state.fields` once parsed.
-- **Usually used alongside:** [`@nextrush/body-parser`](../body-parser) -- for the JSON/URL-encoded/text/raw traffic this package's `multipart()` doesn't parse (it only matches `multipart/form-data`).
+- **Usually used alongside:** [`@nextrush/body-parser`](../body-parser) -- for the JSON/URL-encoded/text/raw traffic this package's `formData()` doesn't parse (it only matches `multipart/form-data`).
 - **Alternative:** a custom `StorageStrategy` when you need object storage (S3, GCS, etc.) instead of memory or disk.
 
 ## Architecture

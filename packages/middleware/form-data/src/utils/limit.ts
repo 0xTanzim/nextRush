@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Size Limit Parser
+ * @nextrush/form-data - Size Limit Parser
  *
  * Parses human-readable size strings (e.g., '10mb') to bytes.
  *

@@ -1,5 +1,5 @@
 /**
- * @nextrush/multipart - Middleware Factory
+ * @nextrush/form-data - Middleware Factory
  *
  * Creates a Koa-style async middleware that parses multipart/form-data
  * requests and populates ctx.state with uploaded files and fields.
@@ -11,10 +11,10 @@
 
 import type { Context, Middleware, Next } from '@nextrush/types';
 
-import { BODYLESS_METHODS, MULTIPART_CONTENT_TYPE, extractBoundary } from './constants.js';
+import { BODYLESS_METHODS, FORM_DATA_CONTENT_TYPE, extractBoundary } from './constants.js';
 import { Errors } from './errors.js';
 import { parseMultipart } from './parser.js';
-import type { MultipartOptions, MultipartState } from './types.js';
+import type { FormDataOptions, FormDataState } from './types.js';
 
 /**
  * Create multipart/form-data middleware.
@@ -25,21 +25,21 @@ import type { MultipartOptions, MultipartState } from './types.js';
  *
  * @example
  * ```typescript
- * import { multipart } from '@nextrush/multipart';
+ * import { formData } from '@nextrush/form-data';
  *
  * // Basic usage (MemoryStorage, default limits)
- * app.use(multipart());
+ * app.use(formData());
  *
  * // With disk storage (Node.js/Bun/Deno only)
- * import { DiskStorage } from '@nextrush/multipart';
- * app.use(multipart({
+ * import { DiskStorage } from '@nextrush/form-data';
+ * app.use(formData({
  *   storage: new DiskStorage({ dest: './uploads' }),
  *   limits: { maxFileSize: '50mb', maxFiles: 5 },
  *   allowedTypes: ['image/*', 'application/pdf'],
  * }));
  * ```
  */
-export function multipart(options: MultipartOptions = {}): Middleware {
+export function formData(options: FormDataOptions = {}): Middleware {
   return async (ctx: Context, next: Next): Promise<void> => {
     // Skip non-body methods
     if (BODYLESS_METHODS.has(ctx.method)) {
@@ -49,7 +49,7 @@ export function multipart(options: MultipartOptions = {}): Middleware {
 
     // Check content type
     const rawContentType = getRawContentType(ctx.headers);
-    if (!rawContentType || !rawContentType.toLowerCase().startsWith(MULTIPART_CONTENT_TYPE)) {
+    if (!rawContentType || !rawContentType.toLowerCase().startsWith(FORM_DATA_CONTENT_TYPE)) {
       await next();
       return;
     }
@@ -71,13 +71,13 @@ export function multipart(options: MultipartOptions = {}): Middleware {
 
     // Populate ctx.state
     const state = ctx.state as Record<string, unknown>;
-    const multipartState: MultipartState = {
+    const formDataState: FormDataState = {
       files: result.files,
       fields: result.fields,
     };
 
-    state.files = multipartState.files;
-    state.fields = multipartState.fields;
+    state.files = formDataState.files;
+    state.fields = formDataState.fields;
 
     await next();
   };
