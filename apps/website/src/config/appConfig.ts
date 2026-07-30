@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://github.com/0xTanzim/nextRush';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://nextrush.dev';
 
 const pkg = JSON.parse(readFileSync(resolve(process.cwd(), '../../packages/nextrush/package.json'), 'utf8')) as { version: string };
 

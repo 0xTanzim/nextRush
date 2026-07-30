@@ -5,7 +5,19 @@
   Link: </mcp.json>; rel="service-meta"; title="MCP server discovery"
   Link: </agent-spec.json>; rel="describedby"; title="Agent specification"
   Link: </sitemap.xml>; rel="sitemap"; title="Sitemap"
+  Link: </.well-known/api-catalog>; rel="api-catalog"; title="API Catalog (RFC 9727)"
+
+/.well-known/api-catalog
+  Content-Type: application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"
 
 /api/mdx/*
+  Content-Type: text/markdown
+  X-Markdown-Tokens: full
+
+/api/blog/*.md
+  Content-Type: text/markdown
+  X-Markdown-Tokens: full
+
+/api/skills/*.md
   Content-Type: text/markdown
   X-Markdown-Tokens: full

@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "fumadocs-mdx && tsx scripts/generate-openapi.ts && tsx ../../scripts/docs/build-docs.ts",
-    "build": "NODE_OPTIONS=--max-old-space-size=3072 next build && tsx ../../scripts/docs/postbuild.ts && tsx scripts/generate-legacy-redirects.ts",
+    "prebuild": "fumadocs-mdx && tsx scripts/generate-openapi.ts && tsx scripts/generate-api-catalog.ts && tsx ../../scripts/docs/build-docs.ts",
+    "build": "NODE_OPTIONS=--max-old-space-size=3072 next build && tsx ../../scripts/docs/postbuild.ts",
     "dev": "fumadocs-mdx && next dev -p 3020",
     "start": "serve out",
     "types:check": "fumadocs-mdx && next typegen && NODE_OPTIONS=--max-old-space-size=3048 tsc --noEmit",
