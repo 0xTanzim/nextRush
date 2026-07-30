@@ -53,7 +53,7 @@ These packages define the core compatibility contract and are released together:
 These packages are optional/auxiliary and can release independently:
 
 - **Adapters**: `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, `@nextrush/adapter-edge`
-- **Middleware**: `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, `@nextrush/request-id`, `@nextrush/timer`
+- **Middleware**: `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/form-data`, `@nextrush/request-id`, `@nextrush/timer`
 - **Plugins**: `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`
 
 ### 3.3 Tooling (Independent)

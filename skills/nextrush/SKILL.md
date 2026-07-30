@@ -393,7 +393,7 @@ create-nextrush          # project scaffolder
 @nextrush/adapter-node | adapter-bun | adapter-deno
 @nextrush/adapter-edge | adapter-serverless | adapter-nextjs
 
-middleware: cors helmet body-parser multipart validation rate-limit
+middleware: cors helmet body-parser form-data validation rate-limit
             compression cookies csrf static template logger timer
             request-id health openapi
 

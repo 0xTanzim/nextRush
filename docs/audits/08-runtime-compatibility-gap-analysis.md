@@ -441,7 +441,7 @@ columns is the work.*
 | Middleware — `static` (fs), `template` (engines), `multipart/storage/disk` | 🟠 Node-only by nature | — | Correctly Node-only |
 | Extensions — `websocket` | 🟠 Node-only (`ws` lib) | — | Needs edge path (T024) |
 
-*Nuance worth documenting:* `@nextrush/multipart` couples to `node:` **only** in `storage/disk.ts`.
+*Nuance worth documenting:* `@nextrush/form-data` couples to `node:` **only** in `storage/disk.ts`.
 Its memory-storage strategy may be edge-portable, but this is neither documented nor asserted —
 a small opportunity to widen the edge-safe surface (or to explicitly state disk-only-on-Node).
 

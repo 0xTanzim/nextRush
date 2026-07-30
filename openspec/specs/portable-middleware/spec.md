@@ -40,7 +40,7 @@ Each middleware/extension SHALL declare its runtime support — `edge-safe`, `No
 configuration. The declaration MUST match the package's actual `node:` coupling.
 
 #### Scenario: multipart declares its per-strategy support
-- **WHEN** a reader consults `@nextrush/multipart`'s runtime-support declaration
+- **WHEN** a reader consults `@nextrush/form-data`'s runtime-support declaration
 - **THEN** it states memory storage is edge-portable and disk storage (`node:fs`) is Node-only
 
 #### Scenario: request-id is declared edge-safe

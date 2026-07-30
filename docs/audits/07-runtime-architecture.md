@@ -588,7 +588,7 @@ The request path uses **only** the WinterCG Minimum Common Web Platform API:
 
 ## Unsupported / forbidden on edge (adapter-only)
 
-`node:fs`, `node:net`/`tls`, `node:http`, `node:worker_threads`, `Buffer` (use `Uint8Array`), synchronous filesystem, persistent local disk, long-lived background timers past the invocation. Any package needing these is **Node-only** and MUST declare it (T022). Node-coupled today: `@nextrush/static`, `@nextrush/multipart` (disk), `@nextrush/template` engines, `@nextrush/websocket`.
+`node:fs`, `node:net`/`tls`, `node:http`, `node:worker_threads`, `Buffer` (use `Uint8Array`), synchronous filesystem, persistent local disk, long-lived background timers past the invocation. Any package needing these is **Node-only** and MUST declare it (T022). Node-coupled today: `@nextrush/static`, `@nextrush/form-data` (disk), `@nextrush/template` engines, `@nextrush/websocket`.
 
 ## Runtime limitations to design around
 

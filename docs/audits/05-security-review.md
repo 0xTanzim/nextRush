@@ -166,7 +166,7 @@ The single most important fact: **NextRush delegates raw HTTP parsing to the run
 | Concern | Assessment | Evidence | Finding |
 |---|---|---|---|
 | **Request body** | Size limit (`DEFAULT_BODY_LIMIT`) + JSON depth limit + proto-pollution key block | `runtime/body-source.ts`, `body-parser` `json-depth-default.test.ts`, `isForbiddenKey` | ✅ |
-| **Multipart uploads** | Streaming parser; **default file-count/size limits [UNVERIFIED]** — recommend confirming + documenting hard caps | `@nextrush/multipart` | ⚠️ S-12 (Medium) |
+| **Multipart uploads** | Streaming parser; **default file-count/size limits [UNVERIFIED]** — recommend confirming + documenting hard caps | `@nextrush/form-data` | ⚠️ S-12 (Medium) |
 | **Cookies** | Signed via HMAC-SHA256 (Web Crypto), timing-safe verify, key rotation, secure serialization + dedicated `security.test.ts` | `cookies/src/signing.ts` | ✅ |
 | **Sessions** | **Not provided** — no session store/rotation/fixation defense built in | absent | ⚠️ S-01 |
 | **Authentication** | **Not provided** — guard *seam* only | absent | ⚠️ S-01 (High) |
@@ -355,7 +355,7 @@ Score /10 (higher = safer as-shipped). Risk = residual risk to an app using it. 
 | `@nextrush/di` | 6.5 | Medium | boot | P2 | Global container default (S-11); tsyringe (S-04) |
 | `@nextrush/class` | 7.5 | Low-Med | reflection | P2 | Legacy dialect; global `Reflect` (S-13) |
 | `@nextrush/body-parser` | 8.5 | Low | request body | P1 | Proto ✅, depth ✅ |
-| `@nextrush/multipart` | 6.5 | Medium | uploads | **P1** | Caps unverified (S-12); disk = Node-only |
+| `@nextrush/form-data` | 6.5 | Medium | uploads | **P1** | Caps unverified (S-12); disk = Node-only |
 | `@nextrush/cookies` | 9.0 | Low | crypto | P3 | HMAC-SHA256/Web Crypto ✅ |
 | `@nextrush/csrf` | 8.0 | Low | request | P2 | Present; confirm default token strategy |
 | `@nextrush/cors` | 8.0 | Low | request | P1 | Config-guard ✅; confirm default origin (S-06) |
@@ -479,7 +479,7 @@ Score /10 (higher = safer as-shipped). Risk = residual risk to an app using it. 
 - **Effort:** M (isolation) + L (encapsulation). **Validation:** two apps in one process cannot see each other's providers by default.
 
 ### S-12 — Multipart default caps unverified/undocumented
-- **Evidence:** `@nextrush/multipart` is a streaming parser; default max file size / file count / field count limits are **[UNVERIFIED]**.
+- **Evidence:** `@nextrush/form-data` is a streaming parser; default max file size / file count / field count limits are **[UNVERIFIED]**.
 - **Risk:** Unbounded uploads → memory/disk exhaustion (DoS).
 - **Impact:** A single request or a flood exhausts memory/disk.
 - **Exploitation:** Attacker uploads a huge / many-part multipart body if caps are absent or high.

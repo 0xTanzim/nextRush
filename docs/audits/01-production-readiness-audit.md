@@ -74,7 +74,7 @@ Legend: 🟢 Production-capable · 🟡 Beta (implemented, not fully proven) · 
 - **Finding:** The public type surface does **not** hard-couple to Node. The one `Buffer` reference in `context.ts` is inside a JSDoc `@example`, not the type (`send(data: ResponseBody)`). Good.
 
 ### 4.2 Headers, Cookies, Body parsing, Multipart — 🟢 Present, security-aware
-- **Evidence:** `packages/runtime/src/headers.ts` (`getClientIp`, `resolveClientIp`, `getEdgeClientIp`, `isValidClientIp`); `@nextrush/cookies` ships signing + a dedicated `security.test.ts`; `@nextrush/body-parser` enforces a default size limit (`DEFAULT_BODY_LIMIT` in `packages/runtime/src/body-source.ts`) and has `json-depth-default.test.ts` (prototype-pollution/depth guard); `@nextrush/multipart` is streaming with disk storage (`storage/disk.ts`, Node-coupled by design).
+- **Evidence:** `packages/runtime/src/headers.ts` (`getClientIp`, `resolveClientIp`, `getEdgeClientIp`, `isValidClientIp`); `@nextrush/cookies` ships signing + a dedicated `security.test.ts`; `@nextrush/body-parser` enforces a default size limit (`DEFAULT_BODY_LIMIT` in `packages/runtime/src/body-source.ts`) and has `json-depth-default.test.ts` (prototype-pollution/depth guard); `@nextrush/form-data` is streaming with disk storage (`storage/disk.ts`, Node-coupled by design).
 - **Risk:** Multipart disk storage, `@nextrush/static`, and template file adapters import `node:*` — those middleware are **Node/Bun-only**, not edge-portable. Expected, but must be documented per-package.
 
 ### 4.3 Streaming / SSE / NDJSON — 🟢 First-class

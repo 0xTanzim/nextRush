@@ -47,19 +47,20 @@ app.use(helmet({
 ## body-parser — `@nextrush/body-parser`
 
 ```typescript
-import { json, text, urlencoded, multipart, bodyParser } from '@nextrush/body-parser';
+import { json, text, urlencoded, bodyParser } from '@nextrush/body-parser';
+import { formData } from '@nextrush/form-data';
 
 // Individual parsers
 app.use(json({ limit: '1mb' }));
 app.use(text({ type: 'text/*' }));
 app.use(urlencoded({ extended: true }));
-app.use(multipart({ maxFileSize: '10mb' }));
+app.use(formData({ maxFileSize: '10mb' }));
 
 // All-in-one (registers json + text + urlencoded)
 app.use(bodyParser());
 
 // Per-route
-router.post('/upload', multipart({ maxFileSize: '50mb' }), (ctx) => {
+router.post('/upload', formData({ maxFileSize: '50mb' }), (ctx) => {
   const files = ctx.body.files;
   const fields = ctx.body.fields;
 });

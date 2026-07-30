@@ -123,7 +123,7 @@ sequenceDiagram
 | CSP / headers | `helmet/csp.ts`, `helmet/nonce.ts`, `helmet/constants.ts` | app config | yes |
 | Static files | `serveStatic()`, `safeJoin()`, `statSafe()`, `sendFile()` | path, `Range`, conditionals | yes |
 | Body parsing | `readBody()`, `parseUrlEncoded()`, `setNestedValue()` | body bytes, param names | partial |
-| Multipart | `multipart()`, `constants.ts` limits | boundary, part headers, filenames | partial |
+| Form data | `formData()`, `constants.ts` limits | boundary, part headers, filenames | partial |
 | Rate limiting | `rateLimit()`, `key-generator.ts` | proxy headers | yes |
 | Validation | `validate()` (`validation/validate.ts`) | body/query/params | yes |
 | Errors | `writeDefaultErrorResponse()`, `errorHandler()` | thrown errors | yes |
@@ -484,7 +484,7 @@ a layer.
   static middleware), but `nosniff` does not help when the declared type is itself
   script-capable. There is no `Content-Disposition` and no way to serve a directory as
   non-renderable content short of a `setHeaders` hook.
-- **Attack scenario**: an app uses `@nextrush/multipart` to accept avatars into `./uploads` and
+- **Attack scenario**: an app uses `@nextrush/form-data` to accept avatars into `./uploads` and
   `serveStatic({ root: './uploads' })` to serve them. Attacker uploads `avatar.svg` containing
   `<script>fetch('/api/me').then(...)</script>`; any victim who opens the image URL executes it on
   the application's origin, with cookies.

@@ -156,7 +156,7 @@ create-nextrush
 @nextrush/adapter-node | adapter-bun | adapter-deno
 @nextrush/adapter-edge | adapter-serverless | adapter-nextjs
 
-@nextrush/cors @nextrush/helmet @nextrush/body-parser @nextrush/multipart
+@nextrush/cors @nextrush/helmet @nextrush/body-parser @nextrush/form-data
 @nextrush/validation @nextrush/rate-limit @nextrush/compression @nextrush/cookies
 @nextrush/csrf @nextrush/static @nextrush/template @nextrush/logger @nextrush/timer
 @nextrush/request-id @nextrush/health @nextrush/openapi

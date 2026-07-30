@@ -152,7 +152,7 @@ ContentType.JSON        // 'application/json'
 ContentType.HTML        // 'text/html'
 ContentType.TEXT        // 'text/plain'
 ContentType.FORM        // 'application/x-www-form-urlencoded'
-ContentType.MULTIPART   // 'multipart/form-data'
+ContentType.MULTIPART (renamed to FORM_DATA in @nextrush/form-data)   // 'multipart/form-data'
 ```
 
 ## Middleware Type

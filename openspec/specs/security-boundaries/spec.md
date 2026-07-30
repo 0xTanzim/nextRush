@@ -478,7 +478,7 @@ of surface it never examined.
 #### Scenario: A prior security review named specific surface as out of scope
 
 - **WHEN** `harden-security-boundaries`'s proposal explicitly lists Node request parsing beyond
-  its own new raw-socket suite, `@nextrush/multipart`'s parser/scanner/storage, `body-parser`'s
+  its own new raw-socket suite, `@nextrush/form-data`'s parser/scanner/storage, `body-parser`'s
   JSON charset handling, `@nextrush/template` auto-escaping, `@nextrush/class` guards/interceptors,
   and `websocket`/`stream`/`openapi`/`logger` as surface it did not review
 - **THEN** a follow-up change SHALL exist that investigates exactly that named surface, and its

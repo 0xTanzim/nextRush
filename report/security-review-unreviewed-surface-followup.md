@@ -3,7 +3,7 @@
 | Field           | Value                                                              |
 | --------------- | ------------------------------------------------------------------ |
 | **Report type** | `Security` |
-| **Scope**       | `@nextrush/adapter-node` (request parsing), `@nextrush/multipart`, `@nextrush/body-parser` (JSON), `@nextrush/template`, `@nextrush/class` (guards/interceptors), `@nextrush/websocket`, `@nextrush/logger`, `@nextrush/openapi`, `@nextrush/stream` |
+| **Scope**       | `@nextrush/adapter-node` (request parsing), `@nextrush/form-data`, `@nextrush/body-parser` (JSON), `@nextrush/template`, `@nextrush/class` (guards/interceptors), `@nextrush/websocket`, `@nextrush/logger`, `@nextrush/openapi`, `@nextrush/stream` |
 | **Date**        | `2026-07-29` |
 | **Reviewer(s)** | `Kiro (agent), delegated sub-agents for areas 5–6` |
 | **Commit / ref**| Working tree at HEAD, post-`reduce-per-request-floor-cost` archive |
@@ -36,7 +36,7 @@ findings that surfaced are both narrow, conditional, and already partially mitig
 surrounding defenses**, not first-order vulnerabilities reachable by default configuration alone.
 
 **Top findings:**
-1. `@nextrush/multipart`'s `DiskStorage` path-traversal guard has a sibling-directory bypass when
+1. `@nextrush/form-data`'s `DiskStorage` path-traversal guard has a sibling-directory bypass when
    an application supplies a custom `filename()` option that doesn't sanitize its own output —
    Priority P2, conditional on a specific, non-default configuration.
 2. `@nextrush/template`'s HTML-escaping does not (and, by the nature of entity-escaping, cannot)
@@ -63,7 +63,7 @@ socket bytes to rendered output:
   a framework `Context` — it does not implement HTTP framing itself (Node's own parser does that);
   its job is what happens once Node hands it a parsed request (header/keep-alive/timeout handling,
   body streaming).
-- **`@nextrush/multipart`** and **`@nextrush/body-parser`** are the two body-decoding paths a
+- **`@nextrush/form-data`** and **`@nextrush/body-parser`** are the two body-decoding paths a
   request can take — binary multipart uploads and JSON, respectively. Both are zero-Node-dependency
   packages (multipart works on Web Streams alone; body-parser's JSON path uses `TextDecoder`/
   `Buffer` conditionally) so they run identically across every adapter.
@@ -181,14 +181,14 @@ file-size ceilings and shows no god-object/flat-folder smell.
 
 ### F-01 — `DiskStorage`'s custom-`filename()` path-traversal guard has a sibling-directory bypass  ·  Priority `P2`
 
-- **Current situation:** `DiskStorage.handle()` (`packages/middleware/multipart/src/storage/disk.ts`)
+- **Current situation:** `DiskStorage.handle()` (`packages/middleware/form-data/src/storage/disk.ts`)
   guards against path traversal with `if (!resolved.startsWith(this.dest)) throw ...`. When the
   default `filename()` (`${uuid}-${sanitizedName}`) is used, this is unreachable — `sanitizedName`
   can never contain a path separator (proven by `sanitizeFilename()`'s basename-extraction step).
   When an application supplies a **custom** `filename` option that returns an unsanitized,
   traversal-shaped string (e.g. `../uploads-evil/x.txt`), the check's bare-prefix `startsWith`
   comparison is fooled by a sibling directory whose name happens to start with the same string —
-  proven by `packages/middleware/multipart/src/__tests__/disk-storage-path-traversal-audit.test.ts`,
+  proven by `packages/middleware/form-data/src/__tests__/disk-storage-path-traversal-audit.test.ts`,
   which writes a real file to `<dest>-evil/escaped.txt` and reads it back.
 - **Impact:** an application-supplied, insufficiently-careful `filename()` callback can cause an
   uploaded file to be written outside the configured `dest` directory.

@@ -97,7 +97,7 @@ utils/
 
 **Supported content types.** JSON (`application/json`, `*+json`), URL-encoded
 (`application/x-www-form-urlencoded`), text (`text/*`), raw (`application/octet-stream`).
-`multipart/*` is explicitly rejected with a 415 and a pointer to `@nextrush/multipart`.
+`multipart/*` is explicitly rejected with a 415 and a pointer to `@nextrush/form-data`.
 
 **Lifecycle position.** Application middleware (`~99%` extension type), typically attached
 per-route (`router.post('/users', json(), handler)`) or globally. It runs *after* routing has
