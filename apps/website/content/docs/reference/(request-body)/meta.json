@@ -2,5 +2,5 @@
   "title": "Request & Body",
   "icon": "Inbox",
   "defaultOpen": false,
-  "pages": ["body-parser", "multipart", "cookies", "compression"]
+  "pages": ["body-parser", "form-data", "cookies", "compression"]
 }

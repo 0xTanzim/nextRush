@@ -1,6 +1,6 @@
 ---
-title: 'Multipart'
-package: '@nextrush/multipart'
+title: 'Form data'
+package: '@nextrush/form-data'
 description: 'Zero-dependency multipart/form-data file upload middleware with streaming parser, pluggable storage, and security-by-default.'
 keywords: [body, multipart, nextrush, reference, request]
 ---
@@ -8,8 +8,8 @@ keywords: [body, multipart, nextrush, reference, request]
 Handle file uploads in multipart/form-data requests.
 
 <Callout type="info" title="Source & internals">
-  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/multipart/README.md) ·
-  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/multipart/ARCHITECTURE.md)
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/form-data/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/middleware/form-data/ARCHITECTURE.md)
 </Callout>
 
 HTTP file uploads arrive as multipart-encoded streams with mixed files and form fields. This middleware parses them using a zero-dependency Web Streams parser, sanitizes filenames, enforces size limits, and delivers structured results on `ctx.state`. Built-in protections guard against path traversal, prototype pollution, oversized payloads, and platform-specific filesystem attacks.
@@ -18,7 +18,7 @@ HTTP file uploads arrive as multipart-encoded streams with mixed files and form 
 
 ## Default Behavior
 
-With default options, `multipart()` uses `MemoryStorage` and applies these defaults:
+With default options, `formData()` uses `MemoryStorage` and applies these defaults:
 
 | Limit | Default |
 |-------|---------|
@@ -36,7 +36,7 @@ Bodyless HTTP methods (`GET`, `HEAD`, `DELETE`, `OPTIONS`) are skipped automatic
 
 ## Installation
 
-<PackageInstall packages={['@nextrush/multipart']} />
+<PackageInstall packages={['@nextrush/form-data']} />
 
 ---
 
@@ -46,12 +46,12 @@ Bodyless HTTP methods (`GET`, `HEAD`, `DELETE`, `OPTIONS`) are skipped automatic
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { listen } from '@nextrush/adapter-node';
-import { multipart } from '@nextrush/multipart';
+import { formData } from '@nextrush/form-data';
 
 const app = createApp();
 const router = createRouter();
 
-app.use(multipart());
+app.use(formData());
 
 router.post('/upload', (ctx) => {
   const { files, fields } = ctx.state;
@@ -78,9 +78,9 @@ await listen(app, 8080);
     Buffers file contents in memory as `Uint8Array`. Use for small uploads or when you need the full buffer in memory.
 
     ```ts
-    import { multipart, MemoryStorage } from '@nextrush/multipart';
+    import { formData, MemoryStorage } from '@nextrush/form-data';
 
-    app.use(multipart({
+    app.use(formData({
       storage: new MemoryStorage(),
     }));
 
@@ -102,9 +102,9 @@ await listen(app, 8080);
     Streams files directly to the filesystem. Use for large uploads or when you want disk-backed storage.
 
     ```ts
-    import { multipart, DiskStorage } from '@nextrush/multipart';
+    import { formData, DiskStorage } from '@nextrush/form-data';
 
-    app.use(multipart({
+    app.use(formData({
       storage: new DiskStorage({
         dest: './uploads',
         filename: (info) => `${Date.now()}-${info.sanitizedName}`,
@@ -127,7 +127,7 @@ await listen(app, 8080);
     Implement the `StorageStrategy` interface for S3, GCS, or any backend:
 
     ```ts
-    import type { StorageStrategy, StorageResult, FileInfo } from '@nextrush/multipart';
+    import type { StorageStrategy, StorageResult, FileInfo } from '@nextrush/form-data';
 
     class S3Storage implements StorageStrategy {
       async handle(
@@ -143,7 +143,7 @@ await listen(app, 8080);
       }
     }
 
-    app.use(multipart({ storage: new S3Storage() }));
+    app.use(formData({ storage: new S3Storage() }));
     ```
 
     | Method | Required | Description |
@@ -157,14 +157,14 @@ await listen(app, 8080);
 
 ## Configuration Options
 
-### `multipart(options?)`
+### `formData(options?)`
 
 ```ts
-function multipart(options?: MultipartOptions): Middleware;
+function formData(options?: FormDataOptions): Middleware;
 ```
 
 <TypeTable
-  title="MultipartOptions"
+  title="FormDataOptions"
   types={{
     storage: {
       type: 'StorageStrategy',
@@ -172,7 +172,7 @@ function multipart(options?: MultipartOptions): Middleware;
       default: 'MemoryStorage',
     },
     limits: {
-      type: 'MultipartLimits',
+      type: 'FormDataLimits',
       description: 'Upload size and count limits',
       default: 'See limits table above',
     },
@@ -197,7 +197,7 @@ function multipart(options?: MultipartOptions): Middleware;
 ### Limits
 
 <TypeTable
-  title="MultipartLimits"
+  title="FormDataLimits"
   types={{
     maxFileSize: {
       type: 'number | string',
@@ -283,7 +283,7 @@ interface UploadedFile {
   readonly path?: string;
 }
 
-interface MultipartState {
+interface FormDataState {
   files: UploadedFile[];
   fields: Record<string, string>;
 }
@@ -296,7 +296,7 @@ interface MultipartState {
 Restrict allowed file types using exact matches or wildcards:
 
 ```ts
-app.use(multipart({
+app.use(formData({
   allowedTypes: [
     'image/png',
     'image/jpeg',
@@ -312,16 +312,16 @@ Files with disallowed types throw `INVALID_FILE_TYPE` (415).
 
 ## Error Handling
 
-The middleware throws `MultipartError` with specific codes and HTTP status:
+The middleware throws `FormDataError` with specific codes and HTTP status:
 
 ```ts
-import { MultipartError } from '@nextrush/multipart';
+import { FormDataError } from '@nextrush/form-data';
 
 app.use(async (ctx) => {
   try {
     await ctx.next();
   } catch (error) {
-    if (error instanceof MultipartError) {
+    if (error instanceof FormDataError) {
       ctx.status = error.status;
       ctx.json({
         error: error.code,
@@ -417,7 +417,7 @@ DiskStorage includes path traversal protection — generated filenames are resol
 Use `parseMultipart` directly for custom processing pipelines:
 
 ```ts
-import { parseMultipart } from '@nextrush/multipart';
+import { parseMultipart } from '@nextrush/form-data';
 
 const result = await parseMultipart(body, boundary, {
   storage: new MemoryStorage(),
@@ -433,7 +433,7 @@ const result = await parseMultipart(body, boundary, {
 Low-level boundary scanner for custom streaming parsers:
 
 ```ts
-import { BoundaryScanner } from '@nextrush/multipart';
+import { BoundaryScanner } from '@nextrush/form-data';
 
 const scanner = new BoundaryScanner(boundaryBytes);
 const result = scanner.scan(chunk);
@@ -463,7 +463,7 @@ The parser uses Web Streams API (`ReadableStream`) and Web Crypto API (`crypto.r
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { listen } from '@nextrush/adapter-node';
-import { multipart, DiskStorage, MultipartError } from '@nextrush/multipart';
+import { formData, DiskStorage, FormDataError } from '@nextrush/form-data';
 
 const app = createApp();
 const router = createRouter();
@@ -473,7 +473,7 @@ app.use(async (ctx) => {
   try {
     await ctx.next();
   } catch (error) {
-    if (error instanceof MultipartError) {
+    if (error instanceof FormDataError) {
       ctx.status = error.status;
       ctx.json({ error: error.code, message: error.message });
       return;
@@ -482,8 +482,8 @@ app.use(async (ctx) => {
   }
 });
 
-// Multipart middleware with disk storage
-app.use(multipart({
+// Form-data middleware with disk storage
+app.use(formData({
   storage: new DiskStorage({ dest: './uploads' }),
   allowedTypes: ['image/*', 'application/pdf'],
   limits: {

@@ -139,7 +139,7 @@ export const packageRegistryDataPart1: readonly PackageEntry[] = [
     sinceVersion: '3.1.0',
   },
   {
-    name: '@nextrush/multipart',
+    name: '@nextrush/form-data',
     category: 'Request Data',
     type: 'Middleware',
     status: 'Stable',

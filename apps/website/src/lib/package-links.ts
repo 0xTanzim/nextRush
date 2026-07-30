@@ -45,8 +45,8 @@ export const packageLinks: Readonly<Record<string, PackageLinks>> = {
 
   // ---- Request Data --------------------------------------------------------
   '@nextrush/body-parser': { reference: '/docs/reference/body-parser' },
-  '@nextrush/multipart': {
-    reference: '/docs/reference/multipart',
+  '@nextrush/form-data': {
+    reference: '/docs/reference/form-data',
     guide: '/docs/guides/file-upload',
   },
   '@nextrush/cookies': { reference: '/docs/reference/cookies' },

@@ -140,7 +140,7 @@ How-to: [Security guide — Error Handling Security](/docs/guides/security/secur
 
 - [ ] `@nextrush/body-parser`'s `limit` option is set explicitly — an unbounded body
       size is a denial-of-service vector.
-- [ ] File-upload routes using `@nextrush/multipart` set a limit appropriate to the
+- [ ] File-upload routes using `@nextrush/form-data` set a limit appropriate to the
       upload type, rather than reusing the global JSON body limit.
 
 ---
