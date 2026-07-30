@@ -30,7 +30,7 @@
 **This package does NOT own:**
 - Routing -- owned by `@nextrush/router`, consumed through `Application`
 - Middleware composition -- owned by `@nextrush/core`
-- Body *parsing* (JSON/form/multipart) -- owned by `@nextrush/body-parser` / `@nextrush/multipart`,
+- Body *parsing* (JSON/form/multipart) -- owned by `@nextrush/body-parser` / `@nextrush/form-data`,
   which consume the `BodySource` this package produces
 - Cross-adapter behavioral parity proofs -- owned by `packages/adapters/conformance` (private,
   out of scope for this document)

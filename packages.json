@@ -60,7 +60,7 @@
 
 ,
 
-{"name":"@nextrush/multipart","keywords":["nextrush","multipart","file-upload","form-data","middleware","streaming"],"version":"3.0.5","description":"Streaming multipart/form-data parser and file upload middleware for NextRush","sanitized_name":"@nextrush/multipart","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:44.668Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/multipart#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/multipart"}}
+{"name":"@nextrush/form-data","keywords":["nextrush","multipart","file-upload","form-data","middleware","streaming"],"version":"3.0.5","description":"Streaming multipart/form-data parser and file upload middleware for NextRush","sanitized_name":"@nextrush/form-data","publisher":{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"},"maintainers":[{"email":"tanzimhossain2@gmail.com","username":"0xtanzim"}],"license":"MIT","date":"2026-04-28T03:36:44.668Z","links":{"homepage":"https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/form-data#readme","repository":"git+https://github.com/0xTanzim/nextRush.git","bugs":"https://github.com/0xTanzim/nextRush/issues","npm":"https://www.npmjs.com/package/@nextrush/form-data"}}
 
 ,
 

@@ -31,7 +31,7 @@
 - ✗ The **server lifecycle** — `listen()` / `serve()` and the actual HTTP server live in each adapter (`@nextrush/adapter-*`), which *use* these primitives
 - ✗ The **`Context` implementation** — adapters build the concrete context; this package supplies the pieces (body source, query, IP, signal) it is assembled from
 - ✗ The **contracts themselves** — `Runtime`, `RuntimeCapabilities`, `BodySource` are declared in [`@nextrush/types`](../types); this package implements against them
-- ✗ **Body *parsing*** (JSON/form/multipart) — that is `@nextrush/body-parser` / `@nextrush/multipart`; this package only reads the raw stream within a size limit
+- ✗ **Body *parsing*** (JSON/form/multipart) — that is `@nextrush/body-parser` / `@nextrush/form-data`; this package only reads the raw stream within a size limit
 
 ## Non-goals
 

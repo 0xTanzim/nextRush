@@ -74,7 +74,7 @@ and skips `Range` support entirely, breaking video/audio seeking and resumable d
 
 - You're deploying behind a CDN or reverse proxy that already serves static assets (nginx, a CDN edge) -- terminating static serving in Node adds latency a dedicated static-file server or CDN avoids
 - You're on Bun/Deno/Edge and need static serving there -- this package imports `node:fs`/`node:path`/`node:http` directly and has no Edge-safe fallback
-- You need the uploaded-file storage side of a `multipart/form-data` request -- see [`@nextrush/multipart`](../multipart)
+- You need the uploaded-file storage side of a `multipart/form-data` request -- see [`@nextrush/form-data`](../multipart)
 
 ---
 
@@ -393,7 +393,7 @@ See the [Module Format Policy](https://github.com/0xTanzim/nextRush#module-forma
 **Does it work on Bun / Deno / Edge?**
 Not claimed. This package imports `node:fs`, `node:path`, and `node:http` directly and has no
 adapter abstraction -- it targets Node.js specifically, unlike packages such as
-`@nextrush/multipart` that are built on Web Streams for cross-runtime parsing.
+`@nextrush/form-data` that are built on Web Streams for cross-runtime parsing.
 
 **Can I use it without a NextRush `Context`?**
 No -- `sendFile()`, `serveStatic()`, and `createSendFile()`'s returned function all operate on a

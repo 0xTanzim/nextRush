@@ -30,7 +30,7 @@ npm install nextrush@3.2.0 @nextrush/cors@3.0.4
 | --- | --- |
 | **Core (fixed group — always the same version)** | `nextrush`, `@nextrush/types`, `@nextrush/errors`, `@nextrush/core`, `@nextrush/router`, `@nextrush/runtime`, `@nextrush/di`, `@nextrush/adapter-node` |
 | **Adapters (independent)** | `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, `@nextrush/adapter-edge`, `@nextrush/adapter-serverless` |
-| **Middleware (independent)** | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/multipart`, `@nextrush/request-id`, `@nextrush/timer`, `@nextrush/validation`, `@nextrush/openapi` |
+| **Middleware (independent)** | `@nextrush/cors`, `@nextrush/helmet`, `@nextrush/body-parser`, `@nextrush/rate-limit`, `@nextrush/compression`, `@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/form-data`, `@nextrush/request-id`, `@nextrush/timer`, `@nextrush/validation`, `@nextrush/openapi` |
 | **Extensions/registrars (independent)** | `@nextrush/logger`, `@nextrush/static`, `@nextrush/events`, `@nextrush/template`, `@nextrush/websocket`, `@nextrush/health` |
 | **Streaming (independent)** | `@nextrush/stream` — depends only on `@nextrush/types`; consumed by `@nextrush/adapter-node` as a regular dependency, but core does not depend on it. "Ships with `adapter-node`" (README) describes install-time bundling for end users, not a version-lockstep coupling. It never belongs in the `fixed` group — verified against the real import graph, not the README's prose, after that exact question came up during the 2026-07-24 release prep. |
 | **Class runtime / DI tooling (independent)** | `@nextrush/class`, `@nextrush/testing` |
@@ -66,7 +66,7 @@ more than it looks like it should).
   "updateInternalDependencies": "patch",
   "ignore": [
     "api",
-    "@nextrush/stream", "@nextrush/class", "@nextrush/csrf", "@nextrush/multipart",
+    "@nextrush/stream", "@nextrush/class", "@nextrush/csrf", "@nextrush/form-data",
     "@nextrush/rate-limit", "@nextrush/cookies", "@nextrush/validation", "@nextrush/logger",
     "@nextrush/static", "@nextrush/template", "@nextrush/openapi", "@nextrush/request-id",
     "@nextrush/timer", "@nextrush/health", "@nextrush/events", "@nextrush/websocket",

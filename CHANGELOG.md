@@ -105,7 +105,7 @@ Historical aggregate changelog for early **v3** prereleases. **Current npm relea
 - **@nextrush/helmet** — Security headers middleware with CSP, HSTS, X-Frame-Options, and 11 configurable policies
 - **@nextrush/cookies** — Cookie parsing and serialization middleware
 - **@nextrush/compression** — Response compression with gzip/deflate/brotli support
-- **@nextrush/multipart** — Multipart form-data parsing with pluggable storage (memory/disk)
+- **@nextrush/form-data** — Multipart form-data parsing with pluggable storage (memory/disk)
 - **@nextrush/rate-limit** — Rate limiting middleware with sliding window algorithm
 - **@nextrush/request-id** — Request ID generation and propagation
 - **@nextrush/timer** — Request timing middleware

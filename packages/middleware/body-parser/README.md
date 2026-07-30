@@ -419,12 +419,12 @@ JSON and URL-encoded cover the overwhelming majority of API/form traffic, so the
                        depends on           @nextrush/types  (Middleware contract, types only)
 @nextrush/body-parser --------------->
                        often used with      @nextrush/validation  (schema-validate the parsed body)
-                       usually used next    @nextrush/multipart  (file uploads this package deliberately doesn't handle)
+                       usually used next    @nextrush/form-data  (file uploads this package deliberately doesn't handle)
 ```
 
 - **Depends on:** [`@nextrush/types`](../../types) -- the `Middleware` type contract, used only by the middleware signatures (types, erased at build).
 - **Often used with:** [`@nextrush/validation`](../validation) -- validate the shape of `ctx.body` once it's parsed.
-- **Usually used next:** [`@nextrush/multipart`](../multipart) -- for the file-upload traffic this package's `bodyParser()` explicitly rejects.
+- **Usually used next:** [`@nextrush/form-data`](../multipart) -- for the file-upload traffic this package's `bodyParser()` explicitly rejects.
 - **Alternative:** none for standard body parsing -- streaming the body directly is the alternative only when buffering the full body in memory isn't acceptable.
 
 ## Architecture

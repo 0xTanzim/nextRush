@@ -163,7 +163,7 @@ export interface StaticOptions {
    * responses are downgraded to `application/octet-stream`, forced to
    * `Content-Disposition: attachment`, and carry a sandboxing
    * `Content-Security-Policy: sandbox; default-src 'none'` header — so a
-   * root that also accepts untrusted uploads (e.g. via `@nextrush/multipart`)
+   * root that also accepts untrusted uploads (e.g. via `@nextrush/form-data`)
    * cannot serve an attacker-supplied file that executes on the app's own
    * origin. Applies to directory-index and extension-fallback resolutions
    * too, not only a direct file match.

@@ -29,7 +29,7 @@
     "@nextrush/health": "1.0.0-beta.0",
     "@nextrush/helmet": "4.0.0-beta.0",
     "@nextrush/logger": "1.0.0-beta.0",
-    "@nextrush/multipart": "1.0.0-beta.0",
+    "@nextrush/form-data": "1.0.0-beta.0",
     "@nextrush/openapi": "1.0.0-beta.0",
     "@nextrush/rate-limit": "1.0.0-beta.0",
     "@nextrush/request-id": "1.0.0-beta.0",

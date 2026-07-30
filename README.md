@@ -301,7 +301,7 @@ ctx.state; // Share data between middleware
 | Package                 | Description                 |
 | ----------------------- | --------------------------- |
 | `@nextrush/body-parser` | JSON/form/text body parsing |
-| `@nextrush/multipart`   | File upload (multipart) parsing |
+| `@nextrush/form-data`   | File upload (multipart) parsing |
 | `@nextrush/cors`        | CORS headers                |
 | `@nextrush/helmet`      | Security headers            |
 | `@nextrush/csrf`        | CSRF protection              |

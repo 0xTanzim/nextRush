@@ -41,7 +41,7 @@
 
 **This package does NOT own:**
 
-- Reading a `multipart/form-data` upload body → `@nextrush/multipart`
+- Reading a `multipart/form-data` upload body → `@nextrush/form-data`
 - Response compression (gzip/deflate/br) of the served bytes → `@nextrush/compression`
 - The middleware execution engine (`compose`, `ctx.next()`) → `@nextrush/core`
 - Any Web-standard/cross-runtime request-body abstraction → this package reads and writes only
@@ -467,7 +467,7 @@ The client controls every input to path resolution: the URL itself, any `Range`/
 lets users upload into that directory. Two boundaries are the ones a contributor must never weaken
 without an RFC: the **traversal boundary**, enforced independently at both the URL-string layer
 (`serveStatic()`) and the resolved-path layer (`safeJoin()`), and the **symlink boundary**
-(`statSafe()`'s post-`followSymlinks` re-validation against `root`). Unlike `@nextrush/multipart`'s
+(`statSafe()`'s post-`followSymlinks` re-validation against `root`). Unlike `@nextrush/form-data`'s
 `DiskStorage` path check (a bare `startsWith(this.dest)`), `safeJoin()`'s and `statSafe()`'s
 containment checks both compare against `root + path.sep` (or exact equality with `root`) — a
 sibling-directory string-prefix collision (e.g. `root = '/srv/public'` matching a resolved
@@ -521,7 +521,7 @@ These are part of the package's architecture. They do not change without an RFC:
   converges on, not duplicated per resolution branch (SEC-11).
 - **The package imports Node built-ins directly (`node:fs`, `node:path`, `node:http`) — it makes
   no cross-runtime portability claim**, unlike Web-Streams-based middleware in this repository
-  (e.g. `@nextrush/multipart`, `@nextrush/body-parser`).
+  (e.g. `@nextrush/form-data`, `@nextrush/body-parser`).
 
 ## Engineering decisions
 

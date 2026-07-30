@@ -46,7 +46,7 @@ const KNOWN_BELOW_THRESHOLD: ReadonlySet<string> = new Set([
   '@nextrush/compression', // 82.63% lines / 71.28% branches
   '@nextrush/cors', // 65.78% lines / 76.82% branches
   '@nextrush/helmet', // 84.68% lines / 86.34% branches — lines gap
-  '@nextrush/multipart', // 81.38% lines / 66.78% branches
+  '@nextrush/form-data', // 81.38% lines / 66.78% branches
   '@nextrush/openapi', // 79.16% lines / 60.46% branches
   '@nextrush/rate-limit', // 81.43% lines / 70.73% branches
   '@nextrush/template', // 59.88% lines / 52.59% branches

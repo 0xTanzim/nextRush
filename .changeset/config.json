@@ -21,7 +21,7 @@
   "ignore": [
     "api",
     "@nextrush/csrf",
-    "@nextrush/multipart",
+    "@nextrush/form-data",
     "@nextrush/rate-limit",
     "@nextrush/cookies",
     "@nextrush/validation",
