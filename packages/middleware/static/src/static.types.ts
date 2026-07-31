@@ -191,6 +191,13 @@ export interface NormalizedStaticOptions {
   redirect: boolean;
   maxAge: number;
   immutable: boolean;
+  /**
+   * The full `Cache-Control` header value, precomputed once from `maxAge` +
+   * `immutable` at registration time rather than rebuilt (array + join) on
+   * every request — both inputs are fixed for the middleware's lifetime.
+   * Empty string when `maxAge <= 0` (no caching directive to send).
+   */
+  cacheControlValue: string;
   dotfiles: DotfilesPolicy;
   extensions: string[];
   setHeaders?: (ctx: NodeContext, absolutePath: string, stat: StatsLike) => void;

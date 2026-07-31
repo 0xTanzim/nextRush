@@ -64,6 +64,7 @@ const DEFAULT_OPTIONS: Omit<NormalizedStaticOptions, 'root'> = {
   redirect: true,
   maxAge: 0,
   immutable: false,
+  cacheControlValue: '',
   dotfiles: 'ignore',
   extensions: [],
   etag: true,
@@ -85,13 +86,26 @@ function normalizeOptions(options: StaticOptions): NormalizedStaticOptions {
   }
 
   const root = resolve(options.root);
+  const maxAge = Math.max(0, options.maxAge ?? 0);
+  const immutable = options.immutable ?? DEFAULT_OPTIONS.immutable;
+
+  // Precomputed once here rather than rebuilt on every request in
+  // send-file.ts: maxAge and immutable are both fixed once the middleware is
+  // created, so the array-build + join() this used to do per-request was pure
+  // waste (F-2, static-metadata-cache).
+  const cacheControlValue =
+    maxAge > 0
+      ? ['public', `max-age=${String(maxAge)}`, ...(immutable ? ['immutable'] : [])].join(', ')
+      : '';
 
   return {
     ...DEFAULT_OPTIONS,
     ...options,
     root,
     prefix: normalizePrefix(options.prefix),
-    maxAge: Math.max(0, options.maxAge ?? 0),
+    maxAge,
+    immutable,
+    cacheControlValue,
     streamTimeout: options.streamTimeout ?? DEFAULT_OPTIONS.streamTimeout,
   };
 }

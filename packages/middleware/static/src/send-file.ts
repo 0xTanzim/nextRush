@@ -8,8 +8,9 @@
 
 import * as fsp from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
+import { getCachedFileMetadata } from './metadata-cache';
 import type { NodeContext, NormalizedStaticOptions, StatsLike } from './static.types';
-import { generateETag, getMimeType, isFresh, isScriptCapable, parseRange } from './utils';
+import { isFresh, isScriptCapable, parseRange } from './utils';
 
 /**
  * Set common response headers for file serving
@@ -20,12 +21,19 @@ function setFileHeaders(
   stat: StatsLike,
   options: NormalizedStaticOptions
 ): string {
+  // MIME type, ETag, and Last-Modified are all pure functions of `stat` (size
+  // + mtime) and the path's extension — cached so an unchanged file skips the
+  // Date formatting and FNV-1a hash on every request. `statSafe()` above this
+  // call still ran, so freshness is never skipped; only the *derivation* of
+  // these three fields is.
+  const cached = getCachedFileMetadata(absolutePath, stat);
+
   // Content-Type — downgraded to application/octet-stream under untrusted
   // mode for any script-capable type (SEC-11), regardless of whether this
   // path came from a direct match, a directory index, or an extension
   // fallback — sendFile() is the single place every resolution converges.
   const neutralize = options.untrusted && isScriptCapable(absolutePath);
-  const mimeType = neutralize ? 'application/octet-stream' : getMimeType(absolutePath);
+  const mimeType = neutralize ? 'application/octet-stream' : cached.mimeType;
   ctx.set('Content-Type', mimeType);
 
   if (options.untrusted) {
@@ -43,13 +51,13 @@ function setFileHeaders(
 
   // Last-Modified
   if (options.lastModified) {
-    ctx.set('Last-Modified', stat.mtime.toUTCString());
+    ctx.set('Last-Modified', cached.lastModifiedString);
   }
 
   // ETag
   let etag = '';
   if (options.etag) {
-    etag = generateETag(stat);
+    etag = cached.etag;
     ctx.set('ETag', etag);
   }
 
@@ -58,13 +66,10 @@ function setFileHeaders(
     ctx.set('Accept-Ranges', 'bytes');
   }
 
-  // Cache-Control
-  if (options.maxAge > 0) {
-    const directives = ['public', `max-age=${options.maxAge}`];
-    if (options.immutable) {
-      directives.push('immutable');
-    }
-    ctx.set('Cache-Control', directives.join(', '));
+  // Cache-Control — precomputed once at registration time (index.ts's
+  // normalizeOptions), not rebuilt on every request.
+  if (options.cacheControlValue) {
+    ctx.set('Cache-Control', options.cacheControlValue);
   }
 
   // Custom headers hook
