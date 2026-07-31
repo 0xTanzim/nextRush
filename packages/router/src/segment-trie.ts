@@ -51,6 +51,14 @@ export interface HandlerEntry {
   middleware: Middleware[];
   /** Pre-compiled executor for fast dispatch (no closure per request) */
   executor?: (ctx: Context) => Promise<void>;
+  /**
+   * `true` only for a `HEAD` entry derived from a `GET` registration
+   * (RFC 9110 §9.3.2). A derived entry is replaced by an explicit `HEAD`
+   * registration instead of reporting a route conflict, is absent from
+   * `getRoutes()`, and is skipped when copying routes into a parent router —
+   * which re-derives it from the `GET` it copies.
+   */
+  autoHead: boolean;
 }
 
 /**

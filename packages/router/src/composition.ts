@@ -43,6 +43,10 @@ export function copyRoutes(
 ): void {
   // Copy handlers at this node
   for (const [method, entry] of node.handlers) {
+    // A derived HEAD entry is not copied — the parent re-derives it from the
+    // GET registration below, which keeps the parent's own explicit-HEAD
+    // precedence and introspection rows correct.
+    if (entry.autoHead) continue;
     const path = prefix + '/' + segments.join('/');
     // Prepend sub-router middleware so it runs before the route's own middleware
     const combined =

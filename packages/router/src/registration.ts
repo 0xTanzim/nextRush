@@ -92,6 +92,24 @@ export function normalizeRegistrationPath(path: string, prefix: string, strict: 
 }
 
 /**
+ * Insert one entry into the method-nested static-route fast-path map,
+ * creating the per-method inner map on first use.
+ */
+function setStaticEntry(
+  staticRoutes: StaticRouteMap,
+  method: HttpMethod,
+  key: string,
+  entry: HandlerEntry
+): void {
+  let methodMap = staticRoutes.get(method);
+  if (!methodMap) {
+    methodMap = new Map<string, HandlerEntry>();
+    staticRoutes.set(method, methodMap);
+  }
+  methodMap.set(key, entry);
+}
+
+/**
  * Insert one route into the segment trie, updating every side structure
  * (static-route fast-path map, introspection registry) that
  * `Router.match`/`Router.getRoutes` depend on.
@@ -196,10 +214,14 @@ export function addRoute(
     handler: finalHandler,
     middleware: combinedMiddleware,
     executor,
+    autoHead: false,
   };
 
-  // Detect duplicate route registration
-  if (node.handlers.has(method)) {
+  // Detect duplicate route registration. A derived HEAD entry is not a
+  // duplicate — an explicit `router.head()` replaces it, in either
+  // registration order.
+  const existing = node.handlers.get(method);
+  if (existing && !(method === 'HEAD' && existing.autoHead)) {
     throw new Error(
       `Route conflict: ${method} ${normalized} is already registered. ` +
         'Remove the duplicate or use a different path.'
@@ -213,14 +235,30 @@ export function addRoute(
   // case-sensitive) path — so matching selects the inner map by method and
   // probes by the raw path with no per-request key-string concatenation.
   const hasParams = segments.some((s) => s.type === NodeType.PARAM || s.type === NodeType.WILDCARD);
-  if (!hasParams) {
-    const normalizedKey = state.caseSensitive ? normalized : normalized.toLowerCase();
-    let methodMap = state.staticRoutes.get(method);
-    if (!methodMap) {
-      methodMap = new Map<string, HandlerEntry>();
-      state.staticRoutes.set(method, methodMap);
+  const staticKey = hasParams
+    ? undefined
+    : state.caseSensitive
+      ? normalized
+      : normalized.toLowerCase();
+  if (staticKey !== undefined) {
+    setStaticEntry(state.staticRoutes, method, staticKey, handlerEntry);
+  }
+
+  // RFC 9110 §9.3.2: HEAD is GET without a body, so a GET registration answers
+  // HEAD too — matching Fastify/Express/Koa/Hono. Derived at registration time,
+  // so request dispatch is unchanged. An explicit HEAD already registered for
+  // this path wins and is never overwritten.
+  if (method === 'GET' && !node.handlers.has('HEAD')) {
+    const derived: HandlerEntry = {
+      handler: finalHandler,
+      middleware: combinedMiddleware,
+      executor,
+      autoHead: true,
+    };
+    node.handlers.set('HEAD', derived);
+    if (staticKey !== undefined) {
+      setStaticEntry(state.staticRoutes, 'HEAD', staticKey, derived);
     }
-    methodMap.set(normalizedKey, handlerEntry);
   }
 
   // Record in the introspection registry (side structure — never touched by

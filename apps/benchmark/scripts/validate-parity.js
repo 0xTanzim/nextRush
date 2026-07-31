@@ -68,6 +68,20 @@ async function collectResponses(frameworkId) {
         headers: Object.fromEntries([...res.headers.entries()].map(([k, v]) => [k.toLowerCase(), v])),
       };
     }
+
+    // HEAD parity (RFC 9110 §9.3.2). Probed separately because the scenario
+    // table declares only the method each scenario measures, so nothing here
+    // ever issued a HEAD — which is exactly how NextRush shipped a 404 on HEAD
+    // for every GET route while this validator reported full parity.
+    out.__head = {};
+    for (const s of SCENARIOS) {
+      if ((s.method ?? 'GET') !== 'GET') continue;
+      const res = await fetch(`${BASE_URL}${s.path}`, { method: 'HEAD' });
+      out.__head[s.id] = {
+        status: res.status,
+        contentLength: res.headers.get('content-length'),
+      };
+    }
   } finally {
     await stopServer(handle);
     await sleep(300);
@@ -142,6 +156,22 @@ export async function runParityCheck(frameworkIds = DEFAULT_FRAMEWORKS) {
         const problems = checkMiddlewareHeaders(r.headers);
         if (problems.length) {
           failures.push(`${id} · middleware headers: ${problems.join(', ')}`);
+        }
+      }
+
+      // 3a. HEAD must answer with the same status as GET (RFC 9110 §9.3.2).
+      // `raw-node` is exempt: it is a deliberately minimal hand-written baseline
+      // with no router, so it has no route table to derive HEAD from — that is a
+      // declared property of the baseline, not a framework defect.
+      if ((s.method ?? 'GET') === 'GET' && id !== REFERENCE) {
+        const head = collected[id].__head?.[s.id];
+        if (!head) {
+          failures.push(`${id} · ${s.id}: HEAD was not probed`);
+        } else if (head.status !== r.status) {
+          failures.push(
+            `${id} · ${s.id}: HEAD status ${head.status} but GET status ${r.status} ` +
+              `(RFC 9110 §9.3.2 — HEAD must be GET without a body)`
+          );
         }
       }
 

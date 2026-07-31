@@ -93,7 +93,7 @@ describe('allowedMethods() middleware — end-to-end characterization', () => {
     await middleware(ctx, async () => {});
 
     expect(ctx.status).toBe(200);
-    expect(ctx.set).toHaveBeenCalledWith('Allow', 'GET');
+    expect(ctx.set).toHaveBeenCalledWith('Allow', 'GET, HEAD');
   });
 
   it('resolves a wildcard route via findNode (wildcardChild branch)', async () => {
@@ -104,7 +104,7 @@ describe('allowedMethods() middleware — end-to-end characterization', () => {
     await middleware(ctx, async () => {});
 
     expect(ctx.status).toBe(200);
-    expect(ctx.set).toHaveBeenCalledWith('Allow', 'GET');
+    expect(ctx.set).toHaveBeenCalledWith('Allow', 'GET, HEAD');
   });
 
   it('resolves a static-child branch deeper than one segment (findNode recursion)', async () => {

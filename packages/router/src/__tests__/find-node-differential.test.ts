@@ -165,8 +165,9 @@ describe('HP-17 — findNode iterative rewrite: differential parity with recursi
       ['GET', '/p/:id'],
       ['GET', '/p/*'],
     ]);
-    // Static wins.
-    expect(findAllowedMethods('/p/me', r, false, false)).toEqual(['GET']);
+    // Static wins. HEAD is present because a GET registration derives it
+    // (RFC 9110 §9.3.2) — the assertion here is about precedence, not the method set.
+    expect(findAllowedMethods('/p/me', r, false, false)).toEqual(['GET', 'HEAD']);
     // Param wins over wildcard for a single leftover segment.
     const paramNode = prodNode('/p/other', r, false, false);
     expect(paramNode).toBe(refNode('/p/other', r, false, false));
@@ -202,7 +203,7 @@ describe('HP-17 — deep-path 405/OPTIONS safety (RED before the iterative rewri
     const root = buildRoot([['GET', '/' + Array.from({ length: depth }, () => ':p').join('/')]]);
     const deepPath = '/' + Array.from({ length: depth }, (_, i) => `x${i}`).join('/');
     expect(() => findAllowedMethods(deepPath, root, false, false)).not.toThrow();
-    expect(findAllowedMethods(deepPath, root, false, false)).toEqual(['GET']);
+    expect(findAllowedMethods(deepPath, root, false, false)).toEqual(['GET', 'HEAD']);
   });
 
   it('misses a deep-but-overshooting path without a stack overflow', () => {
