@@ -151,7 +151,7 @@ export function concurrencyScalingChart(scoreboard, scenarioId) {
  */
 export function scenarioProfileRadar(scoreboard, connection = scoreboard.primaryConnection) {
   const axes = scoreboard.scenarios.filter(
-    (s) => s.identicalWork && rankedCells(scoreboard, s.id, connection).length > 0
+    (s) => s.identicalOutput && rankedCells(scoreboard, s.id, connection).length > 0
   );
   if (axes.length === 0) return '';
 

@@ -78,12 +78,20 @@ process-isolated) and **autocannon** (Node.js-based).
 What the harness guarantees (see `apps/benchmark/README.md` and the audit reports there):
 
 - **Fairness is validated, not assumed** — `pnpm bench:validate` asserts byte-identical response
-  bodies, statuses, and middleware headers across all six servers before any timing.
-- **Publishable numbers are multi-run** — only the `standard` (3 runs) and `full` (5 runs)
-  profiles may back published figures; each reports mean ± stddev and CV.
-- **Identical runtime config** — same Node flags, `NODE_ENV=production`, and payloads everywhere.
-- **Honest scope** — 10 scenarios do byte-identical work; the middleware, error, and static-file
-  scenarios use each framework's own idiomatic mechanism and are labeled as not like-for-like.
+  bodies, statuses, content types, framing, and the full header set across all six servers before
+  any timing.
+- **Publishable numbers are multi-run and gated** — only the `standard` (3 runs) and `full` (5 runs)
+  profiles may back published figures; publishability is *computed* from what the run actually did
+  (rotated and position-balanced order, near-idle host, verified metrics sampling, zero socket
+  timeouts), not declared by the profile.
+- **Identical runtime config** — same Node flags, `NODE_ENV=production`, keep-alive, accept-queue
+  backlog, listen address, and payloads everywhere. Every deviation from a framework default is
+  declared and printed in the report with its direction of effect.
+- **Honest scope** — 10 scenarios produce byte-identical *output*; that is not the same as identical
+  *work*, and the three scenarios where parser safety differs say so. The middleware, error, and
+  static-file scenarios use each framework's own idiomatic mechanism and are excluded from the
+  headline score.
+- **Noise-sized orderings are reported as ties**, never as a ranking.
 
 ```bash
 cd apps/benchmark

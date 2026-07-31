@@ -7,6 +7,16 @@
  *
  * `expectStatus` drives non-2xx handling in the runner: for a success scenario,
  * any non-2xx response invalidates the run; the error scenario expects 500.
+ *
+ * `identicalOutput` — NOT `identicalWork`. The parity gate boots every server and
+ * proves the RESPONSE is identical (status, body bytes, content type, framing,
+ * full header set). It cannot prove the work performed to produce that response is
+ * equivalent, and in three scenarios it demonstrably is not: the JSON body parsers
+ * and query parsers differ in the safety work they do. The field was named
+ * `identicalWork`, which promised more than the gate delivers (audit F-24). Where
+ * a known asymmetry exists it is named in `workNotes` and rendered in the report,
+ * so a reader can see which direction it favours instead of inferring equality
+ * from a field name.
  */
 
 /**
@@ -43,7 +53,7 @@ export const SCENARIOS = [
     expectStatus: 200,
     description: 'Baseline framework overhead — minimal JSON response',
     category: 'baseline',
-    identicalWork: true,
+    identicalOutput: true,
   },
   {
     id: 'json-serialize',
@@ -53,7 +63,7 @@ export const SCENARIOS = [
     expectStatus: 200,
     description: 'JSON serialization performance with moderate payload (~200 bytes)',
     category: 'serialization',
-    identicalWork: true,
+    identicalOutput: true,
   },
   {
     id: 'route-params',
@@ -63,7 +73,7 @@ export const SCENARIOS = [
     expectStatus: 200,
     description: 'Router parameter extraction',
     category: 'routing',
-    identicalWork: true,
+    identicalOutput: true,
   },
   {
     id: 'query-string',
@@ -73,7 +83,12 @@ export const SCENARIOS = [
     expectStatus: 200,
     description: 'Query string parsing performance',
     category: 'parsing',
-    identicalWork: true,
+    identicalOutput: true,
+    workNotes:
+      'Query parsers are not equivalent: NextRush fully decodes each pair and enforces parameter-count/' +
+      'length limits plus __proto__/constructor/prototype key rejection, raw-node uses URLSearchParams ' +
+      'with no limits, and Fastify uses find-my-way\u2019s parser. The least defensive implementation does ' +
+      'the least work.',
   },
   {
     id: 'post-json',
@@ -86,7 +101,12 @@ export const SCENARIOS = [
     description: 'Request body parsing + JSON response',
     category: 'parsing',
     // Body contains a random id + timestamp — bodies are equal after normalization.
-    identicalWork: true,
+    identicalOutput: true,
+    workNotes:
+      'JSON body parsers are not equivalent: Fastify parses with secure-json-parse (prototype- and ' +
+      'constructor-poisoning checks on by default), NextRush uses JSON.parse plus a nesting-depth ' +
+      'check, and raw-node uses bare JSON.parse with no protection. Fastify does the most work here ' +
+      'and raw-node the least, so this cell rewards the least protected parser.',
     // The random id's digit count varies (1-4 digits), so byte-identical work does
     // not guarantee byte-identical Content-Length — only the framing MECHANISM
     // (fixed-length vs. chunked) is checked for parity, not the exact byte count.
@@ -100,7 +120,7 @@ export const SCENARIOS = [
     expectStatus: 200,
     description: 'Deep parameterized route',
     category: 'routing',
-    identicalWork: true,
+    identicalOutput: true,
   },
   {
     id: 'middleware-stack',
@@ -115,7 +135,7 @@ export const SCENARIOS = [
       "framework's own 5-layer dispatch cost, NOT an identical mechanism.",
     category: 'middleware',
     // Mechanisms differ by design — this is per-framework idiomatic, not like-for-like.
-    identicalWork: false,
+    identicalOutput: false,
   },
   {
     id: 'error-handling',
@@ -127,7 +147,7 @@ export const SCENARIOS = [
       'Uncaught throw routed through each framework\'s idiomatic error handler (raw-node ' +
       'uses a local catch — it has no pipeline). Returns 500. Mechanisms differ.',
     category: 'error',
-    identicalWork: false,
+    identicalOutput: false,
   },
   {
     id: 'large-json',
@@ -137,7 +157,7 @@ export const SCENARIOS = [
     expectStatus: 200,
     description: 'Large payload serialization (~5KB JSON array)',
     category: 'serialization',
-    identicalWork: true,
+    identicalOutput: true,
   },
   {
     id: 'empty-response',
@@ -147,7 +167,7 @@ export const SCENARIOS = [
     expectStatus: 204,
     description: 'Absolute minimum — 204 No Content, zero serialization',
     category: 'baseline',
-    identicalWork: true,
+    identicalOutput: true,
   },
   {
     id: 'send-object',
@@ -160,7 +180,7 @@ export const SCENARIOS = [
       'helper (not a pre-serialized string) — the general object-dispatch code path ' +
       'named by the performance reconciliation report\'s Rec 11 / F-09',
     category: 'serialization',
-    identicalWork: true,
+    identicalOutput: true,
   },
   {
     id: 'static-file',
@@ -175,7 +195,11 @@ export const SCENARIOS = [
       'own idiomatic mechanism, not verified byte-identical work — like `middleware-stack` and ' +
       '`error-handling`, it is scored separately rather than folded into the headline score.',
     category: 'static',
-    identicalWork: false,
+    identicalOutput: false,
+    workNotes:
+      'raw-node matches only the one literal fixture path and implements no traversal-safe resolver, ' +
+      'so the baseline does strictly less work than every framework here — this cell is a mechanism ' +
+      'comparison, not a like-for-like one.',
   },
   {
     id: 'large-post',
@@ -189,8 +213,12 @@ export const SCENARIOS = [
       'A request body at or above 1MB — measures body-parsing/response cost at a size ' +
       'distinct from the existing smaller `post-json` scenario (Rec 11)',
     category: 'parsing',
-    identicalWork: true,
+    identicalOutput: true,
     variableLength: true,
+    workNotes:
+      'Same body-parser asymmetry as `post-json`. Additionally, `maxConnections` below caps this ' +
+      'scenario to the lowest declared concurrency level, so it contributes no cells at the headline ' +
+      'levels and is excluded from the points total rather than counted as unreachable points.',
     // A 1.5MiB body queues past wrk's 2s default socket timeout well below a
     // publishable profile's top concurrency (measured: 17-25 timeouts in 5s at
     // 64 connections on EVERY framework), and one socket timeout makes the whole

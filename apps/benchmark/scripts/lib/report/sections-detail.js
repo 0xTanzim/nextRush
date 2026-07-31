@@ -48,11 +48,31 @@ export function headerSection(scoreboard) {
   return lines;
 }
 
+/**
+ * Whether a framework's CPU/RSS aggregates can be presented as describing the
+ * load. A `setInterval` sampler cannot fire while a blocking child process runs,
+ * which is how every figure in this section was once measured against an idle
+ * server while looking valid (audit F-19).
+ *
+ * Absent coverage counts as unverified, not as valid: a run that did not record
+ * coverage cannot demonstrate its CPU figures describe the load, and pre-fix
+ * artifacts are exactly the ones whose figures are wrong.
+ */
+const isUnverified = (fw) => fw.sampleCoverage?.starved !== false;
+
+const coverageLabel = (fw) => {
+  const coverage = fw.sampleCoverage;
+  if (!coverage) return 'not recorded — predates coverage tracking';
+  return `${coverage.coveragePct}%${coverage.starved ? ' ⚠️ starved' : ''}`;
+};
+
 export function resourcesSection(scoreboard) {
   const sampled = scoreboard.frameworks.filter(
     (fw) => fw.memory?.samples > 0 || fw.cpu?.samples > 1 || fw.gc?.count > 0
   );
   if (sampled.length === 0) return [];
+
+  const unverified = sampled.filter(isUnverified);
 
   const lines = ['## Resource Usage', ''];
   lines.push(
@@ -60,15 +80,27 @@ export function resourcesSection(scoreboard) {
       'generator runs in a separate process and is not counted.'
   );
   lines.push('');
+  if (unverified.length > 0) {
+    lines.push(
+      '> ⚠️ **CPU and RSS below are not verified measurements of the load** for ' +
+        `${unverified.map((fw) => fw.name).join(', ')}. The sampler shares a process with the load ` +
+        'generator, so unless it demonstrably covered its own window the figures may describe the ' +
+        'idle pauses between timed runs rather than the runs themselves. Coverage per framework is ' +
+        'in the table. Throughput and latency are unaffected — they come from the load generator, ' +
+        'not this sampler.'
+    );
+    lines.push('');
+  }
   lines.push(
     ...table(
-      ['Framework', 'RSS peak', 'RSS avg', 'CPU avg', 'CPU peak', 'GC events', 'GC pause total'],
+      ['Framework', 'RSS peak', 'RSS avg', 'CPU avg', 'CPU peak', 'Sample coverage', 'GC events', 'GC pause total'],
       sampled.map((fw) => [
         fw.name,
         fw.memory?.rssPeak || '—',
         fw.memory?.rssAvg || '—',
-        fw.cpu?.samples > 1 ? `${fw.cpu.cpuAvgPct}%` : '—',
-        fw.cpu?.samples > 1 ? `${fw.cpu.cpuMaxPct}%` : '—',
+        fw.cpu?.samples > 1 && !isUnverified(fw) ? `${fw.cpu.cpuAvgPct}%` : 'not verified',
+        fw.cpu?.samples > 1 && !isUnverified(fw) ? `${fw.cpu.cpuMaxPct}%` : 'not verified',
+        coverageLabel(fw),
         fw.gc?.count ? int(fw.gc.count) : '—',
         fw.gc?.count ? `${fw.gc.totalPauseMs}ms` : '—',
       ])
@@ -90,9 +122,12 @@ export function resourcesSection(scoreboard) {
           ],
           [
             'CPU avg / peak',
-            fw.cpu?.samples > 1 ? `${fw.cpu.cpuAvgPct}% / ${fw.cpu.cpuMaxPct}%` : '—',
+            fw.cpu?.samples > 1 && !isUnverified(fw)
+              ? `${fw.cpu.cpuAvgPct}% / ${fw.cpu.cpuMaxPct}%`
+              : 'not verified — sampler coverage unproven',
           ],
           ['Samples', fw.memory?.samples ?? fw.cpu?.samples ?? '—'],
+          ['Sample coverage', coverageLabel(fw)],
           [
             'GC events',
             fw.gc?.count
@@ -125,8 +160,35 @@ export function resourcesSection(scoreboard) {
 export function efficiencySection(scoreboard) {
   const scenarioId = scoreboard.scenarios[0]?.id;
   const conn = scoreboard.primaryConnection;
-  const rows = scoreboard.frameworks
-    .filter((fw) => fw.memory?.samples > 0 || fw.cpu?.samples > 1)
+
+  // A "RPS per CPU%" ratio is only meaningful if the CPU figure describes the
+  // load. When the sampler was starved it describes the idle gaps between runs,
+  // and dividing throughput by it produces a confident-looking number with no
+  // physical meaning — which is exactly how a "framework X needs 19% more CPU per
+  // request" claim was once derived (audit F-19). Omit the section rather than
+  // qualify it.
+  const anySampled = scoreboard.frameworks.filter(
+    (fw) => fw.memory?.samples > 0 || fw.cpu?.samples > 1
+  );
+  const measurable = anySampled.filter((fw) => !isUnverified(fw));
+
+  // Nothing was sampled at all (non-Linux host, or sampling disabled) — there is
+  // no claim to correct, so the section is simply absent.
+  if (anySampled.length === 0) return [];
+
+  if (measurable.length === 0) {
+    return [
+      '## Efficiency — throughput per resource',
+      '',
+      '> Not reported for this run. The `/proc` sampler did not demonstrably cover its own window, so ' +
+        'the CPU and RSS aggregates cannot be shown to describe the measured load and any ' +
+        'throughput-per-resource ratio derived from them would be meaningless. See **Resource Usage** ' +
+        'for the coverage figures.',
+      '',
+    ];
+  }
+
+  const rows = measurable
     .map((fw) => {
       const rps = scoreboard.cells[fw.id]?.[scenarioId]?.[conn]?.rps;
       const cpuPct = fw.cpu?.samples > 1 ? fw.cpu.cpuAvgPct : null;
@@ -161,10 +223,11 @@ export function efficiencySection(scoreboard) {
   lines.push('');
   lines.push(
     `RPS is ${scenarioName}'s figure at ${conn} connections; CPU and RSS are a **whole-run aggregate** ` +
-      "sampled across every scenario and concurrency level this run measured, not scoped to this " +
-      'one scenario. CPU can exceed 100% — it is summed across cores. RSS peak includes heap V8 has ' +
-      'not yet reclaimed. Treat both ratio columns as an order-of-magnitude comparison across ' +
-      'mismatched measurement windows, not a precise per-scenario cost model.'
+      'from the `/proc` sampler, covering only the share of the run reported as *Sample coverage* in ' +
+      '**Resource Usage** — not scoped to this one scenario, and not necessarily continuous. CPU can ' +
+      'exceed 100% — it is summed across cores. RSS peak includes heap V8 has not yet reclaimed. ' +
+      'Treat both ratio columns as an order-of-magnitude comparison across mismatched measurement ' +
+      'windows, not a precise per-scenario cost model.'
   );
   lines.push('');
   return lines;
@@ -269,7 +332,7 @@ export function methodologySection(scoreboard, { singleRun }) {
   );
   {
     const likeCount = scoreboard.likeForLikeScenarioIds.length;
-    const excluded = scoreboard.scenarios.filter((s) => !s.identicalWork).map((s) => s.name);
+    const excluded = scoreboard.scenarios.filter((s) => !s.identicalOutput).map((s) => s.name);
     const summary =
       excluded.length > 0
         ? `${likeCount} scenario${likeCount === 1 ? '' : 's'} do${likeCount === 1 ? 'es' : ''} byte-identical work. ` +
@@ -281,6 +344,17 @@ export function methodologySection(scoreboard, { singleRun }) {
           : `All ${likeCount} scenarios in this run do byte-identical work.`;
     lines.push(`- **Scenario fairness:** ${summary}`);
   }
+  lines.push(
+    '- **What "identical" means:** the parity gate proves the RESPONSE is identical (status, body ' +
+      'bytes, content type, framing, full header set). It does not prove equivalent work — see ' +
+      '*Known work asymmetries* under Scenarios Executed.'
+  );
+  lines.push(
+    '- **Handler shape:** no scenario handler reads request state, raw `req`/`res`, or accumulates ' +
+      'middleware state, so a framework that builds those lazily never pays for them here while an ' +
+      'eager one does. That favours lazy-context designs relative to a real application handler, ' +
+      'which typically touches them.'
+  );
   lines.push('');
 
   lines.push('## Reproduce this');

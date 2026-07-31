@@ -50,7 +50,7 @@ export function toCsv(scoreboard) {
             fw.name,
             scenario.id,
             scenario.name,
-            scenario.identicalWork,
+            scenario.identicalOutput,
             conn,
             Math.round(cell.rps * 100) / 100,
             Math.round(cell.stddev * 100) / 100,

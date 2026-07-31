@@ -26,7 +26,7 @@ export function winnersSection(scoreboard) {
     return [
       scenario.name,
       `\`${scenario.category}\``,
-      fairnessTag(scenario.identicalWork),
+      fairnessTag(scenario.identicalOutput),
       first ? `${medal(1)} **${first.name}**` : '—',
       first ? int(first.rps) : '—',
       second ? second.name : '—',

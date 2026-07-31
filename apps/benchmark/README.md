@@ -163,16 +163,30 @@ The `quick` profile runs a subset: hello-world, route-params, post-json, middlew
 
 Enforced mechanically by `pnpm bench:validate` (the runner also runs it as a pre-flight):
 
-- **Byte-identical bodies** — for the 8 identical-work scenarios, every server returns the
-  same response bytes, built from a single shared payload module (`servers/_shared/payloads.js`).
-  The validator normalizes only the random POST `id` and timestamps.
+- **Byte-identical responses** — for the 10 `identicalOutput` scenarios, every server returns the
+  same response bytes, content type, framing and full header set, built from a single shared payload
+  module (`servers/_shared/payloads.js`). The validator normalizes only the random POST `id` and
+  timestamps.
 - **Identical middleware headers** — the 5-layer scenario sets the same 5 headers (same names
   and values) in every framework; the validator fails if any is missing or differs.
 - **No pre-computed JSON** — all servers serialize per-request (including the raw Node.js baseline).
 - **Body parsing only on POST** — attached at the route level; no global middleware penalizes GET routes.
-- **Identical runtime config** — same Node flags (`--expose-gc --max-old-space-size=512`),
-  `NODE_ENV=production`, and port for every server.
+- **Identical runtime config** — same Node flags (`--expose-gc --max-old-space-size=2048`),
+  `NODE_ENV=production`, keep-alive timeout, accept-queue backlog, listen address, and port for
+  every server. The heap value is a runaway-leak tripwire ~30x above the highest observed working
+  set (18–70 MB), deliberately far from any regime where V8 growth heuristics could differ per
+  framework.
 - **No pipelining** — pipelining=1 simulates real client behavior.
+- **Declared configuration deviations** — no server runs entirely stock. Every departure from a
+  framework default is declared in `config/deviations.js` with its direction of effect, rendered
+  into every report, and covered by a disclosure test.
+
+**What "identical" does and does not mean.** The gate proves the **response** is identical. It
+cannot prove the **work** performed to produce it is equivalent, and in three scenarios it is not:
+the JSON body parsers and query parsers differ in their prototype-pollution and DoS protections, so
+`post-json`, `large-post` and `query-string` reward the least defensive implementation. Each such
+asymmetry is named in the scenario's `workNotes` and printed in the report. The field is called
+`identicalOutput`, not `identicalWork`, for exactly this reason.
 
 **Explicitly NOT like-for-like (by design, disclosed):**
 
@@ -182,6 +196,12 @@ Enforced mechanically by `pnpm bench:validate` (the runner also runs it as a pre
   as "framework A's middleware beats framework B's" at face value.
 - **Error handling** — routed through each framework's idiomatic error handler; the raw-node
   baseline uses a local catch because it has no pipeline. Returns 500 everywhere.
+- **Static file** — each framework's own static middleware; header sets genuinely diverge, and the
+  raw-node baseline matches only the one literal fixture path with no traversal-safe resolver.
+
+**What the harness does NOT claim.** No scenario handler reads request state, raw `req`/`res`, or
+accumulates middleware state, so a framework that builds those lazily never pays for them here while
+an eager one does — that favours lazy-context designs relative to a real application handler.
 
 ## CLI Reference
 
@@ -391,12 +411,24 @@ pnpm report:regenerate-all              # Regenerate every stored run + HISTORY.
    path (body parsing, middleware chain, deep-route descent) is JIT-warm before timing.
 4. **Cooldown** — pause between frameworks to prevent resource carryover.
 5. **No pipelining** — pipelining=1 for realistic client simulation.
-6. **Identical work** — 10 of the 13 scenarios return byte-identical responses; middleware-stack,
+6. **Identical output** — 10 of the 13 scenarios return byte-identical responses; middleware-stack,
    error-handling, and static-file are per-framework idiomatic (mechanisms differ, disclosed above).
-7. **Non-2xx guard** — any non-2xx in a success scenario flags the run invalid.
-8. **Memory tracking** — RSS sampled from `/proc/<pid>/status` during the benchmark (Linux).
+   Identical output is not identical work — see Fairness Guarantees.
+7. **Non-2xx guard** — any non-2xx in a success scenario flags the run invalid. A scenario that
+   *expects* a non-2xx status (the error scenario) is exempt.
+8. **Memory tracking** — RSS and CPU sampled from `/proc/<pid>` during the benchmark (Linux), with
+   **sample coverage** recorded per framework. The load generator runs asynchronously so the sampler
+   is never starved; a run whose coverage cannot be verified reports CPU as "not verified" instead of
+   publishing a figure measured between runs.
 9. **Statistical rigor** — mean ± sample stddev + CV across runs; **only `standard`/`full`
    (3–5 runs) are publishable**. Single-run `quick` reports are stamped NOT publishable.
+10. **Publishability is computed, not declared** — `derivePublishable` additionally requires rotated
+    measurement position, a run count that is a **multiple of the framework count** (rotation only
+    balances position exactly then), a host 1-minute load average ≤ 1.0 at start, verified sampler
+    coverage, and zero socket timeouts.
+11. **Orderings inside noise are reported as ties** — adjacent rankings whose gap is smaller than the
+    two frameworks' combined stddev are scored as ties and listed explicitly, so a noise-sized
+    ordering is never presented as a result.
 
 ## Smoke Testing
 
@@ -421,8 +453,11 @@ pnpm test   # node --test scripts/lib/__tests__/*.test.js
 ## Platform Notes
 
 - **Memory tracking** uses `/proc/<pid>/status` — Linux only. On macOS, memory data will be empty.
-- **Thread count** auto-detects from `os.cpus().length`, capped between 2 and 16.
-- **`--max-old-space-size=512`** is passed to all servers to cap V8 heap.
+- **Thread count** auto-detects from `os.cpus().length`, capped between 2 and 16, and is further
+  capped to the number of CPUs in `--client-pin` so the load generator never oversubscribes its own
+  cores (which measurably depresses and destabilises throughput).
+- **`--max-old-space-size=2048`** is passed to all servers as a runaway-leak tripwire, not a
+  constraint — measured peak heap under load is 18–70 MB.
 
 ## Directory Structure
 

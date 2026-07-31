@@ -10,6 +10,19 @@ const MIN_RUNS = 3;
 const MIN_CONCURRENCY_LEVELS = 2;
 const MIN_DURATION_SECONDS = 10;
 
+/**
+ * Highest 1-minute load average a host may carry when a publishable run STARTS.
+ *
+ * A publishable comparison needs a near-idle machine. Competing work on the same
+ * cores inflates run-to-run variance well past the gaps being ranked: on this
+ * project's own reference laptop at load average 1.0-3.5, five counterbalanced
+ * A/B runs of one unchanged binary with a single Node flag toggled produced
+ * apparent effects from -25% to +4.6%, direction reversing (audit F-20). The
+ * `quick`/`verify`/`stress` profiles are unconditionally non-publishable already,
+ * so this only constrains `standard` and `full`.
+ */
+const MAX_HOST_LOAD_AVG_AT_START = 1.0;
+
 function parseDurationSeconds(duration) {
   if (typeof duration !== 'string') return 0;
   const match = duration.match(/^([\d.]+)\s*(s|m)?$/);
@@ -79,12 +92,57 @@ export function derivePublishable(config, results, options = {}) {
   // fixed order was measured to score whichever framework goes first lower,
   // independent of that framework's actual behavior, so a missing or fixed
   // value is never treated as passing by omission.
-  if (countMeasuredFrameworks(results) > 1 && config.positionControl !== 'rotated') {
+  const measuredFrameworks = countMeasuredFrameworks(results);
+  if (measuredFrameworks > 1 && config.positionControl !== 'rotated') {
     return {
       publishable: false,
       reason:
         `position control was "${config.positionControl ?? 'not recorded'}" — a cross-framework ` +
         'ranking requires rotation (see run.js --rotate)',
+    };
+  }
+
+  // Rotation only balances position EXACTLY when `runs` is a multiple of the
+  // framework count. With 6 frameworks and 3 runs each framework visits only 3 of
+  // 6 positions and mean position spreads across 3 slots, so "rotated" alone was
+  // never sufficient — the gate previously passed such a run by omission
+  // (audit F-22).
+  if (measuredFrameworks > 1 && (config.runs ?? 0) % measuredFrameworks !== 0) {
+    return {
+      publishable: false,
+      reason:
+        `${config.runs} run(s) across ${measuredFrameworks} frameworks does not balance measurement ` +
+        `position (rotation is exact only when runs is a multiple of the framework count) — use ` +
+        `--runs ${measuredFrameworks} or a multiple of it`,
+    };
+  }
+
+  // A publishable comparison needs a near-idle host; competing work inflates
+  // variance past the gaps being ranked (audit F-20).
+  const loadAvg = config.hostLoadAvgAtStart;
+  if (typeof loadAvg === 'number' && loadAvg > MAX_HOST_LOAD_AVG_AT_START) {
+    return {
+      publishable: false,
+      reason:
+        `host 1-minute load average was ${loadAvg} at run start, above the ` +
+        `${MAX_HOST_LOAD_AVG_AT_START} ceiling for a publishable run — competing work on the same ` +
+        'cores inflates run-to-run variance beyond the differences being compared',
+    };
+  }
+
+  // A starved /proc sampler produces CPU/RSS aggregates that describe the idle
+  // gaps between runs rather than the load (audit F-19). Throughput is unaffected,
+  // so this is not a hard failure — but a run whose resource figures are invalid
+  // must not be stamped publishable while still rendering them.
+  const starved = Object.values(results)
+    .filter((framework) => framework?.sampleCoverage?.starved)
+    .length;
+  if (starved > 0) {
+    return {
+      publishable: false,
+      reason:
+        `metrics sampling was starved for ${starved} framework(s) — CPU/RSS aggregates describe ` +
+        'idle gaps, not load (see analyzeSampleCoverage)',
     };
   }
 

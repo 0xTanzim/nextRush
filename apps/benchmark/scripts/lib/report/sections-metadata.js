@@ -11,11 +11,19 @@
  */
 
 import { FRAMEWORKS } from '../../../config/frameworks.js';
+import { deviationsFor } from '../../../config/deviations.js';
 import { getScenario } from '../../../config/scenarios.js';
 import { fairnessTag, table } from './format.js';
 
 const NOT_RECORDED = 'not recorded in this run';
 const BACKLOG_NOT_VERIFIED = 'not verified for this run';
+
+/** How a deviation's direction of effect reads in the generated table. */
+const DIRECTION_LABEL = Object.freeze({
+  favours: '↑ favours this server',
+  costs: '↓ costs this server',
+  neutral: '· no measured effect',
+});
 
 const seconds = (ms) => (typeof ms === 'number' ? `${ms / 1000}s` : NOT_RECORDED);
 const orNotRecorded = (value) => (value === null || value === undefined || value === '' ? NOT_RECORDED : value);
@@ -108,7 +116,18 @@ export function loadConfigurationSection(scoreboard) {
         ['Duration', orNotRecorded(config.duration)],
         ['Connections', (config.connections || []).join(', ') || NOT_RECORDED],
         ['Runs per configuration', orNotRecorded(config.runs)],
-        ['Threads (wrk)', orNotRecorded(config.threads)],
+        [
+          'Threads (wrk)',
+          config.threadsRequested !== undefined && config.threadsRequested !== config.threads
+            ? `${config.threads} (reduced from ${config.threadsRequested} to match ${config.clientPinnedCpus} pinned client CPU(s))`
+            : orNotRecorded(config.threads),
+        ],
+        [
+          'Host load average at start',
+          config.hostLoadAvgAtStart === undefined || config.hostLoadAvgAtStart === null
+            ? NOT_RECORDED
+            : String(config.hostLoadAvgAtStart),
+        ],
         ['Pipelining', '1 (disabled — one in-flight request per connection)'],
         ['Framework warmup', orNotRecorded(config.warmupDuration)],
         ['Per-scenario warmup', orNotRecorded(config.scenarioWarmupDuration)],
@@ -154,6 +173,44 @@ export function frameworksSection(scoreboard, { frameworkVersions = null, versio
   return lines;
 }
 
+/**
+ * Every place a server departs from its framework's own defaults.
+ *
+ * The fairness reasoning for each deviation lived only in server source comments,
+ * so a reader of this report saw "logger disabled, default config" for a server
+ * running without its headline serialization feature, and "minimal middleware"
+ * for one with two defaults changed in its favour (audit F-23). Generated from
+ * `config/deviations.js` so the disclosure cannot drift from the servers.
+ */
+export function deviationsSection(scoreboard) {
+  const measured = [...scoreboard.frameworks, ...scoreboard.failed];
+  const rows = measured.flatMap((fw) =>
+    deviationsFor(fw.id).map((deviation) => [
+      fw.id,
+      deviation.setting,
+      deviation.from,
+      deviation.to,
+      DIRECTION_LABEL[deviation.direction] ?? deviation.direction,
+      deviation.why,
+    ])
+  );
+  if (rows.length === 0) return [];
+
+  const lines = ['## Configuration deviations from framework defaults', ''];
+  lines.push(
+    'No server here runs entirely stock. Every deviation below exists to make the comparison ' +
+      'measure the same work, and each is listed with who it plausibly helps — including where it ' +
+      'costs the framework it applies to. A deviation not declared in `config/deviations.js` fails ' +
+      'the disclosure test, so this table cannot silently fall behind the servers.'
+  );
+  lines.push('');
+  lines.push(
+    ...table(['Server', 'Setting', 'Framework default', 'This suite', 'Direction', 'Why'], rows)
+  );
+  lines.push('');
+  return lines;
+}
+
 export function scenariosSection(scoreboard) {
   const lines = ['## Scenarios Executed', ''];
 
@@ -166,7 +223,7 @@ export function scenariosSection(scoreboard) {
       config.path ? `\`${config.path}\`` : '—',
       config.expectStatus ?? '—',
       `\`${scenario.category}\``,
-      fairnessTag(scenario.identicalWork),
+      fairnessTag(scenario.identicalOutput),
     ];
   });
 
@@ -180,6 +237,22 @@ export function scenariosSection(scoreboard) {
       'differs per framework by design, so it is excluded from the headline score.'
   );
   lines.push('');
+  lines.push(
+    '`like-for-like` means the **response** is verified identical — status, body bytes, content type, ' +
+      'framing and the full header set are byte-compared across servers before any timing. It does ' +
+      'not mean the work performed to produce that response is equivalent; where a known asymmetry ' +
+      'exists it is named below.'
+  );
+  lines.push('');
+
+  const withNotes = scoreboard.scenarios.filter((scenario) => scenario.workNotes);
+  if (withNotes.length > 0) {
+    lines.push('**Known work asymmetries**', '');
+    for (const scenario of withNotes) {
+      lines.push(`- \`${scenario.id}\` — ${scenario.workNotes}`);
+    }
+    lines.push('');
+  }
   return lines;
 }
 

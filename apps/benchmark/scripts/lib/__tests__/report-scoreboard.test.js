@@ -28,7 +28,7 @@ function scenario(id, name, cells) {
 
 /**
  * Fixture: 3 frameworks x 2 scenarios x 2 concurrency levels.
- * hello-world is like-for-like; middleware-stack is NOT (identicalWork: false).
+ * hello-world is like-for-like; middleware-stack is NOT (identicalOutput: false).
  */
 function fixture() {
   return {

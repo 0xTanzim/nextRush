@@ -89,7 +89,10 @@ fastify.get('/empty', (_req, reply) => {
   reply.code(204).send();
 });
 
-fastify.setErrorHandler(async (_error, _req, reply) => {
+// Sync, not `async`: the handler awaits nothing, and an async form would allocate
+// a promise per error request that no other server's handler pays — the same
+// per-layer-allocation rule the middleware hooks above already follow (audit F-26).
+fastify.setErrorHandler((_error, _req, reply) => {
   reply.code(500).send(ERROR_BODY);
 });
 

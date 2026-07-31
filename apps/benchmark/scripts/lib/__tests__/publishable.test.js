@@ -164,7 +164,10 @@ test('a multi-framework run with no recorded position control is rejected, not s
 });
 
 test('a rotated multi-framework run is not rejected on position control', () => {
-  const config = makeConfig({ positionControl: 'rotated' });
+  // `runs` must be a multiple of the measured framework count (2 here), otherwise
+  // rotation cannot balance measurement position and the run is rejected on that
+  // separate criterion instead — see the position-balance test below (audit F-22).
+  const config = makeConfig({ positionControl: 'rotated', runs: 4 });
   const outcome = derivePublishable(config, multiFrameworkResults());
 
   assert.equal(outcome.publishable, true);
@@ -222,7 +225,7 @@ test('countSocketTimeouts correctly sums timeouts from an autocannon-shaped resu
     },
   };
 
-  const outcome = derivePublishable({ ...config, positionControl: 'rotated' }, results);
+  const outcome = derivePublishable({ ...config, positionControl: 'rotated', runs: 4 }, results);
 
   assert.equal(outcome.publishable, false);
   assert.match(outcome.reason, /timeout/i);

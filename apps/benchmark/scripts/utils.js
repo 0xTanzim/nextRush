@@ -11,7 +11,14 @@ export { ROOT_DIR, SERVERS_DIR, RESULTS_DIR, WRK_DIR } from './lib/paths.js';
 export { log, logError, logWarn, logStep, logResult, logHeader } from './lib/logging.js';
 export { parseArgs } from './lib/args.js';
 export { sleep, timestamp, parseDuration } from './lib/time.js';
-export { formatBytes, getSystemInfo, hasTaskset } from './lib/system.js';
+export {
+  formatBytes,
+  getSystemInfo,
+  hasTaskset,
+  countPinnedCpus,
+  resolveClientThreads,
+  hostLoadAverage,
+} from './lib/system.js';
 export { ensureDir, saveResults, saveReport } from './lib/fsx.js';
 export { startServer, stopServer, waitForServer } from './lib/server.js';
 export {
@@ -19,6 +26,8 @@ export {
   analyzeMemorySamples,
   analyzeCpuSamples,
   analyzeGcEvents,
+  analyzeSampleCoverage,
+  MIN_SAMPLE_COVERAGE_PCT,
 } from './lib/metrics.js';
 export {
   computeStats,

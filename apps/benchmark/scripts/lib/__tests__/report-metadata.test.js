@@ -30,6 +30,9 @@ function framework(name, rps, resources = true) {
       ? { rssMin: '30.0 MB', rssMax: '50.0 MB', rssAvg: '40.0 MB', rssPeak: '50.0 MB', samples: 290 }
       : undefined,
     cpu: resources ? { cpuAvgPct: 21.6, cpuMaxPct: 86.3, samples: 290 } : undefined,
+    // Coverage is part of a resource sample now: absent coverage renders CPU as
+    // unverified rather than as a measurement (audit F-19).
+    sampleCoverage: resources ? { samples: 290, coveragePct: 98.3, starved: false } : undefined,
     gc: resources
       ? { count: 12, totalPauseMs: '8.40', maxPauseMs: '1.20', avgPauseMs: '0.70', scavenges: 10, markCompacts: 2 }
       : undefined,

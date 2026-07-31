@@ -46,7 +46,7 @@ export function buildReadmeTables(scoreboard) {
           scenario.name,
           top ? `${medal(1)} ${top.name}` : '—',
           top ? int(top.rps) : '—',
-          fairnessTag(scenario.identicalWork),
+          fairnessTag(scenario.identicalOutput),
         ];
       })
     )

@@ -14,9 +14,12 @@ import {
   runWrk,
   writeGeneratedScript,
 } from './utils.js';
-import { execSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { logWarn, parseDuration, sleep } from './utils.js';
 import { warmupConnectionsForScenario } from './lib/scenario-connections.js';
+
+const execFileAsync = promisify(execFile);
 
 export function buildUrl(scenario, port) {
   return `http://${LISTEN_HOST}:${port}${scenario.path}`;
@@ -65,11 +68,12 @@ async function warmupUrl(
   const seconds = parseDuration(durationStr);
   try {
     if (tool === 'wrk') {
-      const scriptArg = scriptPath ? `-s ${scriptPath} ` : '';
-      execSync(
-        `wrk -c ${connections} -t ${Math.min(WARMUP_THREADS, connections)} -d ${seconds}s ${scriptArg}${url}`,
-        { stdio: 'ignore', timeout: (seconds + 10) * 1000 }
-      );
+      const args = ['-c', String(connections), '-t', String(Math.min(WARMUP_THREADS, connections)), '-d', `${seconds}s`];
+      if (scriptPath) args.push('-s', scriptPath);
+      args.push(url);
+      // Async, for the same reason as `runWrk`: a synchronous child blocks the
+      // orchestrator's event loop and starves the /proc sampler (audit F-19).
+      await execFileAsync('wrk', args, { timeout: (seconds + 10) * 1000, maxBuffer: 8 * 1024 * 1024 });
     } else {
       const { default: autocannon } = await import('autocannon');
       await new Promise((resolve) => {

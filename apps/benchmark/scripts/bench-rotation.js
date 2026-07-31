@@ -13,11 +13,14 @@
  */
 
 import { METRICS_INTERVAL_MS } from '../config/constants.js';
+import { getScenario } from '../config/scenarios.js';
 import {
   aggregateLatency,
   analyzeCpuSamples,
   analyzeGcEvents,
   analyzeMemorySamples,
+  analyzeSampleCoverage,
+  MIN_SAMPLE_COVERAGE_PCT,
   computeStats,
   filterValidRuns,
   log,
@@ -94,6 +97,7 @@ async function benchmarkFrameworkOnePass(tool, framework, opts) {
     results.memory = analyzeMemorySamples(samples);
     results.cpu = analyzeCpuSamples(samples);
     results.gc = analyzeGcEvents(serverHandle.gcEvents);
+    results.sampleCoverage = analyzeSampleCoverage(samples, METRICS_INTERVAL_MS);
   } catch (err) {
     logError(`Failed benchmarking ${framework.name}: ${err.message}`);
     results.error = err.message;
@@ -125,7 +129,12 @@ function mergePassResults(passResults, framework, frameworkId) {
     const scenarioResults = { scenario: scenarioMeta.scenario, scenarioId, concurrencyResults: {} };
 
     for (const conn of Object.keys(scenarioMeta.concurrencyResults)) {
-      const scenario = { id: scenarioId };
+      // The REAL scenario object, not a `{ id }` stand-in. `isInvalidRun` exempts
+      // error scenarios by reading `expectStatus`, so a reconstructed object
+      // without it counted every expected 500 as a non-2xx failure and marked
+      // every `error-handling` cell `allInvalid` — in rotation mode only, which
+      // is the mode publishable comparisons use (audit F-21).
+      const scenario = getScenario(scenarioId) ?? { id: scenarioId };
       const runResults = passResults
         .filter((p) => !p.error)
         .map((p) => p.scenarios[scenarioId]?.concurrencyResults[conn]?.run)
@@ -163,6 +172,18 @@ function mergePassResults(passResults, framework, frameworkId) {
   merged.memory = averageMetric(passesWithMetrics, 'memory');
   merged.cpu = averageMetric(passesWithMetrics, 'cpu');
   merged.gc = averageMetric(passesWithMetrics, 'gc');
+  // Coverage is averaged like the rest, then `starved` re-derived from the
+  // averaged percentage — a boolean cannot be meaningfully averaged.
+  const coverage = averageMetric(
+    passResults.filter((p) => !p.error && p.sampleCoverage),
+    'sampleCoverage'
+  );
+  if (coverage) {
+    merged.sampleCoverage = {
+      ...coverage,
+      starved: (coverage.coveragePct ?? 0) < MIN_SAMPLE_COVERAGE_PCT,
+    };
+  }
 
   // Warmup failures: collect unique failures across passes
   const allFailures = passResults
@@ -218,9 +239,15 @@ export function averageMetric(passes, key) {
  * Round-robin left-rotation: `rotate([a,b,c], 1) === [b,c,a]`.
  *
  * Chosen over reshuffling randomly every repeat because rotation guarantees
- * exact position balance when `runs` is a multiple of the framework count,
- * and near-exact (±1) balance otherwise — a property random reshuffling does
- * not guarantee over a small repeat count.
+ * EXACT position balance when `runs` is a multiple of the framework count.
+ *
+ * It does NOT give near-balance otherwise, which an earlier version of this
+ * comment claimed: with 6 frameworks and `runs: 3` each framework visits only 3
+ * of the 6 positions, and mean position spreads across a 3-slot range (measured
+ * on run 2026-07-30T18-14-52: fastify 1.0, nextrush 2.0, hono 2.0, raw-node 3.0,
+ * koa 3.0, express 4.0). `derivePublishable` therefore refuses to stamp a
+ * cross-framework ranking publishable unless `runs % frameworkCount === 0`
+ * (audit F-22).
  */
 export function rotate(items, offset) {
   const n = items.length;

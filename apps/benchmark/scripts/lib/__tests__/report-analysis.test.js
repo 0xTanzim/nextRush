@@ -45,6 +45,7 @@ function run(runId, frameworks, { profile = 'standard', publishable = true, conn
           scenarios: helloOnly(spec.rps, spec.p99 || '5.00ms', conns),
           memory: spec.memory,
           cpu: spec.cpu,
+          sampleCoverage: spec.sampleCoverage,
         },
       ])
     ),
@@ -132,12 +133,20 @@ test('efficiency table reports throughput per CPU percent and per megabyte of RS
         rps: 30000,
         memory: { rssPeak: '100.0 MB', rssAvg: '90.0 MB', samples: 30 },
         cpu: { cpuAvgPct: 200, cpuMaxPct: 250, samples: 30 },
+        // Verified coverage: without it the CPU/efficiency sections are suppressed as
+        // unverified, which is the point of audit F-19 — these fixtures exist to
+        // exercise the rendering, so they declare a sampler that covered its window.
+        sampleCoverage: { samples: 30, spanMs: 15000, expectedSamples: 31, coveragePct: 96.8, starved: false },
       },
       'nextrush-v3': {
         name: 'NextRush v3',
         rps: 15000,
         memory: { rssPeak: '150.0 MB', rssAvg: '140.0 MB', samples: 30 },
         cpu: { cpuAvgPct: 150, cpuMaxPct: 200, samples: 30 },
+        // Verified coverage: without it the CPU/efficiency sections are suppressed as
+        // unverified, which is the point of audit F-19 — these fixtures exist to
+        // exercise the rendering, so they declare a sampler that covered its window.
+        sampleCoverage: { samples: 30, spanMs: 15000, expectedSamples: 31, coveragePct: 96.8, starved: false },
       },
     })
   );

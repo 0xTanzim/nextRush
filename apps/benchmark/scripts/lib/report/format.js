@@ -28,4 +28,4 @@ export const table = (header, rows) => [
   ...rows.map((cells) => `| ${cells.join(' | ')} |`),
 ];
 
-export const fairnessTag = (identicalWork) => (identicalWork ? 'like-for-like' : '⚠️ idiomatic');
+export const fairnessTag = (identicalOutput) => (identicalOutput ? 'like-for-like' : '⚠️ idiomatic');

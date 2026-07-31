@@ -1,7 +1,7 @@
 /**
  * The overall score.
  *
- * Only `identicalWork` scenarios feed the headline number. `middleware-stack` and
+ * Only `identicalOutput` scenarios feed the headline number. `middleware-stack` and
  * `error-handling` exercise each framework's own idiomatic mechanism, so blending
  * them in would present a mechanism difference as a performance difference; they
  * get a separate, labelled table.
@@ -56,8 +56,77 @@ function headline(scoreboard) {
   }
   lines.push(
     `- **Scored on:** ${likeForLike.scenarioCount} like-for-like scenarios × ` +
-      `${likeForLike.connectionCount} concurrency levels × ${scoreboard.frameworks.length} frameworks`
+      `${likeForLike.connectionCount} concurrency levels × ${scoreboard.frameworks.length} frameworks ` +
+      `= ${likeForLike.maxPoints} points available`
   );
+  const unscored = likeForLike.unscoredScenarioIds ?? [];
+  if (unscored.length > 0) {
+    lines.push(
+      `- **Not scored:** \`${unscored.join('`, `')}\` — like-for-like, but ` +
+        'measured only below the headline concurrency levels (see the per-scenario connection caps), ' +
+        'so it contributes no ranked cells and is excluded from the points total rather than counted ' +
+        'as points nobody could score'
+    );
+  }
+  return lines;
+}
+
+/**
+ * States how balanced measurement position actually was, rather than letting
+ * "rotated" imply it was balanced (audit F-22).
+ */
+function positionBalanceLines(scoreboard) {
+  const positions = scoreboard.positions;
+  if (!positions) return [];
+
+  const detail = positions.rows
+    .slice()
+    .sort((a, b) => a.meanPosition - b.meanPosition)
+    .map((row) => `${row.fwId} ${row.meanPosition}`)
+    .join(' · ');
+
+  const lines = ['### Measurement position balance', ''];
+  if (positions.balanced) {
+    lines.push(
+      `Every framework occupied every measurement position an equal number of times ` +
+        `(${scoreboard.configuration?.runs} runs across ${positions.frameworkCount} frameworks). ` +
+        `Mean position: ${detail}.`
+    );
+  } else {
+    lines.push(
+      `> ⚠️ **Position is not fully balanced.** ${scoreboard.configuration?.runs} runs across ` +
+        `${positions.frameworkCount} frameworks means each framework visits only ` +
+        `${scoreboard.configuration?.runs} of ${positions.frameworkCount} positions, and mean position ` +
+        `spreads ${positions.spread} slots: ${detail}. Rotation balances position exactly only when ` +
+        'the run count is a multiple of the framework count.'
+    );
+  }
+  lines.push('');
+  return lines;
+}
+
+/**
+ * Names the adjacent orderings this run could not resolve, so a noise-sized gap
+ * is never read as a result (audit F-20).
+ */
+function resolutionLines(scoreboard) {
+  const resolution = scoreboard.resolution;
+  if (!resolution || resolution.count === 0) return [];
+
+  const lines = ['### Orderings this run could not resolve', ''];
+  lines.push(
+    `${resolution.count} adjacent headline comparison(s) have a gap smaller than the two ` +
+      "frameworks' combined standard deviation. Those orderings reflect measurement noise, not " +
+      'performance — they are scored as the ties they are, and must not be cited as a ranking.'
+  );
+  lines.push('');
+  lines.push(
+    ...table(
+      ['Frameworks within noise of each other', 'Cells'],
+      resolution.tiedFrameworkPairs.map((pair) => [`\`${pair.key}\``, pair.cells])
+    )
+  );
+  lines.push('');
   return lines;
 }
 
@@ -103,6 +172,9 @@ export function scoreboardSection(scoreboard) {
   lines.push('');
   lines.push(...overallTable(likeForLike, scoreboard, { perConnection: true }));
   lines.push('');
+
+  lines.push(...resolutionLines(scoreboard));
+  lines.push(...positionBalanceLines(scoreboard));
 
   const chart = overallPointsChart(scoreboard);
   if (chart) {

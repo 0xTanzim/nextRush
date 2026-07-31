@@ -70,6 +70,7 @@ import {
   ensureDir,
   getSystemInfo,
   getToolVersion,
+  hostLoadAverage,
   log,
   logError,
   logHeader,
@@ -78,6 +79,7 @@ import {
   logWarn,
   parseArgs,
   RESULTS_DIR,
+  resolveClientThreads,
   saveReport,
   saveResults,
   sleep,
@@ -265,6 +267,22 @@ async function main() {
 
   const runs = runsOverride || profile.runs;
 
+  // F-25: thread count is a profile setting and client pinning is a CLI flag, so
+  // they were chosen independently and a `standard` run put wrk's 4 threads on 2
+  // pinned CPUs. Oversubscribing the measuring instrument adds variance to every
+  // cell — measured: 1 thread on 1 core beat 4 threads on 2.
+  const { threads: clientThreads, capped: threadsCapped, pinnedCpus } = resolveClientThreads(
+    profile.threads,
+    clientPinCores
+  );
+  if (threadsCapped) {
+    logWarn(
+      `Load-generator threads reduced ${profile.threads} → ${clientThreads} to match the ` +
+        `${pinnedCpus} CPU(s) in --client-pin ${clientPinCores} (oversubscribing the client adds ` +
+        'measurement noise).'
+    );
+  }
+
   // `fix-benchmark-position-bias`: a direct A/B showed the framework measured
   // FIRST in an invocation scores materially lower than the same framework
   // measured later, reversible by swapping which one goes first. A fixed
@@ -284,7 +302,7 @@ async function main() {
     scenarios,
     connections,
     duration: durationOverride || profile.duration,
-    threads: profile.threads,
+    threads: clientThreads,
     profile,
     pinCores,
     clientPinCores,
@@ -330,7 +348,12 @@ async function main() {
     duration: durationOverride || profile.duration,
     connections,
     runs,
-    threads: profile.threads,
+    threads: clientThreads,
+    threadsRequested: profile.threads,
+    clientPinnedCpus: pinnedCpus,
+    // Recorded so `derivePublishable` can refuse a comparison measured on a busy
+    // host, and so a reader can judge the run's conditions (audit F-20).
+    hostLoadAvgAtStart: hostLoadAverage(),
     warmupDuration: profile.warmupDuration,
     scenarioWarmupDuration: profile.scenarioWarmupDuration,
     cooldownMs: profile.cooldownMs,

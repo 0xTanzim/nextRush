@@ -43,7 +43,7 @@
  *   is sent — byte-identical to the functional server's `ctx.status = 204;
  *   ctx.send()`.
  * - `/middleware` uses 5 stacked `UseInterceptor` classes, one per header —
- *   this scenario is `identicalWork: false` (per config/scenarios.js): each
+ *   this scenario is `identicalOutput: false` (per config/scenarios.js): each
  *   framework's own idiomatic per-layer dispatch mechanism is measured, not a
  *   shared mechanism. Interceptors are this path's "around advice" primitive,
  *   the direct counterpart to the functional server's middleware array.

@@ -15,6 +15,7 @@ import {
   analyzeCpuSamples,
   analyzeGcEvents,
   analyzeMemorySamples,
+  analyzeSampleCoverage,
   computeStats,
   filterValidRuns,
   isInvalidRun,
@@ -123,6 +124,13 @@ export async function benchmarkFramework(tool, framework, opts) {
     results.memory = analyzeMemorySamples(samples);
     results.cpu = analyzeCpuSamples(samples);
     results.gc = analyzeGcEvents(serverHandle.gcEvents);
+    results.sampleCoverage = analyzeSampleCoverage(samples, METRICS_INTERVAL_MS);
+    if (results.sampleCoverage.starved) {
+      logWarn(
+        `Metrics sampler covered only ${results.sampleCoverage.coveragePct}% of its window — ` +
+          'CPU/RSS aggregates for this framework describe idle gaps, not load.'
+      );
+    }
   } catch (err) {
     logError(`Failed benchmarking ${framework.name}: ${err.message}`);
     results.error = err.message;

@@ -10,7 +10,7 @@ function scoreboardFixture({ frameworkCount = 2, positionControl, order } = {}) 
   return {
     configuration: { positionControl, order },
     frameworks,
-    scenarios: [{ id: 'hello-world', name: 'Hello World', identicalWork: true }],
+    scenarios: [{ id: 'hello-world', name: 'Hello World', identicalOutput: true }],
     connections: [64],
     baselineId: 'fw0',
     cells,

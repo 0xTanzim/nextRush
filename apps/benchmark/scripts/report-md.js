@@ -19,6 +19,7 @@ import {
   resourcesSection,
 } from './lib/report/sections-detail.js';
 import {
+  deviationsSection,
   frameworksSection,
   loadConfigurationSection,
   scenariosSection,
@@ -52,6 +53,7 @@ export function generateMarkdownReport(report, options = {}) {
     ...systemSection(scoreboard),
     ...loadConfigurationSection(scoreboard),
     ...frameworksSection(scoreboard, options),
+    ...deviationsSection(scoreboard),
     ...scenariosSection(scoreboard),
     ...(ranked ? scoreboardSection(scoreboard) : singleFrameworkNotice(scoreboard)),
     ...(ranked ? winnersSection(scoreboard) : []),
@@ -96,6 +98,8 @@ function toScoreboardJson(scoreboard) {
     likeForLikeScenarioIds: scoreboard.likeForLikeScenarioIds,
     overall: scoreboard.overall,
     pointsPerConnection: scoreboard.pointsPerConnection,
+    positions: scoreboard.positions,
+    resolution: scoreboard.resolution,
     winners: Object.fromEntries(
       Object.entries(scoreboard.winners).map(([scenarioId, winner]) => [
         scenarioId,

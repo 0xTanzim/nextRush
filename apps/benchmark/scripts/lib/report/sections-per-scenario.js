@@ -79,7 +79,7 @@ export function perScenarioSections(scoreboard, { singleRun }) {
 
   scoreboard.scenarios.forEach((scenario, index) => {
     lines.push(
-      `### ${index + 1}. ${scenario.name} — \`${scenario.id}\` · ${fairnessTag(scenario.identicalWork)}`
+      `### ${index + 1}. ${scenario.name} — \`${scenario.id}\` · ${fairnessTag(scenario.identicalOutput)}`
     );
     lines.push('');
     if (scenario.description) {

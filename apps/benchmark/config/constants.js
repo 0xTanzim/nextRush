@@ -47,17 +47,36 @@ export const BASE_URL = `http://${LISTEN_HOST}:${PORT}`;
 export const KEEP_ALIVE_TIMEOUT_MS = 5000;
 
 /**
+ * Heap ceiling (MB) applied to every server process.
+ *
+ * Set to a value far above any observed working set, so it acts as a runaway-leak
+ * tripwire and nothing more. Measured peak V8 heap TOTAL under load at 256
+ * connections on `/json` (`--trace-gc`, this suite's own servers): raw-node
+ * 18.6 MB, hono 21.6 MB, express 24.9 MB, fastify 29.1 MB, koa 29.6 MB,
+ * nextrush 69.9 MB — live-after-GC 9.3-29.4 MB. The previous value of 512 sat
+ * close enough to a plausible working set that V8 growth heuristics could not be
+ * ruled out as a per-framework variable, and five counterbalanced A/B runs on one
+ * unchanged Fastify binary could not resolve its effect (-25% to +4.6%, direction
+ * reversing) — so it was an unmeasurable confound applied to every server (audit
+ * F-20). 2048 is ~30x the highest observed usage.
+ *
+ * A fixed value is kept rather than dropping the flag because V8's own default is
+ * derived from available system memory (4192 MB on a 16 GB host, less elsewhere),
+ * which would make the heap configuration vary by machine and by free RAM at
+ * launch. Pinning it keeps the runtime a controlled constant across hosts.
+ */
+export const MAX_OLD_SPACE_MB = 2048;
+
+/**
  * V8 flags passed to every server process — identical for all frameworks so the
  * runtime configuration is a controlled variable, not a per-framework choice.
- * `--expose-gc` enables optional GC tracing; the heap cap keeps memory bounded.
- *
- * NOTE: `--max-old-space-size=512` sets an IDENTICAL heap cap for every
- * framework, but that does NOT guarantee a uniform memory-pressure effect.
- * Frameworks with higher baseline heap usage reach the GC trigger threshold
- * earlier, so the same numeric limit can produce different GC behavior across
- * frameworks. The flag ensures a level ceiling, not a level playing field.
+ * `--expose-gc` enables ad-hoc GC probing; GC *tracing* is `--trace-gc`, added
+ * separately by `startServer`'s `traceGc` option.
  */
-export const NODE_SERVER_FLAGS = Object.freeze(['--expose-gc', '--max-old-space-size=512']);
+export const NODE_SERVER_FLAGS = Object.freeze([
+  '--expose-gc',
+  `--max-old-space-size=${MAX_OLD_SPACE_MB}`,
+]);
 
 /**
  * TCP accept-queue depth (`server.listen`'s `backlog`) applied by EVERY server.

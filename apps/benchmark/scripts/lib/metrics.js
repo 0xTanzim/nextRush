@@ -97,3 +97,44 @@ export function analyzeGcEvents(events) {
     markCompacts: events.filter((e) => e.type === 'Mark-Compact' || e.type === 'MajorGC').length,
   };
 }
+
+/**
+ * Minimum share of the sampling window that must actually be covered before
+ * CPU/RSS aggregates are treated as describing the load rather than the gaps
+ * between it.
+ */
+export const MIN_SAMPLE_COVERAGE_PCT = 80;
+
+/**
+ * How much of its own wall-clock window the sampler actually observed.
+ *
+ * A `setInterval` sampler in a process that also runs a blocking child cannot
+ * fire while that child runs. Before `runWrk` became async, the sampler only ever
+ * fired during the idle pauses between tests — 65 samples where ~2,370 were due —
+ * so every reported CPU/RSS figure described an idle server while looking exactly
+ * like a valid measurement (audit F-19). Coverage is self-contained: it compares
+ * the samples actually taken against the number the observed span should have
+ * produced, so it needs no external clock and catches the failure whatever its
+ * cause (blocking child, event-loop stall, process stopped early).
+ *
+ * @param {Array<{ timestamp: number }>} samples
+ * @param {number} intervalMs The interval the sampler was configured with.
+ * @returns {{ samples: number, spanMs: number, expectedSamples: number, coveragePct: number, starved: boolean }}
+ */
+export function analyzeSampleCoverage(samples, intervalMs) {
+  if (samples.length < 2 || !(intervalMs > 0)) {
+    return { samples: samples.length, spanMs: 0, expectedSamples: 0, coveragePct: 0, starved: true };
+  }
+
+  const spanMs = samples[samples.length - 1].timestamp - samples[0].timestamp;
+  const expectedSamples = Math.max(1, Math.round(spanMs / intervalMs) + 1);
+  const coveragePct = Math.round((samples.length / expectedSamples) * 1000) / 10;
+
+  return {
+    samples: samples.length,
+    spanMs,
+    expectedSamples,
+    coveragePct,
+    starved: coveragePct < MIN_SAMPLE_COVERAGE_PCT,
+  };
+}

@@ -7,7 +7,7 @@
  * return:
  *   - the same HTTP status as the scenario's `expectStatus`, and
  *   - byte-identical response bodies (after normalizing non-deterministic
- *     fields) for scenarios marked `identicalWork`, and
+ *     fields) for scenarios marked `identicalOutput`, and
  *   - the same five middleware headers (values, X-Timestamp presence) on
  *     the middleware scenario, and
  *   - a response proving the scenario's full declared request body was
@@ -117,7 +117,7 @@ export async function runParityCheck(frameworkIds = DEFAULT_FRAMEWORKS) {
       }
 
       // 2. Body parity for identical-work scenarios (against raw-node reference).
-      if (s.identicalWork && id !== REFERENCE) {
+      if (s.identicalOutput && id !== REFERENCE) {
         const ref = reference[s.id];
         if (r.body !== ref.body) {
           failures.push(
@@ -129,7 +129,7 @@ export async function runParityCheck(frameworkIds = DEFAULT_FRAMEWORKS) {
       // 2b. Content-Type parity for identical-work JSON scenarios (audit F-M02).
       // Scoped to 200-status JSON bodies; the 204 empty scenario has no body, so
       // its Content-Type is semantically irrelevant. Compared case-insensitively.
-      if (s.identicalWork && s.expectStatus === 200 && id !== REFERENCE) {
+      if (s.identicalOutput && s.expectStatus === 200 && id !== REFERENCE) {
         const ct = (r.headers['content-type'] || '').toLowerCase();
         const refCt = (reference[s.id].headers['content-type'] || '').toLowerCase();
         if (ct !== refCt) {
@@ -161,7 +161,7 @@ export async function runParityCheck(frameworkIds = DEFAULT_FRAMEWORKS) {
     // report F-03: a chunked-vs-fixed-length mismatch invalidates every
     // throughput comparison for that scenario, and the odd server out is not
     // necessarily the reference).
-    if (s.identicalWork) {
+    if (s.identicalOutput) {
       const headersById = {};
       for (const id of ids) headersById[id] = collected[id][s.id].headers;
       const framingProblems = checkFramingParity(headersById, {

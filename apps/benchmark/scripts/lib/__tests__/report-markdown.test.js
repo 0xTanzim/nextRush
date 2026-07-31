@@ -51,6 +51,10 @@ function fixture() {
         scenarios: scenarios(1000, 9000),
         memory: { rssPeak: '50 MB', rssAvg: '40 MB', samples: 30 },
         cpu: { cpuAvgPct: 80, cpuMaxPct: 95, samples: 30 },
+        // Verified coverage: without it the CPU/efficiency sections are suppressed as
+        // unverified, which is the point of audit F-19 — these fixtures exist to
+        // exercise the rendering, so they declare a sampler that covered its window.
+        sampleCoverage: { samples: 30, spanMs: 15000, expectedSamples: 31, coveragePct: 96.8, starved: false },
         gc: { count: 5, totalPauseMs: '1.00', maxPauseMs: '0.50' },
       },
       'nextrush-v3': {

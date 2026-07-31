@@ -1,8 +1,11 @@
 /** wrk runner: invocation, output parsing, and version detection. */
 
-import { execSync } from 'node:child_process';
+import { execFile, execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 import { WRK_DIR } from '../paths.js';
 import { parseDuration } from '../time.js';
@@ -50,7 +53,17 @@ export function cleanupGeneratedScripts(runId) {
   rmSync(join(WRK_DIR, '.generated', runId), { recursive: true, force: true });
 }
 
-export function runWrk({ url, connections, threads, duration, scriptPath, latency = true, pinCores = null }) {
+/**
+ * Run wrk once and parse its output.
+ *
+ * `execFile` rather than `execSync`: the orchestrator also owns the `/proc`
+ * metrics sampler's `setInterval`, and a synchronous child blocks the event loop
+ * for the whole run, so the sampler could only ever fire in the idle pauses
+ * between tests. Every CPU/RSS figure was therefore measured while the server
+ * was doing nothing (audit F-19). Args are passed as an array, not interpolated
+ * into a shell string, so a path or URL can never be re-parsed as shell syntax.
+ */
+export async function runWrk({ url, connections, threads, duration, scriptPath, latency = true, pinCores = null }) {
   const args = ['-c', String(connections), '-t', String(Math.min(threads, connections)), '-d', duration];
   if (latency) args.push('--latency');
   if (scriptPath) args.push('-s', scriptPath);
@@ -75,12 +88,13 @@ export function runWrk({ url, connections, threads, duration, scriptPath, latenc
     logWarn('Client CPU pinning requested but taskset is unavailable (or non-Linux) — running unpinned.');
   }
 
-  const result = execSync(`${command} ${commandArgs.join(' ')}`, {
+  const { stdout } = await execFileAsync(command, commandArgs, {
     encoding: 'utf-8',
     timeout: parseDuration(duration) * 1000 + 30000,
+    maxBuffer: 8 * 1024 * 1024,
   });
 
-  return parseWrkOutput(result);
+  return parseWrkOutput(stdout);
 }
 
 export function parseWrkOutput(output) {

@@ -6,7 +6,7 @@
  * place that decides what "ranked" and "overall score" mean, and it performs no
  * I/O so it stays unit-testable.
  *
- * Fairness contract: `identicalWork: false` scenarios (middleware-stack,
+ * Fairness contract: `identicalOutput: false` scenarios (middleware-stack,
  * error-handling) measure each framework's own idiomatic mechanism, so they are
  * scored separately from the like-for-like headline score rather than blended in.
  */
@@ -103,6 +103,10 @@ function collectFrameworks(report) {
       memory: fw.memory || null,
       cpu: fw.cpu || null,
       gc: fw.gc || null,
+      // Whether the /proc sampler demonstrably covered its own window. Absent on
+      // runs predating coverage tracking, which the report renders as unverified
+      // rather than as valid (audit F-19).
+      sampleCoverage: fw.sampleCoverage || null,
     });
   }
   return { frameworks: ok, failed };
@@ -138,7 +142,8 @@ function collectScenarios(report, frameworks) {
       description: config?.description || '',
       // Unknown scenarios are treated as not-comparable rather than silently
       // promoted into the headline like-for-like score.
-      identicalWork: config?.identicalWork === true,
+      identicalOutput: config?.identicalOutput === true,
+      workNotes: config?.workNotes ?? null,
       order: SCENARIOS.findIndex((s) => s.id === id),
     };
   });
@@ -166,6 +171,22 @@ function sumPoints(rankings, scenarioIds, connections) {
 function buildOverall(rankings, scenarioIds, connections, frameworks) {
   const { totals, wins, ranks } = sumPoints(rankings, scenarioIds, connections);
 
+  // The maximum is the sum of each ranked cell's winning points — NOT
+  // `scenarios × connections × frameworks`. A scenario carrying a concurrency cap
+  // (see `maxConnections`) contributes no cells at the headline levels, so the
+  // declared product counted points no framework could ever score and deflated
+  // every percentage by that scenario's share (audit F-21b).
+  let maxPoints = 0;
+  const scenariosScored = new Set();
+  for (const scenarioId of scenarioIds) {
+    for (const conn of connections) {
+      const entries = rankings[scenarioId]?.[conn] || [];
+      if (entries.length === 0) continue;
+      maxPoints += entries.length;
+      scenariosScored.add(scenarioId);
+    }
+  }
+
   const rows = frameworks
     .filter((fw) => totals.has(fw.id))
     .map((fw) => {
@@ -188,9 +209,84 @@ function buildOverall(rankings, scenarioIds, connections, frameworks) {
 
   return {
     rows,
-    maxPoints: scenarioIds.length * connections.length * frameworks.length,
-    scenarioCount: scenarioIds.length,
+    maxPoints,
+    scenarioCount: scenariosScored.size,
+    declaredScenarioCount: scenarioIds.length,
+    unscoredScenarioIds: scenarioIds.filter((id) => !scenariosScored.has(id)),
     connectionCount: connections.length,
+  };
+}
+
+/**
+ * Mean measurement position per framework, from the run's own `positionLog`.
+ *
+ * Rotation only balances position exactly when `runs` is a multiple of the
+ * framework count; otherwise a framework can sit systematically early or late
+ * (audit F-22). Publishing the actual mean lets a reader check the balance
+ * instead of trusting that "rotated" implied it.
+ */
+export function measurementPositions(report) {
+  const log = report.configuration?.positionLog;
+  if (!Array.isArray(log) || log.length === 0) return null;
+
+  const positions = new Map();
+  for (const entry of log) {
+    (entry.order || []).forEach((fwId, index) => {
+      if (!positions.has(fwId)) positions.set(fwId, []);
+      positions.get(fwId).push(index);
+    });
+  }
+  if (positions.size === 0) return null;
+
+  const rows = [...positions.entries()].map(([fwId, seen]) => ({
+    fwId,
+    positions: seen,
+    meanPosition: round1(seen.reduce((a, b) => a + b, 0) / seen.length),
+  }));
+  const means = rows.map((r) => r.meanPosition);
+
+  return {
+    rows,
+    spread: round1(Math.max(...means) - Math.min(...means)),
+    balanced: (report.configuration?.runs ?? 0) % positions.size === 0,
+    frameworkCount: positions.size,
+  };
+}
+
+/**
+ * Adjacent headline pairs whose gap is inside their combined stddev.
+ *
+ * A ranking is only worth publishing down to the resolution the run achieved. On
+ * a noisy host the fast group's gaps sit inside the run's own variance, and the
+ * ordering there reflects measurement noise rather than performance (audit F-20).
+ * Counted here so the report can say so explicitly instead of presenting a
+ * noise-sized ordering as a result.
+ */
+export function unresolvedRanking(rankings, scenarioIds, connections) {
+  const pairs = [];
+  for (const scenarioId of scenarioIds) {
+    for (const conn of connections) {
+      const entries = rankings[scenarioId]?.[conn] || [];
+      for (let i = 0; i < entries.length - 1; i += 1) {
+        if (entries[i].withinNoiseOfNext) {
+          pairs.push({ scenarioId, connection: conn, a: entries[i].fwId, b: entries[i + 1].fwId });
+        }
+      }
+    }
+  }
+
+  const byFrameworkPair = new Map();
+  for (const pair of pairs) {
+    const key = [pair.a, pair.b].sort().join(' ~ ');
+    byFrameworkPair.set(key, (byFrameworkPair.get(key) || 0) + 1);
+  }
+
+  return {
+    count: pairs.length,
+    pairs,
+    tiedFrameworkPairs: [...byFrameworkPair.entries()]
+      .map(([key, cells]) => ({ key, cells }))
+      .sort((a, b) => b.cells - a.cells),
   };
 }
 
@@ -260,7 +356,7 @@ export function buildScoreboard(report, options = {}) {
     }
   }
 
-  const likeForLikeScenarioIds = scenarios.filter((s) => s.identicalWork).map((s) => s.id);
+  const likeForLikeScenarioIds = scenarios.filter((s) => s.identicalOutput).map((s) => s.id);
   const allScenarioIds = scenarios.map((s) => s.id);
   // c1 measures per-request latency, not throughput (see methodologySection) —
   // excluded from the headline aggregate; pointsPerConnection still reports it.
@@ -297,5 +393,7 @@ export function buildScoreboard(report, options = {}) {
       likeForLike: buildOverall(rankings, likeForLikeScenarioIds, headlineConnections, frameworks),
       all: buildOverall(rankings, allScenarioIds, headlineConnections, frameworks),
     },
+    positions: measurementPositions(report),
+    resolution: unresolvedRanking(rankings, likeForLikeScenarioIds, headlineConnections),
   };
 }

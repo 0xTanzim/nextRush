@@ -133,6 +133,9 @@ test('efficiencySection discloses that CPU/RSS are a whole-run aggregate, not sc
   const report = baseReport();
   report.results['raw-node'].memory = { rssPeak: '50.0 MB', rssAvg: '40.0 MB', samples: 30 };
   report.results['raw-node'].cpu = { cpuAvgPct: 80, cpuMaxPct: 95, samples: 30 };
+  // A sampler that demonstrably covered its window; without this the section is
+  // suppressed as unverified instead of rendering a ratio (audit F-19).
+  report.results['raw-node'].sampleCoverage = { coveragePct: 97, starved: false };
   const sb = buildScoreboard(report);
 
   const lines = efficiencySection(sb);
