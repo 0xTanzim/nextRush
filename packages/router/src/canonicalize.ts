@@ -65,6 +65,30 @@ export function hasDotSegment(path: string): boolean {
 }
 
 /**
+ * Single-entry memo for {@link canonicalizePath}.
+ *
+ * Exists because a request falling through N prefix mounts asks for the
+ * canonical form of the *same* path N times, once per mount — the O(mounts)
+ * term that made a 10-module app spend most of its dispatch time deciding which
+ * mount to enter. Each call also allocated its own result object, so the memo
+ * removes an allocation as well as three string scans.
+ *
+ * Safe to share the result across callers: {@link CanonicalPathResult} declares
+ * both fields `readonly`, and no caller mutates it (verified across all three
+ * call sites — the mount test, the router's own dispatch, and the adapter).
+ * Keyed on all three inputs, so two routers with different `caseSensitive` or
+ * `strict` options can never read each other's answer. A single entry means
+ * interleaved requests simply miss rather than getting a wrong answer.
+ *
+ * This is a pure-function memo, not shared state: it cannot make
+ * `canonicalizePath` return anything other than what recomputing would return.
+ */
+let memoTarget: string | undefined = undefined;
+let memoCaseSensitive = false;
+let memoStrict = false;
+let memoResult: CanonicalPathResult = { rejected: false, path: '/' };
+
+/**
  * Canonicalize a raw request target into the one path value every consumer
  * (router match, mount-prefix test, CSRF exclude match, published `ctx.path`)
  * treats as "this request's path" (RFC-029).
@@ -76,6 +100,9 @@ export function hasDotSegment(path: string): boolean {
  * — this function IS that normalization, extended with dot-segment rejection
  * and made a public, adapter-facing entry point.
  *
+ * The most recent result is memoized; see the note above the memo fields for
+ * why that is sound. Treat the returned object as immutable.
+ *
  * @param rawTarget - The raw request target, may include a query string.
  * @param caseSensitive - Router case-sensitivity option.
  * @param strict - Router strict-trailing-slash option.
@@ -85,13 +112,26 @@ export function canonicalizePath(
   caseSensitive: boolean,
   strict: boolean
 ): CanonicalPathResult {
+  if (rawTarget === memoTarget && caseSensitive === memoCaseSensitive && strict === memoStrict) {
+    return memoResult;
+  }
+
   const queryIdx = rawTarget.indexOf('?');
   const path = queryIdx === -1 ? rawTarget : rawTarget.slice(0, queryIdx);
 
-  if (hasDotSegment(path)) {
-    return { rejected: true, path };
-  }
+  const result: CanonicalPathResult = hasDotSegment(path)
+    ? { rejected: true, path }
+    : {
+        rejected: false,
+        path: collapseAndStrip(
+          caseSensitive || isProvablyLowerAscii(path) ? path : path.toLowerCase(),
+          strict
+        ),
+      };
 
-  const folded = caseSensitive || isProvablyLowerAscii(path) ? path : path.toLowerCase();
-  return { rejected: false, path: collapseAndStrip(folded, strict) };
+  memoTarget = rawTarget;
+  memoCaseSensitive = caseSensitive;
+  memoStrict = strict;
+  memoResult = result;
+  return result;
 }

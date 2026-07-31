@@ -33,7 +33,8 @@
     "report:generate": "node scripts/generate-report.js",
     "report:regenerate-all": "node scripts/generate-report.js --all --history",
     "report:history": "node scripts/generate-report.js --history",
-    "clean": "rm -rf results/*"
+    "clean": "rm -rf results/*",
+    "bench:mount-scaling": "node scripts/alloc/mount-scaling.js"
   },
   "devDependencies": {
     "@fastify/static": "10.1.2",
