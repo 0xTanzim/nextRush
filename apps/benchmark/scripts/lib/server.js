@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  LISTEN_HOST,
   NODE_SERVER_FLAGS,
   SERVER_POLL_INTERVAL_MS,
   SERVER_START_TIMEOUT_MS,
@@ -109,7 +110,7 @@ export async function startServer(
     collectGcEvents(data.toString(), gcEvents);
   });
 
-  const ready = await waitForServer(`http://localhost:${port}/`, SERVER_START_TIMEOUT_MS);
+  const ready = await waitForServer(`http://${LISTEN_HOST}:${port}/`, SERVER_START_TIMEOUT_MS);
   if (!ready) {
     child.kill('SIGKILL');
     throw new Error(`Server ${serverFile} failed to start.\nStderr: ${stderr}`);

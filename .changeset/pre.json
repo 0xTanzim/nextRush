@@ -42,7 +42,8 @@
     "@nextrush/runtime": "4.0.0-beta.0",
     "@nextrush/stream": "1.0.0-beta.0",
     "@nextrush/testing": "1.0.0-beta.0",
-    "@nextrush/types": "4.0.0-beta.0"
+    "@nextrush/types": "4.0.0-beta.0",
+    "@nextrush/security": "1.0.0-beta.0"
   },
   "changesets": []
 }

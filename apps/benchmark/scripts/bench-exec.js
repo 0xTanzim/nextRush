@@ -7,7 +7,7 @@
  * rotation support was added (`fix-benchmark-position-bias`).
  */
 
-import { WARMUP_CONNECTIONS, WARMUP_THREADS } from '../config/constants.js';
+import { LISTEN_HOST, WARMUP_CONNECTIONS, WARMUP_THREADS } from '../config/constants.js';
 import {
   cleanupGeneratedScripts,
   runAutocannon,
@@ -16,9 +16,10 @@ import {
 } from './utils.js';
 import { execSync } from 'node:child_process';
 import { logWarn, parseDuration, sleep } from './utils.js';
+import { warmupConnectionsForScenario } from './lib/scenario-connections.js';
 
 export function buildUrl(scenario, port) {
-  return `http://localhost:${port}${scenario.path}`;
+  return `http://${LISTEN_HOST}:${port}${scenario.path}`;
 }
 
 /**
@@ -56,19 +57,23 @@ export async function runBenchmark(tool, opts) {
 }
 
 /** Warm a specific URL with real traffic (framework-level or per-scenario). */
-async function warmupUrl(tool, { url, durationStr, method = 'GET', scriptPath }, failures) {
+async function warmupUrl(
+  tool,
+  { url, durationStr, method = 'GET', scriptPath, connections = WARMUP_CONNECTIONS },
+  failures
+) {
   const seconds = parseDuration(durationStr);
   try {
     if (tool === 'wrk') {
       const scriptArg = scriptPath ? `-s ${scriptPath} ` : '';
       execSync(
-        `wrk -c ${WARMUP_CONNECTIONS} -t ${WARMUP_THREADS} -d ${seconds}s ${scriptArg}${url}`,
+        `wrk -c ${connections} -t ${Math.min(WARMUP_THREADS, connections)} -d ${seconds}s ${scriptArg}${url}`,
         { stdio: 'ignore', timeout: (seconds + 10) * 1000 }
       );
     } else {
       const { default: autocannon } = await import('autocannon');
       await new Promise((resolve) => {
-        autocannon({ url, connections: WARMUP_CONNECTIONS, duration: seconds, method }, resolve);
+        autocannon({ url, connections, duration: seconds, method }, resolve);
       });
     }
   } catch (err) {
@@ -79,7 +84,7 @@ async function warmupUrl(tool, { url, durationStr, method = 'GET', scriptPath },
 
 /** Framework-level warmup — primes core dispatch via the root route. */
 export async function warmup(tool, durationStr, port, failures) {
-  await warmupUrl(tool, { url: `http://localhost:${port}/`, durationStr }, failures);
+  await warmupUrl(tool, { url: `http://${LISTEN_HOST}:${port}/`, durationStr }, failures);
 }
 
 /** Per-scenario warmup — primes the scenario's specific code path (FAIR-09). */
@@ -89,6 +94,9 @@ export async function warmupScenario(tool, scenario, durationStr, port, runId, f
     url: buildUrl(scenario, port),
     durationStr,
     method: scenario.method,
+    // A capped scenario must not be warmed at a concurrency it is never
+    // measured at — that would saturate the server right before timing it.
+    connections: warmupConnectionsForScenario(scenario, WARMUP_CONNECTIONS),
     scriptPath: tool === 'wrk' && scenario.method === 'POST' ? writeGeneratedScript(scenario, runId) : undefined,
   }, failures);
   await sleep(200);

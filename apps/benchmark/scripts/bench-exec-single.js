@@ -29,6 +29,7 @@ import {
   stopServer,
 } from './utils.js';
 import { buildUrl, cleanupWrkScripts, runBenchmark, warmup, warmupScenario } from './bench-exec.js';
+import { connectionsForScenario } from './lib/scenario-connections.js';
 
 export async function benchmarkFramework(tool, framework, opts) {
   const { frameworkId, port, scenarios, connections, runs, duration, threads, profile, pinCores, clientPinCores, traceGc, runId } =
@@ -53,7 +54,7 @@ export async function benchmarkFramework(tool, framework, opts) {
 
       const scenarioResults = { scenario: scenario.name, scenarioId: scenario.id, concurrencyResults: {} };
 
-      for (const conn of connections) {
+      for (const conn of connectionsForScenario(scenario, connections)) {
         log(`  Connections: ${conn}`);
         const runResults = [];
 

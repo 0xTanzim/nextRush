@@ -49,7 +49,7 @@ import { readFile } from 'node:fs';
 import { join } from 'node:path';
 
 app.get('/files/:name', (ctx) => {
-  const filePath = join('./public', ctx.params.name); // ctx.params.name = '../../etc/passwd'
+  const filePath = join('./public', ctx.params.name); // ctx.params.name = '../../.env'
   readFile(filePath, (err, data) => {
     // join() happily walks out of './public' -- there is no check that filePath
     // is still inside the intended root directory before the read happens

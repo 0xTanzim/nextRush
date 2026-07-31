@@ -11,7 +11,7 @@
  * - Content-Type includes `charset=utf-8` to match the frameworks' JSON headers.
  */
 
-import { LISTEN_BACKLOG } from '../config/constants.js';
+import { KEEP_ALIVE_TIMEOUT_MS, LISTEN_BACKLOG, LISTEN_HOST } from '../config/constants.js';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -204,8 +204,9 @@ const server = createServer((req, res) => {
   sendJson(res, 404, { error: 'Not Found' });
 });
 
-server.listen({ port: PORT, backlog: LISTEN_BACKLOG }, () => {
-  console.log(`Raw Node.js server listening on http://localhost:${PORT}`);
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
+server.listen({ port: PORT, host: LISTEN_HOST, backlog: LISTEN_BACKLOG }, () => {
+  console.log(`Raw Node.js server listening on http://${LISTEN_HOST}:${PORT}`);
 });
 
 const shutdown = () => server.close(() => process.exit(0));

@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/form-data",
-  "version": "1.0.1-beta.0",
+  "version": "1.0.0-beta.0",
   "description": "Streaming multipart/form-data parser and file upload middleware for NextRush",
   "type": "module",
   "main": "./dist/index.js",
@@ -36,10 +36,13 @@
   "keywords": [
     "nextrush",
     "form-data",
-    "file-upload",
+    "formdata",
     "multipart",
-    "middleware",
-    "streaming"
+    "multipart-form-data",
+    "file-upload",
+    "upload",
+    "parser",
+    "middleware"
   ],
   "author": {
     "name": "Tanzim Hossain",

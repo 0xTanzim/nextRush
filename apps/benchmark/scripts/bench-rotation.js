@@ -33,6 +33,7 @@ import {
   stopServer,
 } from './utils.js';
 import { buildUrl, cleanupWrkScripts, runBenchmark, warmup, warmupScenario } from './bench-exec.js';
+import { connectionsForScenario } from './lib/scenario-connections.js';
 
 /**
  * Run ONE measurement pass for one framework: start -> warm -> per-scenario
@@ -62,7 +63,7 @@ async function benchmarkFrameworkOnePass(tool, framework, opts) {
 
       const scenarioResults = { scenario: scenario.name, scenarioId: scenario.id, concurrencyResults: {} };
 
-      for (const conn of connections) {
+      for (const conn of connectionsForScenario(scenario, connections)) {
         log(`  Connections: ${conn}`);
         const result = await runBenchmark(tool, {
           url: buildUrl(scenario, port),

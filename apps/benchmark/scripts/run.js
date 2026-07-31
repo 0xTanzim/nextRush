@@ -343,6 +343,11 @@ async function main() {
     order: shuffleOrder ? 'shuffled' : 'fixed',
     parity: parityOutcome,
     scenarios: scenarios.map((s) => s.id),
+    // A scenario measured below the declared ladder (see maxConnections) must say
+    // so in the artifact — otherwise a missing cell reads as a failed measurement.
+    scenarioConnectionCaps: Object.fromEntries(
+      scenarios.filter((s) => typeof s.maxConnections === 'number').map((s) => [s.id, s.maxConnections])
+    ),
     frameworkVersions: readFrameworkVersions(),
     nextrushEffectiveOptions: captureNextRushEffectiveOptions({}),
   };

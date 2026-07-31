@@ -25,7 +25,13 @@ import { BASE_URL, PORT } from '../config/constants.js';
 import { DEFAULT_FRAMEWORKS, FRAMEWORKS } from '../config/frameworks.js';
 import { SCENARIOS } from '../config/scenarios.js';
 import { MIDDLEWARE_HEADERS } from '../servers/_shared/payloads.js';
-import { checkBacklogParity, checkFramingParity, checkRequestBodyFidelity, readListenBacklog } from './lib/parity.js';
+import {
+  checkBacklogParity,
+  checkFramingParity,
+  checkHeaderSetParity,
+  checkRequestBodyFidelity,
+  readListenBacklog,
+} from './lib/parity.js';
 import { log, logError, logHeader, logStep, sleep, startServer, stopServer } from './utils.js';
 
 const REFERENCE = 'raw-node';
@@ -163,6 +169,14 @@ export async function runParityCheck(frameworkIds = DEFAULT_FRAMEWORKS) {
         strictLength: !s.variableLength,
       });
       for (const p of framingProblems) failures.push(`${s.id} · framing: ${p}`);
+
+      // 4b. FULL response-header-set parity. The checks above prove the payload
+      // is fair; they never compared the rest of the header set, which is how an
+      // Express `ETag` (a SHA-1 over every response body, ~-14% RPS) and a
+      // Fastify `Keep-Alive: timeout=72` both passed every prior gate.
+      for (const p of checkHeaderSetParity(headersById, { strictLength: !s.variableLength })) {
+        failures.push(`${s.id} · headers: ${p}`);
+      }
     }
   }
 

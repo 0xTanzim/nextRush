@@ -15,7 +15,7 @@ import Koa from 'koa';
 import bodyParser from 'koa-bodyparser';
 import Router from 'koa-router';
 import serve from 'koa-static';
-import { LISTEN_BACKLOG } from '../config/constants.js';
+import { KEEP_ALIVE_TIMEOUT_MS, LISTEN_BACKLOG, LISTEN_HOST } from '../config/constants.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -123,9 +123,10 @@ app.use(router.routes());
 // per-request layer for a behavior no scenario exercises and no competitor
 // provides. Removing it equalizes the measured path; it does not handicap Koa.
 
-const server = app.listen({ port: PORT, backlog: LISTEN_BACKLOG }, () => {
-  console.log(`Koa server listening on http://localhost:${PORT}`);
+const server = app.listen({ port: PORT, host: LISTEN_HOST, backlog: LISTEN_BACKLOG }, () => {
+  console.log(`Koa server listening on http://${LISTEN_HOST}:${PORT}`);
 });
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
 
 const shutdown = () => server.close(() => process.exit(0));
 process.on('SIGTERM', shutdown);

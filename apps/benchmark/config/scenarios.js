@@ -191,6 +191,13 @@ export const SCENARIOS = [
     category: 'parsing',
     identicalWork: true,
     variableLength: true,
+    // A 1.5MiB body queues past wrk's 2s default socket timeout well below a
+    // publishable profile's top concurrency (measured: 17-25 timeouts in 5s at
+    // 64 connections on EVERY framework), and one socket timeout makes the whole
+    // run non-publishable. At this size the cell is bandwidth/JSON.parse-bound
+    // anyway — ~230 MB/s of loopback ingest, where framework dispatch is noise —
+    // so measuring it at high concurrency buys nothing and costs the gate.
+    maxConnections: 8,
   },
 ];
 

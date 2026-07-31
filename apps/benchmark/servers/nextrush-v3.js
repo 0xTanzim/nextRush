@@ -9,12 +9,14 @@
  * - The body parser is attached only to the POST route.
  */
 
-import { listen } from '@nextrush/adapter-node';
+import { serve } from '@nextrush/adapter-node';
 import { json } from '@nextrush/body-parser';
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { createSendFile } from '@nextrush/static';
 import { fileURLToPath } from 'node:url';
+
+import { LISTEN_HOST } from '../config/constants.js';
 
 import {
   ERROR_BODY,
@@ -123,8 +125,13 @@ app.route('/', router);
 
 let serverInstance;
 (async () => {
-  serverInstance = await listen(app, PORT);
-  console.log(`NextRush v3 listening on http://localhost:${PORT}`);
+  // `serve` rather than `listen(app, PORT)`: the shorthand accepts no `host`, and
+  // the adapter would default to '0.0.0.0' while raw-node/express/koa/hono bind
+  // Node's dual-stack default — an unequalized listen-socket address family
+  // (see LISTEN_HOST). keepAliveTimeout is left at the adapter's own default,
+  // which already equals KEEP_ALIVE_TIMEOUT_MS.
+  serverInstance = await serve(app, { port: PORT, host: LISTEN_HOST });
+  console.log(`NextRush v3 listening on http://${LISTEN_HOST}:${PORT}`);
 })();
 
 const shutdown = async () => {

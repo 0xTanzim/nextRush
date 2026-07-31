@@ -103,6 +103,80 @@ export function checkFramingParity(headersById, { skip = false, strictLength = t
 }
 
 /**
+ * Headers whose value is legitimately different on every response and therefore
+ * carry no fairness signal. Everything else is compared.
+ */
+const ALWAYS_DYNAMIC_HEADERS = ['date', 'x-timestamp'];
+
+/**
+ * Full response-header-set parity for one scenario.
+ *
+ * The body/content-type/framing checks prove the RESPONSE PAYLOAD is fair; they
+ * say nothing about the rest of the header set, and that blind spot hid two real
+ * skews at once: Express emitted an `ETag` — a SHA-1 over the full response body
+ * — on every JSON response (measured at -14% RPS versus the same server with it
+ * disabled), and Fastify advertised `Keep-Alive: timeout=72` against every other
+ * server's `timeout=5`. Both passed every prior check.
+ *
+ * Deliberately symmetric rather than reference-based, for the same reason as
+ * `checkFramingParity`: the odd server out may be the reference itself.
+ *
+ * @param {Record<string, Record<string, string | undefined>>} headersById
+ *   Lower-cased response headers per framework id, for ONE scenario.
+ * @param {{ ignore?: string[], strictLength?: boolean }} [options]
+ *   `ignore` names headers a scenario is knowingly allowed to diverge on.
+ *   `strictLength` false exempts `Content-Length` for a scenario whose
+ *   byte-identical work still yields a variable-length body.
+ * @returns {string[]} problems, empty when every server agrees
+ */
+export function checkHeaderSetParity(headersById, { ignore = [], strictLength = true } = {}) {
+  const ids = Object.keys(headersById);
+  if (ids.length < 2) {
+    return [
+      'response header set could not be compared (fewer than two servers) — header parity was NOT verified',
+    ];
+  }
+
+  const ignored = new Set([...ALWAYS_DYNAMIC_HEADERS, ...ignore.map((name) => name.toLowerCase())]);
+  if (!strictLength) ignored.add('content-length');
+
+  const namesById = {};
+  for (const id of ids) {
+    namesById[id] = new Set(
+      Object.keys(headersById[id] ?? {})
+        .map((name) => name.toLowerCase())
+        .filter((name) => !ignored.has(name))
+    );
+  }
+  const union = [...new Set(ids.flatMap((id) => [...namesById[id]]))].sort();
+
+  const problems = [];
+  for (const name of union) {
+    const withIt = ids.filter((id) => namesById[id].has(name));
+    const without = ids.filter((id) => !namesById[id].has(name));
+
+    if (without.length > 0) {
+      // Report the minority group — on an exact split, report the servers that
+      // ADD the header, since an additive divergence is the actionable one.
+      if (withIt.length <= without.length) {
+        problems.push(`${withIt.join(', ')}: emits headers no other server emits: ${name}`);
+      } else {
+        problems.push(`${without.join(', ')}: missing header every other server emits: ${name}`);
+      }
+      continue;
+    }
+
+    const values = new Set(ids.map((id) => headersById[id][name]));
+    if (values.size > 1) {
+      const detail = ids.map((id) => `${id}="${String(headersById[id][name])}"`).join(', ');
+      problems.push(`servers disagree on header "${name}": ${detail}`);
+    }
+  }
+
+  return problems;
+}
+
+/**
  * Read a listening socket's TCP accept-queue depth from the OS.
  *
  * Read back from `ss` rather than trusted from each server's source argument:

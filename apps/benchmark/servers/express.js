@@ -8,7 +8,7 @@
  */
 
 import express from 'express';
-import { LISTEN_BACKLOG } from '../config/constants.js';
+import { KEEP_ALIVE_TIMEOUT_MS, LISTEN_BACKLOG, LISTEN_HOST } from '../config/constants.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -36,6 +36,14 @@ const app = express();
 // Fairness: Express sends `X-Powered-By: Express` by default, extra header bytes
 // no other server emits. Disable it so on-the-wire responses match (audit F-M01).
 app.disable('x-powered-by');
+// Fairness: Express also defaults to `etag: 'weak'`, which runs a SHA-1 over the
+// FULL response body on every `res.json()` — work and header bytes no other
+// server in this suite produces. Measured cost before disabling: -14% RPS on
+// `/json` (18.4k -> 21.4k with it off) and -13.7% on `/large-json` (13.1k ->
+// 15.2k), i.e. larger than the gap that separates mid-field frameworks, applied
+// to every like-for-like scenario. Leaving it on while `x-powered-by` was
+// disabled normalized the cheap default and kept the expensive one.
+app.set('etag', false);
 const jsonParser = express.json();
 
 app.get('/', (_req, res) => {
@@ -102,9 +110,10 @@ app.use((_err, _req, res, _next) => {
   res.status(500).json(ERROR_BODY);
 });
 
-const server = app.listen({ port: PORT, backlog: LISTEN_BACKLOG }, () => {
-  console.log(`Express server listening on http://localhost:${PORT}`);
+const server = app.listen({ port: PORT, host: LISTEN_HOST, backlog: LISTEN_BACKLOG }, () => {
+  console.log(`Express server listening on http://${LISTEN_HOST}:${PORT}`);
 });
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
 
 const shutdown = () => server.close(() => process.exit(0));
 process.on('SIGTERM', shutdown);

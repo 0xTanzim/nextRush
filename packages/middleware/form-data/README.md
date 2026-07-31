@@ -53,7 +53,7 @@ req.on('data', (chunk) => {
 req.on('end', () => {
   // now what? Splitting on a boundary string by hand means re-deriving RFC 7578 part parsing,
   // Content-Disposition filename extraction, RFC 5987 encoded filenames, and a filename like
-  // `../../etc/passwd` reaching your filesystem write untouched
+  // `../../.env` reaching your filesystem write untouched
 });
 ```
 

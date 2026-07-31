@@ -8,8 +8,43 @@
 /** Port every benchmark server binds to (overridable via PORT env). */
 export const PORT = 8080;
 
+/**
+ * Address EVERY server binds to, and the address the load generator targets.
+ *
+ * Previously unequalized: `fastify` and the two NextRush servers bound
+ * `0.0.0.0` (AF_INET) while `raw-node`/`express`/`koa`/`hono` bound `*`
+ * (AF_INET6 dual-stack, Node's default when `host` is omitted), so four of six
+ * servers served benchmark traffic over an IPv6 socket with IPv4-mapped
+ * addresses and two did not — an unmeasured transport asymmetry invisible to
+ * every response-level parity check.
+ *
+ * A literal loopback address is used rather than `localhost` so the run never
+ * depends on resolver ordering: on a host whose resolver returns `::1` first,
+ * `localhost` would reach the dual-stack servers and fail to connect to the
+ * IPv4-only ones, turning a config difference into a startup failure.
+ */
+export const LISTEN_HOST = '127.0.0.1';
+
 /** Base URL for the local benchmark target. */
-export const BASE_URL = `http://localhost:${PORT}`;
+export const BASE_URL = `http://${LISTEN_HOST}:${PORT}`;
+
+/**
+ * Keep-alive timeout (ms) applied explicitly by EVERY server.
+ *
+ * Fastify defaults `keepAliveTimeout` to 72_000 while Node's own default — and
+ * `@nextrush/runtime`'s `DEFAULT_KEEP_ALIVE_TIMEOUT_MS` — is 5_000, so Fastify
+ * held idle sockets 14x longer than every competitor. Verified two ways before
+ * this was equalized: Fastify emitted `Keep-Alive: timeout=72` on every
+ * response while the others emitted `timeout=5`, and an idle-socket probe found
+ * Fastify still open past 9s while the others closed at ~6s.
+ *
+ * A deeper idle window lets a server reuse a connection the others have already
+ * closed, so an unequal value advantages that server whenever sockets go idle —
+ * exactly the same class of silent skew as an unequal accept-queue backlog, and
+ * equally invisible to a body/header comparison. Set explicitly everywhere so
+ * this is a controlled variable rather than a coincidence of Node's default.
+ */
+export const KEEP_ALIVE_TIMEOUT_MS = 5000;
 
 /**
  * V8 flags passed to every server process — identical for all frameworks so the

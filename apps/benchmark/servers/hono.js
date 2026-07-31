@@ -11,7 +11,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { fileURLToPath } from 'node:url';
 
-import { LISTEN_BACKLOG } from '../config/constants.js';
+import { KEEP_ALIVE_TIMEOUT_MS, LISTEN_BACKLOG, LISTEN_HOST } from '../config/constants.js';
 
 import {
   ERROR_BODY,
@@ -33,15 +33,15 @@ import {
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const app = new Hono();
 
-// Fairness: Hono's c.json() emits `application/json` (no charset). Every other
-// server emits `application/json; charset=utf-8`. This helper does the same work
-// as c.json (stringify + set header) but with the identical content-type so
-// responses are byte-identical on the wire, headers included (audit F-M02).
-const CONTENT_TYPE = 'application/json; charset=utf-8';
-const jsonRes = (c, obj, status = 200) => {
-  c.header('Content-Type', CONTENT_TYPE);
-  return c.body(JSON.stringify(obj), status);
-};
+// Fairness: Hono's `c.json()` emits `application/json` (no charset) while every
+// other server emits `application/json; charset=utf-8`. The content type is
+// overridden via c.json's own headers argument rather than hand-rolling a
+// `c.body(JSON.stringify(...))` replacement, so Hono's REAL serialization helper
+// is what gets measured — a hand-written stand-in would make the `send-object`
+// scenario (whose stated purpose is dispatching through each framework's own
+// response helper) measure benchmark code instead of Hono (audit F-06/F-M02).
+const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' };
+const jsonRes = (c, obj, status = 200) => c.json(obj, status, JSON_HEADERS);
 
 app.get('/', (c) => jsonRes(c, HELLO_WORLD));
 app.get('/json', (c) => jsonRes(c, JSON_USER));
@@ -90,8 +90,9 @@ app.onError((_err, c) => jsonRes(c, ERROR_BODY, 500));
 // and `listen` is called directly — the only way to give Hono the same
 // accept-queue depth as the other five servers.
 const server = createAdaptorServer({ fetch: app.fetch });
-server.listen({ port: PORT, backlog: LISTEN_BACKLOG }, () => {
-  console.log(`Hono server listening on http://localhost:${PORT}`);
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
+server.listen({ port: PORT, host: LISTEN_HOST, backlog: LISTEN_BACKLOG }, () => {
+  console.log(`Hono server listening on http://${LISTEN_HOST}:${PORT}`);
 });
 
 const shutdown = () => server.close(() => process.exit(0));

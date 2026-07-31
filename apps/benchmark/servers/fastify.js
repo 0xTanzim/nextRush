@@ -10,7 +10,7 @@
 
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
-import { LISTEN_BACKLOG } from '../config/constants.js';
+import { KEEP_ALIVE_TIMEOUT_MS, LISTEN_BACKLOG, LISTEN_HOST } from '../config/constants.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -34,7 +34,10 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
-const fastify = Fastify({ logger: false });
+// Fairness: Fastify's own default `keepAliveTimeout` is 72_000 ms while every
+// other server in this suite runs Node's/NextRush's 5_000 ms. Passed explicitly
+// so the idle-socket window is a controlled variable — see KEEP_ALIVE_TIMEOUT_MS.
+const fastify = Fastify({ logger: false, keepAliveTimeout: KEEP_ALIVE_TIMEOUT_MS });
 
 fastify.get('/', () => HELLO_WORLD);
 fastify.get('/json', () => JSON_USER);
@@ -91,8 +94,8 @@ fastify.setErrorHandler(async (_error, _req, reply) => {
 });
 
 const start = async () => {
-  await fastify.listen({ port: PORT, host: '0.0.0.0', backlog: LISTEN_BACKLOG });
-  console.log(`Fastify server listening on http://localhost:${PORT}`);
+  await fastify.listen({ port: PORT, host: LISTEN_HOST, backlog: LISTEN_BACKLOG });
+  console.log(`Fastify server listening on http://${LISTEN_HOST}:${PORT}`);
 };
 start();
 
