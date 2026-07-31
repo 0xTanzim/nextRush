@@ -142,7 +142,19 @@ const createNext = () => vi.fn(async () => {});
 describe('prototype-safe parsing (COOKIES-004)', () => {
   it('should not inherit Object.prototype properties', () => {
     const result = parseCookies('name=value');
-    expect(Object.getPrototypeOf(result)).toBeNull();
+    // The invariant is that Object.prototype is unreachable (ADR-0021), not
+    // that the immediate prototype is literally `null` — the container
+    // derives from a shared null-prototype base so V8 keeps it in
+    // fast-property mode.
+    let proto: unknown = Object.getPrototypeOf(result);
+    let hops = 0;
+    while (proto !== null) {
+      expect(proto).not.toBe(Object.prototype);
+      proto = Object.getPrototypeOf(proto as object);
+      expect(++hops).toBeLessThan(10);
+    }
+    expect((result as unknown as object) instanceof Object).toBe(false);
+    expect((result as Record<string, unknown>)['toString']).toBeUndefined();
   });
 
   it('should safely handle __proto__ cookie name', () => {

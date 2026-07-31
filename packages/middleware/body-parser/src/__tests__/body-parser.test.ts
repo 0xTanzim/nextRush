@@ -1697,24 +1697,35 @@ describe('Null-prototype objects (URL-encoded)', () => {
     next = vi.fn().mockResolvedValue(undefined);
   });
 
-  it('should return object without prototype chain', async () => {
+  it('exposes no Object.prototype in its chain', async () => {
     const ctx = createMockContext('POST', 'application/x-www-form-urlencoded', 'key=value');
     await urlencoded()(ctx, next);
 
     const body = ctx.body as Record<string, unknown>;
     expect(body).toHaveProperty('key', 'value');
-    // Verify null prototype — hasOwnProperty is not on the object
-    expect(Object.getPrototypeOf(body)).toBeNull();
+    // The invariant is that Object.prototype is unreachable (ADR-0021), not
+    // that the immediate prototype is literally `null` — the container
+    // derives from a shared null-prototype base so V8 keeps it in
+    // fast-property mode. Walk the chain: it must terminate, and never pass
+    // through Object.prototype.
+    let proto: unknown = Object.getPrototypeOf(body);
+    let hops = 0;
+    while (proto !== null) {
+      expect(proto).not.toBe(Object.prototype);
+      proto = Object.getPrototypeOf(proto as object);
+      expect(++hops).toBeLessThan(10);
+    }
+    expect(body instanceof Object).toBe(false);
   });
 
-  it('should return nested objects without prototype chain', async () => {
+  it('exposes no Object.prototype in nested objects either', async () => {
     const ctx = createMockContext('POST', 'application/x-www-form-urlencoded', 'user[name]=Bob');
     await urlencoded({ extended: true })(ctx, next);
 
     const body = ctx.body as Record<string, unknown>;
-    expect(Object.getPrototypeOf(body)).toBeNull();
+    expect(body instanceof Object).toBe(false);
     const user = body['user'] as Record<string, unknown>;
-    expect(Object.getPrototypeOf(user)).toBeNull();
+    expect(user instanceof Object).toBe(false);
   });
 });
 

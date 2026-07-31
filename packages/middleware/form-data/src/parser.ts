@@ -26,6 +26,23 @@ import { Errors } from './errors.js';
 import { BoundaryScanner } from './scanner.js';
 import { MemoryStorage } from './storage/memory.js';
 import type { FormDataOptions, StorageResult, StorageStrategy, UploadedFile } from './types.js';
+
+/**
+ * Prototype for the per-request parsed-fields container.
+ *
+ * `Object.create(null)` satisfies the same prototype-pollution requirement —
+ * `Object.prototype` unreachable, so a field named `__proto__` binds as an
+ * own key — but it additionally puts the object into V8 dictionary mode,
+ * where property loads cannot be inline-cached. Deriving from a
+ * null-prototype base instead keeps fast properties with identical safety.
+ *
+ * Carries its own copy rather than depending on `@nextrush/runtime`: no
+ * `@nextrush/middleware/*` package currently depends on `runtime`, and one
+ * leaf constant does not justify adding that edge.
+ *
+ * @see docs/adr/ADR-0021-fast-property-request-containers.md
+ */
+const NULL_PROTO: object = Object.create(null) as object;
 import { isAllowedType, parseLimit, sanitizeFilename } from './utils/index.js';
 
 // ---------------------------------------------------------------------------
@@ -87,7 +104,7 @@ export async function parseMultipart(
   }
 
   const files: UploadedFile[] = [];
-  const fields: Record<string, string> = Object.create(null) as Record<string, string>;
+  const fields: Record<string, string> = Object.create(NULL_PROTO) as Record<string, string>;
   const storageResults: StorageResult[] = [];
 
   let fileCount = 0;

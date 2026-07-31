@@ -78,6 +78,7 @@ describe('Public API surface (runtime exports)', () => {
       'DEFAULT_SHUTDOWN_TIMEOUT_MS',
       'DEFAULT_TIMEOUT_MS',
       'METHODS_WITHOUT_BODY',
+      'NULL_PROTO',
 
       // Headers utilities
       'getClientIp',

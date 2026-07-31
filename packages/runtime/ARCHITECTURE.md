@@ -318,7 +318,7 @@ User input --> HTTP --> [ headers / query / body / client-IP ] --> Context --> v
                               |   - assertHeaderSafe: rejects header-injection vectors on the way out
 ```
 
-Everything crossing from the network is treated as hostile: query keys and header names are written onto null-prototype objects with dangerous keys denied (prototype-pollution defense), client IPs are structurally validated and only believed when `trustProxy` is explicitly set, body reads are size-bounded, and outgoing headers are checked for injection. Semantic body *validation* (schemas) is not this package's job — that boundary is enforced later by `@nextrush/validation`.
+Everything crossing from the network is treated as hostile: query keys and header names are written onto containers that expose no `Object.prototype` members, with dangerous keys denied (prototype-pollution defense; see ADR-0021 for why the container derives from a shared null-prototype base instead of `Object.create(null)`), client IPs are structurally validated and only believed when `trustProxy` is explicitly set, body reads are size-bounded, and outgoing headers are checked for injection. Semantic body *validation* (schemas) is not this package's job — that boundary is enforced later by `@nextrush/validation`.
 
 ## Extension points
 
@@ -344,7 +344,9 @@ These are part of the package's architecture. They do not change without an RFC:
 - **Each cross-runtime primitive has exactly one implementation here** — adapters consume it; parity is proven in `adapters/conformance`.
 - **Unknown/future runtimes are answered by feature-probing**, never an all-`false` capability matrix.
 - **No `node:*` import** — runtime globals are only feature-detected behind `typeof` guards.
-- **Query/header parsing is prototype-pollution-safe** — null-prototype targets, denied `__proto__`/`constructor`/`prototype`.
+- **Query/header parsing is prototype-pollution-safe** — targets expose no `Object.prototype`
+  members (derived from a shared null-prototype base, ADR-0021), denied
+  `__proto__`/`constructor`/`prototype`.
 - **Proxy headers are trusted only when `trustProxy` is explicitly enabled**, and every candidate IP is structurally validated.
 - **`ServerStartError` is part of the `NextRushError` hierarchy** with `expose: false` — a bind failure never becomes a client response.
 - **The public surface is explicit and sealed** — guarded by `public-surface.test.ts` and semver (ADR-0005).

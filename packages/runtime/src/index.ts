@@ -67,6 +67,7 @@ export type { CapabilityProfile } from './profiles';
 // Query String Parsing
 // ============================================================================
 
+export { NULL_PROTO } from './null-proto';
 export { parseQueryString } from './query';
 
 // ============================================================================

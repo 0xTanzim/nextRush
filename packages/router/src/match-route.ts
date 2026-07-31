@@ -14,7 +14,7 @@
  */
 
 import type { HttpMethod, Middleware, RouteMatch } from '@nextrush/types';
-import { EMPTY_PARAMS } from './constants';
+import { EMPTY_PARAMS, NULL_PROTO } from './constants';
 import { matchNodeIndexed, collapseAndStrip, isProvablyLowerAscii } from './matching';
 import type { WalkPool } from './walk-pool';
 import type { StaticRouteMap, TrieNode } from './segment-trie';
@@ -154,17 +154,20 @@ export function matchRoute(
   );
   if (!entry) return null;
 
-  // Materialize params once on a null-prototype object (design.md D8): a param
-  // named `__proto__`/`constructor`/`prototype` binds as an OWN key with no
-  // prototype mutation, and no inherited member is visible on `ctx.params`. The
-  // bind count replaces the former `Object.keys` post-loop (HP-13); zero binds
-  // returns the shared frozen `EMPTY_PARAMS`.
+  // Materialize params once on a bag whose prototype chain excludes
+  // `Object.prototype` (design.md D8): a param named
+  // `__proto__`/`constructor`/`prototype` binds as an OWN key with no prototype
+  // mutation, and no inherited member is visible on `ctx.params`. Derived from
+  // `NULL_PROTO` rather than `Object.create(null)` so the object keeps V8 fast
+  // properties and handler reads stay inline-cacheable. The bind count replaces
+  // the former `Object.keys` post-loop (HP-13); zero binds returns the shared
+  // frozen `EMPTY_PARAMS`.
   const count = bindNames.length;
   let params: Record<string, string>;
   if (count === 0) {
     params = EMPTY_PARAMS;
   } else {
-    params = Object.create(null) as Record<string, string>;
+    params = Object.create(NULL_PROTO) as Record<string, string>;
     for (let i = 0; i < count; i++) {
       const name = bindNames[i];
       const value = bindValues[i];

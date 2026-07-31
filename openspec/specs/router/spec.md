@@ -5,7 +5,8 @@
 The `@nextrush/router` segment-trie router: how requests are matched (O(k) static and param/wildcard
 lookup, static-over-trie precedence, percent-decoding, case-folding, degenerate-path safety),
 how routes are registered (direct, `all()`/`@All` single any-method entries, prefix, mount, group),
-how a match is materialized (single `RouteMatch`, null-prototype params, shared frozen
+how a match is materialized (single `RouteMatch`, fast-property params exposing no `Object.prototype`,
+shared frozen
 `EMPTY_PARAMS`, clean 404/405 dispatch), and the concurrency-safety, allocation, module-size
 (≤300-line files), internal-dedup, documentation-accuracy, and future-radix-RFC discipline that
 keep the package correct and honest. Behavior is pinned byte-identical to the pre-optimization
@@ -120,12 +121,19 @@ observable matching behavior.
 - **WHEN** a request matches a route through the trie that binds no `:param`/`*`
 - **THEN** the returned `params` is the shared frozen `EMPTY_PARAMS` sentinel, not a fresh object
 
-### Requirement: Bound params use a null-prototype object (prototype-pollution safety and consistency)
+### Requirement: Bound params expose no `Object.prototype` members (prototype-pollution safety and consistency)
 
-The per-request params object materialized by the walk SHALL be a null-prototype object
-(consistent with the frozen `EMPTY_PARAMS`), so a route param named `__proto__`, `constructor`, or
-`prototype` binds as an OWN key and cannot mutate `Object.prototype`, and non-bound keys do not
-resolve to inherited `Object.prototype` members.
+The per-request params object materialized by the walk SHALL have a prototype chain that excludes
+`Object.prototype` (consistent with the frozen `EMPTY_PARAMS`), so a route param named `__proto__`,
+`constructor`, or `prototype` binds as an OWN key and cannot mutate `Object.prototype`, and
+non-bound keys do not resolve to inherited `Object.prototype` members.
+
+The container SHALL additionally keep V8 fast (non-dictionary) properties, so that property reads
+in application code remain inline-cacheable. `Object.create(null)` satisfies the safety half of this
+requirement but violates the performance half — it yields a dictionary-mode object. Containers are
+therefore derived from a shared null-prototype base object (`Object.create(NULL_PROTO)`), which
+satisfies both. The immediate prototype is consequently NOT `null`; the chain terminates in `null`
+one hop later, and `Object.prototype` is never in it.
 
 #### Scenario: A param named __proto__ binds as an own key without polluting the prototype
 - **WHEN** a route `/:__proto__` is registered and `/danger` is requested
@@ -133,7 +141,11 @@ resolve to inherited `Object.prototype` members.
 
 #### Scenario: Non-bound keys are undefined on params
 - **WHEN** a matched `params` object is inspected for a key that was not bound (e.g. `params.toString`)
-- **THEN** it is `undefined` (params has a null prototype, exposing no inherited members)
+- **THEN** it is `undefined` (no inherited `Object.prototype` member is reachable)
+
+#### Scenario: The params container is not in V8 dictionary mode
+- **WHEN** a matched `params` object with one or more bound params is inspected with `%HasFastProperties`
+- **THEN** it reports `true`, and walking its prototype chain never encounters `Object.prototype`
 
 ### Requirement: Percent-decoded param and wildcard values never re-segment the path
 

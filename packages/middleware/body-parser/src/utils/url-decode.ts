@@ -11,6 +11,23 @@ import { Errors } from '../errors.js';
 import type { ParsedUrlEncoded } from '../types.js';
 
 /**
+ * Prototype for every per-request key/value container this parser builds.
+ *
+ * `Object.create(null)` satisfies the same prototype-pollution requirement —
+ * `Object.prototype` unreachable, so a key like `__proto__` binds as an own
+ * key — but it additionally puts the object into V8 dictionary mode, where
+ * property loads cannot be inline-cached. Deriving from a null-prototype base
+ * instead keeps fast properties with identical safety.
+ *
+ * Carries its own copy rather than depending on `@nextrush/runtime`: no
+ * `@nextrush/middleware/*` package currently depends on `runtime`, and one
+ * leaf constant does not justify adding that edge.
+ *
+ * @see docs/adr/ADR-0021-fast-property-request-containers.md
+ */
+const NULL_PROTO: object = Object.create(null) as object;
+
+/**
  * Safely decode a URI component.
  *
  * Returns original string on decode failure instead of throwing.
@@ -98,7 +115,7 @@ export function setNestedValue(
 
     // Create an object/array to traverse into when missing or a primitive
     if (typeof existing !== 'object' || existing === null) {
-      current[part] = isNextNumeric ? [] : (Object.create(null) as Record<string, unknown>);
+      current[part] = isNextNumeric ? [] : (Object.create(NULL_PROTO) as Record<string, unknown>);
     }
 
     current = current[part] as Record<string, unknown>;
@@ -147,7 +164,7 @@ export function parseUrlEncoded(
   parameterLimit: number = DEFAULT_PARAMETER_LIMITS.MAX_PARAMS,
   depth: number = DEFAULT_PARAMETER_LIMITS.MAX_DEPTH
 ): ParsedUrlEncoded {
-  const result: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  const result: Record<string, unknown> = Object.create(NULL_PROTO) as Record<string, unknown>;
 
   // Handle empty string
   if (!str || str.length === 0) {

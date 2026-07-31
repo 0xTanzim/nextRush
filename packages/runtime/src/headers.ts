@@ -7,19 +7,21 @@
  */
 
 import type { IncomingHeaders, ProxyTrust } from '@nextrush/types';
+import { NULL_PROTO } from './null-proto';
 import { isTrustedPeer, resolveByHopCount, resolveByPeerList } from './proxy-trust';
 
 /**
  * Convert a Web API Headers object to a plain record.
  *
- * Uses `Object.create(null)` to prevent prototype pollution.
- * Multi-value headers are stored as `string[]`.
+ * The result exposes no inherited `Object.prototype` members, so a malicious
+ * header name cannot resolve to one. Multi-value headers are stored as
+ * `string[]`.
  *
  * @param headers - Web API Headers instance
- * @returns Null-prototype record matching IncomingHeaders
+ * @returns Record matching IncomingHeaders, exposing no inherited members
  */
 export function headersToRecord(headers: Headers): IncomingHeaders {
-  const record: Record<string, string | string[]> = Object.create(null) as Record<
+  const record: Record<string, string | string[]> = Object.create(NULL_PROTO) as Record<
     string,
     string | string[]
   >;

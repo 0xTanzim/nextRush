@@ -43,10 +43,15 @@ import { WebBodySource } from './body-source';
 import { WebResponseBuilder } from './response-builder';
 import { METHODS_WITHOUT_BODY } from './constants';
 import { headersToRecord } from './headers';
+import { NULL_PROTO } from './null-proto';
 import { parseQueryString } from './query';
 
-/** Shared empty params object — avoids allocation per request (overwritten by router). */
-const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
+/**
+ * Shared empty params object — avoids allocation per request (overwritten by
+ * router). Built on {@link NULL_PROTO} because it is *read* on every
+ * params-less request, where a dictionary-mode miss-read measured 2.2x slower.
+ */
+const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(NULL_PROTO)) as RouteParams;
 
 /** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
 const RESOLVED_NEXT: Promise<void> = Promise.resolve();
@@ -82,6 +87,15 @@ export abstract class WebContextBase implements FetchContext {
   readonly method: HttpMethod;
   readonly url: string;
   readonly path: string;
+  /**
+   * Declared here, not added by the router, so dispatch's assignment is a value
+   * write to an existing slot rather than a property addition that transitions
+   * the context's hidden class on every request. Initialized to `path`, which
+   * is the documented value when no router has canonicalized the target.
+   *
+   * @see RFC-029
+   */
+  readonly originalPath: string;
   readonly query: QueryParams;
   readonly headers: IncomingHeaders;
   readonly runtime: Runtime;
@@ -147,6 +161,7 @@ export abstract class WebContextBase implements FetchContext {
     const urlObj = new URL(request.url);
     this.url = urlObj.pathname + urlObj.search;
     this.path = urlObj.pathname;
+    this.originalPath = this.path;
     this.query = parseQueryString(urlObj.search.slice(1));
 
     // Convert Headers to record format

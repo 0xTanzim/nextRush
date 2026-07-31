@@ -436,7 +436,11 @@ const record = headersToRecord(headers);
 // { 'content-type': 'application/json', accept: ['text/html', 'application/json'] }
 ```
 
-Multi-value headers are stored as `string[]`. The result uses a null-prototype object to prevent prototype pollution.
+Multi-value headers are stored as `string[]`. The result exposes no inherited `Object.prototype`
+members, so a header name like `__proto__` or `constructor` can never resolve to one — see
+[ADR-0021](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0021-fast-property-request-containers.md)
+for why the container derives from a shared null-prototype base rather than being built with
+`Object.create(null)` directly.
 
 ### `getClientIp()`
 

@@ -13,6 +13,7 @@ import {
   getRuntime,
   isBodylessResponse,
   METHODS_WITHOUT_BODY,
+  NULL_PROTO,
   resolveClientIp,
 } from '@nextrush/runtime';
 import {
@@ -62,8 +63,12 @@ export interface NodeContextOptions {
   proxy?: ProxyTrust;
 }
 
-/** Shared empty params object — avoids allocation per request (overwritten by router) */
-const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
+/**
+ * Shared empty params object — avoids allocation per request (overwritten by
+ * router). Built on `NULL_PROTO` because it is *read* on every params-less
+ * request, where a dictionary-mode miss-read measured 2.2x slower.
+ */
+const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(NULL_PROTO)) as RouteParams;
 
 /**
  * Shared frozen empty query object (HP-2) — avoids allocating a fresh `{}` on
@@ -71,7 +76,7 @@ const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RoutePar
  * `ctx.query` is typed `readonly` and holds URL-parsed data, so the frozen
  * shared instance is safe; no code path mutates `ctx.query`.
  */
-const EMPTY_QUERY: QueryParams = Object.freeze(Object.create(null)) as QueryParams;
+const EMPTY_QUERY: QueryParams = Object.freeze(Object.create(NULL_PROTO)) as QueryParams;
 
 /** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
 const RESOLVED_NEXT: Promise<void> = Promise.resolve();
@@ -133,6 +138,15 @@ export class NodeContext implements AdapterContext {
   readonly method: HttpMethod;
   readonly url: string;
   readonly path: string;
+  /**
+   * Declared here, not added by the router, so dispatch's assignment is a value
+   * write to an existing slot rather than a property addition that transitions
+   * the context's hidden class on every request. Initialized to `path`, which
+   * is the documented value when no router has canonicalized the target.
+   *
+   * @see RFC-029
+   */
+  readonly originalPath: string;
   readonly query: QueryParams;
   readonly headers: IncomingHeaders;
   readonly ip: string;
@@ -191,6 +205,7 @@ export class NodeContext implements AdapterContext {
       this.path = this.url;
       this.query = EMPTY_QUERY;
     }
+    this.originalPath = this.path;
 
     this.headers = req.headers;
     this.ip = this.getClientIp(req, options.proxy ?? false);
