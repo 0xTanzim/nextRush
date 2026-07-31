@@ -14,7 +14,13 @@ import {
   normalizeStartupError,
 } from '@nextrush/runtime';
 import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
-import { type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import {
+  type IncomingMessage,
+  type OutgoingHttpHeader,
+  type OutgoingHttpHeaders,
+  type Server,
+  type ServerResponse,
+} from 'node:http';
 import type { Http2SecureServer } from 'node:http2';
 import { createNodeContext } from './context';
 import type { NodeContext, NodeContextOptions } from './context';
@@ -272,6 +278,25 @@ export function createHandler(
     let settled = false;
     const handlerPromise = handler(ctx);
 
+    // F-1: a handler that already committed its response before returning its
+    // promise cannot be timed out — the 504 below is guarded on
+    // `!ctx.responded && !res.headersSent`, so arming a timer for it buys
+    // nothing and costs a Timeout allocation plus an insert/remove on the 30s
+    // timer list. A synchronous middleware chain runs to completion before its
+    // async wrapper's promise is returned, so this is the common case; at 256
+    // in-flight requests that was up to 256 live Timeout objects, which is why
+    // the floor cost grew with concurrency.
+    //
+    // ADR-0010's contract is untouched for every handler that has NOT
+    // responded: those still race, still get the clean 504, and still get
+    // `ctx.signal` aborted. The only behaviour given up is aborting the signal
+    // of a handler that already answered and then kept working in the
+    // background — which the 504 branch could never have surfaced anyway.
+    if (ctx.responded || res.headersSent) {
+      handlerPromise.then(finalizeSuccess, finalizeError);
+      return;
+    }
+
     // The late-rejection-swallow contract (a handler rejecting after the
     // timeout already responded must not surface as an unhandled rejection)
     // is satisfied by `onError` itself, attached below: a rejection reaching
@@ -319,6 +344,32 @@ interface DrainState {
   /** `true` from the moment a drain begins until teardown completes. */
   draining: boolean;
 }
+
+/**
+ * Where {@link serve}'s drain-aware `writeHead` stashes the response's original
+ * implementation. A symbol so it cannot collide with a user or middleware
+ * property, and a plain reference copy rather than a `bind` so stashing it
+ * allocates nothing.
+ */
+const ORIGINAL_WRITE_HEAD = Symbol('nextrush.originalWriteHead');
+
+/**
+ * Both `writeHead` overloads (`statusCode, statusMessage?, headers?` and
+ * `statusCode, headers?`) collapsed into one call signature, so the drain-aware
+ * pass-through can forward whatever it received without re-dispatching on
+ * overloads.
+ */
+type WriteHeadFn = (
+  this: ServerResponse,
+  statusCode: number,
+  arg2?: string | OutgoingHttpHeaders | OutgoingHttpHeader[],
+  arg3?: OutgoingHttpHeaders | OutgoingHttpHeader[]
+) => ServerResponse;
+
+/** A `ServerResponse` carrying the stashed original `writeHead`. */
+type ServerResponseWithOriginalWriteHead = ServerResponse & {
+  [ORIGINAL_WRITE_HEAD]: WriteHeadFn;
+};
 
 /**
  * The ONE connection-drain implementation: stop accepting new connections, force-close
@@ -475,21 +526,48 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
   // `createHandler`'s own signature/`HandlerOptions` (a cross-adapter shared
   // type in `@nextrush/types`) is untouched — this wraps its output.
   const drainState: DrainState = { draining: false };
+  // Defined ONCE per `serve()`, not per request. The previous form allocated
+  // three objects on every request — a bound copy of `writeHead`, the arrow
+  // closure capturing it, and a rest-args array on each call (+170.98 B/req,
+  // cv 0.0%). This form allocates nothing: the original is stashed under a
+  // shared symbol (a reference copy, not a bind) and the arity is explicit.
+  //
+  // The original is read from the response rather than from
+  // `ServerResponse.prototype` so that (a) an `Http2ServerResponse` from the
+  // `allowHTTP1: true` server reaches its own implementation, and (b) any
+  // earlier instance-level patch by middleware is still chained to, exactly as
+  // the bound form did.
+  function drainAwareWriteHead(
+    this: ServerResponse,
+    statusCode: number,
+    arg2?: string | OutgoingHttpHeaders | OutgoingHttpHeader[],
+    arg3?: OutgoingHttpHeaders | OutgoingHttpHeader[]
+  ): ServerResponse {
+    if (drainState.draining && !this.headersSent) {
+      this.setHeader('Connection', 'close');
+    }
+    const original = (this as ServerResponseWithOriginalWriteHead)[ORIGINAL_WRITE_HEAD];
+    if (arg3 !== undefined) return original.call(this, statusCode, arg2, arg3);
+    if (arg2 !== undefined) return original.call(this, statusCode, arg2);
+    return original.call(this, statusCode);
+  }
+
   const wrappedHandler = (req: IncomingMessage, res: ServerResponse): void => {
     // F-05: checked lazily, at the moment headers are actually about to be
     // sent — not once at request-arrival time — because a request already
     // in flight when the drain begins must still pick up `Connection: close`
     // on ITS eventual response. `res.writeHead` covers every response path
-    // in this adapter (`ctx.json`, `ctx.send`, streaming) since they all
-    // call it before `res.end`; wrapping only `writeHead` (not `end`) avoids
-    // double-invoking user response logic and needs no `context.ts` change.
-    const originalWriteHead = res.writeHead.bind(res);
-    res.writeHead = ((...args: Parameters<ServerResponse['writeHead']>) => {
-      if (drainState.draining && !res.headersSent) {
-        res.setHeader('Connection', 'close');
-      }
-      return originalWriteHead(...args);
-    }) as ServerResponse['writeHead'];
+    // in this adapter (`ctx.json`, `ctx.send`, streaming, and Node's own
+    // `_implicitHeader` for a bare `res.end()`) since they all route through
+    // it; wrapping only `writeHead` (not `end`) avoids double-invoking user
+    // response logic and needs no `context.ts` change.
+    // Stashed unbound on purpose: `drainAwareWriteHead` invokes it with an
+    // explicit receiver (`original.call(this, …)`), which is what makes this
+    // allocation-free — a `bind` here is exactly the per-request cost removed.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const originalWriteHead = res.writeHead as WriteHeadFn;
+    (res as ServerResponseWithOriginalWriteHead)[ORIGINAL_WRITE_HEAD] = originalWriteHead;
+    res.writeHead = drainAwareWriteHead;
     handler(req, res);
   };
 
