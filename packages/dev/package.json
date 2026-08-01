@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/dev",
-  "version": "3.0.7",
+  "version": "1.0.0",
   "description": "Development server and build tools for NextRush - multi-runtime support",
   "type": "module",
   "main": "./dist/index.js",
@@ -26,6 +26,7 @@
     "build": "tsup",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
     "test": "vitest run"
   },
   "keywords": [
@@ -55,15 +56,15 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@swc-node/register": "^1.11.1",
-    "@swc/core": "^1.15.24",
-    "tsx": "^4.21.0"
+    "@swc-node/register": "1.12.0",
+    "@swc/core": "1.15.43"
   },
   "devDependencies": {
-    "@types/node": "^25.5.2",
+    "@types/node": "^25.9.5",
+    "nextrush": "workspace:*",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "publishConfig": {
     "access": "public"

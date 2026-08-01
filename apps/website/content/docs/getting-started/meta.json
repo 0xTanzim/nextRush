@@ -1,0 +1,18 @@
+{
+  "title": "Getting Started",
+  "description": "Install NextRush and build your first application.",
+  "pages": [
+    "index",
+    "overview",
+    "installation",
+    "runtime",
+    "frameworks",
+    "quick-start",
+    "create-nextrush",
+    "benchmarking"
+  ],
+  "references": [
+    "../guides",
+    "../examples"
+  ]
+}

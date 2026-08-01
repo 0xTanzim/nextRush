@@ -1,0 +1,7 @@
+{
+  "title": "Queue",
+  "description": "Message queues, background processing, and job scheduling.",
+  "pages": ["background-jobs"],
+  "learningPath": ["background-jobs"],
+  "references": ["../../guides/background-jobs"]
+}

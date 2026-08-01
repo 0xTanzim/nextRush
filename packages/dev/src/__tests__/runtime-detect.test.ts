@@ -1,10 +1,4 @@
-/**
- * @nextrush/dev - Runtime Detection Tests
- *
- * Unit tests for runtime detection utilities.
- *
- * @packageDocumentation
- */
+/** @nextrush/dev - Runtime Detection Tests */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectRuntime, getRuntimeInfo, isBun, isDeno, isNode } from '../runtime/detect.js';

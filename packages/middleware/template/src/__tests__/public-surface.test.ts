@@ -1,0 +1,180 @@
+/**
+ * @nextrush/template - Public API surface test
+ *
+ * Locks the exported symbol set from `src/index.ts`. If this test fails, the
+ * public API has changed. Intentional changes require an explicit update to
+ * the expected list below, plus a changeset for a published package.
+ */
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import * as templateApi from '../index';
+import { VERSION } from '../index';
+import type {
+  AdapterConfig,
+  AdapterFactory,
+  AdapterRenderOptions,
+  AST,
+  ASTNode,
+  BlockNode,
+  CommentNode,
+  CompiledTemplate,
+  CompileOptions,
+  EngineName,
+  EngineOptions,
+  ExpressionArg,
+  HelperCall,
+  HelperContext,
+  HelperFn,
+  NormalizedEngineOptions,
+  PartialNode,
+  RawNode,
+  RenderFileFunction,
+  RenderFunction,
+  RenderOptions,
+  TemplateAdapter,
+  TemplateData,
+  TemplateError,
+  TemplateErrorCode,
+  TemplateOptions,
+  TextNode,
+  ValueHelper,
+  VariableNode,
+} from '../index';
+
+describe('Public API surface (runtime exports)', () => {
+  it('exports exactly the intended runtime symbols', () => {
+    const actualExports = Object.keys(templateApi).sort();
+
+    // SEALED: intentional public runtime API surface.
+    const expectedRuntime = [
+      'VERSION',
+      'template',
+      'render',
+      'renderAsync',
+      'createAdapter',
+      'createBuiltinAdapter',
+      'createEjsAdapter',
+      'createEtaAdapter',
+      'createHandlebarsAdapter',
+      'createNunjucksAdapter',
+      'createPugAdapter',
+      'getAvailableEngines',
+      'hasAdapter',
+      'registerAdapter',
+      'compile',
+      'createEngine',
+      'createViewEngine',
+      'TemplateEngine',
+      'abs',
+      'add',
+      'and',
+      'at',
+      'builtinHelpers',
+      'capitalize',
+      'ceil',
+      'compact',
+      'conditional',
+      'createHelperRegistry',
+      'currency',
+      'day',
+      'defaultValue',
+      'divide',
+      'entries',
+      'eq',
+      'first',
+      'flatten',
+      'floor',
+      'formatDate',
+      'formatNumber',
+      'get',
+      'gt',
+      'gte',
+      'includes',
+      'indexOf',
+      'isArray',
+      'isEmpty',
+      'isNumber',
+      'isObject',
+      'isString',
+      'join',
+      'json',
+      'keys',
+      'last',
+      'length',
+      'lower',
+      'lt',
+      'lte',
+      'mod',
+      'month',
+      'multiply',
+      'ne',
+      'not',
+      'now',
+      'or',
+      'padEnd',
+      'padStart',
+      'percent',
+      'replace',
+      'reverse',
+      'round',
+      'safe',
+      'slice',
+      'sort',
+      'split',
+      'stripHtml',
+      'subtract',
+      'timeAgo',
+      'titleCase',
+      'trim',
+      'truncate',
+      'unique',
+      'upper',
+      'values',
+      'year',
+      'parse',
+      'TemplateParseError',
+      'validate',
+    ].sort();
+
+    expect(actualExports).toEqual(expectedRuntime);
+    expect(typeof VERSION).toBe('string');
+  });
+});
+
+describe('Public API surface (type-only exports)', () => {
+  it('the type-only surface stays importable from the barrel', () => {
+    // Compile-time only: removing/renaming any of these in src/index.ts fails
+    // this file to type-check.
+    type Surface = [
+      TemplateOptions,
+      AdapterConfig,
+      AdapterFactory,
+      AdapterRenderOptions,
+      EngineName,
+      TemplateAdapter,
+      AST,
+      ASTNode,
+      BlockNode,
+      CommentNode,
+      CompiledTemplate,
+      CompileOptions,
+      EngineOptions,
+      ExpressionArg,
+      HelperCall,
+      HelperContext,
+      HelperFn,
+      NormalizedEngineOptions,
+      PartialNode,
+      RawNode,
+      RenderFileFunction,
+      RenderFunction,
+      RenderOptions,
+      TemplateData,
+      TemplateError,
+      TemplateErrorCode,
+      TextNode,
+      ValueHelper,
+      VariableNode,
+    ];
+    expectTypeOf<Surface>().not.toBeNever();
+  });
+});

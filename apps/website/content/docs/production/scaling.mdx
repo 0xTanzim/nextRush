@@ -1,0 +1,161 @@
+---
+title: Scaling
+description: Statelessness requirements, process-level clustering, and load-balancer health-check integration for running NextRush across multiple instances.
+keywords: [nextrush, production, scaling]
+---
+
+Scaling a NextRush app horizontally means running the same application code across
+multiple processes — either multiple Node.js worker processes on one machine
+(clustering) or multiple machines behind a load balancer. Both require the same
+precondition: **the application must not depend on state that lives in one process's
+memory.**
+
+---
+
+## Statelessness is the precondition, not an optimization
+
+A request handled by instance A and the next request from the same client handled by
+instance B must produce the same result as if both had been handled by the same
+instance. That only holds if nothing request-relevant is held in a single process's
+memory between requests.
+
+### Request-scoped DI is safe by construction
+
+NextRush's [`{ scope: 'request' }`](/docs/concepts/dependency-injection#scopes) DI
+scope creates a fresh instance per HTTP request, backed by a per-request child
+container. A request-scoped service never survives past the request that created it —
+so it can never accidentally become the kind of cross-request shared state that breaks
+horizontal scaling. This is the safe default for anything that holds per-request
+context (a request ID, an authenticated user, a per-request trace span).
+
+```typescript
+import { Service } from 'nextrush/class';
+
+@Service({ scope: 'request' })
+class RequestContext {
+  readonly id = crypto.randomUUID();
+  user?: AuthenticatedUser;
+}
+```
+
+### Singleton state is where statelessness actually breaks
+
+A [singleton](/docs/concepts/dependency-injection) service is constructed once per
+process and lives for the process's lifetime — that's exactly what makes it dangerous
+for horizontal scaling if it accumulates *mutable, request-derived* state:
+
+- An in-memory `Map` used as a session store, feature-flag cache, or rate-limit
+  counter is invisible to every other instance. A user's session created on instance A
+  does not exist on instance B — the next request they send may land on B and see them
+  as logged out.
+- The default `@nextrush/rate-limit` store (`packages/middleware/rate-limit/src/stores/memory.ts`)
+  is explicitly in-memory and per-process. Behind a load balancer with N instances, a
+  client effectively gets N× the configured limit, because each instance counts
+  independently. Supply a shared external store (Redis-backed) via the `store` option
+  once you run more than one instance — see [Caching](/docs/production/caching) for the
+  same pattern applied to an application-level cache.
+- A singleton is safe to keep in-memory only when its state is either immutable after
+  construction (a compiled config, a DB connection pool) or explicitly synced through
+  an external store shared by every instance.
+
+<Callout type="warn" title="Request-scope bubbling doesn't fix singleton state">
+  Request-scope bubbling (a singleton that transitively depends on a request-scoped
+  class becomes effectively request-scoped) solves DI *resolution* lifetime — it does
+  not turn an existing singleton's own in-memory `Map` or counter into per-request
+  state. If a singleton mutates shared memory across requests today, moving a
+  dependency to request scope does not change that; the mutable state has to move to
+  an external store.
+</Callout>
+
+---
+
+## Process-level clustering
+
+Before scaling across machines, scale across CPU cores on one machine. Node.js is
+single-threaded per process — one NextRush process uses one core. Two options, in
+increasing order of production-readiness:
+
+### Node.js `cluster` module
+
+Node's built-in [`cluster`](https://nodejs.org/api/cluster.html) module forks worker
+processes that share the same listening port. Each worker is a full, independent
+NextRush process — so the statelessness requirements above apply to each one
+identically.
+
+```typescript
+// cluster.ts
+import cluster from 'node:cluster';
+import { availableParallelism } from 'node:os';
+import { createApp, listen } from 'nextrush';
+import { buildApp } from './app.js';
+
+if (cluster.isPrimary) {
+  const workerCount = availableParallelism();
+  for (let i = 0; i < workerCount; i++) {
+    cluster.fork();
+  }
+
+  cluster.on('exit', (worker, code) => {
+    // A crashed worker leaves the cluster short a process — replace it.
+    console.error(`worker ${worker.process.pid} exited (code ${code}), restarting`);
+    cluster.fork();
+  });
+} else {
+  const app = buildApp();
+  listen(app, Number(process.env.PORT ?? 8080));
+}
+```
+
+Each worker still needs its own graceful shutdown handling — see
+[Reliability](/docs/production/reliability) for the shutdown pattern to apply inside
+the `else` branch above.
+
+### A process manager (PM2, or your platform's equivalent)
+
+A process manager handles what the raw `cluster` module leaves to you: automatic
+restart on crash, zero-downtime reloads, log aggregation across workers, and CPU/memory
+monitoring. Most container platforms (Kubernetes, ECS, Cloud Run) provide this at the
+orchestration layer instead — in that case, run one NextRush process per container and
+let the platform handle replica count, restarts, and rolling deploys, rather than
+clustering inside the container as well. Don't layer both — either the platform
+manages replicas, or `cluster`/PM2 does, not both at once.
+
+---
+
+## Load-balancer health-check integration
+
+A load balancer (or a Kubernetes readiness/liveness probe) needs a way to know an
+instance is actually able to serve traffic before routing requests to it, and to pull
+an instance out of rotation before it goes down. NextRush's health-check pattern is
+covered in [Reliability — Health checks](/docs/production/reliability#health-checks);
+the scaling-specific requirement is:
+
+- **Readiness** must reflect this instance's own dependencies (its DB connection, its
+  cache client) — not a global, shared health state. Each instance answers for itself.
+- **Liveness** should be cheap and dependency-free, so a slow downstream dependency
+  doesn't cause the orchestrator to kill a healthy process.
+- On graceful shutdown, the readiness check must fail *before* the process stops
+  accepting new connections, so the load balancer has time to stop routing to it —
+  otherwise in-flight requests get sent to a process that's already draining.
+
+<Callout type="info" title="Cross-reference">
+  This page assumes [Reliability](/docs/production/reliability)'s health-check and
+  graceful-shutdown pattern as the implementation — see that page for the concrete
+  `/health` route and shutdown sequence.
+</Callout>
+
+---
+
+## Next steps
+
+<Cards>
+  <Card title="Dependency Injection" href="/docs/concepts/dependency-injection">
+    Singleton, transient, and request scope — and how request-scope bubbling works.
+  </Card>
+  <Card title="Reliability" href="/docs/production/reliability">
+    Health checks, graceful shutdown, and timeout handling.
+  </Card>
+  <Card title="Caching" href="/docs/production/caching">
+    Moving cache and rate-limit state to a shared external store.
+  </Card>
+</Cards>

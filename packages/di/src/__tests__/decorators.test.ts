@@ -250,7 +250,7 @@ describe('@nextrush/di - Decorators', () => {
     it('should be resolvable from container', () => {
       @Config()
       class AppConfig {
-        readonly port = 3000;
+        readonly port = 8080;
         readonly host = 'localhost';
       }
 
@@ -258,7 +258,7 @@ describe('@nextrush/di - Decorators', () => {
       const config = container.resolve(AppConfig);
 
       expect(config).toBeInstanceOf(AppConfig);
-      expect(config.port).toBe(3000);
+      expect(config.port).toBe(8080);
       expect(config.host).toBe('localhost');
     });
 
@@ -350,6 +350,23 @@ describe('@nextrush/di - Decorators', () => {
 
       const indices = getOptionalParams(MethodParam);
       expect(indices.size).toBe(0);
+    });
+
+    // END-TO-END guard for the isolated tsyringe-descriptor coupling in Optional().
+    // If a future tsyringe upgrade changes the private 'injectionTokens' descriptor
+    // shape (so markTsyringeParamOptional can no longer set isOptional), this test
+    // fails — surfacing the breakage instead of silently throwing at resolve time.
+    it('resolves @Optional() @inject("MISSING") to undefined through the container', () => {
+      @Service()
+      class OptionalConsumer {
+        constructor(@Optional() @inject('DEFINITELY_UNREGISTERED') public dep?: unknown) {}
+      }
+
+      container.register(OptionalConsumer, { useClass: OptionalConsumer });
+
+      const instance = container.resolve(OptionalConsumer);
+      expect(instance).toBeInstanceOf(OptionalConsumer);
+      expect(instance.dep).toBeUndefined();
     });
   });
 });

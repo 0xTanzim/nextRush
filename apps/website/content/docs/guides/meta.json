@@ -1,0 +1,15 @@
+{
+  "title": "Guides",
+  "description": "Task-oriented walkthroughs for routing, middleware, validation, testing, and more",
+  "pages": [
+    "index",
+    "api-development",
+    "authentication",
+    "data",
+    "communication",
+    "testing",
+    "security",
+    "background-jobs"
+  ],
+  "references": ["../recipes", "../getting-started", "../production"]
+}

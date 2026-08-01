@@ -96,7 +96,6 @@ export function helmet(options: HelmetOptions = {}): NexrushMiddleware {
     crossOriginOpenerPolicy = 'same-origin',
     crossOriginResourcePolicy = 'same-origin',
     dnsPrefetchControl = 'off',
-    frameguard = 'SAMEORIGIN',
     hsts = { maxAge: DEFAULT_HSTS_MAX_AGE, includeSubDomains: true },
     noSniff = true,
     originAgentCluster = true,
@@ -160,11 +159,6 @@ export function helmet(options: HelmetOptions = {}): NexrushMiddleware {
     // X-DNS-Prefetch-Control
     if (dnsPrefetchControl !== false) {
       ctx.set(HEADERS.X_DNS_PREFETCH_CONTROL, dnsPrefetchControl);
-    }
-
-    // X-Frame-Options (deprecated but still useful for legacy browsers)
-    if (frameguard !== false) {
-      ctx.set(HEADERS.X_FRAME_OPTIONS, frameguard);
     }
 
     // Strict-Transport-Security

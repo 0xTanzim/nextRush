@@ -1,6 +1,7 @@
 import eslint from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
+import { noRuntimeIdentityCapability } from './tools/eslint-rules/no-runtime-identity-capability.mjs';
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -42,5 +43,15 @@ export default tseslint.config(
       '**/_archive/**',
       '**/.turbo/**',
     ],
+  },
+  {
+    // Capability negotiation (RFC/ADR-R6): capability decisions must query
+    // RuntimeCapabilities, not runtime identity. Enforced repo-wide across
+    // package sources; genuine detection/optimization sites are annotated with
+    // `// capability-exempt: <reason>`. Tests may compare runtime names freely.
+    files: ['packages/**/src/**/*.ts'],
+    ignores: ['**/__tests__/**', '**/*.test.ts'],
+    plugins: { nextrush: { rules: { 'no-runtime-identity-capability': noRuntimeIdentityCapability } } },
+    rules: { 'nextrush/no-runtime-identity-capability': 'error' },
   }
 );

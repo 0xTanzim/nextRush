@@ -1,0 +1,5 @@
+{
+  "title": "Observability",
+  "description": "Structured logging, request correlation, and response timing — plus a bring-your-own pattern for metrics and tracing.",
+  "pages": ["index", "logging", "request-tracing"]
+}

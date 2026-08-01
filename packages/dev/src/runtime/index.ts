@@ -20,7 +20,7 @@ export {
   type RuntimeInfo,
 } from './detect.js';
 
-export { buildDevArgs, spawn, type SpawnOptions, type SpawnResult } from './spawn.js';
+export { buildDevArgs, spawn, validateDenoPermissions, type SpawnOptions, type SpawnResult } from './spawn.js';
 
 export {
   exists,

@@ -6,12 +6,12 @@
 
 | Attribute       | Value                                     |
 | --------------- | ----------------------------------------- |
-| Version         | 3.0.4 (unified `@nextrush/*` releases)    |
+| Version         | 3.1.0 (unified `@nextrush/*` releases)    |
 | Architecture    | Modular monorepo (Turborepo + pnpm)       |
 | Node.js         | >=22.0.0                                  |
 | Package Manager | pnpm                                      |
 | TypeScript      | 5.x, strict mode, ES2022 target           |
-| Runtime Deps    | Zero (except `reflect-metadata` for DI)   |
+| Runtime Deps    | Zero (except `reflect-metadata`, `tsyringe` in `di`, `@clack/prompts` in `create-nextrush`) |
 | Paradigms       | Functional + class-based (decorators, DI) |
 
 ### Core Principles
@@ -34,17 +34,19 @@
        ↓
 @nextrush/core         → Application, Context, Middleware (depends on types)
        ↓
-@nextrush/router       → Radix tree routing (depends on types)
+@nextrush/router       → Segment trie routing (depends on types)
+       ↓
+@nextrush/runtime      → listen / runtime helpers
        ↓
 @nextrush/di           → Dependency injection (wraps tsyringe)
        ↓
-@nextrush/decorators   → @Controller, @Get, @UseGuard (depends on types)
-       ↓
-@nextrush/controllers  → Auto-discovery, handler building (depends on di, decorators, errors)
+@nextrush/class        → Controllers, decorators, guards, modules, DI re-exports
        ↓
 @nextrush/adapter-*    → Platform adapters (depends on core, types)
        ↓
 @nextrush/middleware/*  → cors, helmet, body-parser (depends on types)
+       ↓
+@nextrush/extensions/* → events, websocket (long-lived app-scoped services)
        ↓
 nextrush               → Meta package (re-exports all essentials)
 ```
@@ -62,19 +64,19 @@ nextrush/
 │   ├── errors/          # @nextrush/errors
 │   ├── core/            # @nextrush/core
 │   ├── router/          # @nextrush/router
-│   ├── di/              # @nextrush/di
-│   ├── decorators/      # @nextrush/decorators
 │   ├── runtime/         # @nextrush/runtime
+│   ├── di/              # @nextrush/di
+│   ├── class/           # @nextrush/class (controllers, decorators, DI re-exports)
 │   ├── nextrush/        # nextrush (meta package)
 │   ├── dev/             # @nextrush/dev (dev tools)
 │   ├── adapters/        # node, bun, deno, edge
 │   ├── middleware/       # cors, helmet, body-parser, etc.
-│   └── plugins/         # controllers, logger, static, etc.
+│   └── extensions/      # events, websocket
 ├── apps/
 │   ├── docs/            # Documentation site
+│   ├── benchmark/       # Benchmark suite
 │   └── playground/      # Testing playground
-├── draft/               # Architecture RFCs and plans
-└── _archive/            # Old v2 code (reference only)
+└── docs/                # Architecture docs, RFCs, migration guides
 ```
 
 ---
@@ -111,6 +113,7 @@ ctx.next(); // Call next middleware
 ```typescript
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
+import { listen } from '@nextrush/adapter-node';
 
 const app = createApp();
 const users = createRouter();
@@ -119,17 +122,16 @@ users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
 users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 
 app.route('/users', users);
-app.listen(3000);
+listen(app, 8080);
 ```
 
 ### Class-Based Style
 
 ```typescript
 import 'reflect-metadata';
-import { Controller, Get, Post, Body, UseGuard } from '@nextrush/decorators';
-import { Service } from '@nextrush/di';
-import { controllersPlugin } from '@nextrush/controllers';
-import type { GuardFn } from '@nextrush/decorators';
+import { createApp, listen } from '@nextrush/core';
+import { Controller, Get, Post, Body, UseGuard, Service, registerControllers } from 'nextrush/class';
+import type { GuardFn } from 'nextrush/class';
 
 @Service()
 class UserService {
@@ -157,8 +159,10 @@ class UserController {
 }
 
 const app = createApp();
-app.plugin(controllersPlugin({ root: './src', prefix: '/api' }));
-app.listen(3000);
+// registerControllers is a registrar — a plain function, not a plugin. It
+// reads app.router and app.container directly; must be awaited before serve().
+await registerControllers(app, { prefix: '/api' });
+listen(app, 8080);
 ```
 
 ---
@@ -171,10 +175,9 @@ import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { cors } from '@nextrush/cors';
 import { Service, container } from '@nextrush/di';
-import { Controller, Get, UseGuard } from '@nextrush/decorators';
-import { controllersPlugin } from '@nextrush/controllers';
+import { Controller, Get, UseGuard, registerControllers } from 'nextrush/class';
 import { HttpError, NotFoundError } from '@nextrush/errors';
-import type { Context, Middleware, Plugin } from '@nextrush/types';
+import type { Context, Middleware, Extension } from '@nextrush/types';
 ```
 
 ---
@@ -188,11 +191,9 @@ import type { Context, Middleware, Plugin } from '@nextrush/types';
 | core          | 1,500   |
 | router        | 1,000   |
 | di            | 400     |
-| decorators    | 800     |
-| controllers   | 800     |
+| class         | —       |
 | adapter-\*    | 500     |
 | middleware/\* | 300     |
-| plugin/\*     | 600     |
 
 ---
 
@@ -228,7 +229,6 @@ Detailed standards are maintained in `.github/instructions/`:
 
 ## Reference Documents
 
-- `draft/plan/V3-ARCHITECTURE-VISION.md` — Architecture overview
-- `draft/plan/V3-DX-AND-EXTENSIBILITY.md` — DX guidelines
-- `draft/rfc/RFC-0001-ARCHITECTURE-V3.md` — Architecture RFC
-- `draft/rfc/RFC-0002-DI-AND-DECORATORS.md` — DI and decorators RFC
+- `docs/RFC/class-runtime/008-request-scope.md` — Request scope RFC
+- `docs/RFC/class-runtime/012-modules.md` — Modules RFC
+- Documentation: craft lives in the `engineering-documentation` skill; repo doc config in `.kiro/steering/documentation.instructions.md`. (The v3 docs rebuild is complete — its plan is in git history, not the working tree.)

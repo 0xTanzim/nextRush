@@ -1,68 +1,61 @@
 #!/usr/bin/env node
 
 /**
- * Smoke test — verifies all servers respond correctly to all scenarios.
+ * Smoke test — verifies every server responds correctly to every scenario.
+ * Endpoints are derived from config/scenarios.js and servers from
+ * config/frameworks.js so this never drifts from the benchmark matrix.
+ *
+ * Usage:
+ *   node scripts/smoke-test.js              # all servers
+ *   node scripts/smoke-test.js nextrush-v3  # one server
  */
 
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { BASE_URL, PORT } from '../config/constants.js';
+import { DEFAULT_FRAMEWORKS, FRAMEWORKS } from '../config/frameworks.js';
+import { SCENARIOS } from '../config/scenarios.js';
+import { MIDDLEWARE_HEADERS } from '../servers/_shared/payloads.js';
+import { waitForServer } from './lib/server.js';
+import { sleep } from './lib/time.js';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVERS_DIR = join(__dirname, '..', 'servers');
 
-const ENDPOINTS = [
-  { method: 'GET', path: '/', expect: 200, label: 'Hello World' },
-  { method: 'GET', path: '/json', expect: 200, label: 'JSON Serialize' },
-  { method: 'GET', path: '/users/12345', expect: 200, label: 'Route Params' },
-  { method: 'GET', path: '/search?q=test&limit=3', expect: 200, label: 'Query String' },
-  { method: 'POST', path: '/users', expect: 200, label: 'POST JSON', body: '{"name":"test"}' },
-  { method: 'GET', path: '/api/v1/orgs/1/teams/2/members/3', expect: 200, label: 'Deep Route' },
-  { method: 'GET', path: '/middleware', expect: 200, label: 'Middleware Stack' },
-  { method: 'GET', path: '/error', expect: 500, label: 'Error Handler' },
-  { method: 'GET', path: '/large-json', expect: 200, label: 'Large JSON' },
-  { method: 'GET', path: '/empty', expect: 204, label: 'Empty Response' },
-];
-
-const SERVERS = [
-  { id: 'raw-node', file: 'raw-node.js' },
-  { id: 'nextrush-v3', file: 'nextrush-v3.js' },
-  { id: 'express', file: 'express.js' },
-  { id: 'fastify', file: 'fastify.js' },
-  { id: 'koa', file: 'koa.js' },
-  { id: 'hono', file: 'hono.js' },
-];
-
-// Allow filtering via CLI
 const filterServer = process.argv[2];
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-async function waitForServer(port, timeoutMs = 10000) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      await fetch(`http://localhost:${port}/`);
-      // Any response means the server is up
-      return true;
-    } catch {
-      // not ready
-    }
-    await sleep(200);
+async function checkEndpoint(scenario) {
+  const opts = { method: scenario.method };
+  if (scenario.body) {
+    opts.body = scenario.body;
+    opts.headers = scenario.headers || { 'Content-Type': 'application/json' };
   }
-  return false;
+  const res = await fetch(`${BASE_URL}${scenario.path}`, opts);
+
+  const statusOk = res.status === scenario.expectStatus;
+  let detail = `→ ${res.status}`;
+  let ok = statusOk;
+
+  // For the middleware scenario, also assert the 5 headers are present.
+  if (scenario.id === 'middleware-stack' && statusOk) {
+    const missing = MIDDLEWARE_HEADERS.filter((h) => res.headers.get(h.name) === null).map((h) => h.name);
+    if (missing.length) {
+      ok = false;
+      detail += ` (missing headers: ${missing.join(', ')})`;
+    }
+  }
+  if (!statusOk) detail += ` (expected ${scenario.expectStatus})`;
+  return { ok, detail };
 }
 
-async function testServer(server) {
-  const port = 3000;
-  const serverPath = join(SERVERS_DIR, server.file);
+async function testServer(id) {
+  const server = FRAMEWORKS[id];
+  console.log(`\n  ╔══ ${id} ══╗`);
 
-  console.log(`\n  ╔══ ${server.id} ══╗`);
-
-  const child = spawn('node', [serverPath], {
-    env: { ...process.env, PORT: String(port), NODE_ENV: 'production' },
+  const child = spawn('node', [join(SERVERS_DIR, server.file)], {
+    env: { ...process.env, PORT: String(PORT), NODE_ENV: 'production' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -71,38 +64,23 @@ async function testServer(server) {
     stderr += d.toString();
   });
 
-  const ready = await waitForServer(port);
+  const ready = await waitForServer(`${BASE_URL}/`, 10000);
   if (!ready) {
     child.kill('SIGKILL');
-    console.log(`  ✗ Failed to start (${server.id})`);
+    console.log(`  ✗ Failed to start (${id})`);
     if (stderr) console.log(`    stderr: ${stderr.slice(0, 200)}`);
     return false;
   }
 
   let passed = 0;
   let failed = 0;
-
-  for (const ep of ENDPOINTS) {
+  for (const scenario of SCENARIOS) {
     try {
-      const opts = { method: ep.method };
-      if (ep.body) {
-        opts.body = ep.body;
-        opts.headers = { 'Content-Type': 'application/json' };
-      }
-
-      const res = await fetch(`http://localhost:${port}${ep.path}`, opts);
-
-      if (res.status === ep.expect) {
-        console.log(`  ✓ ${ep.label} (${ep.method} ${ep.path}) → ${res.status}`);
-        passed++;
-      } else {
-        console.log(
-          `  ✗ ${ep.label} (${ep.method} ${ep.path}) → ${res.status} (expected ${ep.expect})`
-        );
-        failed++;
-      }
+      const { ok, detail } = await checkEndpoint(scenario);
+      console.log(`  ${ok ? '✓' : '✗'} ${scenario.name} (${scenario.method} ${scenario.path}) ${detail}`);
+      ok ? passed++ : failed++;
     } catch (err) {
-      console.log(`  ✗ ${ep.label} (${ep.method} ${ep.path}) → ERROR: ${err.message}`);
+      console.log(`  ✗ ${scenario.name} (${scenario.method} ${scenario.path}) → ERROR: ${err.message}`);
       failed++;
     }
   }
@@ -115,27 +93,26 @@ async function testServer(server) {
     /* already dead */
   }
 
-  console.log(
-    `  ── ${passed}/${ENDPOINTS.length} passed${failed > 0 ? ` (${failed} failed)` : ''}`
-  );
+  console.log(`  ── ${passed}/${SCENARIOS.length} passed${failed > 0 ? ` (${failed} failed)` : ''}`);
   return failed === 0;
 }
 
 async function main() {
   console.log('═══ Benchmark Server Smoke Tests ═══');
 
-  const servers = filterServer ? SERVERS.filter((s) => s.id === filterServer) : SERVERS;
-
-  if (servers.length === 0) {
-    console.error(`Unknown server: ${filterServer}`);
-    process.exit(1);
+  const ids = filterServer ? [filterServer] : DEFAULT_FRAMEWORKS;
+  for (const id of ids) {
+    if (!FRAMEWORKS[id]) {
+      console.error(`Unknown server: ${id}. Available: ${Object.keys(FRAMEWORKS).join(', ')}`);
+      process.exit(1);
+    }
   }
 
   let allPassed = true;
-  for (const server of servers) {
-    const ok = await testServer(server);
+  for (const id of ids) {
+    const ok = await testServer(id);
     if (!ok) allPassed = false;
-    await sleep(1000); // cooldown between servers
+    await sleep(1000);
   }
 
   console.log('\n═══ Summary ═══');

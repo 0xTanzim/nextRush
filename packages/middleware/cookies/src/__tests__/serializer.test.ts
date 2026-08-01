@@ -304,3 +304,29 @@ describe('createHostPrefixCookie', () => {
     expect(cookie).toContain('HttpOnly');
   });
 });
+
+describe('CK-2: deleting prefixed cookies', () => {
+  it('deletes a __Host- cookie without throwing (keeps Secure + Path=/)', () => {
+    expect(() => createDeleteCookie('__Host-session', { path: '/' })).not.toThrow();
+    const header = createDeleteCookie('__Host-session', { path: '/' });
+    expect(header).toContain('__Host-session=');
+    expect(header).toContain('Max-Age=0');
+    expect(header).toContain('Secure');
+    expect(header).toContain('Path=/');
+  });
+
+  it('deletes a __Secure- cookie without throwing (keeps Secure)', () => {
+    expect(() => createDeleteCookie('__Secure-token')).not.toThrow();
+    const header = createDeleteCookie('__Secure-token');
+    expect(header).toContain('__Secure-token=');
+    expect(header).toContain('Max-Age=0');
+    expect(header).toContain('Secure');
+  });
+
+  it('still deletes an ordinary cookie without Secure', () => {
+    const header = createDeleteCookie('session', { path: '/' });
+    expect(header).toContain('session=');
+    expect(header).toContain('Max-Age=0');
+    expect(header).not.toContain('Secure');
+  });
+});

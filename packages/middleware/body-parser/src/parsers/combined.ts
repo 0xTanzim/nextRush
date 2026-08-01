@@ -10,12 +10,23 @@ import type { Middleware } from '@nextrush/types';
 
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES } from '../constants.js';
 import { Errors } from '../errors.js';
-import type { BodyParserContext, BodyParserMiddleware, BodyParserOptions } from '../types.js';
+import type { BodyParserContext, BodyParserOptions } from '../types.js';
 import { getContentType, matchContentType } from '../utils/content-type.js';
 import { json } from './json.js';
 import { raw } from './raw.js';
 import { text } from './text.js';
 import { urlencoded } from './urlencoded.js';
+
+/**
+ * Internal signature shared by the individual parser middlewares
+ * (json/urlencoded/text/raw), used only to type the pre-created parser
+ * instances this function composes. Not part of the public API.
+ */
+type ParserFn = (
+  ctx: BodyParserContext,
+  next?: () => Promise<void>,
+  prechecked?: boolean
+) => void | Promise<void>;
 
 /**
  * Create combined body parser middleware.
@@ -99,28 +110,30 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
     : [];
 
   // Pre-create individual parsers with correct options
-  // Cast to BodyParserMiddleware for internal use (optional next parameter)
-  const jsonParser =
-    jsonOptions !== false ? (json(jsonOptions) as unknown as BodyParserMiddleware) : null;
+  // Cast to ParserFn for internal use (optional next parameter)
+  const jsonParser = jsonOptions !== false ? (json(jsonOptions) as unknown as ParserFn) : null;
   const urlencodedParser =
     urlencodedOptions !== false
-      ? (urlencoded(urlencodedOptions) as unknown as BodyParserMiddleware)
+      ? (urlencoded(urlencodedOptions) as unknown as ParserFn)
       : null;
   // Text and raw parsers only created when explicitly enabled
   const textParser = hasTextOptions
-    ? (text(
-        textOptions as Exclude<typeof textOptions, false | undefined>
-      ) as unknown as BodyParserMiddleware)
+    ? (text(textOptions as Exclude<typeof textOptions, false | undefined>) as unknown as ParserFn)
     : null;
   const rawParser = hasRawOptions
-    ? (raw(
-        rawOptions as Exclude<typeof rawOptions, false | undefined>
-      ) as unknown as BodyParserMiddleware)
+    ? (raw(rawOptions as Exclude<typeof rawOptions, false | undefined>) as unknown as ParserFn)
     : null;
 
   return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
     if (BODYLESS_METHODS.has(ctx.method)) {
+      if (next) await next();
+      return;
+    }
+
+    // Skip if the body was already parsed upstream — the combined parser owns the
+    // "already parsed" short-circuit so the prechecked sub-parsers below never re-read.
+    if (ctx.body !== undefined) {
       if (next) await next();
       return;
     }
@@ -133,28 +146,28 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
 
     // JSON
     if (jsonParser && matchContentType(contentType, jsonTypes)) {
-      await jsonParser(ctx);
+      await jsonParser(ctx, undefined, true);
       if (next) await next();
       return;
     }
 
     // URL-encoded
     if (urlencodedParser && matchContentType(contentType, urlencodedTypes)) {
-      await urlencodedParser(ctx);
+      await urlencodedParser(ctx, undefined, true);
       if (next) await next();
       return;
     }
 
     // Text
     if (textParser && matchContentType(contentType, textTypes)) {
-      await textParser(ctx);
+      await textParser(ctx, undefined, true);
       if (next) await next();
       return;
     }
 
     // Raw (fallback for binary)
     if (rawParser && matchContentType(contentType, rawTypes)) {
-      await rawParser(ctx);
+      await rawParser(ctx, undefined, true);
       if (next) await next();
       return;
     }

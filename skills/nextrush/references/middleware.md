@@ -1,374 +1,263 @@
-<!--reference file for the NextRush skill. Do not edit unless updating for new APIs. -->
+# NextRush Middleware Reference
 
-# Middleware
+All available middleware packages with import paths, signatures, and examples. Every middleware follows the `(options?) => Middleware` factory pattern.
 
-Koa-style async middleware for intercepting, transforming, and controlling the HTTP lifecycle.
-
-## Part A: Middleware Patterns
-
-### 1. Middleware Signature
+## cors — `@nextrush/cors`
 
 ```typescript
-import type { Middleware } from '@nextrush/types';
+import { cors } from '@nextrush/cors';
 
-const myMiddleware: Middleware = async (ctx) => {
-  // Upstream — runs before route handler
-  await ctx.next();
-  // Downstream — runs after route handler
-};
-```
-
-### 2. Registration
-
-```typescript
-import { createApp } from 'nextrush';
-
-const app = createApp();
-app.use(myMiddleware);
-```
-
-Order matters. First registered = outermost (runs first on request, last on response).
-
-### 3. Upstream / Downstream
-
-```typescript
-const timer: Middleware = async (ctx) => {
-  const start = Date.now(); // Upstream
-  await ctx.next();
-  ctx.set('X-Response-Time', `${Date.now() - start}ms`); // Downstream
-};
-```
-
-### 4. Short-Circuit
-
-Return a response without calling `ctx.next()` to stop the chain:
-
-```typescript
-const auth: Middleware = async (ctx) => {
-  if (!ctx.get('authorization')) {
-    ctx.status = 401;
-    return ctx.json({ error: 'Unauthorized' });
-  }
-  ctx.state.user = verifyToken(ctx.get('authorization')!);
-  await ctx.next();
-};
-```
-
-### 5. Error Boundary
-
-Register as the FIRST middleware so it wraps everything:
-
-```typescript
-import { HttpError } from 'nextrush';
-
-const errorHandler: Middleware = async (ctx) => {
-  try {
-    await ctx.next();
-  } catch (err) {
-    if (err instanceof HttpError) {
-      ctx.status = err.statusCode;
-      ctx.json({ error: { status: err.statusCode, message: err.message } });
-    } else {
-      ctx.status = 500;
-      ctx.json({ error: { status: 500, message: 'Internal Server Error' } });
-    }
-  }
-};
-```
-
-### 6. State Passing
-
-Use `ctx.state` to pass data between middleware:
-
-```typescript
-const loadUser: Middleware = async (ctx) => {
-  ctx.state.user = await getUserFromToken(ctx.get('authorization'));
-  await ctx.next();
-};
-
-// Later middleware or route handler:
-const user = ctx.state.user;
-```
-
-### 7. Composition
-
-Combine multiple middleware into one using `compose()`:
-
-```typescript
-import { compose } from '@nextrush/core';
-
-const combined = compose([auth, loadUser, validate]);
-app.use(combined);
-```
-
----
-
-## Part B: Built-in Middleware Packages
-
-### 8. body-parser (`@nextrush/body-parser`)
-
-```typescript
-import { bodyParser, json, urlencoded, text, raw } from '@nextrush/body-parser';
-
-app.use(bodyParser()); // Auto-detect content type
-app.use(json({ limit: '1mb', strict: true })); // JSON only
-app.use(urlencoded({ extended: true, depth: 5 })); // Form data
-app.use(text({ type: ['text/plain', 'text/html'] })); // Text bodies
-app.use(raw({ type: 'application/octet-stream' })); // Binary bodies
-```
-
-### 9. cors (`@nextrush/cors`)
-
-```typescript
-import {
-  cors,
-  devCors,
-  strictCors,
-  simpleCors,
-  staticAssetsCors,
-  internalCors,
-} from '@nextrush/cors';
-
-app.use(cors()); // Default permissive
-app.use(cors({ origin: 'https://example.com', credentials: true }));
+app.use(cors({
+  origin: 'https://example.com',   // or '*' | string[] | RegExp | (origin, ctx) => string
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['X-Total-Count'],
+  credentials: true,
+  maxAge: 86400,                    // preflight cache seconds
+}));
 
 // Presets
-app.use(devCors()); // Permissive for development
-app.use(strictCors()); // Locked-down production
-app.use(simpleCors()); // Minimal CORS
-app.use(staticAssetsCors()); // Static asset serving
-app.use(internalCors()); // Internal service communication
+import { corsPresets } from '@nextrush/cors';
+app.use(cors(corsPresets.permissive));  // allow all origins
+app.use(cors(corsPresets.strict));      // same-origin only
 ```
 
-Options: `origin`, `methods`, `allowedHeaders`, `exposedHeaders`, `credentials`, `maxAge`.
-
-### 10. helmet (`@nextrush/helmet`)
+## helmet — `@nextrush/helmet`
 
 ```typescript
-import {
-  helmet,
-  strictHelmet,
-  devHelmet,
-  apiHelmet,
-  staticHelmet,
-  hsts,
-  frameguard,
-  noSniff,
-  hidePoweredBy,
-  contentSecurityPolicy,
-  referrerPolicy,
-  CspBuilder,
-  PermissionsPolicyBuilder,
-} from '@nextrush/helmet';
+import { helmet } from '@nextrush/helmet';
 
-app.use(helmet()); // Default security headers
+app.use(helmet());  // sensible defaults
 
-// Presets
-app.use(strictHelmet()); // Maximum security
-app.use(devHelmet()); // Relaxed for development
-app.use(apiHelmet()); // API-optimized
-app.use(staticHelmet()); // Static file serving
-
-// Individual headers
-app.use(hsts());
-app.use(frameguard());
-app.use(noSniff());
-app.use(hidePoweredBy());
-
-// CSP builder
-const csp = new CspBuilder().defaultSrc("'self'").scriptSrc("'self'", "'nonce-abc123'");
-app.use(contentSecurityPolicy(csp.build()));
-
-// Permissions-Policy builder
-const pp = new PermissionsPolicyBuilder();
-```
-
-### 11. rate-limit (`@nextrush/rate-limit`)
-
-```typescript
-import { rateLimit, tieredRateLimit, MemoryStore } from '@nextrush/rate-limit';
-
-app.use(rateLimit()); // 100 req/min per IP
-app.use(rateLimit({ max: 1000, window: '15m' }));
-
-// Algorithms: 'token-bucket' (default), 'sliding-window', 'fixed-window'
-app.use(rateLimit({ algorithm: 'sliding-window', max: 100, window: '1m' }));
-
-// Tiered limits
-app.use(
-  tieredRateLimit({
-    tiers: {
-      anonymous: { max: 60, window: '1m' },
-      authenticated: { max: 1000, window: '1m' },
-      premium: { max: 10000, window: '1m' },
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", 'https://fonts.googleapis.com'],
     },
-    tierResolver: (ctx) => ctx.state.user?.tier || 'anonymous',
-  })
-);
-
-// CIDR whitelist
-app.use(rateLimit({ whitelist: ['192.168.0.0/16', '10.0.0.0/8'] }));
+  },
+  hsts: { maxAge: 31536000, includeSubDomains: true },
+  xssFilter: true,
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
 ```
 
-Store: `MemoryStore` (default). Implement `RateLimitStore` interface for Redis/custom.
-
-### 12. compression (`@nextrush/compression`)
+## body-parser — `@nextrush/body-parser`
 
 ```typescript
-import { compression, gzip, deflate, brotli } from '@nextrush/compression';
+import { json, text, urlencoded, bodyParser } from '@nextrush/body-parser';
+import { formData } from '@nextrush/form-data';
 
-app.use(compression()); // Auto-negotiate
-app.use(compression({ level: 9, threshold: 512, brotli: true }));
+// Individual parsers
+app.use(json({ limit: '1mb' }));
+app.use(text({ type: 'text/*' }));
+app.use(urlencoded({ extended: true }));
+app.use(formData({ maxFileSize: '10mb' }));
 
-// Specific algorithms
-app.use(gzip());
-app.use(deflate());
-app.use(brotli());
-```
-
-Works across Node.js, Bun, Deno, and Edge via Web Compression Streams API.
-
-### 13. cookies (`@nextrush/cookies`)
-
-```typescript
-import {
-  cookies,
-  signedCookies,
-  parseCookies,
-  serializeCookie,
-  secureOptions,
-} from '@nextrush/cookies';
-
-app.use(cookies()); // Parse cookies
-app.use(signedCookies({ keys: ['secret-key'] })); // Signed cookies
-
-// In handler:
-ctx.state.cookies.set('session', 'value', { httpOnly: true, secure: true });
-ctx.state.cookies.get('session');
-ctx.state.cookies.delete('session');
-```
-
-Supports HMAC-SHA256 signing, key rotation, `__Secure-` and `__Host-` prefixes.
-
-### 14. csrf (`@nextrush/csrf`)
-
-```typescript
-import { csrf, generateToken, validateToken } from '@nextrush/csrf';
-
-app.use(csrf()); // Signed Double-Submit Cookie
-
-// Manual token operations
-const token = generateToken(secret, sessionId);
-const valid = validateToken(token, secret, sessionId);
-```
-
-Default ignored methods: GET, HEAD, OPTIONS.
-
-### 15. multipart (`@nextrush/multipart`)
-
-```typescript
-import { multipart, DiskStorage, MemoryStorage } from '@nextrush/multipart';
-app.use(multipart({ storage: new DiskStorage({ dest: './uploads' }) })); // Disk
-app.use(multipart({ storage: new MemoryStorage() })); // Memory
-app.use(
-  multipart({
-    storage: new DiskStorage({ dest: './uploads' }),
-    limits: { fileSize: 10 * 1024 * 1024, files: 5, fields: 20 },
-  })
-);
-```
-
-Access: `ctx.state.files`, `ctx.state.fields`.
-
-### 16. request-id (`@nextrush/request-id`)
-
-```typescript
-import { requestId, correlationId, traceId } from '@nextrush/request-id';
-
-app.use(requestId()); // Generate/forward X-Request-ID
-app.use(correlationId()); // X-Correlation-ID
-app.use(traceId()); // X-Trace-ID
-```
-
-Uses `crypto.randomUUID()`. Validates incoming IDs to prevent header injection.
-
-### 17. timer (`@nextrush/timer`)
-
-```typescript
-import { timer, responseTime, serverTiming, detailedTimer } from '@nextrush/timer';
-
-app.use(timer()); // X-Response-Time header
-app.use(responseTime()); // Alias for timer()
-app.use(serverTiming()); // Server-Timing header (DevTools integration)
-app.use(detailedTimer()); // Detailed timing with start/end timestamps
-```
-
-Uses `performance.now()` for sub-millisecond precision.
-
----
-
-## Part C: Recommended Middleware Order
-
-```typescript
-import { createApp } from 'nextrush';
-
-const app = createApp();
-
-// 1. Error boundary (outermost — catches everything)
-app.use(errorHandler);
-
-// 2. Request ID / tracing
-app.use(requestId());
-
-// 3. Timing
-app.use(timer());
-
-// 4. Security headers
-app.use(helmet());
-
-// 5. CORS
-app.use(cors({ origin: 'https://myapp.com' }));
-
-// 6. Rate limiting
-app.use(rateLimit({ max: 100, window: '1m' }));
-
-// 7. Compression
-app.use(compression());
-
-// 8. Body parsing
+// All-in-one (registers json + text + urlencoded)
 app.use(bodyParser());
 
-// 9. Cookies / CSRF
-app.use(cookies());
-app.use(csrf());
-
-// 10. Authentication middleware
-app.use(auth);
-
-// 11. Routes
-app.route('/api', router);
+// Per-route
+router.post('/upload', formData({ maxFileSize: '50mb' }), (ctx) => {
+  const files = ctx.body.files;
+  const fields = ctx.body.fields;
+});
 ```
 
----
+## validation — `@nextrush/validation`
 
-## Rules
+```typescript
+import { validate } from '@nextrush/validation';
+import { z } from 'zod';
 
-- MUST call `ctx.next()` OR send a response — never both, never neither
-- Use `ctx.state` for passing data between middleware (not globals)
-- Keep each middleware focused on one responsibility
-- No blocking synchronous I/O
-- Error handler must be the outermost middleware
-- Never include stack traces or internal paths in error responses
+// Single schema → validates ctx.body
+router.post('/users', validate(z.object({ name: z.string().min(1) })), handler);
 
-## Troubleshooting
+// Named targets
+router.post('/users',
+  validate({
+    body: CreateUserSchema,
+    query: z.object({ dryRun: z.boolean().optional() }),
+    params: z.object({ id: z.string().uuid() }),
+  }),
+  handler
+);
 
-| Problem                    | Cause                                         | Solution                                        |
-| -------------------------- | --------------------------------------------- | ----------------------------------------------- |
-| Response never sent        | Missing `ctx.next()` and no explicit response | Add `await ctx.next()` or send a response       |
-| Double response            | Calls `ctx.next()` AND sends response         | Choose one — next() or response, not both       |
-| State undefined downstream | Set `ctx.state` after `ctx.next()`            | Set state BEFORE calling `await ctx.next()`     |
-| Middleware skipped         | Registered after routes                       | Register middleware before mounting routes      |
-| Error not caught           | Error middleware not first                    | Register error handler as the FIRST `app.use()` |
-| CORS preflight fails       | Missing cors() middleware                     | Add `cors()` before route handlers              |
-| Body is undefined          | No body parser registered                     | Add `bodyParser()` before route handlers        |
-| Rate limit not working     | Whitelist too broad                           | Check `whitelist` CIDR ranges                   |
+// Types
+import type { ValidationSchema, ValidationTarget } from '@nextrush/validation';
+```
+
+## rate-limit — `@nextrush/rate-limit`
+
+```typescript
+import { rateLimit } from '@nextrush/rate-limit';
+
+app.use(rateLimit({
+  windowMs: 60_000,      // 1 minute window
+  max: 100,               // 100 requests per window
+  keyGenerator: (ctx) => ctx.get('x-forwarded-for') || ctx.get('host'),
+}));
+
+// Custom store (Redis, etc.)
+app.use(rateLimit({
+  max: 1000,
+  store: new RedisStore({ client: redis }),
+}));
+```
+
+## compression — `@nextrush/compression`
+
+```typescript
+import { compression } from '@nextrush/compression';
+
+app.use(compression());  // gzip + deflate, skips small/compressed responses
+
+app.use(compression({
+  threshold: 1024,        // min bytes to compress
+  level: 6,               // zlib compression level
+  brotli: true,           // enable brotli
+  filter: (ctx) => !ctx.path.startsWith('/stream'),
+}));
+```
+
+## cookies — `@nextrush/cookies`
+
+```typescript
+import { cookies } from '@nextrush/cookies';
+
+app.use(cookies({ secret: 'signing-secret' }));
+
+// In handler
+router.get('/', (ctx) => {
+  const sessionId = ctx.cookies.get('session');           // read
+  ctx.cookies.set('theme', 'dark', { httpOnly: true });    // write
+  ctx.cookies.delete('session');                           // delete
+  const signed = ctx.cookies.getSigned('auth-token');     // verify signed
+});
+```
+
+## csrf — `@nextrush/csrf`
+
+```typescript
+import { csrf } from '@nextrush/csrf';
+
+app.use(csrf({ secret: 'csrf-secret' }));
+
+// Token available as ctx.csrfToken — include in forms
+// Validates X-CSRF-Token header or _csrf body field on state-changing methods
+```
+
+## static — `@nextrush/static`
+
+```typescript
+import { staticMiddleware } from '@nextrush/static';
+
+app.use(staticMiddleware({
+  root: './public',
+  index: 'index.html',
+  cacheControl: 'public, max-age=3600',
+}));
+
+router.get('/assets/*', staticMiddleware({ root: './dist/assets' }));
+```
+
+## template — `@nextrush/template`
+
+```typescript
+import { template } from '@nextrush/template';
+
+app.use(template({ root: './views', extension: '.html' }));
+
+// In handler
+router.get('/welcome', (ctx) => {
+  ctx.render('welcome', { name: 'Alice', items: [1, 2, 3] });
+});
+
+// Template syntax supports {{ variable }}, {{#each}}, {{#if}}, {{> partial}}
+```
+
+## logger — `@nextrush/logger`
+
+```typescript
+import { logger } from '@nextrush/logger';
+
+app.use(logger());  // colored console output
+
+app.use(logger({
+  format: 'combined',         // combined | common | dev | short | custom
+  customFormat: (ctx, elapsed) => `${ctx.method} ${ctx.path} ${ctx.status} ${elapsed}ms`,
+  stream: fs.createWriteStream('./access.log'),
+}));
+```
+
+## timer — `@nextrush/timer`
+
+```typescript
+import { timer } from '@nextrush/timer';
+
+app.use(timer());  // adds X-Response-Time header
+```
+
+## request-id — `@nextrush/request-id`
+
+```typescript
+import { requestId } from '@nextrush/request-id';
+
+app.use(requestId());  // X-Request-Id: uuid
+
+app.use(requestId({ headerName: 'X-Correlation-Id', generator: () => nanoid() }));
+```
+
+## health — `@nextrush/health`
+
+```typescript
+import { health } from '@nextrush/health';
+
+app.use(health({
+  path: '/health',
+  checks: {
+    database: async () => { await db.ping(); return true; },
+    cache: async () => { await redis.ping(); return true; },
+  },
+}));
+// GET /health → { status: 'ok', checks: { database: true, cache: true } }
+```
+
+## openapi — `@nextrush/openapi`
+
+```typescript
+import { openapi } from '@nextrush/openapi';
+
+app.use(openapi({
+  router,
+  info: { title: 'My API', version: '1.0.0', description: 'API docs' },
+  servers: [{ url: 'https://api.example.com' }],
+  security: [{ bearerAuth: [] }],
+}));
+
+// GET /openapi.json — OpenAPI 3.1 spec
+// GET /docs — Swagger UI
+// Auto-discovers routes with endpoint() metadata and validate() schemas
+```
+
+## Middleware Ordering Convention
+
+```
+1. errorHandler        (outermost — catches everything)
+2. requestId           (early — tag every request)
+3. timer               (early — time everything)
+4. logger              (early — log everything)
+5. helmet              (security headers first)
+6. cors                (preflight handling)
+7. compression         (before body parsing)
+8. cookies             (before body parsing)
+9. csrf                (before body parsing)
+10. bodyParser          (enables ctx.body)
+11. rateLimit           (after body parsing — can inspect body if needed)
+12. validation          (route-level, after body parsing)
+13. static              (fallback, near the end)
+14. openapi             (near the end, reads route metadata)
+15. Routes              (last — the actual handlers)
+```

@@ -1,10 +1,4 @@
-/**
- * @nextrush/dev - Config Utilities Tests
- *
- * Unit tests for configuration utilities.
- *
- * @packageDocumentation
- */
+/** @nextrush/dev - Config Utilities Tests */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from '../runtime/fs.js';

@@ -35,6 +35,15 @@ export const DEFAULT_PARAMETER_LIMITS = {
 } as const;
 
 /**
+ * Default maximum JSON nesting depth (BP-6).
+ *
+ * Generous enough that legitimate API payloads never hit it, but low enough
+ * that a small `[[[…]]]` payload cannot be used as a cheap DoS. Override per
+ * call via `json({ maxDepth })`, or disable with `maxDepth: Infinity`.
+ */
+export const DEFAULT_JSON_MAX_DEPTH = 64;
+
+/**
  * Default content types
  */
 export const DEFAULT_CONTENT_TYPES = {
@@ -45,9 +54,16 @@ export const DEFAULT_CONTENT_TYPES = {
 } as const;
 
 /**
- * HTTP methods that typically don't have bodies
+ * HTTP methods that do not carry a request body.
+ *
+ * Aligned with the runtime's canonical `METHODS_WITHOUT_BODY` policy
+ * (`@nextrush/runtime`): DELETE is intentionally **excluded** — RFC 7231 §4.3.5
+ * permits a body on DELETE, so a DELETE with a matching Content-Type is parsed.
+ * TRACE is included — RFC 7231 §4.3.8 forbids a body on TRACE. The value is
+ * duplicated here (not imported) to keep body-parser free of a runtime dependency;
+ * the runtime constant is the source of truth for the policy (BP-H).
  */
-export const BODYLESS_METHODS = new Set(['GET', 'HEAD', 'DELETE', 'OPTIONS']);
+export const BODYLESS_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE']);
 
 /**
  * Size unit multipliers for parsing limit strings

@@ -1,51 +1,79 @@
 /**
- * Raw Node.js HTTP server — Zero-framework baseline.
+ * Raw Node.js HTTP server — zero-framework baseline.
  *
- * This server implements all benchmark scenarios using ONLY
- * the built-in http module. It serves as the absolute performance
- * ceiling — any overhead above this number IS framework overhead.
+ * Serves every benchmark scenario using only `node:http`. It is the absolute
+ * performance ceiling: overhead above this number IS framework overhead.
+ *
+ * Fairness notes:
+ * - Response bodies come from the shared payload module (identical across servers).
+ * - The middleware scenario runs a REAL function chain (not inline setHeader), so
+ *   raw-node pays a comparable per-layer dispatch cost to the frameworks.
+ * - Content-Type includes `charset=utf-8` to match the frameworks' JSON headers.
  */
 
+import { KEEP_ALIVE_TIMEOUT_MS, LISTEN_BACKLOG, LISTEN_HOST } from '../config/constants.js';
 import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+import {
+  ERROR_BODY,
+  ERROR_MESSAGE,
+  HELLO_WORLD,
+  JSON_USER,
+  LARGE_JSON,
+  MIDDLEWARE_BODY,
+  MIDDLEWARE_HEADERS,
+  SEND_OBJECT_BODY,
+  deepRoute,
+  largePostResponse,
+  mwHeaderValue,
+  postUserResponse,
+  searchResponse,
+  userById,
+} from './_shared/payloads.js';
 
-// Response data — serialized per-request for fair comparison with frameworks
-const JSON_HEADERS = { 'Content-Type': 'application/json' };
+const STATIC_ROOT = fileURLToPath(new URL('../public', import.meta.url));
 
-const HELLO_WORLD_DATA = { message: 'Hello World' };
-const JSON_RESPONSE_DATA = {
-  id: 1,
-  name: 'John Doe',
-  email: 'john@example.com',
-  role: 'developer',
-  active: true,
-};
-const LARGE_JSON_DATA = Array.from({ length: 50 }, (_, i) => ({
-  id: i + 1,
-  name: `User ${i + 1}`,
-  email: `user${i + 1}@example.com`,
-  role: i % 2 === 0 ? 'developer' : 'designer',
-  active: i % 3 !== 0,
-}));
+const PORT = parseInt(process.env.PORT || '8080', 10);
+const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' };
+/** Max POST body size (bytes) — bounds buffering, comparable to framework parser defaults. */
+const MAX_BODY_BYTES = 1024 * 1024;
+/** Raised cap for /large-post — the scenario body is ~1.5MB by design. */
+const MAX_LARGE_BODY_BYTES = 5 * 1024 * 1024;
+
+function sendJson(res, status, data) {
+  const body = JSON.stringify(data);
+  res.writeHead(status, { ...JSON_HEADERS, 'Content-Length': Buffer.byteLength(body) });
+  res.end(body);
+}
+
+// Genuine 5-layer middleware chain — each layer is a function that sets one
+// header then calls next(). This mirrors the frameworks' dispatch cost instead
+// of collapsing to five inline setHeader calls.
+const middlewareChain = MIDDLEWARE_HEADERS.map((header) => (req, res, next) => {
+  res.setHeader(header.name, mwHeaderValue(header));
+  next();
+});
+
+function runChain(chain, req, res, done) {
+  let index = 0;
+  const next = () => {
+    const layer = chain[index++];
+    if (layer) layer(req, res, next);
+    else done();
+  };
+  next();
+}
 
 const server = createServer((req, res) => {
   const url = req.url;
   const method = req.method;
 
-  // Fast path — most benchmarks hit GET /
   if (method === 'GET') {
-    if (url === '/') {
-      res.writeHead(200, JSON_HEADERS);
-      res.end(JSON.stringify(HELLO_WORLD_DATA));
-      return;
-    }
-
-    if (url === '/json') {
-      res.writeHead(200, JSON_HEADERS);
-      res.end(JSON.stringify(JSON_RESPONSE_DATA));
-      return;
-    }
+    if (url === '/') return void sendJson(res, 200, HELLO_WORLD);
+    if (url === '/json') return void sendJson(res, 200, JSON_USER);
+    if (url === '/large-json') return void sendJson(res, 200, LARGE_JSON);
 
     if (url === '/empty') {
       res.writeHead(204);
@@ -53,77 +81,62 @@ const server = createServer((req, res) => {
       return;
     }
 
-    if (url === '/large-json') {
-      res.writeHead(200, JSON_HEADERS);
-      res.end(JSON.stringify(LARGE_JSON_DATA));
-      return;
-    }
-
     if (url === '/middleware') {
-      // Simulate 5 middleware layers (header setting)
-      res.setHeader('X-Request-Id', '12345');
-      res.setHeader('X-Timestamp', Date.now().toString());
-      res.setHeader('X-Framework', 'raw-node');
-      res.setHeader('X-Version', '1.0');
-      res.setHeader('X-Processed', 'true');
-      res.writeHead(200, JSON_HEADERS);
-      res.end(JSON.stringify({ middleware: true, layers: 5 }));
+      runChain(middlewareChain, req, res, () => sendJson(res, 200, MIDDLEWARE_BODY));
       return;
     }
 
     if (url === '/error') {
-      // Simulate throw+catch to match framework behavior
+      // raw-node has no error pipeline — a local catch is its idiomatic form.
       try {
-        throw new Error('Benchmark error');
+        throw new Error(ERROR_MESSAGE);
       } catch {
-        res.writeHead(500, JSON_HEADERS);
-        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+        sendJson(res, 500, ERROR_BODY);
       }
       return;
     }
 
-    // Route params: /users/:id
+    // /users/:id
     if (url.startsWith('/users/') && url.indexOf('/', 7) === -1) {
-      const id = url.slice(7);
-      res.writeHead(200, JSON_HEADERS);
-      res.end(JSON.stringify({ id, name: `User ${id}`, email: `user${id}@example.com` }));
+      return void sendJson(res, 200, userById(url.slice(7)));
+    }
+
+    if (url === '/send-object') {
+      return void sendJson(res, 200, SEND_OBJECT_BODY);
+    }
+
+    // /static/bench.txt — the one fixture file this benchmark serves; no
+    // general traversal-safe resolver is implemented here (raw-node is the
+    // zero-framework baseline, not a security-hardened static server), so
+    // this deliberately matches only the exact known fixture path rather
+    // than accepting an arbitrary decoded path.
+    if (url === '/static/bench.txt') {
+      readFile(STATIC_ROOT + '/static/bench.txt')
+        .then((data) => {
+          res.writeHead(200, {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Content-Length': data.length,
+          });
+          res.end(data);
+        })
+        .catch(() => {
+          sendJson(res, 404, { error: 'Not Found' });
+        });
       return;
     }
 
-    // Query string: /search?...
+    // /search?...
     if (url.startsWith('/search')) {
       const qIdx = url.indexOf('?');
       const params = qIdx !== -1 ? new URLSearchParams(url.slice(qIdx + 1)) : new URLSearchParams();
-      const q = params.get('q') || '';
-      const limit = Math.min(parseInt(params.get('limit') || '10', 10), 10);
-      res.writeHead(200, JSON_HEADERS);
-      res.end(
-        JSON.stringify({
-          query: q,
-          limit,
-          results: Array.from({ length: limit }, (_, i) => ({
-            id: i + 1,
-            title: `Result ${i + 1} for "${q}"`,
-          })),
-        })
-      );
-      return;
+      return void sendJson(res, 200, searchResponse(params.get('q'), params.get('limit')));
     }
 
-    // Deep route: /api/v1/orgs/:orgId/teams/:teamId/members/:memberId
+    // /api/v1/orgs/:orgId/teams/:teamId/members/:memberId
     if (url.startsWith('/api/v1/orgs/')) {
       const parts = url.split('/');
-      // /api/v1/orgs/123/teams/456/members/789 → ['', 'api', 'v1', 'orgs', '123', 'teams', '456', 'members', '789']
       if (parts.length === 9 && parts[5] === 'teams' && parts[7] === 'members') {
-        res.writeHead(200, JSON_HEADERS);
-        res.end(
-          JSON.stringify({
-            orgId: parts[4],
-            teamId: parts[6],
-            memberId: parts[8],
-          })
-        );
-        return;
+        return void sendJson(res, 200, deepRoute(parts[4], parts[6], parts[8]));
       }
     }
   }
@@ -131,45 +144,71 @@ const server = createServer((req, res) => {
   // POST /users
   if (method === 'POST' && url === '/users') {
     let body = '';
+    let size = 0;
+    let aborted = false;
     req.on('data', (chunk) => {
+      if (aborted) return;
+      size += chunk.length;
+      // Cap request body to match framework parser defaults and avoid unbounded
+      // buffering (audit F-L08). Benchmark bodies are a few dozen bytes.
+      if (size > MAX_BODY_BYTES) {
+        aborted = true;
+        sendJson(res, 413, { error: 'Payload Too Large' });
+        req.destroy();
+        return;
+      }
       body += chunk;
     });
     req.on('end', () => {
+      if (aborted) return;
       try {
-        const data = JSON.parse(body);
-        res.writeHead(200, JSON_HEADERS);
-        res.end(
-          JSON.stringify({
-            success: true,
-            user: {
-              id: Math.floor(Math.random() * 10000),
-              ...data,
-              createdAt: new Date().toISOString(),
-            },
-          })
-        );
+        sendJson(res, 200, postUserResponse(JSON.parse(body)));
       } catch {
-        res.writeHead(400, JSON_HEADERS);
-        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        sendJson(res, 400, { error: 'Invalid JSON' });
       }
     });
     return;
   }
 
-  // 404
-  res.writeHead(404, JSON_HEADERS);
-  res.end(JSON.stringify({ error: 'Not Found' }));
+  // POST /large-post — same shape as /users but with a raised cap, since the
+  // scenario body is ~1.5MB by design (past the default 1MB floor other
+  // frameworks' parsers also had to raise for this route).
+  if (method === 'POST' && url === '/large-post') {
+    let body = '';
+    let size = 0;
+    let aborted = false;
+    req.on('data', (chunk) => {
+      if (aborted) return;
+      size += chunk.length;
+      if (size > MAX_LARGE_BODY_BYTES) {
+        aborted = true;
+        sendJson(res, 413, { error: 'Payload Too Large' });
+        req.destroy();
+        return;
+      }
+      body += chunk;
+    });
+    req.on('end', () => {
+      if (aborted) return;
+      try {
+        const parsed = JSON.parse(body);
+        const items = parsed?.items;
+        sendJson(res, 200, largePostResponse(Array.isArray(items) ? items.length : 0));
+      } catch {
+        sendJson(res, 400, { error: 'Invalid JSON' });
+      }
+    });
+    return;
+  }
+
+  sendJson(res, 404, { error: 'Not Found' });
 });
 
-server.listen(PORT, () => {
-  console.log(`Raw Node.js server listening on http://localhost:${PORT}`);
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
+server.listen({ port: PORT, host: LISTEN_HOST, backlog: LISTEN_BACKLOG }, () => {
+  console.log(`Raw Node.js server listening on http://${LISTEN_HOST}:${PORT}`);
 });
 
-// Graceful shutdown
-const shutdown = () => {
-  server.close(() => {
-    process.exit(0);
-  });
-};
+const shutdown = () => server.close(() => process.exit(0));
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

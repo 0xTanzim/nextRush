@@ -22,7 +22,7 @@
  * @example
  * ```typescript
  * isValidOriginFormat('https://example.com') // true
- * isValidOriginFormat('http://localhost:3000') // true
+ * isValidOriginFormat('http://localhost:8080') // true
  * isValidOriginFormat('javascript:void(0)') // false
  * isValidOriginFormat('null') // true (special case)
  * ```
@@ -34,7 +34,7 @@ export function isValidOriginFormat(origin: string): boolean {
   }
 
   // Origin should be protocol + host, optionally with port
-  // Valid: https://example.com, http://localhost:3000
+  // Valid: https://example.com, http://localhost:8080
   // Invalid: javascript:void(0), file://, data:, etc.
   if (!origin.startsWith('http://') && !origin.startsWith('https://')) {
     return false;

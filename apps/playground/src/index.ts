@@ -1,12 +1,20 @@
 import { bodyParser } from '@nextrush/body-parser';
-import { controllersPlugin } from '@nextrush/controllers';
-import { createApp, createRouter, serve } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
+import { errorHandler } from '@nextrush/errors';
+import { openapi } from '@nextrush/openapi';
+import { validate } from '@nextrush/validation';
+import { createApp, createRouter, endpoint, serve } from 'nextrush';
 import 'reflect-metadata';
+import { z } from 'zod';
 
-function main() {
-  const app = createApp();
+async function main() {
   const router = createRouter();
+  const app = createApp({ router });
   const port = Number(process.env.PORT ?? 8080);
+
+  // Error handler must be the outermost middleware so it can catch anything
+  // thrown downstream — including @nextrush/validation's ValidationError.
+  app.use(errorHandler({ includeStack: process.env.NODE_ENV !== 'production' }));
 
   // Body parser middleware (required for @Body decorator)
   app.use(bodyParser());
@@ -30,26 +38,80 @@ function main() {
     });
   });
 
-  app.route('/', router);
-
   // ──────────────────────────────────────
-  // Class-Based Controllers (DI + Decorators)
-  // Uses the SAME router — controllersPlugin registers
-  // routes with /api prefix directly on it
+  // @nextrush/validation — real end-to-end proof
   // ──────────────────────────────────────
 
-  app.plugin(
-    controllersPlugin({
+  // Golden path: validate(schema) — validates + overwrites ctx.body in place.
+  const CreateUser = z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    age: z.coerce.number().int().min(0).optional(),
+  });
+
+  router.post('/validate/user', validate(CreateUser),
+    endpoint({
+      summary: 'Create a user',
+      tags: ['users'],
+      responses: { 201: CreateUser },
+    }),
+    (ctx) => {
+      ctx.status = 201;
+      ctx.json({ received: ctx.body });
+    }
+  );
+
+  // Advanced path: query-only — validated but intentionally left unmodified.
+  const SearchQuery = z.object({
+    q: z.string().min(1),
+    sort: z.enum(['asc', 'desc']).default('asc'),
+  });
+
+  router.get('/validate/search', validate({ query: SearchQuery }), (ctx) => {
+    ctx.json({ q: ctx.query.q, sort: ctx.query.sort });
+  });
+
+  // Advanced path: params + query together.
+  const UserIdParam = z.object({ id: z.string().uuid() });
+  const PageQuery = z.object({ page: z.coerce.number().int().min(1).optional() });
+
+  router.get(
+    '/validate/users/:id',
+    validate({ params: UserIdParam, query: PageQuery }),
+    (ctx) => {
+      ctx.json({ id: ctx.params.id, page: ctx.query.page });
+    }
+  );
+
+  // Routes are registered on `router`, which is the app's own router
+  // (passed to createApp) — auto-mounted at ready(), no app.route() needed.
+
+  // ──────────────────────────────────────
+  // OpenAPI — zero-config, reads route metadata (validate() + endpoint())
+  // GET /openapi.json + GET /docs
+  // ──────────────────────────────────────
+  app.use(
+    openapi({
       router,
-      root: './src',
-      prefix: '/api',
+      info: { title: 'NextRush Playground API', version: '1.0.0' },
     })
   );
 
   // ──────────────────────────────────────
+  // Class-Based Controllers (DI + Decorators)
+  // Uses the SAME router — registerControllers registers
+  // routes with /api prefix directly on it
+  // ──────────────────────────────────────
+
+  await registerControllers(app, {
+    root: './src',
+    prefix: '/api',
+  });
+
+  // ──────────────────────────────────────
   // Start Server
   // ──────────────────────────────────────
-  serve(app, {
+  await serve(app, {
     port,
     onListen: () => {
       console.log(`\n🚀 NextRush Playground running at http://localhost:${port}`);
@@ -57,6 +119,10 @@ function main() {
       console.log('  Functional:');
       console.log('    GET  /hello');
       console.log('    GET  /echo');
+      console.log('  Validation (@nextrush/validation):');
+      console.log('    POST /validate/user       (body schema)');
+      console.log('    GET  /validate/search     (query schema)');
+      console.log('    GET  /validate/users/:id  (params + query schemas)');
       console.log('  Controllers (class-based):');
       console.log('    GET  /api/health');
       console.log('    GET  /api/health/ready');

@@ -192,7 +192,13 @@ function createMockContext(options: MockContextOptions = {}): Context {
     // Raw access
     raw: mockRaw,
     runtime: 'node' as Runtime,
+    platform: undefined,
     bodySource: mockBodySource,
+    signal: new AbortController().signal,
+    sendStream: async () => {},
+    stream: async () => {},
+    sse: async () => {},
+    ndjson: async () => {},
   };
 
   // Add ability to set nextFn for testing
@@ -598,7 +604,7 @@ describe('Application Integration', () => {
         ctx.json({ customError: error.message });
       });
 
-      app.onError(errorHandler);
+      app.setErrorHandler(errorHandler);
 
       app.use(async () => {
         throw new Error('Test error');
@@ -614,7 +620,7 @@ describe('Application Integration', () => {
     });
 
     it('should handle HttpError with proper status', async () => {
-      app.onError((error: Error, ctx: Context) => {
+      app.setErrorHandler((error: Error, ctx: Context) => {
         if ('status' in error && typeof error.status === 'number') {
           ctx.status = error.status;
         } else {
@@ -934,7 +940,7 @@ describe('Error Handling Integration', () => {
   it('should handle HttpError through the stack', async () => {
     const app = createApp();
 
-    app.onError((error: Error, ctx: Context) => {
+    app.setErrorHandler((error: Error, ctx: Context) => {
       if (error instanceof HttpError) {
         ctx.status = error.status;
         ctx.json({
@@ -968,7 +974,7 @@ describe('Error Handling Integration', () => {
   it('should handle validation errors', async () => {
     const app = createApp();
 
-    app.onError((error: Error, ctx: Context) => {
+    app.setErrorHandler((error: Error, ctx: Context) => {
       if (error instanceof BadRequestError) {
         ctx.status = 400;
         ctx.json({
@@ -1024,7 +1030,17 @@ describe('Error Handling Integration', () => {
     await callback(ctx);
 
     expect(ctx.status).toBe(500);
-    expect(ctx.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
+    // Unified error shape (audit C-1): coded body, but the internal message
+    // ("Database connection failed") is never exposed in production.
+    expect(ctx.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Internal Server Error',
+        code: 'INTERNAL_ERROR',
+        status: 500,
+      })
+    );
+    const body = (ctx.json as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0];
+    expect(JSON.stringify(body)).not.toContain('Database connection failed');
 
     consoleSpy.mockRestore();
   });

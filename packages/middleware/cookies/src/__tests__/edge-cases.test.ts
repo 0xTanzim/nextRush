@@ -25,7 +25,7 @@ import {
   unsignCookie,
   unsignCookieWithRotation,
 } from '../signing.js';
-import type { CookieContext, SignedCookieContext } from '../types.js';
+import type { CookieContext, SignedCookieContext } from '../middleware-types.js';
 import { isValidCookieName, isValidCookieValue, sanitizeCookieValue } from '../validation.js';
 
 // ============================================================================
@@ -62,8 +62,21 @@ function createMockContext(cookieHeader?: string) {
     redirect: vi.fn(),
     throw: vi.fn(),
     assert: vi.fn(),
-    set: vi.fn((field: string, value: string | number) => {
-      responseHeaders[field.toLowerCase()] = String(value);
+    set: vi.fn((field: string, value: string | number | string[]) => {
+      const key = field.toLowerCase();
+      // Mirror the real ctx.set Set-Cookie contract: strings append, arrays replace.
+      if (key === 'set-cookie' && !Array.isArray(value)) {
+        const existing = responseHeaders[key];
+        if (existing === undefined) {
+          responseHeaders[key] = [String(value)];
+        } else if (Array.isArray(existing)) {
+          existing.push(String(value));
+        } else {
+          responseHeaders[key] = [String(existing), String(value)];
+        }
+        return;
+      }
+      responseHeaders[key] = Array.isArray(value) ? value : String(value);
     }),
     get: vi.fn((field: string) => {
       if (field.toLowerCase() === 'cookie') return cookieHeader;
@@ -96,8 +109,21 @@ function createMockContextWithoutRaw(cookieHeader?: string) {
     redirect: vi.fn(),
     throw: vi.fn(),
     assert: vi.fn(),
-    set: vi.fn((field: string, value: string | number) => {
-      responseHeaders[field.toLowerCase()] = String(value);
+    set: vi.fn((field: string, value: string | number | string[]) => {
+      const key = field.toLowerCase();
+      // Mirror the real ctx.set Set-Cookie contract: strings append, arrays replace.
+      if (key === 'set-cookie' && !Array.isArray(value)) {
+        const existing = responseHeaders[key];
+        if (existing === undefined) {
+          responseHeaders[key] = [String(value)];
+        } else if (Array.isArray(existing)) {
+          existing.push(String(value));
+        } else {
+          responseHeaders[key] = [String(existing), String(value)];
+        }
+        return;
+      }
+      responseHeaders[key] = Array.isArray(value) ? value : String(value);
     }),
     get: vi.fn((field: string) => {
       if (field.toLowerCase() === 'cookie') return cookieHeader;
@@ -116,7 +142,19 @@ const createNext = () => vi.fn(async () => {});
 describe('prototype-safe parsing (COOKIES-004)', () => {
   it('should not inherit Object.prototype properties', () => {
     const result = parseCookies('name=value');
-    expect(Object.getPrototypeOf(result)).toBeNull();
+    // The invariant is that Object.prototype is unreachable (ADR-0021), not
+    // that the immediate prototype is literally `null` — the container
+    // derives from a shared null-prototype base so V8 keeps it in
+    // fast-property mode.
+    let proto: unknown = Object.getPrototypeOf(result);
+    let hops = 0;
+    while (proto !== null) {
+      expect(proto).not.toBe(Object.prototype);
+      proto = Object.getPrototypeOf(proto as object);
+      expect(++hops).toBeLessThan(10);
+    }
+    expect((result as unknown as object) instanceof Object).toBe(false);
+    expect((result as Record<string, unknown>)['toString']).toBeUndefined();
   });
 
   it('should safely handle __proto__ cookie name', () => {
@@ -425,30 +463,31 @@ describe('CryptoKey cache (COOKIES-009)', () => {
     clearKeyCache();
   });
 
-  it('should produce consistent signatures (cache hit)', async () => {
-    const signed1 = await signCookie('value', 'secret1');
-    const signed2 = await signCookie('value', 'secret1');
-    expect(signed1).toBe(signed2);
+  it('should verify successfully across repeated signing with the same key (cache hit)', async () => {
+    const signed1 = await signCookie('name', 'value', 'secret1');
+    const signed2 = await signCookie('name', 'value', 'secret1');
+    expect(await unsignCookie('name', signed1, 'secret1')).toBe('value');
+    expect(await unsignCookie('name', signed2, 'secret1')).toBe('value');
   });
 
   it('should produce different signatures for different secrets', async () => {
-    const signed1 = await signCookie('value', 'secret1');
-    const signed2 = await signCookie('value', 'secret2');
+    const signed1 = await signCookie('name', 'value', 'secret1');
+    const signed2 = await signCookie('name', 'value', 'secret2');
     expect(signed1).not.toBe(signed2);
   });
 
   it('should verify after cache clear', async () => {
-    const signed = await signCookie('hello', 'my-secret');
+    const signed = await signCookie('name', 'hello', 'my-secret');
     clearKeyCache();
-    const result = await unsignCookie(signed, 'my-secret');
+    const result = await unsignCookie('name', signed, 'my-secret');
     expect(result).toBe('hello');
   });
 
   it('should handle many different secrets without error', async () => {
     // Exceed the cache capacity
     for (let i = 0; i < 15; i++) {
-      const signed = await signCookie('value', `secret-${i}`);
-      const result = await unsignCookie(signed, `secret-${i}`);
+      const signed = await signCookie('name', 'value', `secret-${i}`);
+      const result = await unsignCookie('name', signed, `secret-${i}`);
       expect(result).toBe('value');
     }
   });
@@ -464,55 +503,55 @@ describe('signing edge cases', () => {
   });
 
   it('should handle values containing the separator dot', async () => {
-    const signed = await signCookie('1.2.3.4', 'secret');
-    const result = await unsignCookie(signed, 'secret');
+    const signed = await signCookie('name', '1.2.3.4', 'secret');
+    const result = await unsignCookie('name', signed, 'secret');
     expect(result).toBe('1.2.3.4');
   });
 
   it('should return undefined for empty signed value', async () => {
-    const result = await unsignCookie('', 'secret');
+    const result = await unsignCookie('name', '', 'secret');
     expect(result).toBeUndefined();
   });
 
   it('should return undefined for value with no separator', async () => {
-    const result = await unsignCookie('noseparator', 'secret');
+    const result = await unsignCookie('name', 'noseparator', 'secret');
     expect(result).toBeUndefined();
   });
 
   it('should return undefined for malformed base64 signature', async () => {
-    const result = await unsignCookie('value.!!!invalid!!!base64', 'secret');
+    const result = await unsignCookie('name', 'value.1700000000000.!!!invalid!!!base64', 'secret');
     expect(result).toBeUndefined();
   });
 
   it('should return undefined for wrong secret', async () => {
-    const signed = await signCookie('data', 'correct-secret');
-    const result = await unsignCookie(signed, 'wrong-secret');
+    const signed = await signCookie('name', 'data', 'correct-secret');
+    const result = await unsignCookie('name', signed, 'wrong-secret');
     expect(result).toBeUndefined();
   });
 
   it('should return undefined for truncated signature', async () => {
-    const signed = await signCookie('data', 'secret');
+    const signed = await signCookie('name', 'data', 'secret');
     const truncated = signed.slice(0, -5);
-    const result = await unsignCookie(truncated, 'secret');
+    const result = await unsignCookie('name', truncated, 'secret');
     expect(result).toBeUndefined();
   });
 
   it('should handle unicode values', async () => {
-    const signed = await signCookie('日本語テスト', 'secret');
-    const result = await unsignCookie(signed, 'secret');
+    const signed = await signCookie('name', '日本語テスト', 'secret');
+    const result = await unsignCookie('name', signed, 'secret');
     expect(result).toBe('日本語テスト');
   });
 
   it('should handle very long values', async () => {
     const longValue = 'x'.repeat(4000);
-    const signed = await signCookie(longValue, 'secret');
-    const result = await unsignCookie(signed, 'secret');
+    const signed = await signCookie('name', longValue, 'secret');
+    const result = await unsignCookie('name', signed, 'secret');
     expect(result).toBe(longValue);
   });
 
   it('should handle key rotation with multiple previous secrets', async () => {
-    const signed = await signCookie('data', 'old-secret-2');
-    const result = await unsignCookieWithRotation(signed, {
+    const signed = await signCookie('name', 'data', 'old-secret-2');
+    const result = await unsignCookieWithRotation('name', signed, {
       current: 'new-secret',
       previous: ['old-secret-1', 'old-secret-2', 'old-secret-3'],
     });
@@ -520,8 +559,8 @@ describe('signing edge cases', () => {
   });
 
   it('should return undefined when no key matches', async () => {
-    const signed = await signCookie('data', 'original');
-    const result = await unsignCookieWithRotation(signed, {
+    const signed = await signCookie('name', 'data', 'original');
+    const result = await unsignCookieWithRotation('name', signed, {
       current: 'not-original',
       previous: ['also-not', 'nope'],
     });

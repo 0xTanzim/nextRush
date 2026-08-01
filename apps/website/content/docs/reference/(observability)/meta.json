@@ -1,0 +1,6 @@
+{
+  "title": "Observability",
+  "icon": "Activity",
+  "defaultOpen": false,
+  "pages": ["logger", "health", "timer", "request-id"]
+}

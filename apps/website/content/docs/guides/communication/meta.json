@@ -1,0 +1,7 @@
+{
+  "title": "Communication",
+  "description": "WebSocket, HTTP/2, and real-time communication patterns.",
+  "pages": ["websocket"],
+  "learningPath": ["websocket"],
+  "references": ["../api-development", "../security"]
+}

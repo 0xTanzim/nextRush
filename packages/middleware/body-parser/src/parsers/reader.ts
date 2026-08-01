@@ -9,7 +9,6 @@
 
 import { Errors } from '../errors.js';
 import type { BodyParserContext } from '../types.js';
-import { concatBuffers } from '../utils/buffer.js';
 import { getContentLength } from '../utils/content-type.js';
 
 /**
@@ -18,7 +17,6 @@ import { getContentLength } from '../utils/content-type.js';
  * Features:
  * - Cross-runtime support (Node.js, Bun, Deno, Edge)
  * - Size limit enforcement (pre-check and post-read validation)
- * - Automatic fallback to legacy Node.js stream reading
  * - Proper error handling with descriptive messages
  *
  * @param ctx - Request context
@@ -33,28 +31,13 @@ import { getContentLength } from '../utils/content-type.js';
  * const text = buffer.toString('utf-8');
  * ```
  */
-export async function readBody(ctx: BodyParserContext, limit: number): Promise<Buffer> {
-  // Modern cross-runtime path: use bodySource if available
-  if (ctx.bodySource) {
-    return readBodyFromSource(ctx, limit);
+export async function readBody(ctx: BodyParserContext, limit: number): Promise<Uint8Array> {
+  const bodySource = ctx.bodySource;
+
+  // No body source available (modern adapters always provide one) — empty body.
+  if (!bodySource) {
+    return new Uint8Array(0);
   }
-
-  // Legacy Node.js path: use raw.req stream
-  if (ctx.raw?.req) {
-    return readBodyFromNodeStream(ctx, limit);
-  }
-
-  // No body source available - return empty buffer
-  return Buffer.alloc(0);
-}
-
-/**
- * Read body using the modern BodySource API
- *
- * Works on Node.js, Bun, Deno, and Edge runtimes.
- */
-async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promise<Buffer> {
-  const bodySource = ctx.bodySource!;
 
   // Pre-check Content-Length if available (synchronous rejection)
   const contentLength = bodySource.contentLength ?? getContentLength(ctx.headers);
@@ -63,16 +46,19 @@ async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promis
   }
 
   try {
-    // Read body as Uint8Array using cross-runtime API
-    const uint8Array = await bodySource.buffer();
+    // Read body as Uint8Array using cross-runtime API. Pass the parser's configured
+    // limit so the adapter enforces it incrementally during the read (RFC 017), rather
+    // than a fixed adapter default with only a post-materialization check here.
+    const uint8Array = await bodySource.buffer(limit);
 
     // Post-read size check (for chunked transfers without Content-Length)
     if (uint8Array.length > limit) {
       throw Errors.entityTooLargeStreaming(limit);
     }
 
-    // Zero-copy conversion: share underlying ArrayBuffer memory
-    return Buffer.from(uint8Array.buffer, uint8Array.byteOffset, uint8Array.byteLength);
+    // Return the bytes as-is (runtime-agnostic). Parsers decode via TextDecoder
+    // and expose raw bytes as a Node Buffer only where the runtime provides one.
+    return uint8Array;
   } catch (err) {
     // Re-throw BodyParserError
     if (err instanceof Error && err.name === 'BodyParserError') {
@@ -92,116 +78,4 @@ async function readBodyFromSource(ctx: BodyParserContext, limit: number): Promis
 
     throw Errors.bodyReadError('Unknown error reading body');
   }
-}
-
-/**
- * Read body using Node.js stream API (legacy fallback)
- *
- * @deprecated Prefer using BodySource for cross-runtime compatibility.
- */
-function readBodyFromNodeStream(ctx: BodyParserContext, limit: number): Promise<Buffer> {
-  // Pre-check Content-Length if available (synchronous rejection)
-  const contentLength = getContentLength(ctx.headers);
-
-  if (contentLength !== undefined && contentLength > limit) {
-    return Promise.reject(Errors.entityTooLarge(contentLength, limit));
-  }
-
-  const req = ctx.raw!.req!;
-
-  // Reject if request stream is already destroyed
-  if (req.destroyed) {
-    return Promise.reject(Errors.requestClosed());
-  }
-
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let received = 0;
-    let finished = false;
-
-    /**
-     * Clean up all event listeners
-     */
-    const cleanup = (): void => {
-      if (finished) return;
-      finished = true;
-
-      try {
-        req.off('data', onData);
-        req.off('end', onEnd);
-        req.off('error', onError);
-        req.off('close', onClose);
-        req.off('aborted', onAborted);
-      } catch {
-        // Ignore cleanup errors (request may already be destroyed)
-      }
-    };
-
-    /**
-     * Handle incoming data chunk
-     */
-    const onData = (chunk: Buffer): void => {
-      if (finished) return;
-
-      received += chunk.length;
-
-      // Check size limit during streaming
-      if (received > limit) {
-        cleanup();
-        reject(Errors.entityTooLargeStreaming(limit));
-        return;
-      }
-
-      chunks.push(chunk);
-    };
-
-    /**
-     * Handle successful stream end
-     */
-    const onEnd = (): void => {
-      if (finished) return;
-      cleanup();
-      resolve(concatBuffers(chunks, received));
-    };
-
-    /**
-     * Handle stream error
-     */
-    const onError = (err: Error): void => {
-      if (finished) return;
-      cleanup();
-      reject(Errors.bodyReadError(err.message));
-    };
-
-    /**
-     * Handle connection close (client disconnect)
-     */
-    const onClose = (): void => {
-      if (finished) return;
-      cleanup();
-      reject(Errors.requestClosed());
-    };
-
-    /**
-     * Handle request abort
-     */
-    const onAborted = (): void => {
-      if (finished) return;
-      cleanup();
-      reject(Errors.requestAborted());
-    };
-
-    // Check if request is already destroyed
-    if (req.destroyed) {
-      reject(Errors.requestClosed());
-      return;
-    }
-
-    // Attach event listeners
-    req.on('data', onData);
-    req.on('end', onEnd);
-    req.on('error', onError);
-    req.on('close', onClose);
-    req.on('aborted', onAborted);
-  });
 }

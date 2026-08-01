@@ -1,5 +1,39 @@
 # @nextrush/timer
 
+## 1.0.0
+
+### Patch Changes
+
+- [`d4cb1f7`](https://github.com/0xTanzim/nextRush/commit/d4cb1f7982a3ff6f2f8ec8b0bc4000e109a49fd9) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Consolidated patch release across all NextRush public packages.
+
+- Updated dependencies [[`d4cb1f7`](https://github.com/0xTanzim/nextRush/commit/d4cb1f7982a3ff6f2f8ec8b0bc4000e109a49fd9)]:
+  - @nextrush/types@4.0.0
+
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- Consolidated patch release across all NextRush public packages.
+
+- Updated dependencies []:
+  - @nextrush/types@4.0.0-beta.2
+
+## 1.0.0-beta.0
+
+### Patch Changes
+
+- Updated dependencies [2820a4c]
+- Updated dependencies [838367f]
+  - @nextrush/types@4.0.0-beta.0
+
+## 3.0.6
+
+### Patch Changes
+
+- Updated dependencies [d7eb075]
+- Updated dependencies [32a0db6]
+  - @nextrush/types@3.1.0
+
 ## 3.0.5
 
 ### Patch Changes

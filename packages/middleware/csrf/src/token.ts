@@ -62,6 +62,67 @@ export function clearKeyCache(): void {
 }
 
 // ============================================================================
+// Blinding Key (per-process, random — never a compile-time literal)
+// ============================================================================
+
+let blindingKeyPromise: Promise<CryptoKey> | undefined;
+
+/**
+ * Lazily generate and cache the HMAC blinding key used by `constantTimeEqual`.
+ *
+ * Generated once per process from `crypto.getRandomValues()`, never from a
+ * literal string, so the comparison result cannot be reproduced from source.
+ */
+function getBlindingKey(): Promise<CryptoKey> {
+  if (!blindingKeyPromise) {
+    const keyBytes = new Uint8Array(32);
+    crypto.getRandomValues(keyBytes);
+    blindingKeyPromise = crypto.subtle.importKey(
+      'raw',
+      keyBytes as ArrayBufferView<ArrayBuffer>,
+      { name: HMAC_ALGORITHM, hash: HASH_ALGORITHM },
+      false,
+      ['sign', 'verify']
+    );
+  }
+  return blindingKeyPromise;
+}
+
+/**
+ * Reset the cached blinding key. Exposed for testing.
+ * @internal
+ */
+export function clearBlindingKeyCache(): void {
+  blindingKeyPromise = undefined;
+}
+
+// ============================================================================
+// Token Shape Validation (runs before any crypto.subtle call)
+// ============================================================================
+
+/** Hex length of an HMAC-SHA256 digest (32 bytes). */
+const HMAC_HEX_LENGTH = 64;
+
+/**
+ * Structural pre-check for a `<hmac-hex>.<random-hex>` token, run before any
+ * cryptographic operation so a malformed token costs zero `crypto.subtle` calls.
+ */
+export function isValidTokenShape(token: unknown): token is string {
+  if (typeof token !== 'string' || token.length === 0) return false;
+
+  const separatorIndex = token.indexOf(TOKEN_SEPARATOR);
+  if (separatorIndex === -1) return false;
+
+  const hmacHex = token.substring(0, separatorIndex);
+  const randomHex = token.substring(separatorIndex + 1);
+
+  if (hmacHex.length !== HMAC_HEX_LENGTH) return false;
+  if (randomHex.length === 0) return false;
+
+  return isValidHex(hmacHex) && isValidHex(randomHex);
+}
+
+// ============================================================================
 // Hex Encoding
 // ============================================================================
 
@@ -187,22 +248,16 @@ export async function validateToken(
  * Compares two strings byte-by-byte without short-circuiting.
  * Uses HMAC-based comparison for true constant-time guarantees
  * (XOR comparison can still leak length in some JS engines).
+ *
+ * The blinding key is a per-process random value (see `getBlindingKey`),
+ * imported once and cached — never a compile-time literal, never re-imported
+ * per call.
  */
 export async function constantTimeEqual(a: string, b: string): Promise<boolean> {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
 
-  // Use HMAC to achieve constant-time comparison regardless of JS engine
-  // Both values are HMACed with a fixed key, then compared via crypto.subtle.verify
+  const key = await getBlindingKey();
   const encoder = new TextEncoder();
-  const keyData = encoder.encode('csrf-compare');
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: HMAC_ALGORITHM, hash: HASH_ALGORITHM },
-    false,
-    ['sign', 'verify']
-  );
 
   const sigA = await crypto.subtle.sign(HMAC_ALGORITHM, key, encoder.encode(a));
   const isEqual = await crypto.subtle.verify(HMAC_ALGORITHM, key, sigA, encoder.encode(b));

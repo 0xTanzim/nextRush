@@ -16,6 +16,7 @@ import {
     validateCookieOptions,
     validateCookiePrefix
 } from '../validation.js';
+import { timingSafeEqual } from '../signing.js';
 
 describe('SecurityError', () => {
   it('should create error with code', () => {
@@ -337,5 +338,41 @@ describe('validateCookieOptions', () => {
     expect(() => {
       validateCookieOptions({ sameSite: 'none', secure: true });
     }).not.toThrow();
+  });
+});
+
+describe('CK-3: expanded public-suffix coverage (common hosting suffixes)', () => {
+  it.each([
+    'github.io',
+    'vercel.app',
+    'netlify.app',
+    'herokuapp.com',
+    'pages.dev',
+    'workers.dev',
+  ])('treats %s as a public suffix', (suffix) => {
+    expect(isPublicSuffix(suffix)).toBe(true);
+  });
+
+  it('rejects setting a cookie Domain on a hosting public suffix', () => {
+    expect(() => validateCookieOptions({ domain: 'vercel.app', secure: true })).toThrow(
+      SecurityError
+    );
+  });
+
+  it('still allows a real sub-domain under a hosting suffix', () => {
+    expect(() => validateCookieOptions({ domain: 'myapp.vercel.app', secure: true })).not.toThrow();
+  });
+});
+
+describe('CK-6: timingSafeEqual correctness', () => {
+  it('returns true for equal strings (including empty)', () => {
+    expect(timingSafeEqual('', '')).toBe(true);
+    expect(timingSafeEqual('abc', 'abc')).toBe(true);
+  });
+
+  it('returns false for different strings and differing lengths', () => {
+    expect(timingSafeEqual('abc', 'abd')).toBe(false);
+    expect(timingSafeEqual('', 'x')).toBe(false);
+    expect(timingSafeEqual('abc', 'abcd')).toBe(false);
   });
 });

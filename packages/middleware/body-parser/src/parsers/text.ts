@@ -10,7 +10,7 @@ import type { Middleware } from '@nextrush/types';
 
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
 import type { BodyParserContext, TextOptions } from '../types.js';
-import { bufferToString } from '../utils/buffer.js';
+import { bufferToString, toRawBody } from '../utils/buffer.js';
 import {
   extractCharset,
   getContentType,
@@ -63,32 +63,35 @@ export function text(options: TextOptions = {}): Middleware {
   const limitBytes = parseLimit(limit, DEFAULT_LIMITS.TEXT);
   const types = Array.isArray(type) ? type : [type];
 
-  return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
-    // Skip methods that don't have bodies
-    if (BODYLESS_METHODS.has(ctx.method)) {
-      if (next) await next();
-      return;
-    }
-
-    // Skip if body already parsed by another middleware
-    if (ctx.body !== undefined) {
-      if (next) await next();
-      return;
-    }
-
-    // Check content type
+  return (async (
+    ctx: BodyParserContext,
+    next?: () => Promise<void>,
+    prechecked = false
+  ): Promise<void> => {
+    // Content-type is needed below for charset detection, so compute it always; the
+    // guard checks are skipped when routed by the combined parser (BP-E).
     const contentType = getContentType(ctx.headers);
-    if (!matchContentType(contentType, types)) {
-      if (next) await next();
-      return;
+    if (!prechecked) {
+      if (BODYLESS_METHODS.has(ctx.method)) {
+        if (next) await next();
+        return;
+      }
+      if (ctx.body !== undefined) {
+        if (next) await next();
+        return;
+      }
+      if (!matchContentType(contentType, types)) {
+        if (next) await next();
+        return;
+      }
     }
 
     // Read body
     const buffer = await readBody(ctx, limitBytes);
 
-    // Store raw body if requested
+    // Store raw body if requested (Buffer on Node, Uint8Array on edge)
     if (rawBody) {
-      ctx.rawBody = buffer;
+      ctx.rawBody = toRawBody(buffer);
     }
 
     // Handle empty body
@@ -104,11 +107,11 @@ export function text(options: TextOptions = {}): Middleware {
 
     // Invoke verify callback before parsing
     if (verify) {
-      await verify(ctx, buffer, encoding);
+      await verify(ctx, toRawBody(buffer), encoding);
     }
 
-    // Convert buffer to string
-    ctx.body = bufferToString(buffer, encoding as BufferEncoding);
+    // Decode bytes to string via the runtime-agnostic decoder
+    ctx.body = bufferToString(buffer, encoding);
 
     if (next) await next();
   }) as unknown as Middleware;

@@ -1,0 +1,278 @@
+---
+title: Middleware
+description: How NextRush runs every request through a Koa-style onion of async middleware — each layer sees the request going in and the response coming back out.
+keywords: [concepts, core, framework, middleware, nextrush]
+---
+
+Every real request needs the same handful of things before it reaches your code: a parsed body, an authenticated user, a log line, a response timer. Write that work inside each handler and you copy it a hundred times. Forget it in one handler and you have a bug — or a security hole — that no one notices until production.
+
+## What you'll learn
+
+- **Understand** why cross-cutting work doesn't belong inside individual handlers
+- **Understand** how the Koa-style onion model lets one function see both the request and the response
+- **Recognize** what `ctx.next()` does, and why the order you register middleware in decides behavior
+- **Choose** when a concern belongs in middleware and when it belongs in a single handler
+
+## The problem
+
+Cross-cutting concerns — authentication, logging, timing, CORS — apply to many routes, not one. The direct approach is to do that work at the top of every handler:
+
+```ts
+import { createRouter } from 'nextrush';
+
+declare function authenticate(token: string | undefined): { id: string } | null;
+
+const router = createRouter();
+
+// Every handler repeats the same preamble — and every new one can forget it.
+router.get('/users/:id', (ctx) => {
+  const start = Date.now();                             // timing
+  const user = authenticate(ctx.get('Authorization')); // auth
+  if (!user) { ctx.status = 401; return ctx.json({ error: 'Unauthorized' }); }
+  console.log(`${ctx.method} ${ctx.path}`);             // logging
+
+  ctx.json({ id: ctx.params.id });                      // the actual work is one line
+
+  ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+});
+```
+
+The one line that matters is buried under four that don't. Worse, the preamble is copy-pasted into every route, so a fix to the auth check has to be found and repeated everywhere, and a handler that omits it fails silently.
+
+## Why this matters
+
+A handler is the code you write most of, and this duplication is paid on every one. Multiply it across a growing route table and a growing team, and "did this route remember to check auth?" becomes a question you can't answer by reading one file. The cost isn't a single dramatic bug — it's a steady drag on every change, and a security posture that depends on no one ever forgetting. Solving a cross-cutting concern once, in front of the handlers, removes both problems at the source.
+
+## The solution
+
+NextRush lets you register **middleware**: async functions that wrap your handlers and run on every matched request. Each middleware does its slice of work — parse, authenticate, log, time — then calls `ctx.next()` to hand control to the next one. Because control comes *back* after `next()` resolves, the same function can act before the handler runs and again after it produces a response. You write each concern once, in the pipeline, and every handler behind it inherits it.
+
+## Core idea
+
+Think of middleware as **concentric layers wrapped around your handler**, not a straight line of steps. A request travels inward through each layer to reach the handler, and the response travels back outward through the same layers in reverse. This is the **onion model** (the Koa-style pipeline): every middleware gets two moments — one on the way in, before `ctx.next()`, and one on the way out, after it.
+
+## Mental model
+
+<Mermaid
+  chart="
+sequenceDiagram
+    actor Client
+    participant Logger as Logger middleware
+    participant Auth as Auth middleware
+    participant Handler
+    Client->>Logger: request enters the pipeline
+    activate Logger
+    Note over Logger: run code before await ctx.next()
+    Logger->>Auth: await ctx.next()
+    activate Auth
+    Note over Auth: run code before await ctx.next()
+    Auth->>Handler: await ctx.next()
+    activate Handler
+    Note over Handler: build the response
+    Handler-->>Auth: return
+    deactivate Handler
+    Note over Auth: run code after ctx.next()
+    Auth-->>Logger: return
+    deactivate Auth
+    Note over Logger: run code after ctx.next()
+    Logger-->>Client: response leaves the pipeline
+    deactivate Logger
+"
+/>
+
+The stacked activation bars are the onion: the Logger stays active for the entire request because it is the outermost layer, Auth stays active inside it, and the handler is deepest. Don't read this as four steps in a row — notice that each middleware's *after-`next()`* code runs on the way back out, in the **reverse** of registration order.
+
+## Quick example
+
+The smallest useful middleware measures how long the rest of the request took. It runs its "before" work, awaits the rest of the pipeline, then runs its "after" work — all in one function:
+
+```ts title="app.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  const start = Date.now();
+  await ctx.next();                                  // hand off, then wait
+  ctx.set('X-Response-Time', `${Date.now() - start}ms`); // runs on the way out
+});
+
+const router = createRouter();
+router.get('/', (ctx) => ctx.json({ ok: true }));
+app.route('/', router);
+
+listen(app, 8080);
+```
+
+The header is set *after* `await ctx.next()`, which is the whole point of the onion: the timing middleware wraps everything downstream and finishes last.
+
+## How it works
+
+**Example** — register three middleware and watch when each half runs:
+
+```ts title="onion-order.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+
+app.use(async (ctx) => { console.log('1: before'); await ctx.next(); console.log('1: after'); });
+app.use(async (ctx) => { console.log('2: before'); await ctx.next(); console.log('2: after'); });
+
+const router = createRouter();
+router.get('/', (ctx) => { console.log('3: handler'); ctx.json({ ok: true }); });
+app.route('/', router);
+
+listen(app, 8080);
+
+// Any request logs:
+// 1: before
+// 2: before
+// 3: handler
+// 2: after
+// 1: after
+```
+
+**Observation** — the "before" lines run in registration order, the handler runs in the middle, and the "after" lines run in reverse. Middleware 1 opened first and closed last.
+
+**Explanation** — a middleware is any async function with this shape, and NextRush supports two equivalent ways to advance the chain:
+
+```ts
+import type { Middleware } from '@nextrush/types';
+
+// Modern — call ctx.next()
+const a: Middleware = async (ctx) => { await ctx.next(); };
+
+// Traditional — receive next as the second argument
+const b: Middleware = async (ctx, next) => { await next(); };
+```
+
+Both call the *same* underlying dispatch, so they behave identically — pick one style and stay consistent. Under the hood, `app.use()` collects your middleware into a stack and `compose()` folds that stack into one function. It gives each middleware a `next` that advances exactly one step, wires the same function to `ctx.next()`, and preserves the onion by awaiting each layer before unwinding. The internals — the composed dispatch, its fast paths, per-request isolation — belong to the [middleware internals](/docs/architecture/middleware-internals); a concept page teaches the model, not the machinery. `compose()` is also exported directly when you want to bundle several middleware into one reusable unit:
+
+```ts title="compose.ts"
+import { createApp, compose } from 'nextrush';
+import type { Middleware } from '@nextrush/types';
+
+const app = createApp();
+
+const requestId: Middleware = async (ctx) => {
+  ctx.set('X-Request-Id', crypto.randomUUID());
+  await ctx.next();
+};
+
+const timer: Middleware = async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  ctx.set('X-Response-Time', `${Date.now() - start}ms`);
+};
+
+const observability = compose([requestId, timer]); // one middleware, applied as a group
+app.use(observability);
+```
+
+`compose()` snapshots its array when you call it, so mutating the original array afterward changes nothing. Both `app.use()` and `compose()` reject a non-function argument with a `TypeError`, and calling `ctx.next()` twice in one middleware rejects with `next() called multiple times` — the pipeline fails loudly rather than corrupting the chain. The [request lifecycle](/docs/concepts/request-lifecycle) concept walks the full ordering, from adapter to router to handler.
+
+## Typical use cases
+
+Middleware is the right home for any concern that spans more than one route. Each of these reads from `ctx`, optionally shares a value on [`ctx.state`](/docs/concepts/context), and then calls `ctx.next()`:
+
+```ts title="cross-cutting.ts"
+import { createApp } from 'nextrush';
+
+declare function verifyToken(token: string): Promise<{ id: string }>;
+
+const app = createApp();
+
+// Authentication — attach the user for everything downstream.
+app.use(async (ctx) => {
+  const token = ctx.get('Authorization')?.replace('Bearer ', '');
+  if (token) ctx.state.user = await verifyToken(token);
+  await ctx.next();
+});
+
+// Authorization gate — stop the pipeline by NOT calling next().
+app.use(async (ctx) => {
+  if (!ctx.state.user) {
+    ctx.status = 401;
+    return ctx.json({ error: 'Unauthorized' }); // no ctx.next() → downstream never runs
+  }
+  await ctx.next();
+});
+```
+
+Auth, logging, timing, rate limiting, CORS, body parsing — all follow this shape. A middleware that decides a request should go no further sends a response and skips `ctx.next()`; omitting the call is how you deliberately short-circuit the chain. Route-level and group-level middleware follow the same model — see [routing](/docs/concepts/routing) for where they attach.
+
+## Performance
+
+- **Complexity** — `compose()` folds the stack once, at setup, not per request. Dispatch is index-based iteration over that snapshot, so a request pays for the number of middleware it passes through, nothing more. An empty stack takes a fast path that resolves immediately.
+- **Memory** — the composed function and its snapshot are allocated once and shared across every request; a request adds only a small per-invocation guard, not a fresh copy of the chain.
+- **Scaling** — cost grows with the *length* of the pipeline, so keep hot-path middleware lean and capture configuration at startup with a factory rather than recomputing it per request. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before optimizing.
+
+## Security
+
+Middleware order is not a style choice — it is your security posture. A layer only protects what runs *inside* it, which is exactly what the onion guarantees and exactly what an out-of-order stack breaks.
+
+- **Ordering.** *Threat:* auth, CORS, or rate-limit middleware registered after a route handler never runs before that handler. *Why:* the onion runs outer layers first, so a security layer must be registered before the code it guards. *Safe default:* register authentication, CORS, and rate limiting before business logic and route handlers. *Avoid:* mounting a route and then adding its guard afterward.
+- **Untrusted `ctx.state`.** *Threat:* a downstream middleware trusts a value an upstream one wrote. *Why:* `ctx.state` is shared, mutable, and only as trustworthy as whatever put data there. *Safe default:* validate anything derived from the request before writing it to `ctx.state`. *Avoid:* treating a `ctx.state` value as safe merely because it is present.
+- **Error leakage.** *Threat:* an unhandled error sends a stack trace or file path to the client. *Why:* raw error objects expose internal structure. *Safe default:* wrap the pipeline in an error boundary that maps failures to safe responses — see [error handling](/docs/guides/api-development/error-handling). *Avoid:* returning `err.message` or `err.stack` to clients in production.
+
+<Callout type="warn">
+  If CORS or authentication middleware runs *after* your route handler, it has no effect at all. Security middleware must be registered before the routes it protects — order is the boundary.
+</Callout>
+
+## Trade-offs
+
+**Why the onion model** — it optimizes for solving a cross-cutting concern in one place while still letting that concern act on both the request and the response.
+
+- **Benefits** — write a concern once instead of per handler; one function can bracket the whole request (open a span, close it; start a timer, stop it); errors thrown downstream propagate back up to an outer `try/catch`, so one boundary catches everything inside it.
+- **Costs** — the execution order is nested rather than linear, which takes a moment to internalize; a forgotten `await` on `ctx.next()` breaks the "after" half; the order you register middleware in is load-bearing.
+- **Alternatives** — a linear "before" pipeline with separate "after" hooks is simpler to picture but splits one concern (a timer's start and stop) across two places; putting logic directly in handlers avoids the pipeline but reintroduces the duplication this solves.
+- **Why NextRush chose this** — the Koa-style onion is a proven model that keeps a cross-cutting concern in a single cohesive function and composes cleanly across every runtime, which matters more than the one-time cost of learning to read it inside-out.
+
+## Decision guide
+
+**Put logic in middleware when:**
+
+- ✓ The concern applies to many routes — auth, logging, timing, CORS, body parsing
+- ✓ You need to act both before the handler and after the response is produced
+- ✓ You want one place to short-circuit requests that should not reach a handler
+
+**Keep logic in the handler when:**
+
+- ✗ It applies to a single route — a middleware that runs on one route is indirection with no payoff
+- ✗ The value never depends on the request — compute it once at startup, not per request
+
+**Move work off the request path entirely when:**
+
+- ✓ It is CPU-intensive — middleware runs on every matched request, so offload heavy work to a queue or worker
+
+## Common mistakes
+
+- **Forgetting `await` on `ctx.next()`.** *Why it happens:* `next()` returns a promise that is quick to overlook. *Correct approach:* always `await ctx.next()` when code must run after downstream finishes. *If ignored:* your "after" code runs before the response is ready, and the request can complete out from under you — a race condition.
+- **Registering an error handler or auth guard too late.** *Why it happens:* middleware is added in the order features are built, not the order they must run. *Correct approach:* register outer concerns (error boundary, auth, CORS) first so they wrap everything after them. *If ignored:* the guard never runs for the routes it was meant to protect.
+- **Calling `ctx.next()` more than once.** *Why it happens:* two branches each advance the chain. *Correct approach:* call it exactly once per middleware. *If ignored:* the dispatch rejects with `next() called multiple times`, so the mistake surfaces immediately instead of silently double-running downstream.
+
+## Key takeaways
+
+- Middleware exists to solve a cross-cutting concern once, in front of the handlers, instead of repeating it in each one.
+- The onion model gives every middleware two moments: before `ctx.next()` on the way in, and after it on the way out.
+- "Before" code runs in registration order; "after" code runs in reverse — the outermost middleware finishes last.
+- `(ctx) => { await ctx.next() }` and `(ctx, next) => { await next() }` are identical; omitting `next()` deliberately short-circuits the pipeline.
+- Registration order is a security boundary — a layer only protects what runs inside it.
+- Errors thrown downstream propagate back up the onion, so one outer boundary can catch them all.
+
+## Continue learning
+
+<Cards>
+  <Card title="Request lifecycle" href="/docs/concepts/request-lifecycle">
+    Where the middleware pipeline sits in the full journey from adapter to handler.
+  </Card>
+  <Card title="Write custom middleware" href="/docs/guides/api-development/custom-middleware">
+    Put the model to work — read input, share state, and pass control in your own middleware.
+  </Card>
+  <Card title="@nextrush/core reference" href="/docs/reference">
+    The full compose() and Application.use() surface — signatures and options.
+  </Card>
+  <Card title="Middleware internals" href="/docs/architecture/middleware-internals">
+    How compose() dispatches the stack and preserves the onion per request.
+  </Card>
+</Cards>

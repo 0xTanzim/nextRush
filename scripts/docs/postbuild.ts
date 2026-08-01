@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const OUT_DIR = join(__dirname, '../../apps/docs/out');
+const OUT_DIR = join(__dirname, '../../apps/website/out');
 const BASE_PATH = process.env.NEXTRUSH_DOCS_BASE_PATH ?? '';
 
 if (!BASE_PATH) {

@@ -1,0 +1,5 @@
+{
+  "title": "Core Framework",
+  "defaultOpen": true,
+  "pages": ["index", "application", "context", "middleware", "routing", "errors"]
+}

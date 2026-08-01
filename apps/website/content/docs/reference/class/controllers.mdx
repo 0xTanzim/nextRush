@@ -1,0 +1,603 @@
+---
+title: 'Controllers'
+description: 'Auto-discovery and registerControllers() — wiring @Controller classes onto an app.'
+keywords: [class, controllers, nextrush, reference]
+---
+
+Build scalable APIs with automatic controller discovery and dependency injection.
+
+`registerControllers()` scans your source directory for `@Controller`-decorated classes,
+resolves their dependencies, and registers routes on your app's router. No manual wiring
+required. For the decorators used to define controllers and routes, see
+[Decorators](/docs/reference/class/decorators). For composing controllers into feature groups,
+see [Modules](/docs/reference/class/modules).
+
+`registerControllers()` is a **registrar** — a plain async function you call and `await` once at
+startup. There is no `controllersPlugin()`, no `ControllersPlugin` class, and no `app.plugin()`.
+It reads `app.router` and `app.container` directly and must complete before `listen()`/`serve()`
+starts the server.
+
+---
+
+## Why Auto-Discovery?
+
+In production applications with dozens of controllers, manual registration creates maintenance burden. Auto-discovery scales to any size:
+
+```typescript
+// ✅ Auto-discovery scales to any size
+await registerControllers(app, {
+  root: './src',
+  prefix: '/api/v1',
+});
+```
+
+Add a controller file matching the `*.controller.*` convention (e.g. `user.controller.ts`) anywhere
+in `./src` — any subdirectory. Decorate the class with `@Controller` and it is automatically
+discovered and registered. No imports, no arrays. Services and guards need no special name; they
+load transitively via the controllers that import them.
+
+---
+
+## Installation
+
+If you use the `nextrush` meta-package, everything is included:
+
+<PackageInstall packages={['nextrush']} />
+
+Or install `@nextrush/class` directly:
+
+<PackageInstall packages={['@nextrush/class']} />
+
+The `nextrush` meta-package auto-imports `reflect-metadata` for you. If using `@nextrush/class`
+directly, install `reflect-metadata` separately and import it **first** in your entry point —
+see [Dependency Injection](/docs/reference/class/di) for the full setup.
+
+---
+
+## Quick Start
+
+```typescript title="src/index.ts"
+import { createApp, listen } from 'nextrush';
+import { registerControllers } from 'nextrush/class';
+
+async function main() {
+  const app = createApp();
+
+  // Auto-discover all @Controller classes in ./src
+  // Any file name, any subdirectory — no naming convention required
+  await registerControllers(app, {
+    root: './src',
+    prefix: '/api',
+  });
+
+  await listen(app, 8080);
+}
+
+main();
+```
+
+```typescript title="src/controllers/user.controller.ts"
+import { Controller, Get, Post, Body, Service } from 'nextrush/class';
+
+@Service()
+class UserService {
+  private users = [{ id: '1', name: 'Alice' }];
+
+  findAll() {
+    return this.users;
+  }
+
+  create(name: string) {
+    const user = { id: Date.now().toString(), name };
+    this.users.push(user);
+    return user;
+  }
+}
+
+@Controller('/users')
+export class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  findAll() {
+    return { data: this.userService.findAll() };
+  }
+
+  @Post()
+  create(@Body('name') name: string) {
+    return { data: this.userService.create(name) };
+  }
+}
+```
+
+When the app starts with `debug: true`:
+
+```
+[Controllers] Starting auto-discovery in: ./src
+[Controllers] Discovered: UserController from ./src/controllers/user.controller.ts
+[Controllers] Registered: UserController
+  GET     /api/users
+  POST    /api/users
+[Controllers] Initialized with 2 routes
+```
+
+---
+
+## `registerControllers(app, options)`
+
+**Signature:**
+
+```typescript
+function registerControllers(app: Application, options?: ControllersOptions): Promise<void>;
+```
+
+Reads `app.router` (required — throws if absent) and `app.container` (falls back to `options.container`, then the global container). Always `await` it before starting the server.
+
+<TypeTable
+  title="Parameters"
+  types={{
+    app: {
+      type: 'Application',
+      description: 'The app instance. Must have a router — use `createApp()` from `nextrush`, or pass `{ router }` to `@nextrush/core`\'s `createApp()`.',
+    },
+    options: {
+      type: 'ControllersOptions',
+      description: 'Discovery and registration options',
+      optional: true,
+    },
+  }}
+/>
+
+<TypeTable
+  title="Auto-Discovery"
+  types={{
+    root: {
+      type: 'string',
+      description: 'Root directory to scan for controllers. Enables auto-discovery when provided.',
+      optional: true,
+    },
+    include: {
+      type: 'string[]',
+      description:
+        'Glob patterns to include. Defaults to the *.controller.* convention; pass ["**/*.ts", "**/*.js"] to scan every source file. Matched files are dynamically imported (runs their top-level code).',
+      default: "['**/*.controller.ts', '**/*.controller.js']",
+    },
+    exclude: {
+      type: 'string[]',
+      description: 'Glob patterns to exclude from auto-discovery',
+      default:
+        "['**/*.test.ts', '**/*.spec.ts', '**/*.test.js', '**/*.spec.js', '**/node_modules/**', '**/dist/**', '**/__tests__/**']",
+    },
+    strict: {
+      type: 'boolean',
+      description: 'Throw on discovery errors instead of logging warnings',
+      default: 'false',
+    },
+  }}
+/>
+
+<TypeTable
+  title="Route Configuration"
+  types={{
+    prefix: {
+      type: 'string',
+      description: 'Route prefix applied to all controllers',
+      default: "''",
+    },
+    middleware: {
+      type: 'Middleware[]',
+      description: 'Global middleware applied to all routes',
+      optional: true,
+    },
+  }}
+/>
+
+<TypeTable
+  title="Advanced"
+  types={{
+    container: {
+      type: 'Container',
+      description: 'Custom DI container. Falls back to `app.container`, then the global container.',
+      optional: true,
+    },
+    debug: {
+      type: 'boolean',
+      description: 'Enable debug logging for discovery and registration',
+      default: 'false',
+    },
+    controllers: {
+      type: 'Function[]',
+      description: 'Explicit controller list — a first-class alternative to auto-discovery (no filesystem scan). Merged with any `root`-discovered controllers.',
+      optional: true,
+    },
+  }}
+/>
+
+**Returns:** `Promise<void>` — resolves once every discovered controller's routes are registered on `app.router`.
+
+**Throws:** if `app.router` is missing, or (in `strict: true` mode) if a discovery error occurs.
+
+---
+
+## Discovery Patterns
+
+### Default Patterns
+
+By default, `registerControllers` imports files matching the `*.controller.*` convention, excluding tests and build artifacts:
+
+```typescript
+await registerControllers(app, {
+  root: './src',
+  // Default patterns:
+  // include: ['**/*.controller.ts', '**/*.controller.js']
+  // exclude: ['**/*.test.ts', '**/*.spec.ts', '**/*.test.js', '**/*.spec.js',
+  //           '**/node_modules/**', '**/dist/**', '**/__tests__/**']
+});
+```
+
+<Callout type="warn" title="Discovery imports run module code">
+  Discovery dynamically `import()`s every matched module, executing its top-level code (DI
+  registration, singleton construction). By default, only `*.controller.*` files under `root` are
+  imported — services, guards, and repositories need no special name, they load transitively via
+  the controllers that import them. Narrow `include` further if a matched module has side-effects
+  you don't want at startup, or pass the scan-all escape hatch (`include: ['**/*.ts', '**/*.js']`)
+  to scan every file instead.
+</Callout>
+
+### Custom Patterns
+
+Narrow the scan to specific directories or naming conventions:
+
+<Tabs items={['By directory', 'By naming convention', 'Feature-based']}>
+  <Tab value="By directory">
+    ```typescript
+    await registerControllers(app, {
+      root: './src',
+      include: ['controllers/**/*.ts'],
+    });
+    ```
+  </Tab>
+  <Tab value="By naming convention">
+    ```typescript
+    await registerControllers(app, {
+      root: './src',
+      include: ['**/*.controller.ts', 'modules/**/*.controller.ts'],
+    });
+    ```
+  </Tab>
+  <Tab value="Feature-based">
+    ```typescript
+    await registerControllers(app, {
+      root: './src/features',
+      include: ['**/controller.ts', '**/routes.ts'],
+    });
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Response & Status Codes
+
+A value returned from a handler is serialized as JSON with **HTTP 200**. Returning an object with a
+`status` field does not change the HTTP status — the response is still `200`, with `status` sitting
+in the body.
+
+```typescript
+@Get('/:id')
+findOne(@Param('id') id: string) {
+  return { id }; // 200 OK, Content-Type: application/json
+}
+```
+
+To send a different status code, pick one of three approaches:
+
+| Approach                                       | Use when                                         |
+| ----------------------------------------------- | ------------------------------------------------ |
+| `@HttpCode(201)`                                | The status is fixed for the route                |
+| Inject `@Ctx()` and set `ctx.status`            | The status depends on runtime logic              |
+| `throw` an `HttpError` subclass                 | Signalling an error (e.g. `NotFoundError` → 404) |
+
+The thrown-error path is the idiomatic way to return a `404` from a controller — throw a typed
+`HttpError` and let the error handler map it to the right status and body.
+
+```typescript
+import { NotFoundError } from 'nextrush';
+
+@Controller('/users')
+export class UserController {
+  @Get('/:id')
+  findById(@Param('id', { transform: Number }) id: number) {
+    const user = this.userService.findById(id);
+    if (!user) {
+      throw new NotFoundError('User not found'); // → 404 Not Found
+    }
+    return user; // → 200 OK
+  }
+}
+```
+
+---
+
+## Controller Lifecycle: Singletons
+
+Controllers are resolved from the DI container as **singletons** by default. One instance is
+created lazily on the first request to a route, then reused for every request afterward and
+shared across all concurrent requests. Keep controllers stateless — put per-request data in
+`ctx.state` (via `@Ctx()`), never on `this`.
+
+```typescript
+// ❌ Wrong — `this.currentUser` is shared by every request
+@Controller('/users')
+export class UserController {
+  private currentUser?: User;
+
+  @Get('/me')
+  me(@Ctx() ctx: Context) {
+    this.currentUser = ctx.state.user as User; // leaks into the next request
+    return this.currentUser;
+  }
+}
+
+// ✅ Correct — per-request state lives in ctx.state
+@Controller('/users')
+export class UserController {
+  @Get('/me')
+  me(@Ctx() ctx: Context) {
+    return ctx.state.user;
+  }
+}
+```
+
+Constructor-injected services and repositories are safe to hold on `this` — they are themselves
+singletons, transient, or request-scoped. A controller with a request-scoped dependency
+anywhere in its graph is resolved fresh per request automatically; see
+[Dependency Injection & Scopes](/docs/concepts/dependency-injection) for how scope bubbling
+works through `registerControllers`.
+
+---
+
+## Dependency Injection
+
+Controllers are constructor-injected from the DI container. See
+[Dependency Injection](/docs/reference/class/di) for `@Service`, `@Repository`, and scopes.
+
+### Custom Container
+
+```typescript
+import { createContainer, registerControllers } from 'nextrush/class';
+
+const container = createContainer();
+
+// Register configuration
+container.register('CONFIG', {
+  useValue: { apiKey: process.env.API_KEY },
+});
+
+await registerControllers(app, {
+  root: './src',
+  container,
+});
+```
+
+Or pass the container directly to `createApp()` so it flows to every registrar and extension automatically:
+
+```typescript
+const app = createApp({ container });
+await registerControllers(app, { root: './src' }); // uses app.container
+```
+
+---
+
+## Error and Failure Behavior
+
+```typescript
+import {
+  GuardRejectionError,
+  MissingParameterError,
+  ParameterInjectionError,
+  ControllerResolutionError,
+} from 'nextrush/class';
+
+// Global error handler
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (error) {
+    if (error instanceof GuardRejectionError) {
+      ctx.status = 403;
+      ctx.json({ error: 'Access denied', guard: error.guardName });
+      return;
+    }
+
+    if (error instanceof MissingParameterError) {
+      ctx.status = 400;
+      ctx.json({ error: error.message });
+      return;
+    }
+
+    if (error instanceof ControllerResolutionError) {
+      ctx.status = 500;
+      ctx.json({ error: 'Internal configuration error' });
+      console.error('DI Resolution failed:', error);
+      return;
+    }
+
+    throw error;
+  }
+});
+```
+
+<TypeTable
+  title="Error Classes"
+  types={{
+    ControllerError: { type: 'Error', description: 'Base class for controller/registration errors' },
+    ControllerResolutionError: { type: 'ControllerError', description: 'DI failed to resolve a controller or its dependencies' },
+    DiscoveryError: { type: 'ControllerError', description: 'Filesystem discovery of controller files failed' },
+    GuardRejectionError: { type: 'ControllerError', description: 'A guard returned false (see Decorators — Guards)' },
+    MissingParameterError: { type: 'ControllerError', description: 'A required parameter (e.g. createCustomParamDecorator({ required: true })) was undefined' },
+    NoRoutesError: { type: 'ControllerError', description: 'No routes were discovered/registered' },
+    NotAControllerError: { type: 'ControllerError', description: 'A class passed to `controllers` has no @Controller metadata' },
+    NotAModuleError: { type: 'ControllerError', description: 'A class passed to a Module\'s `imports` has no @Module metadata' },
+    ParameterInjectionError: { type: 'ControllerError', description: 'A parameter transform threw or returned an invalid value' },
+    RouteRegistrationError: { type: 'ControllerError', description: 'The router rejected a route registration (e.g. duplicate)' },
+  }}
+/>
+
+---
+
+## Strict Mode
+
+Enable strict mode to fail fast on discovery errors:
+
+```typescript
+await registerControllers(app, {
+  root: './src',
+  strict: true, // Throws on any discovery error
+});
+```
+
+In non-strict mode (default), discovery errors are logged as warnings but don't stop the application.
+
+---
+
+## Explicit Registration
+
+Pass `controllers` directly to register a known list of classes without scanning the
+filesystem. This is a **first-class, fully supported** alternative to auto-discovery — reach
+for it when explicit wiring reads better than convention: greppable registration,
+deterministic order, or no filesystem scan (tests, bundled or serverless builds where dynamic
+`import()` of a source tree isn't available):
+
+```typescript
+import { registerControllers } from 'nextrush/class';
+
+// Explicit controller list — no filesystem scanning
+await registerControllers(app, {
+  controllers: [UserController, PostController],
+});
+```
+
+<Callout type="info">
+  `root` (auto-discovery) and `controllers` (explicit) can be combined — discovered controllers
+  and those passed in `controllers` are merged.
+</Callout>
+
+---
+
+## Discovery Utilities
+
+Lower-level building blocks used internally by `registerControllers`, useful for custom tooling:
+
+```typescript
+import {
+  discoverControllers,
+  getControllersFromResults,
+  getErrorsFromResults,
+  FilesystemSource,
+  MemorySource,
+  ControllerRegistry,
+  buildRoutes,
+  getClassDiagnostics,
+} from 'nextrush/class';
+```
+
+- `discoverControllers(source, options)` — run discovery against a `DiscoverySource`.
+- `FilesystemSource` — the default source; scans a directory with `include`/`exclude` globs.
+- `MemorySource` — an in-memory source for tests, taking an explicit class list.
+- `ControllerRegistry` — tracks discovered/registered controllers.
+- `buildRoutes(controllers, options)` — build router-ready route definitions from controller
+  metadata without registering them.
+- `getClassDiagnostics(app)` — routes, providers, circular dependencies, and timings for the
+  whole registration graph.
+
+---
+
+## TypeScript Configuration
+
+Required compiler options for decorators:
+
+<Callout type="error" title="Required Configuration">
+  Without `experimentalDecorators` and `emitDecoratorMetadata`, decorators silently fail. The DI
+  container cannot resolve constructor parameters.
+</Callout>
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}
+```
+
+---
+
+## TypeScript Exports
+
+<details>
+<summary>Complete import reference</summary>
+
+```typescript
+import {
+  // Registrar
+  registerControllers,
+
+  // Discovery
+  discoverControllers,
+  getControllersFromResults,
+  getErrorsFromResults,
+  FilesystemSource,
+  MemorySource,
+
+  // Registry
+  ControllerRegistry,
+
+  // Builder
+  buildRoutes,
+
+  // Diagnostics
+  getClassDiagnostics,
+
+  // Errors
+  ControllerError,
+  ControllerResolutionError,
+  DiscoveryError,
+  GuardRejectionError,
+  HttpError,
+  MissingParameterError,
+  NoRoutesError,
+  NotAControllerError,
+  NotAModuleError,
+  ParameterInjectionError,
+  RouteRegistrationError,
+} from 'nextrush/class';
+
+import type {
+  BuiltRoute,
+  ControllersOptions,
+  DiscoveryOptions,
+  DiscoveryResult,
+  RegisteredController,
+  ResolvedOptions,
+  DiscoverySource,
+  ApplicationGraph,
+  CircularDependency,
+  DiagnosticsReport,
+  DuplicateRoute,
+  ProviderEntry,
+  RouteEntry,
+  TimingEntry,
+} from 'nextrush/class';
+```
+
+</details>
+
+---
+
+## Related
+
+- [Class-Based Controllers Guide](/docs/guides/api-development/class-based) — Full working example
+- [Decorators](/docs/reference/class/decorators) — Controller, route, param, guard, interceptor, filter decorators
+- [Modules](/docs/reference/class/modules) — Composing controllers into feature groups
+- [Dependency Injection & Scopes](/docs/concepts/dependency-injection) — How DI works internally

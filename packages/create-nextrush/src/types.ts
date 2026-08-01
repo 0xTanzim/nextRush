@@ -33,7 +33,11 @@ export interface ParsedArgs {
   readonly middleware?: MiddlewarePreset;
   readonly packageManager?: PackageManager;
   readonly install: boolean;
+  /** True when `--install`/`-i`/`--no-install` was explicitly passed (vs. left at its default). */
+  readonly installExplicit: boolean;
   readonly git: boolean;
+  /** True when `--git`/`--no-git` was explicitly passed (vs. left at its default). */
+  readonly gitExplicit: boolean;
   readonly yes: boolean;
   readonly help: boolean;
   readonly version: boolean;

@@ -8,6 +8,7 @@
   },
   "packageManager": "pnpm@10.29.3",
   "scripts": {
+    "postinstall": "simple-git-hooks",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "test": "turbo run test",
@@ -16,7 +17,7 @@
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
-    "verify": "turbo run verify",
+    "verify": "turbo run verify && pnpm validate:bins && pnpm validate:esm-only && pnpm validate:manifest-composition && pnpm check:coverage",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "clean:modules": "bash scripts/clean-modules.sh",
     "update:all": "bash scripts/update-all.sh",
@@ -26,29 +27,38 @@
     "docs:validate": "tsx scripts/docs/build-docs.ts",
     "docs:validate:strict": "tsx scripts/docs/build-docs.ts --strict",
     "validate:bins": "tsx scripts/validate-bins.ts",
+    "validate:esm-only": "tsx scripts/validate-esm-only.ts",
+    "validate:manifest-composition": "tsx scripts/validate-manifest-composition.ts",
+    "validate:changeset-baselines": "tsx scripts/validate-changeset-baselines.ts",
+    "verify:release-state": "tsx scripts/verify-release-state.ts",
+    "check:coverage": "tsx scripts/check-coverage.ts",
     "changeset": "changeset",
-    "version": "changeset version",
-    "release": "turbo run build && changeset publish --provenance",
+    "version": "pnpm validate:changeset-baselines && pnpm verify:release-state && changeset version",
+    "release:check": "pnpm verify:release-state && pnpm validate:changeset-baselines",
+    "release": "turbo run build && changeset publish",
     "create": "node packages/create-nextrush/bin/create-nextrush.js"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.6.0",
-    "@changesets/cli": "^2.30.0",
+    "@changesets/cli": "^2.31.1",
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.5.2",
-    "@typescript-eslint/eslint-plugin": "^8.58.1",
-    "@typescript-eslint/parser": "^8.58.1",
-    "@vitest/coverage-v8": "^4.1.4",
-    "@vitest/ui": "^4.1.4",
-    "eslint": "^10.2.0",
+    "@types/node": "^25.9.5",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/ui": "^4.1.10",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.7.0",
     "eslint-config-prettier": "^10.1.8",
-    "prettier": "^3.8.1",
+    "miniflare": "^4.20260721.0",
+    "prettier": "^3.9.6",
+    "simple-git-hooks": "2.13.1",
     "tsup": "^8.5.1",
-    "tsx": "^4.21.0",
-    "turbo": "^2.9.5",
-    "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.1",
-    "vitest": "^4.1.4"
+    "tsx": "^4.23.1",
+    "turbo": "^2.10.5",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.10"
   },
   "repository": {
     "type": "git",
@@ -63,5 +73,9 @@
     "email": "tanzimhossain2@gmail.com",
     "url": "https://github.com/0xTanzim"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec tsx scripts/git-hooks/pre-commit.ts",
+    "pre-push": "pnpm exec tsx scripts/git-hooks/pre-push.ts"
+  }
 }

@@ -9,7 +9,6 @@
 
 export {
   BadRequestError,
-  createError as createHttpError,
   ForbiddenError,
   HttpError,
   InternalServerError,

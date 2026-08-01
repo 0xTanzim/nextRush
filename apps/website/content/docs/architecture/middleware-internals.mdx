@@ -1,0 +1,348 @@
+---
+title: Middleware Flow
+description: Internal architecture of NextRush's compose() engine — dispatch mechanics, ctx.next() wiring, error propagation, snapshotting, and the callback() pipeline.
+keywords: [architecture, flow, internals, middleware, nextrush]
+---
+
+import { Mermaid } from '@/components/mdx';
+
+This page explains **how** the middleware engine works internally. For the mental model, usage patterns, and common mistakes, see [Middleware Concepts](/docs/concepts/middleware).
+
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/core/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/core/ARCHITECTURE.md) —
+  `compose()` and `Application.callback()` live in `@nextrush/core`.
+</Callout>
+
+## The Dispatch Mechanism
+
+The `compose()` function in `@nextrush/core` transforms a `Middleware[]` into a single `ComposedMiddleware` function. The return type accepts an optional outer `next`:
+
+```ts
+import type { Context, Next } from '@nextrush/types';
+
+type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
+```
+
+Composition works through index-based recursive dispatch. Each call to `next()` advances the index by one and invokes the next middleware in the stack. The real implementation has **three paths**, not one — an empty-stack fast path, a single-middleware fast path (the overwhelmingly common shape: one mounted router), and the general recursive-dispatch path:
+
+```ts
+// Actual implementation (faithful to real behavior — see packages/core/src/middleware.ts)
+import type { Middleware, Context, Next } from '@nextrush/types';
+
+type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
+
+interface ComposeOptions {
+  warnDoubleResponse?: boolean;
+}
+
+function emitDoubleResponseWarning(index: number): void {
+  // logs a dev-only warning; internal, not exported
+}
+
+export function compose(middleware: Middleware[], options?: ComposeOptions): ComposedMiddleware {
+  const warnDoubleResponse = options?.warnDoubleResponse ?? false;
+  const stack = [...middleware]; // Snapshot at compose time
+  const len = stack.length;
+
+  // FAST PATH: no middleware
+  if (len === 0) {
+    return (_ctx: Context, next?: Next) => (next ? next() : Promise.resolve());
+  }
+
+  // FAST PATH: exactly one middleware — avoids the recursive dispatch closure
+  // and per-call index comparison while preserving every observable semantic
+  // (a per-invocation double-next guard, ctx.setNext wiring, sync-throw → rejection).
+  if (len === 1) {
+    const only = stack[0];
+    return function composedSingle(ctx: Context, next?: Next) {
+      let called = false; // per-invocation — never hoisted
+      const nextFn = () => {
+        if (called) return Promise.reject(new Error('next() called multiple times'));
+        called = true;
+        if (warnDoubleResponse && ctx.responded) emitDoubleResponseWarning(0);
+        return next ? next() : Promise.resolve();
+      };
+      if (ctx.setNext) ctx.setNext(nextFn);
+      try {
+        return Promise.resolve(only(ctx, nextFn));
+      } catch (err) {
+        return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    };
+  }
+
+  // GENERAL PATH: index-based dispatch, no per-request closure chains
+  return function composedMiddleware(ctx: Context, next?: Next) {
+    let index = -1; // Per-request state
+
+    function dispatch(i: number): Promise<void> {
+      if (i <= index) {
+        return Promise.reject(new Error('next() called multiple times'));
+      }
+      index = i;
+
+      const fn = i < len ? stack[i] : next;
+      if (!fn) return Promise.resolve();
+
+      const nextFn = () => {
+        if (warnDoubleResponse && ctx.responded) emitDoubleResponseWarning(i);
+        return dispatch(i + 1);
+      };
+
+      if (ctx.setNext) ctx.setNext(nextFn);
+
+      try {
+        return Promise.resolve(fn(ctx, nextFn));
+      } catch (err) {
+        return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+
+    return dispatch(0);
+  };
+}
+```
+
+`@nextrush/core` is a runtime-agnostic package and must not read `process.env` directly — so
+`warnDoubleResponse` defaults to `false` at the `compose()` level. `Application.callback()` is
+the one caller that opts it on outside production, by passing `{ warnDoubleResponse:
+!this.isProduction }` explicitly (see [The callback() Pipeline](#the-callback-pipeline) below).
+
+Properties to note (the general path shown above; the single-middleware fast path preserves all four with a per-invocation `called` flag instead of the shared `index`):
+
+- **Snapshot** — `[...middleware]` copies the array once. Later mutations to the source array have no effect on the composed function.
+- **Per-request isolation** — The `index` variable is scoped to the `composedMiddleware` closure. Concurrent requests each get their own `index`.
+- **Double-next guard** — If `i <= index`, dispatch was already called at or past this index. The promise rejects with `'next() called multiple times'`.
+- **Double-response warning** — When `warnDoubleResponse` is enabled, `nextFn` checks `ctx.responded` before dispatching. If a response was already sent, it logs a `console.warn()` identifying the middleware index, then dispatches anyway.
+
+<Mermaid chart={`
+sequenceDiagram
+    participant C as composedMiddleware
+    participant D as dispatch(0)
+    participant M1 as Middleware 1
+    participant M2 as Middleware 2
+    participant M3 as Middleware 3
+
+    C->>D: dispatch(0)
+    D->>M1: fn(ctx, nextFn)
+    Note over M1: "before" code runs
+    M1->>D: nextFn() → dispatch(1)
+    D->>M2: fn(ctx, nextFn)
+    Note over M2: "before" code runs
+    M2->>D: nextFn() → dispatch(2)
+    D->>M3: fn(ctx, nextFn)
+    Note over M3: handler runs
+    M3-->>D: resolves
+    D-->>M2: nextFn resolves
+    Note over M2: "after" code runs
+    M2-->>D: resolves
+    D-->>M1: nextFn resolves
+    Note over M1: "after" code runs
+    M1-->>C: resolves
+
+`} />
+
+## How ctx.next() Is Wired
+
+NextRush supports two equivalent calling styles for middleware:
+
+<Tabs items={['Modern (ctx.next)', 'Traditional (next param)']}>
+  <Tab value="Modern (ctx.next)">
+    ```ts
+    import { createApp } from 'nextrush';
+
+    const app = createApp();
+    app.use(async (ctx) => {
+      await ctx.next();
+    });
+    ```
+  </Tab>
+  <Tab value="Traditional (next param)">
+    ```ts
+    import { createApp } from 'nextrush';
+
+    const app = createApp();
+    app.use(async (ctx, next) => {
+      await next();
+    });
+    ```
+  </Tab>
+</Tabs>
+
+Both call the same underlying dispatch function. The wiring happens inside `dispatch()`:
+
+```ts
+import type { Context } from '@nextrush/types';
+
+function dispatch(i: number): Promise<void> {
+  // ...
+  const ctx: Context = {} as Context; // (real ctx is passed through the outer closure)
+  const nextFn = () => dispatch(i + 1);
+  if (ctx.setNext) ctx.setNext(nextFn);
+  return Promise.resolve();
+}
+```
+
+Before calling each middleware, `dispatch()` sets `ctx.next` to a function that calls `dispatch(i + 1)`. The `next` parameter passed to the middleware is the same `nextFn`. Both paths invoke the same dispatch — they are interchangeable.
+
+The `setNext` method on Context is optional and internal. Adapters provide it when constructing the context object.
+
+## Error Propagation
+
+Errors travel back through the dispatch chain via promise rejection. Here is the concrete flow when middleware 3 throws:
+
+```
+dispatch(0) → MW 1 before code
+  dispatch(1) → MW 2 before code
+    dispatch(2) → MW 3 throws Error
+    ← Promise.reject(err) returned to dispatch(1)
+  ← MW 2's next() rejects, propagates unless caught
+← MW 1's next() rejects, propagates unless caught
+```
+
+Any middleware can catch errors from downstream middleware with try/catch:
+
+```ts
+import { createApp } from 'nextrush';
+import { HttpError } from '@nextrush/errors';
+
+const app = createApp();
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (err) {
+    // Handle error from any downstream middleware
+    ctx.status = err instanceof HttpError ? err.status : 500;
+    ctx.json({ error: err instanceof Error ? err.message : 'Internal error' });
+  }
+});
+```
+
+Synchronous exceptions inside middleware are caught by the try/catch in `dispatch()` and converted to rejected promises:
+
+```ts
+import type { Middleware, Context } from '@nextrush/types';
+
+function dispatch(fn: Middleware, ctx: Context, nextFn: () => Promise<void>): Promise<void> {
+  try {
+    return Promise.resolve(fn(ctx, nextFn));
+  } catch (err) {
+    return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+  }
+}
+```
+
+This means both `throw new Error(...)` and `return Promise.reject(...)` behave identically from the caller's perspective.
+
+## The callback() Pipeline
+
+`Application.callback()` builds the complete request handler. It snapshots the middleware stack once, at call time — passing `warnDoubleResponse: !this.isProduction` so the double-response warning is on everywhere except production — then wraps the composed function with error handling:
+
+```ts
+// Actual implementation (faithful to real behavior — see packages/core/src/application.ts)
+import type { Context, Middleware } from '@nextrush/types';
+import { compose } from '@nextrush/core';
+
+class Application {
+  private readonly middlewareStack: Middleware[] = [];
+  private readonly isProduction: boolean = false;
+  private handleError(error: unknown, ctx: Context): Promise<void> {
+    return Promise.resolve();
+  }
+
+  callback(): (ctx: Context) => Promise<void> {
+    const fn = compose(this.middlewareStack, {
+      warnDoubleResponse: !this.isProduction,
+    });
+
+    return async (ctx: Context): Promise<void> => {
+      try {
+        await fn(ctx);
+      } catch (error) {
+        await this.handleError(error, ctx);
+      }
+    };
+  }
+}
+```
+
+Note what this does **not** do: there is no plugin-hook system, no `onRequest`/`onResponse`/`onError`/`extendContext` collection step. Every piece of per-request behavior — logging, auth, context augmentation — is a middleware function in `this.middlewareStack`, dispatched by `compose()`. Extensions that need to touch every request add their own middleware inside `setup()` (via `ctx.app.use(...)`); they don't get a separate hook lane.
+
+The execution order for each request is:
+
+1. `compose()`'s dispatch loop runs the middleware stack (see [The Dispatch Mechanism](#the-dispatch-mechanism) above)
+2. If any middleware throws or its returned promise rejects, `handleError()` runs: the custom error handler set via `setErrorHandler()` if one exists, otherwise the default handler
+
+<Callout type="warn">
+  `callback()` snapshots the middleware stack at call time. Middleware registered after `callback()`
+  is called will not be included in the returned handler. Adapters call `app.ready()` (which mounts
+  the app-owned router as the final middleware entry) and then `callback()` once during server
+  startup.
+</Callout>
+
+## Runtime Safety
+
+`Application` freezes its configuration once `app.ready()` has booted every extension:
+
+```ts
+import { createApp, createRouter } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+const middleware = async (ctx: unknown, next: () => Promise<void>) => next();
+const someExtension = { name: 'example', setup() {}, destroy() {} };
+
+await app.ready(); // boots extensions, then freezes configuration
+
+app.use(middleware); // Throws: "Cannot call use() after the app has booted (ready()) or started — configuration is frozen"
+app.route('/api', router); // Throws: "Cannot call route() after the app has booted (ready()) or started — configuration is frozen"
+app.extend(someExtension); // Throws: "Cannot call extend() after the app has booted (ready()) or started — configuration is frozen"
+```
+
+Each mutating method calls the same private `assertConfigurable(method)` guard first, which checks `this._isReady || this._isRunning` and throws one shared message template (with `method` substituted in) before any state changes. This prevents race conditions where middleware or extensions are added while requests are in flight.
+
+`app.use()` also validates each argument is a function at registration time:
+
+```ts
+import { createApp } from 'nextrush';
+
+const app = createApp();
+app.use('not a function' as unknown as never); // Throws: TypeError("Middleware must be a function")
+```
+
+`compose()` performs the same validation — both the array type and each element.
+
+## Edge Cases
+
+**Empty middleware stack** — `compose([])` returns a fast-path function that calls the outer `next` if provided, or resolves immediately. No dispatch loop is created.
+
+**Single middleware** — `compose([mw])` returns a dedicated fast-path function with a per-invocation `called` flag instead of the general path's shared `index`. This is the common case for an application mounting exactly one router.
+
+**next() not called** — If a middleware does not call `next()`, dispatch stops. The `dispatch(i + 1)` function is never invoked, so remaining middleware never executes. The composed promise resolves normally.
+
+**Final next** — When the last middleware calls `next()`, dispatch looks for `fn` at index `len`, which resolves to the outer `next` passed to `composedMiddleware`. If no outer next was provided, `fn` is `undefined` and dispatch resolves.
+
+## Performance Characteristics
+
+The compose implementation is optimized for minimal per-request overhead:
+
+| Aspect                 | Implementation                                                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| Dispatch mechanism     | Index-based recursion for 2+ middleware; a dedicated fast path (no recursion) for exactly 1               |
+| Per-request allocation | Single `index` variable per request (or a single `called` flag on the 1-middleware fast path)              |
+| Stack snapshot         | One shallow copy at compose time, zero copies per request                                                |
+| Empty / single stack   | Both have dedicated fast paths — no recursive dispatch closure is created for either                     |
+| Sync error handling    | try/catch wraps each middleware call, converts to rejected promise                                       |
+| Middleware flattening  | `flattenMiddleware()` uses bounded `Array.flat(10)` to prevent V8 deoptimization on deeply nested arrays |
+
+<Callout type="info">
+  `compose()` validates the middleware array eagerly at compose time, not lazily at dispatch time.
+  Invalid middleware is caught before any request arrives.
+</Callout>
+
+## Next Steps
+
+- [Middleware Concepts](/docs/concepts/middleware) — mental model, usage patterns, common mistakes
+- [Request Lifecycle](/docs/concepts/request-lifecycle) — how middleware fits into the full request pipeline
+- [Package Hierarchy](/docs/architecture/package-hierarchy) — available middleware packages

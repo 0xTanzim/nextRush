@@ -16,6 +16,12 @@ export interface HttpErrorOptions {
   expose?: boolean;
   details?: Record<string, unknown>;
   cause?: unknown;
+  /** Correlation/request identifier (audit E-5). */
+  requestId?: string;
+  /** Distributed-trace identifier (audit E-5). */
+  traceId?: string;
+  /** ISO-8601 creation timestamp (audit E-5). */
+  timestamp?: string;
 }
 
 // =============================================================================

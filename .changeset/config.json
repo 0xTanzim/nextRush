@@ -10,8 +10,6 @@
       "@nextrush/router",
       "@nextrush/runtime",
       "@nextrush/di",
-      "@nextrush/decorators",
-      "@nextrush/controllers",
       "@nextrush/adapter-node",
       "nextrush"
     ]
@@ -20,7 +18,7 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["api"],
+  "ignore": [],
   "privatePackages": {
     "version": false,
     "tag": false

@@ -85,11 +85,18 @@ describe('createError', () => {
     expect(error).toBeInstanceOf(GatewayTimeoutError);
   });
 
-  it('should create generic HttpError for unmapped status', () => {
+  it('should create a specific typed class for a mapped status (418)', () => {
     const error = createError(418);
     expect(error).toBeInstanceOf(HttpError);
     expect(error.status).toBe(418);
-    expect(error.message).toBe("I'm a Teapot");
+    expect(error.code).toBe('IM_A_TEAPOT');
+  });
+
+  it('should create generic HttpError for an unmapped status', () => {
+    const error = createError(499);
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error.status).toBe(499);
+    expect(error.code).toBe('HTTP_499');
   });
 
   it('should pass options to error', () => {

@@ -2,6 +2,11 @@
 # Dependencies
 node_modules/
 **/node_modules/
+deno.lock
+
+# Per-workstream git worktrees (task 1.7 / harden-security-boundaries)
+.worktrees/
+
 .internal
 .agents
 .cursor
@@ -13,13 +18,16 @@ Copilot-Processing.md
 
 # Build outputs
 dist/
-build/
 **/dist/
-**/build/
-apps/docs/.vitepress/cache
+# Compiled build output only (never a source folder literally named `build/`,
+# e.g. packages/dev/src/commands/build/ — those are legitimate source modules).
+/build/
+apps/*/build/
+apps/website/.vitepress/cache
 # Turbo cache
 .turbo/
 **/.turbo/
+
 
 # Downloaded CI log folders (local debugging)
 logs_*/
@@ -27,6 +35,7 @@ logs_*/
 # ===== DEVELOPMENT FILES =====
 # IDE & Editor files
 .idea/
+.zed/
 *.swp
 *.swo
 *.sublime-*
@@ -91,6 +100,7 @@ yarn.lock
 tmp/
 temp/
 .tmp/
+.tmp-*/
 .temp/
 
 # Cache directories
@@ -124,6 +134,8 @@ Copilot-Processing.md
 !packages/create-nextrush/bin/**
 !packages/dev/bin/
 !packages/dev/bin/**
+!packages/nextrush/bin/
+!packages/nextrush/bin/**
 
 
 .commandcode
@@ -131,3 +143,24 @@ Copilot-Processing.md
 # Screenshots
 *.png
 .playwright-mcp/
+
+.maxential
+.codegraph
+.gstack
+.kiro
+.playwright-cli
+
+# ===== OPENSPEC =====
+# Change archive is disposable local scratch, intentionally NOT version-controlled.
+# Rationale: it is never read for truth; git commit history is the record of shipped
+# changes, and durable architectural decisions are promoted to docs/RFC/ (see
+# openspec/README.md). Living truth lives in openspec/specs/ (tracked). Local copies
+# stay on disk for peeking — delete them anytime; git ignores the folder either way.
+openspec/changes/archive/*
+!openspec/changes/archive/.gitkeep
+
+
+examples
+
+feedback
+.opencode

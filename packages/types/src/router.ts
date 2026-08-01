@@ -2,13 +2,15 @@
  * @nextrush/types - Router Type Definitions
  *
  * Types for the NextRush router system.
- * The router uses a radix tree for efficient route matching.
+ * The router matches routes with a segment trie keyed by whole path segments,
+ * giving O(k) lookups where k is the number of path segments.
  *
  * @packageDocumentation
  */
 
 import type { Context, Middleware, RouteHandler } from './context';
 import type { HttpMethod } from './http';
+import type { RouteDefinition, RouteEntry } from './route-metadata';
 
 // ============================================================================
 // Route Definition Types
@@ -64,52 +66,62 @@ export interface Router {
   /**
    * Register a GET route
    */
-  get(path: string, ...handlers: RouteHandler[]): this;
+  get(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a POST route
    */
-  post(path: string, ...handlers: RouteHandler[]): this;
+  post(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a PUT route
    */
-  put(path: string, ...handlers: RouteHandler[]): this;
+  put(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a DELETE route
    */
-  delete(path: string, ...handlers: RouteHandler[]): this;
+  delete(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a PATCH route
    */
-  patch(path: string, ...handlers: RouteHandler[]): this;
+  patch(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a HEAD route
    */
-  head(path: string, ...handlers: RouteHandler[]): this;
+  head(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register an OPTIONS route
    */
-  options(path: string, ...handlers: RouteHandler[]): this;
+  options(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a route for any HTTP method
    */
-  all(path: string, ...handlers: RouteHandler[]): this;
+  all(path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Register a route for specific method
    */
-  route(method: HttpMethod, path: string, ...handlers: RouteHandler[]): this;
+  route(method: HttpMethod, path: string, ...entries: RouteEntry[]): this;
 
   /**
    * Mount router middleware
    */
-  use(path: string, router: Router): this;
+  /**
+   * Mount middleware.
+   *
+   * @remarks
+   * Sub-router mounting (`router.use(path, subRouter)`) is a concrete
+   * `@nextrush/router` `Router` capability, not part of this structural
+   * interface — mounting needs internal tree access
+   * (`Router.mount()`/the concrete class's own `use()` overload provide it).
+   * Cross-package router composition goes through `Application.route()`
+   * (`Routable`, `routes()`-only) instead.
+   */
   use(middleware: Middleware): this;
 
   /**
@@ -126,6 +138,13 @@ export interface Router {
    * Mount this on the application
    */
   routes(): Middleware;
+
+  /**
+   * Return every registered route as a read-only list of RouteDefinitions.
+   * Consumed by renderers (`@nextrush/openapi`, SDK/Postman generators).
+   * Doc-generation-time projection — never called on the request hot path.
+   */
+  getRoutes(): readonly RouteDefinition[];
 
   /**
    * Match a route
@@ -158,6 +177,14 @@ export interface RouterOptions {
    * @default false
    */
   strict?: boolean;
+
+  /**
+   * Whether to percent-decode extracted param and wildcard values
+   * (via `decodeURIComponent`). Malformed encoding falls back to the raw value
+   * and never throws. Set to `false` to receive raw, undecoded values.
+   * @default true
+   */
+  decode?: boolean;
 }
 
 // ============================================================================

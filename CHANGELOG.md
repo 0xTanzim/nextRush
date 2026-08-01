@@ -4,6 +4,62 @@ All notable changes to the NextRush framework will be documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/) and uses a unified version across all `@nextrush/*` packages.
 
+## [Unreleased]
+
+### Policy
+
+- **Module format: ESM-only, permanently ratified.** NextRush publishes ESM only. No
+  `@nextrush/*` package's `exports` map will ever declare a `require` condition, and
+  CommonJS output is banned — not deferred, not "currently unsupported," not a roadmap
+  item. Dual-publish (ESM + CommonJS) was formally evaluated and explicitly **rejected**:
+  see `apps/website/content/docs/internals/versioning.mdx` ("Module format: ESM-only,
+  permanently") and `openspec/changes/archive/2026-07-17-module-format-policy/design.md`
+  for the full rationale (dual-package hazard on the `@nextrush/di`
+  `reflect-metadata`/`tsyringe` path; Node ≥22's native `require(esm)` already covering
+  the strongest historical case for dual-publishing; doubled maintenance cost across ~35
+  packages). CommonJS consumers use dynamic `import()`, or native `require(esm)` on Node
+  ≥22.12 for synchronous import graphs.
+- **Enforced in CI, not just documented.** A new `pnpm validate:esm-only` check
+  (`scripts/validate-esm-only.ts`) fails the build if any published package's `exports`
+  map ever gains a `require` condition, or if `"type": "module"` is dropped from any
+  package's `package.json`. Wired into `pnpm verify`.
+- **Fixed a pre-existing CI wiring gap** discovered while adding the check above:
+  `check:coverage` and `validate:bins` were listed in `turbo.json`'s `verify`
+  `dependsOn` but Turborepo never actually dispatched either — both are root-only
+  `package.json` scripts with no matching per-package task, so they silently resolved
+  to zero executions despite exiting 0. The coverage gate and bin validator have not
+  been enforced by CI's `pnpm verify` until this fix. The root `verify` script now
+  explicitly runs `turbo run verify && pnpm validate:bins && pnpm validate:esm-only &&
+  pnpm check:coverage`.
+
+## [3.0.7]
+
+### Changed
+
+- **`create-nextrush`**: Simplified scaffold template code; the scaffolder now auto-installs `@nextrush/dev` so generated projects have a working `nextrush dev`/`nextrush build` out of the box.
+
+## [3.0.6]
+
+### Fixed
+
+- **CLI install reliability**: The `nextrush` meta-package no longer declares a `bin` entry (prevents pnpm bin-link conflicts with `@nextrush/dev`'s own binaries).
+- **`@nextrush/dev`**: Always builds before publish, so the `nextrush`/`nextrush-dev` binaries are present in the published package.
+- **`create-nextrush`**: Scaffolded projects use `nextrush dev` / `nextrush build` scripts directly (no `npx` indirection) and include `@nextrush/dev` in scaffolded dev dependencies.
+- Added a repo-wide bin validator (`scripts/validate-bins.ts`) to catch missing `bin` targets during release verification.
+
+## [3.0.5]
+
+### Added
+
+- **`@nextrush/validation`**: New package — Standard Schema request validation middleware. `validate(schema)` validates and coerces `ctx.body`; `validate({ body, query, params })` validates any combination of targets. Works with any [Standard Schema](https://standardschema.dev) library (Zod, Valibot, ArkType). Failures throw the existing `ValidationError` from `@nextrush/errors` — no new error shape.
+- **`@nextrush/openapi`**: New package — zero-config OpenAPI 3.1 generation, the first renderer of the Route Metadata System. `app.plugin(openapi({ router }))` reads route metadata contributed by `validate()` and `endpoint()`, generates a cached OpenAPI 3.1 document once (lazily, on first request), and serves it at `/openapi.json` plus a Swagger UI at `/docs`.
+- **Route Metadata System**: New framework-level foundation (`@nextrush/types`, `@nextrush/router`) that lets tooling read a route's request/response shapes without duplicating schemas. `@nextrush/router` exports `endpoint()` (a pure metadata marker) and `Router.getRoutes(): readonly RouteDefinition[]`. `@nextrush/validation`'s `validate()` and `@nextrush/controllers`' decorators (`@Controller({ tags })`, `@Get/@Post({ description, deprecated })`) both contribute to it automatically. Additive and backward-compatible — the request hot path is unaffected; an interleaved A/B benchmark confirmed dispatch throughput is unchanged.
+- **`nextrush`**: Re-exports `endpoint()` and the `RouteDefinition`/`RouteMetadata` types, so `import { endpoint } from 'nextrush'` sits next to `createRouter`.
+
+### Fixed
+
+- **`@nextrush/di`**: `container.reset()` clears internal resolution tracking; Vitest runs test files sequentially (`fileParallelism: false`) so the global singleton container is not raced by parallel test files — fixes flaky or timing-out circular-dependency tests in CI and locally.
+
 ## [3.0.4]
 
 ### Changed
@@ -49,7 +105,7 @@ Historical aggregate changelog for early **v3** prereleases. **Current npm relea
 - **@nextrush/helmet** — Security headers middleware with CSP, HSTS, X-Frame-Options, and 11 configurable policies
 - **@nextrush/cookies** — Cookie parsing and serialization middleware
 - **@nextrush/compression** — Response compression with gzip/deflate/brotli support
-- **@nextrush/multipart** — Multipart form-data parsing with pluggable storage (memory/disk)
+- **@nextrush/form-data** — Multipart form-data parsing with pluggable storage (memory/disk)
 - **@nextrush/rate-limit** — Rate limiting middleware with sliding window algorithm
 - **@nextrush/request-id** — Request ID generation and propagation
 - **@nextrush/timer** — Request timing middleware

@@ -1,0 +1,11 @@
+{
+  "name": "nextrush-deploy-verification-vercel",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Throwaway Vercel Edge Function app for scheduled real-cloud deploy verification (openspec/changes/close-runtime-compatibility-gaps, task group 5). Not published.",
+  "dependencies": {
+    "@nextrush/adapter-edge": "workspace:*",
+    "@nextrush/core": "workspace:*"
+  }
+}

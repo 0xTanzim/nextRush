@@ -306,7 +306,7 @@ Security score must be 9 or above. If insecure-by-default, redesign defaults.
 Analyze:
 
 - All exported types, classes, and functions
-- Extension points: middleware contracts, plugin interface, adapter interface
+- Extension points: middleware contracts, Extension interface (`app.extend()`), registrar functions, adapter interface
 - Function overload ambiguity
 - Hidden internal types leaking through public surface
 - Breaking change risk on next minor/major version

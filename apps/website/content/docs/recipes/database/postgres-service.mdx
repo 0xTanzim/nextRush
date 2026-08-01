@@ -1,0 +1,184 @@
+---
+title: Postgres in a Service Layer
+description: Wire a pooled Postgres client as a factory service — no ORM, no decorator.
+keywords: [nextrush, database, postgres, service, sql, recipes]
+difficulty: beginner
+readingTime: "10 min"
+status: stable
+---
+
+> A thin, pooled Postgres client with hand-written SQL. No ORM, no `@Service()` decorator required.
+
+## Before you start
+
+- Node.js 18+, Bun 1.0+, or Deno 1.30+
+- Postgres instance running locally or remotely
+- `DATABASE_URL` connection string ready
+
+## Why a Service Layer?
+
+Wrapping raw queries in a service gives you testable, injectable data access. The `postgres` npm client handles pooling, parameterized queries (SQL injection safe), and tagged-template syntax — no ORM ceremony.
+
+## Setup
+
+```bash
+npm install postgres
+```
+
+<Callout type="tip" title="No ORM needed">
+  The `postgres` client is lightweight — ~6 KB. You can switch to Prisma or Drizzle later if your schema grows complex.
+</Callout>
+
+## Usage
+
+### 1. Database factory
+
+A plain factory function returns a pooled client — no class, no decorator.
+
+```ts title="src/db.ts"
+import postgres from 'postgres';
+
+export interface Db {
+  sql: ReturnType<typeof postgres>;
+  close(): Promise<void>;
+}
+
+export function createDb(): Db {
+  const sql = postgres(process.env.DATABASE_URL ?? '', {
+    max: 10,
+    idle_timeout: 30,
+  });
+
+  return {
+    sql,
+    async close() {
+      await sql.end();
+    },
+  };
+}
+```
+
+### 2. Use it directly
+
+```ts title="src/users.ts"
+import { createDb } from './db';
+
+const db = createDb();
+
+export async function findUser(id: number) {
+  const rows = await db.sql<{ id: number; email: string }[]>`
+    SELECT id, email FROM users WHERE id = ${id}
+  `;
+  return rows[0] ?? null;
+}
+```
+
+### 3. With DI container (optional)
+
+Register the factory as a provider for automatic wiring.
+
+```ts title="src/providers.ts"
+import { createContainer } from '@nextrush/di';
+import { createDb } from './db';
+
+const container = createContainer();
+
+container.register('DB', {
+  useFactory: () => createDb(),
+});
+
+container.register('USER_REPO', {
+  useFactory: (db: Db) => ({
+    async findById(id: number) {
+      const rows = await db.sql<{ id: number; email: string }[]>`
+        SELECT id, email FROM users WHERE id = ${id}
+      `;
+      return rows[0] ?? null;
+    },
+  }),
+  inject: ['DB'],
+});
+
+export { container };
+```
+
+### 4. Class-based alternative (optional)
+
+If you prefer `@Service()` decorators, the same logic works as a class.
+
+```ts title="src/database.service.ts"
+import { Service } from 'nextrush/class';
+import postgres from 'postgres';
+
+@Service()
+export class DatabaseService {
+  readonly sql = postgres(process.env.DATABASE_URL ?? '', {
+    max: 10,
+    idle_timeout: 30,
+  });
+
+  async close() {
+    await this.sql.end();
+  }
+}
+```
+
+```ts title="src/user.service.ts"
+import { Service } from 'nextrush/class';
+import { DatabaseService } from './database.service';
+
+@Service()
+export class UserService {
+  constructor(private db: DatabaseService) {}
+
+  async findById(id: number) {
+    const rows = await this.db.sql<{ id: number; email: string }[]>`
+      SELECT id, email FROM users WHERE id = ${id}
+    `;
+    return rows[0] ?? null;
+  }
+}
+```
+
+`@Service()` defaults to singleton scope — one pool per process.
+
+## Compatibility
+
+| Runtime | Supported | Notes |
+|---------|-----------|-------|
+| Node    | ✅ 18+    | Native |
+| Bun     | ✅ 1.0+   | Same as Node |
+| Deno    | ✅        | `import postgres from 'npm:postgres'` |
+
+## Troubleshooting
+
+| Error | Reason | Fix |
+|-------|--------|-----|
+| `connect ECONNREFUSED` | Postgres not running | `pg_isready` to check, start service |
+| `password authentication failed` | Wrong credentials | Check `DATABASE_URL` format |
+| `relation "users" does not exist` | Table not created | Run `CREATE TABLE` or migration |
+| `database "X" does not exist` | Wrong database name | `createdb <name>` first |
+| Pool never releases | `sql.end()` not called | Call `close()` on shutdown |
+
+## Try It
+
+```bash
+createdb recipe_demo
+psql recipe_demo -c "CREATE TABLE users (id serial PRIMARY KEY, email text NOT NULL);"
+psql recipe_demo -c "INSERT INTO users (email) VALUES ('a@example.com');"
+
+DATABASE_URL="postgres://localhost/recipe_demo" npx tsx src/index.ts
+curl http://localhost:8080/users/1
+```
+
+**Expected result:** `{"id":1,"email":"a@example.com"}`.
+
+<Callout type="warn" title="Close the pool on shutdown">
+  Unclosed pool holds the process open and leaks connections on redeploy. Call `db.close()` during shutdown.
+</Callout>
+
+---
+
+- 🛠  Guide: [Database Integration](/docs/guides/data/database) — Repository + Extension pattern for a full data-access layer
+- 📚  Reference: [`@nextrush/di` Container](/docs/reference/class/di-container) — `createContainer`, `register`, `inject`
+- 🧠  Concept: [Dependency Injection](/docs/concepts/dependency-injection) — scopes and wiring patterns

@@ -1,0 +1,140 @@
+# RFC — `@nextrush/adapter-serverless` (generic, adapter-scoped EventMapper registry)
+
+> Status: Accepted · Change: `harden-runtime-edge-serverless` (Task group 5)
+> Realizes the serverless design in `docs/audits/07-runtime-architecture.md` (Serverless Runtime).
+
+## Summary
+
+A new `@nextrush/adapter-serverless` package brings classic serverless (AWS Lambda
+Function URL / API Gateway v2, and — as they land — GCF/Azure) onto the shared
+`Context` pipeline. It separates the **execution model** from the **provider event
+format**:
+
+```
+Runtime Core → Adapter (execution model: serverless) → EventMapper (event format) → Platform
+```
+
+## Public DX — three tiers (minimal by default)
+
+**Architectural rule:** *internal complexity must never become user complexity.* The
+`EventMapper`/registry is internal architecture — 95% of users deploy to a named
+platform and should write one line. The public surface is tiered:
+
+```ts
+// Tier 1 (95%) — zero config, zero framework knowledge
+import { createLambdaHandler } from '@nextrush/adapter-serverless';
+export const handler = createLambdaHandler(app);
+// createGoogleHandler(app) · createAzureHandler(app)
+// createCloudflareHandler(app) already ships in @nextrush/adapter-edge
+
+// Tier 2 (4%) — tuning only, still no architecture
+export const handler = createLambdaHandler(app, { timeout: 5000, streaming: true });
+
+// Tier 3 (1%, runtime authors) — the extension SDK, marked @advanced
+import { createServerlessAdapter, type EventMapper } from '@nextrush/adapter-serverless';
+const adapter = createServerlessAdapter({ mappers: [myOracleMapper] });
+```
+
+`createLambdaHandler` auto-configures the AWS mappers and detects Function URL (v2)
+vs API Gateway (v1/v2) — the user never names a mapper or provider. `createServerlessAdapter`
+and `EventMapper` stay exported but are marked `@advanced` / "Runtime authors only"
+(Oracle/Fly.io/OpenFaaS/internal platform teams/NextRush contributors), never the path
+an application developer is pointed at.
+
+## Tier 3 surface (runtime authors only)
+
+```ts
+// generic over the platform event, result, and optional platform context
+interface EventMapper<Event, Result, Ctx = unknown> {
+  readonly name: string;
+  toRequest(event: Event, platformCtx?: Ctx): Request;
+  fromResponse(response: Response, event: Event): Result | Promise<Result>;
+  detect?(event: Event): boolean;
+}
+
+function createServerlessAdapter<Event, Result, Ctx>(options: {
+  readonly mappers: readonly EventMapper<Event, Result, Ctx>[];
+  readonly provider?: string;
+  readonly timeout?: number;
+}): { createHandler(app: Application): (event: Event, ctx?: Ctx) => Promise<Result> };
+
+// built-in mapper
+const lambdaFunctionUrl: EventMapper<LambdaFunctionUrlEvent, LambdaFunctionUrlResult>;
+```
+
+## Decisions
+
+- **Minimal DX is the primary requirement, internals are Tier 3.** Per-provider handlers
+  (`createLambdaHandler`/`createGoogleHandler`/`createAzureHandler`, signature
+  `(app, opts?) => handler`) are the surface a normal user sees; `createServerlessAdapter` +
+  `EventMapper` are the runtime-author extension SDK.
+- **One package, named exports — NOT a package per provider (decided).** All Tier-1/2/3 surface
+  ships from `@nextrush/adapter-serverless` via named exports:
+  ```ts
+  import { createLambdaHandler, createGoogleHandler, createAzureHandler } from '@nextrush/adapter-serverless';
+  ```
+  *Why not `@nextrush/aws-lambda` / `-google-functions` / `-azure-functions`?* Each separate package
+  would carry its own versioning, README, tests, changelog, release pipeline, and maintenance — for
+  what is often a single `export function createLambdaHandler(app) {…}`. That is not enough value to
+  justify a package, and it inflates the ~35→50 package count `06` already flags. Named exports give
+  the same one-liner DX, tree-shakeable, with no duplicated logic. **v2+ escape hatch:** if real
+  demand appears for `import { createLambdaHandler } from '@nextrush/aws-lambda'`, publish *thin
+  re-export* packages (`export { createLambdaHandler } from '@nextrush/adapter-serverless'`) — near-zero
+  maintenance, no duplication. Not needed for v1.
+
+- **Generic `EventMapper`** — mapper authors get real types at the boundary, not
+  `unknown`/`any` (matches the repo TypeScript steering).
+- **Adapter-scoped, immutable registry** — mappers are passed at construction, not
+  registered globally. A global registry would be **global mutable state**
+  (`global-rules.instructions.md` §2 auto-block) with a last-writer-wins hazard.
+  New providers (Oracle/Fly.io/OpenFaaS) are added by supplying a mapper — the
+  adapter never grows a provider `switch`.
+- **Explicit-over-detect** — a configured `provider` wins; `detect()` runs only when
+  omitted. Configuration beats silent detection.
+- **Execution model reused from the edge adapter** — `createServerlessAdapter`
+  delegates the Request→Response engine to `@nextrush/adapter-edge`'s
+  `createFetchHandler` (warm `ready()` reuse, per-invocation `timeout`→504, the
+  shared `Context` pipeline). This keeps one proven execution path rather than
+  duplicating it.
+
+## Deviation from the proposal (noted honestly)
+
+The proposal said the package "returns a `FetchAdapter`". A `FetchAdapter`'s handler
+is `(Request) => Response`, but a serverless handler is `(event) => result` — a
+different shape. Rather than force a misleading `satisfies FetchAdapter` on an event
+handler, the public method is **`createHandler`** returning `(event, ctx?) => result`,
+and the `FetchAdapter` conformance lives on the reused edge engine (which already
+carries its guard). The mapper layer is guarded by the `EventMapper` type annotation.
+
+## Package structure (one package, DX at the surface)
+
+The Tier-1 handlers live in per-provider files; the Tier-3 internals sit under `mappers/`
+(the `event-mapper/` role) and `adapter.ts`. `index.ts` exposes Tier-1 as the headline and
+Tier-3 as `@advanced`:
+
+```
+packages/adapters/serverless/src/
+├── lambda.ts          # createLambdaHandler  (Tier 1)
+├── google.ts          # createGoogleHandler  (Tier 1)
+├── azure.ts           # createAzureHandler   (Tier 1)
+├── adapter.ts         # createServerlessAdapter  (Tier 3)
+├── types.ts           # EventMapper contract     (Tier 3)
+├── mappers/           # the EventMapper implementations (Tier 3 internals)
+│   ├── _v2.ts · lambda-function-url.ts · apigw-v2.ts · apigw-v1.ts · gcf.ts · azure.ts
+└── index.ts           # barrel: Tier 1 headline, Tier 3 under "Advanced / Runtime Authors"
+```
+
+## Deferred
+
+- _(none outstanding)_ — the buffered `createLambdaHandler`, the Tier-1 handlers
+  (group 5b), and **true Function URL response streaming** via
+  `createLambdaStreamingHandler` (`awslambda.streamifyResponse`, follow-up 5a.1)
+  are all implemented and tested.
+
+## Verification
+
+`pnpm --filter @nextrush/adapter-serverless test` — 19 tests: lambda/apigw-v2/apigw-v1/gcf/azure
+mapper round-trips (method/path/query, JSON POST, base64 body, multi-value params/headers,
+Set-Cookie handling), explicit-over-detect selection, unknown-provider error, adapter-scoped
+isolation, timeout→504, streamed-body buffering, and full-chain golden fixtures per provider.
+Build + typecheck + lint clean.

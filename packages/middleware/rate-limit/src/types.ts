@@ -133,6 +133,23 @@ export interface TierConfig {
 export type TierResolver = (ctx: Context) => string | Promise<string>;
 
 /**
+ * The subset of `Application` needed to register deterministic teardown
+ * (N10 / F-07 wiring, RFC-022 §7.3 `app.onClose`).
+ *
+ * Kept structural — not the concrete `Application` from `@nextrush/core` —
+ * so `@nextrush/rate-limit` stays independent of `@nextrush/core` (mirrors
+ * `ExtensionHost` in `@nextrush/types`, which exists for the same reason).
+ * The real `Application` class satisfies this shape.
+ */
+export interface OnCloseHost {
+  /**
+   * Register a teardown hook run under the app's bounded, isolated shutdown
+   * (see `Application.onClose` in `@nextrush/core`).
+   */
+  onClose(hook: () => void | Promise<void>): void;
+}
+
+/**
  * Rate limit middleware options
  */
 export interface RateLimitOptions {
@@ -191,6 +208,26 @@ export interface RateLimitOptions {
   store?: RateLimitStore;
 
   /**
+   * The application instance, so the middleware's default `MemoryStore` can
+   * register its cleanup interval via `app.onClose` and be torn down
+   * deterministically by `app.close()` (N10 / F-07 wiring), instead of
+   * relying solely on the interval being `unref()`'d.
+   *
+   * Optional and fully backward compatible: omitting it keeps today's
+   * behavior unchanged (the interval still runs, still `unref()`'d). Ignored
+   * when a custom `store` is supplied — a caller-owned store's lifecycle is
+   * the caller's responsibility, not this middleware's.
+   *
+   * @example
+   * ```typescript
+   * const app = createApp();
+   * app.use(rateLimit({ max: 100, window: '1m', app }));
+   * // app.close() now also clears the rate-limit store's cleanup interval.
+   * ```
+   */
+  app?: OnCloseHost;
+
+  /**
    * Custom handler when rate limit is exceeded
    * @default Sends 429 with JSON error body
    */
@@ -200,12 +237,6 @@ export interface RateLimitOptions {
    * Callback when rate limit is triggered (for logging/metrics)
    */
   onRateLimited?: OnRateLimited;
-
-  /**
-   * Trust proxy headers (X-Forwarded-For, CF-Connecting-IP)
-   * @default false
-   */
-  trustProxy?: boolean;
 
   /**
    * Send standard rate limit headers (RateLimit-*)

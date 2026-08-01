@@ -98,7 +98,7 @@ describe('EdgeContext', () => {
       request = createMockRequest('http://localhost/', {
         headers: { 'cf-connecting-ip': '192.168.1.100' },
       });
-      ctx = new EdgeContext(request, undefined, true);
+      ctx = new EdgeContext(request, undefined, 1);
 
       expect(ctx.ip).toBe('192.168.1.100');
     });
@@ -107,21 +107,21 @@ describe('EdgeContext', () => {
       request = createMockRequest('http://localhost/', {
         headers: { 'x-forwarded-for': '10.0.0.1, 10.0.0.2' },
       });
-      ctx = new EdgeContext(request, undefined, true);
+      ctx = new EdgeContext(request, undefined, 1);
 
-      expect(ctx.ip).toBe('10.0.0.1');
+      expect(ctx.ip).toBe('10.0.0.2');
     });
 
     it('should extract IP from x-real-ip header', () => {
       request = createMockRequest('http://localhost/', {
         headers: { 'x-real-ip': '172.16.0.1' },
       });
-      ctx = new EdgeContext(request, undefined, true);
+      ctx = new EdgeContext(request, undefined, 1);
 
       expect(ctx.ip).toBe('172.16.0.1');
     });
 
-    it('should not trust proxy headers when trustProxy is false', () => {
+    it('should not trust proxy headers when proxy is false', () => {
       request = createMockRequest('http://localhost/', {
         headers: { 'x-forwarded-for': '10.0.0.1', 'cf-connecting-ip': '192.168.1.100' },
       });
@@ -407,6 +407,41 @@ describe('EdgeContext', () => {
       const promise = Promise.resolve();
 
       expect(() => ctx.waitUntil(promise)).not.toThrow();
+    });
+  });
+
+  describe('waitUntil() dev-mode warning (P2-4)', () => {
+    it('warns once via console.warn when isProduction is explicitly false and no execution context is available', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      ctx = new EdgeContext(request, undefined, false, undefined, false);
+
+      ctx.waitUntil(Promise.resolve());
+      ctx.waitUntil(Promise.resolve());
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0]?.[0]).toMatch(/\[nextrush\/edge\].*waitUntil/i);
+      warnSpy.mockRestore();
+    });
+
+    it('does not warn when an execution context IS available, even outside production', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const execCtx = createMockExecutionContext();
+      ctx = new EdgeContext(request, execCtx, false, undefined, false);
+
+      ctx.waitUntil(Promise.resolve());
+
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it('does not warn by default (isProduction defaults to true — safe/silent unless explicitly told otherwise)', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      ctx = new EdgeContext(request); // no isProduction arg — matches every existing direct-construction call site
+
+      ctx.waitUntil(Promise.resolve());
+
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
     });
   });
 });

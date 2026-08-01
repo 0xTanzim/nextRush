@@ -1,0 +1,6 @@
+{
+  "title": "Request & Body",
+  "icon": "Inbox",
+  "defaultOpen": false,
+  "pages": ["body-parser", "form-data", "cookies", "compression"]
+}

@@ -1,0 +1,68 @@
+{
+  "name": "@nextrush/validation",
+  "version": "1.0.0",
+  "description": "Standard Schema request validation middleware for NextRush — works with Zod, Valibot, ArkType, and any Standard Schema library",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nextrush/errors": "workspace:*",
+    "@nextrush/types": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10",
+    "zod": "^3.25.76"
+  },
+  "keywords": [
+    "nextrush",
+    "validation",
+    "standard-schema",
+    "zod",
+    "valibot",
+    "arktype",
+    "middleware",
+    "request-validation"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
+    "directory": "packages/middleware/validation"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/validation#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "sideEffects": false
+}

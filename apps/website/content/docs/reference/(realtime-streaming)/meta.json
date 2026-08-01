@@ -1,0 +1,6 @@
+{
+  "title": "Real-time & Streaming",
+  "icon": "Radio",
+  "defaultOpen": false,
+  "pages": ["websocket", "events", "stream"]
+}

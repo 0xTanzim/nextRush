@@ -1,0 +1,52 @@
+---
+title: Architecture
+description: Design principles, contracts, router and DI internals, package hierarchy, RFCs/ADRs, and versioning.
+keywords: [architecture, index, nextrush]
+---
+
+This section explains **how NextRush works internally** — the design decisions behind the public
+API, the actual data structures and algorithms inside the router and DI container, the contracts
+Extensions and adapters must satisfy, and the project's honest state on RFCs and versioning. If
+you're looking for how to *use* a feature, see [Concepts](/docs/concepts) or
+[Guides](/docs/guides) instead — this section is for understanding or contributing to the
+framework itself.
+
+<Cards>
+  <Card title="Design Principles" href="/docs/architecture/design-principles">
+    Minimal core, explicit over implicit, zero dependencies — verified against source and README.
+  </Card>
+  <Card title="Contracts" href="/docs/architecture/contracts">
+    The Extension API contract and the Adapter Contract — the two structural interfaces framework authors implement against.
+  </Card>
+  <Card title="Router Internals" href="/docs/architecture/router-internals">
+    The segment trie's real node structure, match priority, and audited edge cases.
+  </Card>
+  <Card title="Capability Composition" href="/docs/architecture/capability-composition">
+    How middleware, registrars, Extensions, and adapters compose into one running app.
+  </Card>
+  <Card title="Package Hierarchy" href="/docs/architecture/package-hierarchy">
+    Dependency order and a dependency graph generated from every package.json, not hand-drawn.
+  </Card>
+  <Card title="Dependency Injection Internals" href="/docs/architecture/di-internals">
+    How @nextrush/di wraps tsyringe — scope mapping, cycle detection, and the tsyringe coupling boundary.
+  </Card>
+  <Card title="Middleware Internals" href="/docs/architecture/middleware-internals">
+    The compose() engine — dispatch mechanics, error propagation, and the callback() pipeline.
+  </Card>
+  <Card title="Adapter Internals" href="/docs/architecture/adapters">
+    What the cross-adapter conformance suite actually enforces across Node, Bun, Deno, Edge, and serverless.
+  </Card>
+  <Card title="RFCs & ADRs" href="/docs/architecture/rfcs">
+    Design proposals and the durable decisions promoted from them.
+  </Card>
+  <Card title="Versioning & Compatibility" href="/docs/architecture/versioning">
+    The mixed-version split across published packages, verified per package.json.
+  </Card>
+  <Card title="Release Handbook" href="/docs/architecture/release-handbook">
+    How a release actually ships — CLI vs. CI, the full Changesets lifecycle, and every real mistake found running it.
+  </Card>
+</Cards>
+
+Looking for the contributor workflow (build, test, PR process)? See
+[Contributing](/docs/community/contributing) — it moved out of this section because it's about
+*working on* the repo, not about *how the framework itself* works.

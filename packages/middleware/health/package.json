@@ -1,0 +1,65 @@
+{
+  "name": "@nextrush/health",
+  "version": "1.0.0",
+  "description": "Liveness and readiness health check endpoints for NextRush, built for orchestrator probes (Kubernetes, PM2, systemd)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nextrush/types": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.5",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "keywords": [
+    "nextrush",
+    "health",
+    "healthcheck",
+    "liveness",
+    "readiness",
+    "kubernetes",
+    "probes",
+    "middleware"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
+    "directory": "packages/middleware/health"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/health#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "sideEffects": false
+}

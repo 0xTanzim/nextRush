@@ -1,0 +1,1 @@
+{ "httpMethod": "GET", "path": "/users", "multiValueQueryStringParameters": { "a": ["1"] }, "multiValueHeaders": {}, "isBase64Encoded": false }

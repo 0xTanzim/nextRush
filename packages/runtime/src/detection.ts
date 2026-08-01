@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 
-import type { Runtime, RuntimeCapabilities, RuntimeInfo } from '@nextrush/types';
+import type { PlatformId, Runtime, RuntimeCapabilities, RuntimeInfo } from '@nextrush/types';
 
 /**
  * Detect the current JavaScript runtime
@@ -105,6 +105,13 @@ export function detectRuntime(): Runtime {
 // Cache for runtime detection (computed once)
 let cachedRuntime: Runtime | undefined;
 
+// Cache for edge detection (computed once). Declared alongside cachedRuntime so
+// resetRuntimeCache() does not forward-reference a later `let` (audit R-5).
+let cachedEdgeInfo: EdgeRuntimeInfo | undefined;
+
+// Cache for platform detection (computed once, RFC-026).
+let cachedPlatformInfo: PlatformInfo | undefined;
+
 /**
  * Get the current runtime (cached)
  *
@@ -194,18 +201,53 @@ export function getRuntimeVersion(): string | undefined {
  * ```
  */
 export function getRuntimeCapabilities(): RuntimeCapabilities {
-  const runtime = getRuntime();
+  return capabilitiesFor(getRuntime());
+}
 
-  const baseCapabilities: RuntimeCapabilities = {
-    nodeStreams: false,
-    webStreams: false,
-    fileSystem: false,
-    webSocket: false,
-    fetch: false,
-    cryptoSubtle: false,
-    workers: false,
+/**
+ * Probe the current environment's Web-platform capabilities.
+ *
+ * @remarks
+ * Used as the capability answer for `'unknown'`/future runtimes (audit R-3):
+ * instead of reporting an all-`false` matrix — which would make the framework
+ * disable features a capable-but-unrecognized runtime actually supports — we
+ * feature-detect the relevant globals. `nodeStreams`/`fileSystem` cannot be
+ * probed without importing `node:*`, so they stay conservative (`false`).
+ */
+function probeCapabilities(): RuntimeCapabilities {
+  const hasFetch = typeof globalThis.fetch === 'function';
+  const hasWebStreams = typeof (globalThis as { ReadableStream?: unknown }).ReadableStream !== 'undefined';
+  const g = globalThis as {
+    WebSocket?: unknown;
+    crypto?: { subtle?: unknown } | null;
+    Worker?: unknown;
   };
+  return {
+    nodeStreams: false,
+    webStreams: hasWebStreams,
+    fileSystem: false,
+    webSocket: typeof g.WebSocket !== 'undefined',
+    fetch: hasFetch,
+    cryptoSubtle: typeof g.crypto === 'object' && g.crypto !== null && 'subtle' in g.crypto,
+    workers: typeof g.Worker !== 'undefined',
+    secureServing: false, // Cannot be probed — requires server-construction API
+    http2: false, // Cannot be probed — requires server-construction API
+  };
+}
 
+/**
+ * Resolve the capability matrix for a given runtime.
+ *
+ * @remarks
+ * Extracted from {@link getRuntimeCapabilities} so it is pure and unit-testable
+ * (audit R-3). Known runtimes use a curated matrix; `'unknown'` (and any future
+ * runtime that falls through) is answered by {@link probeCapabilities} rather
+ * than a blanket all-`false`.
+ *
+ * @param runtime - The runtime to describe.
+ * @returns The capability matrix for that runtime.
+ */
+export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
   switch (runtime) {
     case 'node':
       return {
@@ -216,6 +258,8 @@ export function getRuntimeCapabilities(): RuntimeCapabilities {
         fetch: true, // Node.js 18+ has native fetch
         cryptoSubtle: true,
         workers: true,
+        secureServing: true,
+        http2: true,
       };
 
     case 'bun':
@@ -227,6 +271,8 @@ export function getRuntimeCapabilities(): RuntimeCapabilities {
         fetch: true,
         cryptoSubtle: true,
         workers: true,
+        secureServing: true,
+        http2: false, // Bun.serve() TLS does not negotiate h2 via ALPN — see RFC-028 §Risks
       };
 
     case 'deno':
@@ -238,6 +284,8 @@ export function getRuntimeCapabilities(): RuntimeCapabilities {
         fetch: true,
         cryptoSubtle: true,
         workers: true,
+        secureServing: true,
+        http2: true, // Deno.serve() negotiates HTTP/2 via ALPN automatically once cert is supplied
       };
 
     case 'deno-deploy':
@@ -249,6 +297,8 @@ export function getRuntimeCapabilities(): RuntimeCapabilities {
         fetch: true,
         cryptoSubtle: true,
         workers: false, // Deno Deploy has limited worker support
+        secureServing: false,
+        http2: false,
       };
 
     case 'cloudflare-workers':
@@ -262,10 +312,12 @@ export function getRuntimeCapabilities(): RuntimeCapabilities {
         fetch: true,
         cryptoSubtle: true,
         workers: false, // Limited worker support
+        secureServing: false, // Platform terminates TLS
+        http2: false, // Platform handles protocol negotiation
       };
 
     default:
-      return baseCapabilities;
+      return probeCapabilities();
   }
 }
 
@@ -343,6 +395,7 @@ export function isDeno(): boolean {
  */
 export function isEdge(): boolean {
   const runtime = getRuntime();
+  // capability-exempt: detection helper (adapter selection / "which platform"), not a capability decision.
   return runtime === 'cloudflare-workers' || runtime === 'vercel-edge' || runtime === 'edge';
 }
 
@@ -353,6 +406,7 @@ export function isEdge(): boolean {
 export function resetRuntimeCache(): void {
   cachedRuntime = undefined;
   cachedEdgeInfo = undefined;
+  cachedPlatformInfo = undefined;
 }
 
 // ============================================================================
@@ -370,8 +424,7 @@ export interface EdgeRuntimeInfo {
   isGenericEdge: boolean;
 }
 
-// Cache for edge detection (computed once)
-let cachedEdgeInfo: EdgeRuntimeInfo | undefined;
+// Cache for edge detection is declared near cachedRuntime (see above).
 
 /**
  * Detect the specific edge runtime platform.
@@ -386,6 +439,12 @@ let cachedEdgeInfo: EdgeRuntimeInfo | undefined;
 export function detectEdgeRuntime(): EdgeRuntimeInfo {
   if (cachedEdgeInfo !== undefined) return cachedEdgeInfo;
 
+  // NOTE (audit R-2): detectEdgeRuntime answers a *different* question than
+  // detectRuntime() — "which edge platform am I on" (defaulting to generic
+  // 'edge'), not "which JS engine". They intentionally differ (e.g. Netlify
+  // Edge runs on Deno: detectRuntime()='deno', detectEdgeRuntime()='edge'
+  // + isNetlify). Kept independent so the edge adapter's platform contract
+  // holds; the shared code is only the small platform-flag probes below.
   let runtime: Runtime = 'edge';
   let isCloudflare = false;
   let isVercel = false;
@@ -429,4 +488,48 @@ export function detectEdgeRuntime(): EdgeRuntimeInfo {
   };
 
   return cachedEdgeInfo;
+}
+
+// ============================================================================
+// Named Platform Detection (RFC-026)
+// ============================================================================
+
+/**
+ * Detected named deployment platform, or `undefined` when none is recognized.
+ *
+ * @see RFC-026
+ */
+export interface PlatformInfo {
+  platform: PlatformId | undefined;
+}
+
+/**
+ * Detect the named serverless/edge deployment platform, independent of
+ * {@link Runtime}.
+ *
+ * @remarks
+ * Deliberately reuses {@link detectEdgeRuntime}'s exact three named-platform
+ * branches (Cloudflare/Vercel/Netlify) rather than adding a fourth detection
+ * path — this is the *platform* dimension of the same probe, not a new one.
+ * Serverless platforms (Lambda, GCF, Azure) are never detected here: each
+ * Tier-1 serverless handler already knows its own platform identity and
+ * passes it through explicitly (see `@nextrush/adapter-serverless`) — no
+ * heuristic is needed or attempted for them.
+ *
+ * Result is cached after first call, mirroring {@link detectEdgeRuntime}.
+ *
+ * @returns The detected platform, or `undefined` if none of the three named
+ *   edge platforms (or an explicitly-passed serverless platform) applies.
+ */
+export function detectPlatform(): PlatformInfo {
+  if (cachedPlatformInfo !== undefined) return cachedPlatformInfo;
+
+  const edge = detectEdgeRuntime();
+  let platform: PlatformId | undefined;
+  if (edge.isCloudflare) platform = 'cloudflare-workers';
+  else if (edge.isVercel) platform = 'vercel-edge';
+  else if (edge.isNetlify) platform = 'netlify-edge';
+
+  cachedPlatformInfo = { platform };
+  return cachedPlatformInfo;
 }

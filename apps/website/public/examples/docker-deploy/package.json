@@ -1,0 +1,17 @@
+{
+  "name": "nextrush-docker-deploy-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal NextRush app used to verify the Dockerfile in the deployment docs actually builds and passes a health check.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "nextrush": "3.1.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

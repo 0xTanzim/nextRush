@@ -1,0 +1,246 @@
+---
+title: Routing
+description: How NextRush maps a URL to its handler with a segment trie — a model whose matching cost tracks URL depth, not how many routes you have registered.
+keywords: [concepts, core, framework, nextrush, routing]
+---
+
+Every request to your application must find the correct handler. That sounds trivial until your API grows from ten routes to two thousand — at which point route matching becomes part of the hot path every single request pays for. How that match scales is the difference between a request path that stays flat and one that quietly gets slower with every feature you ship.
+
+## What you'll learn
+
+- **Why** linear, list-based routing slows down as an app grows
+- **How** NextRush routes with a segment trie, and what that word means
+- **How** named parameters and wildcards are captured during a match
+- **When** route matching becomes an O(1) lookup instead of a tree walk
+
+## The problem
+
+The most direct way to route is a list: keep every route in an array and, per request, walk the list until one matches.
+
+```ts
+import type { HttpMethod } from '@nextrush/types';
+
+interface ListRoute {
+  method: HttpMethod;
+  pattern: RegExp;
+  handler: () => void;
+}
+
+function matchInList(routes: ListRoute[], method: HttpMethod, path: string): ListRoute | undefined {
+  // One pass over EVERY route, every request — cost grows with the route count.
+  return routes.find((route) => route.method === method && route.pattern.test(path));
+}
+```
+
+This is fine at twenty routes and a problem at two thousand: matching cost grows linearly with how many routes exist, and the *order* you register them in starts to change which one wins.
+
+## Why this matters
+
+Route matching runs on every request, before any of your handler code. A cost that scales with route count rarely shows up in development — it shows up months later as a slow p99 you can't explain, multiplied across every request the service will ever serve. Getting the data structure right once means the request path never becomes the thing you have to profile under load.
+
+## The solution
+
+NextRush organizes routes in a **segment trie**. Instead of comparing a request against every route, it walks the URL itself, one path segment at a time. As an application grows, matching time stays proportional to the depth of the URL — the number of segments — not to how many routes are registered. A thousand sibling routes cost the same to match as one.
+
+## Core idea
+
+A segment trie is a tree keyed by whole path segments (`users`, `:id`, `*`), not by individual characters. Registering a route walks the tree one node per segment, creating nodes as needed; matching walks the same tree. Because the walk descends one level per URL segment, the size of the rest of the tree never enters into a single match.
+
+The name is precise: branching on whole segments is deliberately **not** a radix tree, which compresses on shared character prefixes — a different structure with different trade-offs.
+
+## Mental model
+
+<Mermaid
+  chart="
+flowchart TB
+    root((/)) --> users[users]
+    root --> products[products]
+    users --> uid[':id']
+    uid --> posts[posts]
+    products --> pid[':id']
+    style root fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    style uid fill:#f59e0b,stroke:#d97706,color:#fff
+    style pid fill:#f59e0b,stroke:#d97706,color:#fff
+"
+/>
+
+Matching `GET /users/42/posts` descends `users → :id (captures 42) → posts` and returns that node's handler plus `{ id: '42' }`. Four segments, four steps.
+
+Don't memorize the tree — notice the one thing that matters: matching follows the **URL**, so its cost tracks how deep the URL is, never how many routes you registered.
+
+## Quick example
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { createRouter } from '@nextrush/router';
+
+const app = createApp();
+const users = createRouter();
+
+users.get('/', (ctx) => ctx.json([{ id: 1, name: 'Ada' }]));
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+
+app.route('/users', users); // every route lands under /users
+listen(app, 8080);
+```
+
+A `Router` is a self-contained bundle of routes you build in one place and mount wherever you need it. That is the whole model: build small routers, compose them.
+
+## How it works
+
+**Example** — register a static route and a dynamic one on the same router:
+
+```ts
+import { createRouter } from '@nextrush/router';
+
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ ok: true }));   // static
+router.get('/users/:id', (ctx) => ctx.json({ id: ctx.params.id })); // dynamic
+```
+
+**Observation** — `GET /health` resolves without ever walking the tree, while `GET /users/42` descends exactly two nodes and captures `id`.
+
+**Explanation** — two mechanisms back that behavior:
+
+- **Static routes take an O(1) shortcut.** A route with no `:param` or `*` is stored in a method-nested hash map and resolved with a single lookup — no tree walk at all, and most routes in a real app are static.
+- **Dynamic routes walk the trie** in O(k), where `k` is the segment count, capturing params and wildcards as they descend.
+
+You interact with none of this directly. The full internal design — the two-path matcher, executor compilation, the data structures — lives in the [`@nextrush/router` architecture](/docs/architecture/router-internals); a concept page teaches the model, not the implementation.
+
+## Typical use cases
+
+You reach for routing's dynamic features whenever a URL carries data or spans an open-ended path.
+
+```ts
+import { createRouter } from '@nextrush/router';
+
+const router = createRouter();
+
+router.get('/users/:userId/posts/:postId', (ctx) => {
+  const { userId, postId } = ctx.params; // both captured in one descent
+  ctx.json({ userId, postId });
+});
+
+router.get('/files/*', (ctx) => {
+  ctx.json({ path: ctx.params['*'] }); // /files/a/b.txt → "a/b.txt"
+});
+```
+
+Named parameters (`:id`) fit resource identifiers; a trailing wildcard (`*`) fits file paths and catch-all handlers. Both land in `ctx.params`.
+
+## Configuration
+
+A router takes three options that shape how it matches. They change behavior you have already met — prefixing, case, and trailing slashes — rather than adding new concepts.
+
+```ts
+import { createRouter } from '@nextrush/router';
+
+const router = createRouter({
+  prefix: '/api/v1',    // prepended to every route registered on this router
+  caseSensitive: false, // static segments match case-insensitively (the default)
+  strict: false,        // a trailing slash is normalized away (the default)
+});
+
+router.get('/users', (ctx) => ctx.json({ ok: true })); // matches GET /api/v1/users
+```
+
+- **`prefix`** keeps a feature router unaware of where it is mounted — set the version or namespace at mount time, not on every path.
+- **`caseSensitive`** lowercases *static* segments when `false`. Parameter **names and values always preserve their original case**, regardless of this setting.
+- **`strict`** decides whether `/users` and `/users/` are the same route; left `false`, the trailing slash is normalized away.
+
+The full option reference lives in the [`@nextrush/router` reference](/docs/reference/router); this page covers only what each one *means* for matching.
+
+## Performance
+
+- **Complexity** — static routes resolve in O(1) through the method-nested map; dynamic routes are O(k) in the URL's segment count. Neither depends on how many routes exist.
+- **Memory** — shared prefixes are stored once; the tree costs one node per unique segment, not one per route.
+- **Scaling** — adding routes never slows matching. A thousand sibling routes under one prefix cost the same to match as one, and a router with only static routes skips the trie entirely.
+
+<Callout type="info">
+  Published throughput figures are being re-measured on a hardened harness, so this page states
+  complexity characteristics rather than point numbers. Run [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark)
+  for numbers on your own hardware.
+</Callout>
+
+## Security
+
+Routing sits at the very front of every request, so its security properties matter before any of your own code runs.
+
+- **Untrusted parameters.** *Threat:* a captured `ctx.params.id` is attacker-controlled input. *Why:* the router extracts it but does not validate it. *Safe default:* check type, range, and format before using it. *Avoid:* passing a raw param into a query, file path, or redirect target.
+- **Wildcard captures.** *Threat:* a `/files/*` route hands you an attacker-controlled remainder. *Why:* `*` captures the whole rest of the URL. *Safe default:* serve files through [`@nextrush/static`](/docs/reference/static), which guards against traversal. *Avoid:* joining the captured path straight onto a filesystem path.
+- **Method surface.** *Threat:* request smuggling and tunneling via `TRACE`/`CONNECT`. *Why:* those methods carry known risk. *Safe default:* `all()` deliberately excludes them, and duplicate registrations throw at startup rather than silently shadowing. *Avoid:* hand-registering `TRACE`/`CONNECT` handlers.
+
+<Callout type="warn">
+  A captured parameter is untrusted input. The matcher is ReDoS-aware (it walks the trie segment
+  by segment, regression-tested in the router's `match-safety` suite), but it never validates the
+  *values* it extracts — that is your handler's job.
+</Callout>
+
+```ts
+import { createRouter } from '@nextrush/router';
+
+const router = createRouter();
+
+router.get('/users/:id', (ctx) => {
+  const id = Number(ctx.params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    ctx.status = 400;
+    return ctx.json({ error: 'id must be a positive integer' });
+  }
+  ctx.json({ id });
+});
+```
+
+## Trade-offs
+
+- **Benefits** — O(k) matching independent of route count, an O(1) fast path for static routes, and shared prefixes stored once.
+- **Costs** — a little registration-time work to build the tree, and slightly more memory than a bare list for very small route sets.
+- **Alternatives** — a character-level radix tree can be marginally more memory-dense for very large static route sets ([RFC-015](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/runtime-adapters/015-router-radix.md) explores it as opt-in); a plain list is fine below a handful of routes.
+- **Why NextRush chose this** — a segment trie optimizes for the property that actually matters as an app grows (match cost that ignores route count) while staying readable and debuggable, without the character-level complexity a radix tree adds for a payoff most apps never measure.
+
+## Decision guide
+
+**Use the built-in router when:**
+
+- ✓ You are building an API or web app — this is the default and the right choice for nearly every application
+- ✓ You want static routes, params, wildcards, groups, and mounting out of the box
+
+**Avoid the default only when:**
+
+- ✗ A measured benchmark *on your own route set* proves routing is your bottleneck — until then, changing it is premature optimization
+
+**Choose a specialized structure when:**
+
+- ✓ You are matching against a very large, mostly-static route table and have profiled the difference
+- ✓ You understand and accept the trade-offs of the alternative
+
+## Common mistakes
+
+- **Registering the same method and path twice.** *Why it happens:* two features register `/users` independently. *Correct approach:* register each method/path once — different methods on one path are fine. *If ignored:* the router throws at startup, so you catch it immediately rather than shipping a shadowed route.
+- **Forgetting to mount the router.** *Why it happens:* `createRouter()` builds a router, but nothing matches until `app.route(prefix, router)`. *Correct approach:* mount every router. *If ignored:* the routes silently return 404 with no error.
+- **Putting a wildcard mid-path.** *Why it happens:* expecting `/*/files` to match a prefix. *Correct approach:* `*` captures the rest of the URL, so it belongs at the end (`/files/*`). *If ignored:* the route matches far more — or less — than you intended.
+
+## Key takeaways
+
+- Route matching should not scale with the number of routes.
+- A segment trie branches on whole path segments and shares common prefixes.
+- Static routes resolve through an O(1) hash map; dynamic routes walk the trie in O(k).
+- Parameters and wildcards are captured during the traversal, into `ctx.params`.
+- A captured parameter is untrusted input — validate it before use.
+
+## Continue learning
+
+<Cards>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    How per-route and per-group middleware run around a matched handler.
+  </Card>
+  <Card title="Mount and group routes" href="/docs/guides/api-development/mounting-and-grouping-routes">
+    Put feature routers to work — compose them, mount them, share middleware across a group.
+  </Card>
+  <Card title="@nextrush/router reference" href="/docs/reference/router">
+    The full router API surface — every option and method.
+  </Card>
+  <Card title="Router architecture" href="/docs/architecture/router-internals">
+    The two-path matcher and data structures behind the model.
+  </Card>
+</Cards>

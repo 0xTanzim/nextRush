@@ -1,0 +1,556 @@
+{
+  "default GET /": {
+    "matched": true,
+    "handlerTag": "root",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET /users": {
+    "matched": true,
+    "handlerTag": "users",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET /users/": {
+    "matched": true,
+    "handlerTag": "users",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET /users/me": {
+    "matched": true,
+    "handlerTag": "users.me",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET /users/42": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "42"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /users/42/": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "42"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /Users/AbC": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "AbC"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /users/a%20b": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "a b"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /users/a%2Fb": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "a/b"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /users/a%2Eb": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "a.b"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /users/%zz": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "%zz"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /users/%": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "%"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /users/%2": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "%2"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /users/Ürl": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "Ürl"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /a/b/c": {
+    "matched": true,
+    "handlerTag": "a.b.c",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET /a/b/c/": {
+    "matched": true,
+    "handlerTag": "a.b.c",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET /a/b/d": {
+    "matched": true,
+    "handlerTag": "a.b.d",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET /a/b/x": {
+    "matched": false,
+    "handlerTag": null,
+    "params": [],
+    "hasExecutor": false
+  },
+  "default GET /a/1/b/2": {
+    "matched": true,
+    "handlerTag": "a.x.b.y",
+    "params": [
+      [
+        "x",
+        "1"
+      ],
+      [
+        "y",
+        "2"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /p/me": {
+    "matched": true,
+    "handlerTag": "p.me",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET /p/other": {
+    "matched": true,
+    "handlerTag": "p.id",
+    "params": [
+      [
+        "id",
+        "other"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /p/a/b/c": {
+    "matched": true,
+    "handlerTag": "p.star",
+    "params": [
+      [
+        "*",
+        "a/b/c"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /files/A/b/c": {
+    "matched": true,
+    "handlerTag": "files.star",
+    "params": [
+      [
+        "*",
+        "A/b/c"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /files": {
+    "matched": false,
+    "handlerTag": null,
+    "params": [],
+    "hasExecutor": false
+  },
+  "default GET /files/": {
+    "matched": false,
+    "handlerTag": null,
+    "params": [],
+    "hasExecutor": false
+  },
+  "default GET /g/1/b/c": {
+    "matched": true,
+    "handlerTag": "g.x.star",
+    "params": [
+      [
+        "*",
+        "b/c"
+      ],
+      [
+        "x",
+        "1"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET /users?q=1": {
+    "matched": true,
+    "handlerTag": "users",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET /users/42?x=y": {
+    "matched": true,
+    "handlerTag": "users.id",
+    "params": [
+      [
+        "id",
+        "42"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "default GET //a//b//c": {
+    "matched": true,
+    "handlerTag": "a.b.c",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET ///": {
+    "matched": true,
+    "handlerTag": "root",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default GET /nope": {
+    "matched": false,
+    "handlerTag": null,
+    "params": [],
+    "hasExecutor": false
+  },
+  "default POST /users": {
+    "matched": true,
+    "handlerTag": "users.post",
+    "params": [],
+    "hasExecutor": true
+  },
+  "default POST /users/me": {
+    "matched": false,
+    "handlerTag": null,
+    "params": [],
+    "hasExecutor": false
+  },
+  "default DELETE /users/42": {
+    "matched": false,
+    "handlerTag": null,
+    "params": [],
+    "hasExecutor": false
+  },
+  "default GET /deep/s0/s1/s2/s3/s4/s5/s6/s7/s8/s9/s10/s11/s12/s13/s14/s15/s16/s17/s18/s19/s20/s21/s22/s23/s24/s25/s26/s27/s28/s29/s30/s31/s32/s33/s34/s35/s36/s37/s38/s39/s40/s41/s42/s43/s44/s45/s46/s47/s48/s49/s50/s51/s52/s53/s54/s55/s56/s57/s58/s59/s60/s61/s62/s63/s64/s65/s66/s67/s68/s69/s70/s71/s72/s73/s74/s75/s76/s77/s78/s79/s80/s81/s82/s83/s84/s85/s86/s87/s88/s89/s90/s91/s92/s93/s94/s95/s96/s97/s98/s99/s100/s101/s102/s103/s104/s105/s106/s107/s108/s109/s110/s111/s112/s113/s114/s115/s116/s117/s118/s119/s120/s121/s122/s123/s124/s125/s126/s127/s128/s129/s130/s131/s132/s133/s134/s135/s136/s137/s138/s139/s140/s141/s142/s143/s144/s145/s146/s147/s148/s149/s150/s151/s152/s153/s154/s155/s156/s157/s158/s159/s160/s161/s162/s163/s164/s165/s166/s167/s168/s169/s170/s171/s172/s173/s174/s175/s176/s177/s178/s179/s180/s181/s182/s183/s184/s185/s186/s187/s188/s189/s190/s191/s192/s193/s194/s195/s196/s197/s198/s199": {
+    "matched": false,
+    "handlerTag": null,
+    "params": [],
+    "hasExecutor": false
+  },
+  "caseSensitive GET /Users/AbC": {
+    "matched": true,
+    "handlerTag": "cs.users.id",
+    "params": [
+      [
+        "id",
+        "AbC"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "caseSensitive GET /users/abc": {
+    "matched": false,
+    "handlerTag": null,
+    "params": [],
+    "hasExecutor": false
+  },
+  "caseSensitive GET /Static": {
+    "matched": true,
+    "handlerTag": "cs.static",
+    "params": [],
+    "hasExecutor": true
+  },
+  "caseSensitive GET /static": {
+    "matched": false,
+    "handlerTag": null,
+    "params": [],
+    "hasExecutor": false
+  },
+  "strict GET /strict": {
+    "matched": true,
+    "handlerTag": "strict.static",
+    "params": [],
+    "hasExecutor": true
+  },
+  "strict GET /strict/": {
+    "matched": true,
+    "handlerTag": "strict.static",
+    "params": [],
+    "hasExecutor": true
+  },
+  "strict GET /strict/42": {
+    "matched": true,
+    "handlerTag": "strict.id",
+    "params": [
+      [
+        "id",
+        "42"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "strict GET /strict/42/": {
+    "matched": true,
+    "handlerTag": "strict.id",
+    "params": [
+      [
+        "id",
+        "42"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "decodeOff GET /raw/a%20b": {
+    "matched": true,
+    "handlerTag": "raw.id",
+    "params": [
+      [
+        "id",
+        "a%20b"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "decodeOff GET /raw/a%2Fb": {
+    "matched": true,
+    "handlerTag": "raw.id",
+    "params": [
+      [
+        "id",
+        "a%2Fb"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "decodeOff GET /raw/x/y/z": {
+    "matched": true,
+    "handlerTag": "raw.star",
+    "params": [
+      [
+        "*",
+        "x/y/z"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "all GET /any": {
+    "matched": true,
+    "handlerTag": "any",
+    "params": [],
+    "hasExecutor": true
+  },
+  "all POST /any": {
+    "matched": true,
+    "handlerTag": "any",
+    "params": [],
+    "hasExecutor": true
+  },
+  "all PUT /any": {
+    "matched": true,
+    "handlerTag": "any",
+    "params": [],
+    "hasExecutor": true
+  },
+  "all DELETE /any": {
+    "matched": true,
+    "handlerTag": "any",
+    "params": [],
+    "hasExecutor": true
+  },
+  "all PATCH /any": {
+    "matched": true,
+    "handlerTag": "any",
+    "params": [],
+    "hasExecutor": true
+  },
+  "all HEAD /any": {
+    "matched": true,
+    "handlerTag": "any",
+    "params": [],
+    "hasExecutor": true
+  },
+  "all OPTIONS /any": {
+    "matched": true,
+    "handlerTag": "any",
+    "params": [],
+    "hasExecutor": true
+  },
+  "prefix GET /api/health": {
+    "matched": true,
+    "handlerTag": "api.health",
+    "params": [],
+    "hasExecutor": true
+  },
+  "prefix GET /health": {
+    "matched": false,
+    "handlerTag": null,
+    "params": [],
+    "hasExecutor": false
+  },
+  "prefix GET /api/items/7": {
+    "matched": true,
+    "handlerTag": "api.items.id",
+    "params": [
+      [
+        "id",
+        "7"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "mount GET /sub/x": {
+    "matched": true,
+    "handlerTag": "mount.x",
+    "params": [],
+    "hasExecutor": true
+  },
+  "mount GET /sub/other": {
+    "matched": true,
+    "handlerTag": "mount.p",
+    "params": [
+      [
+        "p",
+        "other"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "group GET /g/y": {
+    "matched": true,
+    "handlerTag": "group.y",
+    "params": [],
+    "hasExecutor": true
+  },
+  "group GET /g/other": {
+    "matched": true,
+    "handlerTag": "group.z",
+    "params": [
+      [
+        "z",
+        "other"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "backtrack GET /bt/b/c": {
+    "matched": true,
+    "handlerTag": "bt.x.c",
+    "params": [
+      [
+        "x",
+        "b"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "backtrack GET /bt/b/d": {
+    "matched": true,
+    "handlerTag": "bt.b.d",
+    "params": [],
+    "hasExecutor": true
+  },
+  "backtrack GET /bt/z/c": {
+    "matched": true,
+    "handlerTag": "bt.x.c",
+    "params": [
+      [
+        "x",
+        "z"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "backtrack GET /w/foo/other": {
+    "matched": true,
+    "handlerTag": "w.star",
+    "params": [
+      [
+        "*",
+        "foo/other"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "backtrack GET /w/foo/deep": {
+    "matched": true,
+    "handlerTag": "w.x.deep",
+    "params": [
+      [
+        "x",
+        "foo"
+      ]
+    ],
+    "hasExecutor": true
+  },
+  "backtrack GET /w/a/b/c": {
+    "matched": true,
+    "handlerTag": "w.star",
+    "params": [
+      [
+        "*",
+        "a/b/c"
+      ]
+    ],
+    "hasExecutor": true
+  }
+}

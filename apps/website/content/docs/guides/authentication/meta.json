@@ -1,0 +1,7 @@
+{
+  "title": "Authentication",
+  "description": "Authentication and authorization strategies for NextRush applications.",
+  "pages": ["authentication"],
+  "learningPath": ["authentication"],
+  "references": ["../security", "../api-development", "../../recipes/authentication"]
+}
