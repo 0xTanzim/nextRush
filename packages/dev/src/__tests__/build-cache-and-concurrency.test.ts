@@ -20,7 +20,8 @@ describe('Incremental build cache (M1 — cache)', () => {
 
   beforeEach(async () => {
     const path = await import(/* @vite-ignore */ NODE_PATH);
-    cacheFile = path.join('/tmp', 'nextrush-cache-' + Date.now() + '.json');
+    const os = await import('node:os');
+    cacheFile = path.join(os.tmpdir(), 'nextrush-cache-' + Date.now() + '.json');
   });
 
   afterEach(async () => {

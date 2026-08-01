@@ -23,7 +23,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import { dev } from '../commands/dev.js';
 import * as runtime from '../runtime/index.js';
@@ -59,8 +59,8 @@ describe('dev() — missing entry file (out-of-process, real dist build)', () =>
     () => {
       // Imports the built `dist/` output (real compiled JS, matching what the shipped
       // CLI actually runs) via an absolute file:// URL so Node's ESM resolver isn't
-      // affected by the child's cwd.
-      const devModuleUrl = new URL(resolve(__dirname, '../../dist/commands/dev.js'), 'file://')
+      // affected by the child's cwd. pathToFileURL handles Windows drive-letter paths.
+      const devModuleUrl = pathToFileURL(resolve(__dirname, '../../dist/commands/dev.js'))
         .href;
       const result = spawnSync(
         process.execPath,

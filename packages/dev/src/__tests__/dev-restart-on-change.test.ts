@@ -61,7 +61,8 @@ describe('nextrush dev — restart on file change (task 2.2)', () => {
       child.kill('SIGKILL');
     }
     child = undefined;
-    rmSync(workDir, { recursive: true, force: true });
+    // Windows holds file handles briefly after the child dies — retry the delete.
+    rmSync(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   });
 
   it(
