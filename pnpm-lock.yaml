@@ -220,6 +220,12 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@nextrush/openapi':
+        specifier: workspace:*
+        version: link:../../packages/middleware/openapi
+      '@nextrush/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@playwright/test':
         specifier: ^1.62.0
         version: 1.62.0
