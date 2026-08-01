@@ -126,7 +126,7 @@ export function Hero() {
             NextRush is the backend framework for developers who want to reason about every request, not guess what a
             framework did for them. Start with a small functional core; add segment-trie routing, middleware, and the
             class runtime only when your application needs them.{' '}
-            <Link href="/docs/performance" className="font-medium text-[var(--rush-cyan)] underline-offset-4 hover:underline">
+            <Link href="/docs/getting-started/benchmarking" className="font-medium text-[var(--rush-cyan)] underline-offset-4 hover:underline">
               Benchmarks
             </Link>{' '}
             publish the methodology so you can reproduce results on your own hardware.

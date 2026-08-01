@@ -320,7 +320,7 @@ graph LR
     adapter_edge["adapter-edge"]
     adapter_node["adapter-node"]
     body_parser["body-parser"]
-    class["class"]
+    class_pkg["class"]
     compression["compression"]
     controllers["controllers"]
     cookies["cookies"]
@@ -372,20 +372,20 @@ graph LR
     adapter_node --> stream
     adapter_node --> types
     body_parser --> types
-    class --> core
-    class --> di
-    class --> errors
-    class --> router
-    class --> types
+    class_pkg --> core
+    class_pkg --> di
+    class_pkg --> errors
+    class_pkg --> router
+    class_pkg --> types
     compression --> types
-    controllers --> class
+    controllers --> class_pkg
     controllers --> di
     cookies --> types
     core --> errors
     core --> types
     cors --> types
     csrf --> types
-    decorators --> class
+    decorators --> class_pkg
     di --> types
     errors --> types
     helmet --> types
@@ -400,7 +400,7 @@ graph LR
     static --> types
     stream --> types
     template --> types
-    testing --> class
+    testing --> class_pkg
     testing --> core
     testing --> di
     testing --> router
@@ -410,7 +410,7 @@ graph LR
     validation --> types
     websocket --> types
     nextrush --> adapter_node
-    nextrush --> class
+    nextrush --> class_pkg
     nextrush --> controllers
     nextrush --> core
     nextrush --> decorators

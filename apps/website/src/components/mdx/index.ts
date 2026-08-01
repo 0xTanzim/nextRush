@@ -1,6 +1,7 @@
 export {
     BenchmarkBars,
     BenchmarkCardGrid,
+    BenchmarkLegend,
     CompareGrid,
     CompareItem,
     DocHero,
@@ -20,11 +21,13 @@ export {
 export type {
     BenchmarkBarItem,
     BenchmarkCardItem,
+    BenchmarkFrameworkId,
     DocPageOutlineItem,
     DocPrerequisiteItem,
     StageStep,
     ActNavItem
 } from './doc-page';
+export { BenchmarkDashboard } from './benchmark-dashboard';
 export { Feature, FeatureGrid } from './feature-grid';
 export { FileTree } from './file-tree';
 export { Mermaid } from './mermaid';

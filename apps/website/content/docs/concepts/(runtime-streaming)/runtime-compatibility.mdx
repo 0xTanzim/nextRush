@@ -49,26 +49,23 @@ Think of the Web Platform as the floor every adapter stands on, not the ceiling 
 ## Mental model
 
 <Mermaid
-  chart="
-architecture-beta
-    group platform(cloud)[Web Platform Foundation]
-
-    service node(server)[adapter-node] in platform
-    service bun(server)[adapter-bun] in platform
-    service deno(server)[adapter-deno] in platform
-    service edge(server)[adapter-edge] in platform
-    service serverless(server)[adapter-serverless] in platform
-
-    group runtime(disk)[core + runtime]
-
-    node:B --> T:runtime
-    bun:B --> T:runtime
-    deno:B --> T:runtime
-    edge:B --> T:runtime
-    serverless:B --> T:runtime
-
-    align row node bun deno edge serverless
-"
+  chart='
+flowchart TB
+    subgraph platform["Web Platform Foundation"]
+        direction LR
+        NODE["adapter-node"]
+        BUN["adapter-bun"]
+        DENO["adapter-deno"]
+        EDGE["adapter-edge"]
+        SERVERLESS["adapter-serverless"]
+    end
+    RUNTIME["core + runtime"]
+    NODE --> RUNTIME
+    BUN --> RUNTIME
+    DENO --> RUNTIME
+    EDGE --> RUNTIME
+    SERVERLESS --> RUNTIME
+'
 />
 
 All five adapters sit on the same foundation and hand requests down to the same runtime-agnostic core — notice there's no adapter drawn "above" the others. Node having a file system doesn't make it the trunk the other four branch off; it makes Node the adapter with one more capability turned on.

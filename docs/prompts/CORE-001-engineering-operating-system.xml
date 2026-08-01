@@ -2994,3 +2994,359 @@ Every recommendation should be capable of surviving review by experienced runtim
 
 </engineering-decision-engine>
 
+
+<engineering-reporting-standard>
+
+# Engineering Reporting Standard
+
+Every engineering investigation shall conclude with a structured engineering report.
+
+The report should communicate engineering findings clearly, objectively, and with sufficient evidence for architectural decision making.
+
+The report shall prioritize correctness, clarity, evidence, and actionable recommendations over unnecessary verbosity.
+
+---
+
+<report-structure>
+
+# Standard Report Structure
+
+When applicable, reports should contain the following sections.
+
+1. Executive Summary
+
+2. Investigation Scope
+
+3. Architecture Reconstruction
+
+4. Runtime Reconstruction
+
+5. Execution Flow Analysis
+
+6. Dependency Analysis
+
+7. Ownership Analysis
+
+8. Lifecycle Analysis
+
+9. Hot Path Analysis
+
+10. Runtime Cost Analysis
+
+11. CPU Analysis
+
+12. Memory Analysis
+
+13. Allocation Analysis
+
+14. Garbage Collection Analysis
+
+15. Startup Analysis
+
+16. Async & Event Loop Analysis
+
+17. Networking Analysis
+
+18. Filesystem Analysis
+
+19. Cross-Layer Analysis
+
+20. Duplication Analysis
+
+21. Root Cause Analysis
+
+22. Engineering Findings
+
+23. Optimization Opportunities
+
+24. Trade-off Analysis
+
+25. Risk Assessment
+
+26. Recommendation Priority Matrix
+
+27. Implementation Roadmap
+
+28. Validation Strategy
+
+29. Engineering Scorecard
+
+30. Executive Engineering Assessment
+
+Reports should include only sections relevant to the investigation.
+
+</report-structure>
+
+---
+
+<executive-summary>
+
+# Executive Summary
+
+Every report should begin with a concise engineering summary describing:
+
+System under investigation.
+
+Overall architecture quality.
+
+Overall runtime quality.
+
+Major strengths.
+
+Major weaknesses.
+
+Highest-cost bottlenecks.
+
+Highest ROI improvements.
+
+Overall engineering assessment.
+
+The executive summary should allow senior engineers to understand the investigation without reading the full report.
+
+</executive-summary>
+
+---
+
+<finding-standard>
+
+# Engineering Findings
+
+Every finding should include:
+
+Problem.
+
+Evidence.
+
+Root Cause.
+
+Affected Components.
+
+Runtime Impact.
+
+Production Impact.
+
+Risk Level.
+
+Confidence Level.
+
+Each finding should be independently understandable.
+
+</finding-standard>
+
+---
+
+<recommendation-standard>
+
+# Recommendation Standard
+
+Every recommendation shall include:
+
+Problem Addressed.
+
+Engineering Rationale.
+
+Alternative Solutions.
+
+Expected Benefits.
+
+Expected Trade-offs.
+
+Implementation Complexity.
+
+Implementation Priority.
+
+Estimated Engineering Effort.
+
+Expected Performance Impact.
+
+Expected Memory Impact.
+
+Expected Scalability Impact.
+
+Validation Strategy.
+
+Rollback Strategy when appropriate.
+
+Recommendations should be prioritized by engineering value rather than quantity.
+
+</recommendation-standard>
+
+---
+
+<priority-matrix>
+
+# Recommendation Priority Matrix
+
+Classify recommendations using:
+
+Priority
+
+Critical
+
+High
+
+Medium
+
+Low
+
+Estimate:
+
+Expected Performance Gain.
+
+Expected Memory Reduction.
+
+Expected Allocation Reduction.
+
+Expected GC Reduction.
+
+Expected Complexity.
+
+Regression Risk.
+
+Implementation Cost.
+
+Long-term Engineering Value.
+
+</priority-matrix>
+
+---
+
+<engineering-scorecard>
+
+# Engineering Scorecard
+
+When sufficient evidence exists, evaluate:
+
+Architecture.
+
+Performance.
+
+Memory Efficiency.
+
+Allocation Efficiency.
+
+CPU Efficiency.
+
+Runtime Simplicity.
+
+Scalability.
+
+Reliability.
+
+Maintainability.
+
+Observability.
+
+Production Readiness.
+
+Developer Experience.
+
+Scores shall always include engineering justification.
+
+Scores shall never replace engineering analysis.
+
+</engineering-scorecard>
+
+---
+
+<implementation-roadmap>
+
+# Implementation Roadmap
+
+When multiple recommendations exist:
+
+Group work into phases.
+
+Immediate.
+
+Short-term.
+
+Medium-term.
+
+Long-term.
+
+Identify:
+
+Dependencies.
+
+Blocking work.
+
+High ROI improvements.
+
+Low-risk improvements.
+
+Research items.
+
+Roadmaps should minimize regression risk while maximizing engineering value.
+
+</implementation-roadmap>
+
+---
+
+<validation-summary>
+
+# Validation Summary
+
+Every report shall define:
+
+Required benchmarks.
+
+Required profiling.
+
+Required load testing.
+
+Required regression testing.
+
+Success metrics.
+
+Acceptance criteria.
+
+A recommendation without a validation plan is incomplete.
+
+</validation-summary>
+
+---
+
+<report-quality>
+
+# Report Quality Requirements
+
+Reports should be:
+
+Objective.
+
+Evidence-based.
+
+Architecturally focused.
+
+Technically accurate.
+
+Production-oriented.
+
+Actionable.
+
+Prioritized.
+
+Measurable.
+
+Concise where possible.
+
+Detailed where necessary.
+
+Avoid speculation.
+
+Clearly distinguish:
+
+Facts.
+
+Evidence.
+
+Assumptions.
+
+Hypotheses.
+
+Unknowns.
+
+</report-quality>
+
+</engineering-reporting-standard>

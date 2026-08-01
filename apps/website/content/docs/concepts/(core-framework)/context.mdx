@@ -58,7 +58,7 @@ NextRush gives every request a single **Context** object, conventionally named `
 Think of `ctx` as one envelope that travels the whole request. It has three faces: an **input** side (what the client sent), an **output** side (what you send back), and a **shared** side (`ctx.state`, scratch space that middleware and the handler pass along). The same object is handed from the adapter through every middleware to your handler and back — it is never copied or replaced.
 
 <Mermaid
-  chart="
+  chart='
 flowchart LR
     subgraph Input
       direction TB
@@ -66,14 +66,14 @@ flowchart LR
     end
     subgraph Shared
       direction TB
-      S1[state] --- S2[next()]
+      S1[state] --- S2["next()"]
     end
     subgraph Output
       direction TB
-      O1[json()] --- O2[send()] --- O3[status] --- O4[set()] --- O5[redirect()]
+      O1["json()"] --- O2["send()"] --- O3[status] --- O4["set()"] --- O5["redirect()"]
     end
     Input --> Shared --> Output
-"
+'
 />
 
 Every method on `ctx` belongs to one of these three faces. Input is what arrived from the client; shared is what middleware passes along; output is what goes back in the response. One object, three roles.
@@ -81,7 +81,7 @@ Every method on `ctx` belongs to one of these three faces. Input is what arrived
 ## Mental model
 
 <Mermaid
-  chart="
+  chart='
 sequenceDiagram
     actor Client
     participant Adapter
@@ -99,7 +99,7 @@ sequenceDiagram
     ctx-->>Adapter: status + headers + body
     deactivate ctx
     Adapter-->>Client: HTTP response
-"
+'
 />
 
 The activation bar on `ctx` is the point: one object is alive for the whole request, and everyone reads from and writes to it. Don't track two objects moving in parallel — notice that the adapter builds `ctx` once at the front, everything in between shares it, and the adapter serializes it back only at the end.

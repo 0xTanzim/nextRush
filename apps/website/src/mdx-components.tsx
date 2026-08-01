@@ -5,6 +5,8 @@ import {
     ArchitectQuestion,
     BenchmarkBars,
     BenchmarkCardGrid,
+    BenchmarkDashboard,
+    BenchmarkLegend,
     Challenge,
     ChallengeList,
     CheckpointItem,
@@ -147,6 +149,8 @@ const customComponents = {
   // Onboarding / overview layout
   BenchmarkBars,
   BenchmarkCardGrid,
+  BenchmarkDashboard,
+  BenchmarkLegend,
   DocHero,
   DocHeroPill,
   DocStatStrip,

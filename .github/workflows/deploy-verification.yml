@@ -10,10 +10,11 @@ name: Real-Cloud Deploy Verification
 # Skipped (not failed) when the required secrets aren't configured, so a fork
 # or an environment without deploy credentials sees a clean skip, not a red X.
 
-on:
-  schedule:
-    - cron: '0 3 * * *' # 03:00 UTC nightly
-  workflow_dispatch: {}
+# Disabled — see git history. (Commented out so the workflow never triggers.)
+# on:
+#   schedule:
+#     - cron: '0 3 * * *' # 03:00 UTC nightly
+#   workflow_dispatch: {}
 
 concurrency:
   group: ${{ github.workflow }}

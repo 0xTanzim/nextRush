@@ -75,7 +75,7 @@ sequenceDiagram
     alt a filter's @Catch matches the error
         Runner->>Filter: resolve from DI, call catch(error, ctx)
         activate Filter
-        Filter->>Filter: ctx.status = …; ctx.json(…)
+        Filter->>Filter: set status and send JSON
         Filter-->>Client: filter's response
         deactivate Filter
     else no attached filter matches

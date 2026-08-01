@@ -6,103 +6,220 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-≥22-339933?logo=node.js)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org)
+[![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
+
+<details>
+<summary><strong>Table of contents</strong></summary>
+
+<br>
+
+[Why NextRush?](#why-nextrush) ·
+[Module Format](#module-format-policy) ·
+[Dependency Footprint](#dependency-footprint) ·
+[Performance](#performance) ·
+[Quick Start](#quick-start) ·
+[Modules](#modules) ·
+[Packages](#packages) ·
+[Documentation](#documentation) ·
+[Contributing](#contributing)
+
+</details>
 
 ## Why NextRush?
 
 - **Minimal Core** — Under 3,000 lines of code
 - **Modular** — Install only what you need
-- **Fast** — Competes with Fastify, Hono, and Koa
+- **Fast** — #3 overall vs Fastify / Hono / Koa / Express on a parity-validated suite
+  (~85–92% of raw Node on like-for-like scenarios) — see [Performance](#performance)
 - **Type-Safe** — Full TypeScript with zero `any`
 - **ESM-only, permanently** — No package ever publishes a `require` condition; CommonJS output
   is not supported and will not be added. This is a ratified architectural decision, not a
   temporary state — see [Module Format Policy](#module-format-policy) below.
-- **Zero-Dependency Functional Core** — `createApp`/`createRouter`/`listen` pull in no external
-  runtime dependencies; the class/DI path (`nextrush/class`) depends on `tsyringe` +
-  `reflect-metadata` (see [Dependency Footprint](#dependency-footprint))
+- **Lean install** — Functional core has **no third-party runtime deps**; class/DI
+  (`nextrush/class`) opts into `tsyringe` + `reflect-metadata` only when you need it — see
+  [Dependency Footprint](#dependency-footprint)
 - **Modern DX** — Clean context API, async/await native
 
 ## Module Format Policy
 
 **NextRush is ESM-only. Permanently.** No `@nextrush/*` package's `exports` map will ever
-declare a `require` condition, and none currently does. CommonJS output is not supported and
-will not be added — this is a ratified architectural decision, not a temporary state pending
-demand, and reconsidering it requires a new, deliberate decision, not a feature request.
+declare a `require` condition. CommonJS output is not supported and will not be added.
 
-Why: the Node ≥22 engine floor this framework already requires gives CommonJS consumers native
-`require(esm)` support for synchronous import graphs on current LTS (22.12+) — the strongest
-historical reason to dual-publish is already covered by the runtime NextRush mandates. Dual-
-publishing would also reintroduce the ESM/CJS dual-package hazard specifically on the
-`@nextrush/di` path (`reflect-metadata`'s global patch + a `tsyringe` singleton container can
-silently split into two instances if both a CJS and an ESM copy load in one process), at the
-cost of a doubled, permanent build/test/publish matrix across ~35 packages. See
-[Module Format & Compatibility](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/internals/versioning.mdx)
-for the full rationale and the documented CommonJS interop path.
+**Enforced in CI:** `pnpm validate:esm-only` fails the build if any package gains a `require`
+condition.
 
-**Enforced in CI**, not just documented: `pnpm validate:esm-only` fails the build if any package
-ever gains a `require` condition.
+<details>
+<summary><strong>Why ESM-only (and not dual-publish)</strong></summary>
+
+<br>
+
+Node ≥22 already gives CommonJS consumers native `require(esm)` for synchronous import graphs on
+current LTS (22.12+) — the strongest historical reason to dual-publish is covered by the engine
+floor NextRush requires.
+
+Dual-publishing would also reintroduce the ESM/CJS dual-package hazard on the `@nextrush/di`
+path (`reflect-metadata`'s global patch + a `tsyringe` singleton can silently split into two
+instances if both a CJS and an ESM copy load), at the cost of a doubled build/test/publish matrix
+across ~35 packages.
+
+Full rationale:
+[Module Format & Compatibility](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/internals/versioning.mdx).
+
+</details>
 
 ## Dependency Footprint
 
-NextRush's runtime dependencies differ by which path you use — there is no single "zero
-dependencies" claim that holds for the whole framework:
+NextRush is modular on purpose: **what lands on disk depends on which API path you use.** There
+is no single “zero dependencies” claim for the whole framework — only for the functional core.
 
-| Usage path                                          | Entry point         | Runtime dependencies                |
-| ---------------------------------------------------- | -------------------- | ------------------------------------ |
-| Functional core (routing, middleware, context)       | `createApp`, `createRouter`, `listen` from `nextrush` | None |
-| Class-based / DI (`@Controller`, `@Service`, guards…) | `nextrush/class`     | `tsyringe@^4.10.0`, `reflect-metadata@^0.2.2` |
+| Path | How you import it | Third-party runtime deps | What you install |
+| ---- | ----------------- | ------------------------ | ---------------- |
+| **Functional core** | `createApp`, `createRouter`, `listen` from `nextrush` | **None** | `pnpm add nextrush` |
+| **Class / DI** | `@Controller`, `@Service`, guards… from `nextrush/class` | `tsyringe@^4.10.0`, `reflect-metadata@^0.2.2` | `pnpm add nextrush @nextrush/class` (or a class/full scaffold) |
 
-Confirmed via `pnpm -r why reflect-metadata tsyringe` against this repo: both packages resolve
-only through `@nextrush/di`, which is pulled in by `@nextrush/class` and re-exported by the
-`nextrush` meta-package's `nextrush/class` subpath. `@nextrush/core`, `@nextrush/router`, and
-`@nextrush/runtime` — the packages backing the functional path — do not appear anywhere in that
-dependency graph.
+**Functional path** is backed by pure `@nextrush/*` packages (`core`, `router`, `types`, `errors`,
+`adapter-node`, …) with **no** `tsyringe` / `reflect-metadata` in their dependency graphs.
 
-This is enforced at the **install** level, not just the import level: `nextrush` declares
-`@nextrush/class`, `@nextrush/di`, and `reflect-metadata` as **optional peer dependencies**, so
-a functional-only `pnpm add nextrush` never resolves them onto disk. Installing `@nextrush/class`
-alongside `nextrush` is what brings in the class/DI stack; `create-nextrush`'s class-based and
-full templates do this for you automatically.
+**Class path** pulls DI only when you opt in: `@nextrush/class` → `@nextrush/di` → those two
+third-party packages.
+
+```bash
+# Functional-only — class/DI packages stay off disk (optional peers)
+pnpm add nextrush
+
+# Class / DI — brings in the DI stack
+pnpm add nextrush @nextrush/class
+```
+
+<details>
+<summary><strong>Why class deps are optional peers (install-level, not just import-level)</strong></summary>
+
+<br>
+
+The `nextrush` meta-package declares `@nextrush/class`, `@nextrush/di`, and `reflect-metadata` as
+**optional peer dependencies**. A functional-only install never resolves them. `create-nextrush`
+class-based and full templates add `@nextrush/class` for you.
+
+Verified in-repo with `pnpm -r why reflect-metadata tsyringe`: both packages resolve only through
+`@nextrush/di` (consumed by `@nextrush/class` / `nextrush/class`). They do **not** appear under
+`@nextrush/core`, `@nextrush/router`, or `@nextrush/runtime`.
+
+| Package | Role | External runtime deps |
+| ------- | ---- | --------------------- |
+| `@nextrush/types` | Shared types | none |
+| `@nextrush/errors` | HTTP errors | none (→ types) |
+| `@nextrush/core` | App + middleware composition | none (→ types, errors) |
+| `@nextrush/router` | Segment-trie router | none (→ types) |
+| `@nextrush/di` | DI container | `tsyringe`, `reflect-metadata` |
+| `@nextrush/class` | Controllers, guards, modules | via `@nextrush/di` |
+
+Middleware and adapters (`cors`, `helmet`, `body-parser`, edge adapters, …) are **separate
+packages** — install only what you use.
+
+</details>
 
 ## Performance
 
-NextRush is built for high throughput with a zero-dependency functional core, and it benchmarks
-competitively against Fastify, Hono, Koa, and Express. The suite in `apps/benchmark` compares
-six servers (including a raw Node.js baseline) across 13 scenarios using **wrk** (C-based,
-process-isolated) and **autocannon** (Node.js-based).
+NextRush ranks **#3 overall** among popular Node frameworks in our parity-validated suite —
+ahead of Hono, Koa, and Express; behind Fastify and a raw Node.js baseline (the zero-framework
+yardstick). Serialization-heavy routes sit at **~90–92% of baseline**.
 
-> **Published numbers are being re-measured on a clean, CPU-pinned environment with the
-> hardened, parity-validated harness.** Earlier figures came from single-run sessions on a
-> shared machine and were not reproducible to a publishable standard, so they have been
-> withdrawn pending re-measurement. Run the suite yourself for current numbers on your hardware.
+### Headline scoreboard
 
-What the harness guarantees (see `apps/benchmark/README.md` and the audit reports there):
+9 like-for-like scenarios × 2 concurrency levels × 6 frameworks = **108 points**. Win = 6 pts,
+last = 1. Ties inside measurement noise split points.
 
-- **Fairness is validated, not assumed** — `pnpm bench:validate` asserts byte-identical response
-  bodies, statuses, content types, framing, and the full header set across all six servers before
-  any timing.
-- **Publishable numbers are multi-run and gated** — only the `standard` (3 runs) and `full` (5 runs)
-  profiles may back published figures; publishability is *computed* from what the run actually did
-  (rotated and position-balanced order, near-idle host, verified metrics sampling, zero socket
-  timeouts), not declared by the profile.
-- **Identical runtime config** — same Node flags, `NODE_ENV=production`, keep-alive, accept-queue
-  backlog, listen address, and payloads everywhere. Every deviation from a framework default is
-  declared and printed in the report with its direction of effect.
-- **Honest scope** — 10 scenarios produce byte-identical *output*; that is not the same as identical
-  *work*, and the three scenarios where parser safety differs say so. The middleware, error, and
-  static-file scenarios use each framework's own idiomatic mechanism and are excluded from the
-  headline score.
-- **Noise-sized orderings are reported as ties**, never as a ranking.
+| Rank | Framework | Score | Scenario wins |
+| ---- | --------- | ----- | ------------- |
+| 🥇 | **Raw Node.js** *(baseline)* | **105.5** / 108 | 18 |
+| 🥈 | **Fastify** | **90.5** / 108 | 5 |
+| 🥉 | **NextRush v3** | **68.1** / 108 | 0 |
+| 4 | Hono | 60.1 / 108 | 0 |
+| 5 | Koa | 34.0 / 108 | 0 |
+| 6 | Express | 20.0 / 108 | 0 |
+
+### Throughput @ 256 connections (req/s)
+
+Mean of 6 runs · **wrk** · CPU-pinned. **Bold** = fastest in row.
+
+| Scenario | Raw Node | NextRush | Fastify | Hono | Express |
+| -------- | -------- | -------- | ------- | ---- | ------- |
+| Hello World | **35,503** | 31,343 | 32,703 | 31,073 | 22,508 |
+| JSON Serialization | **34,466** | 31,242 | 33,570 | 29,515 | 22,567 |
+| Route Parameters | **33,672** | 28,847 | 30,743 | 27,911 | 20,889 |
+| Large JSON | **22,589** | 20,717 | 21,748 | 19,416 | 15,558 |
+| Send Object | **35,329** | 31,751 | 31,456 | 29,849 | 21,570 |
+| POST JSON | **25,420** | 19,144 | 20,508 | 19,953 | 15,617 |
+
+**NextRush vs baseline (this run):** Hello 88% · JSON 91% · Params 86% · Large JSON **92%** ·
+Send Object 90% · POST 75% (body-parser safety work differs per framework).
+
+> **Full interactive dashboard** (heatmap, scenario explorer, scaling charts, methodology):
+> **[Benchmarks on the docs site](https://0xtanzim.github.io/nextRush/docs/production/benchmarking)** ·
+> [suite source](./apps/benchmark) · [latest report](./apps/benchmark/results/latest/REPORT.md)
+
+<details>
+<summary><strong>Measurement environment (this run)</strong></summary>
+
+<br>
+
+| | |
+| --- | --- |
+| **Run ID** | `2026-07-31T18-15-15` |
+| **Tool** | wrk 4.2.0 (process-isolated C client) |
+| **Profile** | `standard` · 30s · 6 runs · connections 1 · 64 · 256 |
+| **Node** | v26.5.1 |
+| **CPU** | Intel Core i5-8300H · 8 logical cores · pin server 2–7 · client 0–1 |
+| **Timed cells** | 1,404 × 30s |
+| **Frameworks** | Raw Node · NextRush v3 (`4.0.0-beta.0`) · Fastify 5.10 · Hono 4.12 · Koa 3.2 · Express 5.2 |
+
+Absolute RPS is machine-specific (loopback, shared host). Use **relative rankings on identical
+hardware** — re-run the suite on your box before capacity planning.
+
+</details>
+
+<details>
+<summary><strong>What the harness guarantees</strong></summary>
+
+<br>
+
+- **Fairness is validated, not assumed** — `pnpm bench:validate` asserts byte-identical bodies,
+  statuses, content types, framing, and headers across all six servers before any timing.
+- **Multi-run statistics** — mean ± sample stddev + CV%; adjacent gaps smaller than combined
+  stddev are scored as **ties**, never as leads.
+- **Identical runtime config** — same Node flags, `NODE_ENV=production`, keep-alive, backlog,
+  listen address, and shared payloads. Deviations from stock defaults are **disclosed** in the report.
+- **Honest scope** — like-for-like measures identical *output*, not always identical *work*
+  (query/body parser safety differs). Middleware, error handling, and static file are
+  **idiomatic** (per-framework mechanism) and excluded from the 108-point headline.
+- **Process isolation** — wrk does not share the server’s event loop (autocannon is the optional
+  in-process fallback for quick local checks).
+
+Full methodology: [`apps/benchmark/README.md`](./apps/benchmark/README.md).
+
+</details>
+
+<details>
+<summary><strong>Run the suite yourself</strong></summary>
+
+<br>
 
 ```bash
 cd apps/benchmark
 pnpm install
-pnpm bench:validate                       # confirm fairness
-pnpm bench:compare --profile full         # publishable comparison (5 runs)
+pnpm bench:validate   # abort if any server breaks parity
+# Multi-run compare (CPU pin when you have cores to spare)
+node scripts/run.js --compare --profile standard --runs 6 --pin 2-7 --client-pin 0-1
+pnpm report           # regenerate REPORT.md + tables from results.json
 ```
 
-> Performance varies by hardware. The only numbers that matter for your capacity planning are
-> the ones you measure on your own machine.
+| Profile | Duration | Connections | Runs | Notes |
+| ------- | -------- | ----------- | ---- | ----- |
+| `quick` | 10s | 64, 128 | 1 | Dev smoke only — not publishable |
+| `standard` | 30s | 1, 64, 256 | 3+ | CI / daily comparison |
+| `full` | 60s | 1, 64, 256, 512 | 5 | Release-grade |
 
+</details>
 
 ## Quick Start
 
@@ -445,34 +562,30 @@ pnpm typecheck
 ```
 nextrush/
 ├── packages/
-│   ├── core/            # @nextrush/core
-│   ├── router/          # @nextrush/router
-│   ├── types/           # @nextrush/types
-│   ├── errors/          # @nextrush/errors
-│   ├── runtime/         # @nextrush/runtime
-│   ├── adapters/        # Platform adapters (node, bun, deno, edge)
-│   ├── middleware/       # cors, helmet, body-parser, validation, static, template, logger, openapi, etc.
-│   ├── extensions/       # events, websocket
-│   ├── controllers/      # @nextrush/controllers (registrar)
-│   ├── di/              # Dependency injection
+│   ├── nextrush/        # Meta package (what you npm install)
+│   ├── core/            # App + middleware composition
+│   ├── router/          # Segment-trie router
+│   ├── class/           # Controllers, modules, guards (optional)
+│   ├── di/              # Dependency injection (optional)
+│   ├── adapters/        # node, bun, deno, edge, …
+│   ├── middleware/      # cors, helmet, body-parser, validation, …
+│   ├── extensions/      # events, websocket
 │   ├── dev/             # CLI: dev server, build, generators
-│   ├── create-nextrush/ # Project scaffolder
-│   └── nextrush/        # Meta package
+│   └── create-nextrush/ # Project scaffolder
 ├── apps/
-│   ├── docs/            # Documentation site
-│   ├── benchmark/       # Benchmark suite
-│   └── playground/      # Testing playground
-└── docs/                # Architecture docs, RFCs, migration guides
+│   ├── website/         # Documentation site (Fumadocs)
+│   ├── benchmark/       # Parity-validated HTTP benchmark suite
+│   └── playground/      # Local experiments
+└── docs/                # RFCs, ADRs, architecture notes
 ```
 
 ## Documentation
 
-- [Getting Started](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/getting-started/index.mdx)
-- [Core Concepts](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/concepts/index.mdx)
-- [API Reference](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/api-reference/index.mdx)
-- [Performance & benchmarks](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/performance/index.mdx)
-- [Docs site (GitHub Pages)](https://0xtanzim.github.io/nextRush/docs)
-- [GitHub Wiki](https://github.com/0xTanzim/nextRush/wiki) — concise guides (source in repo [`wiki/`](https://github.com/0xTanzim/nextRush/tree/main/wiki); publish with `./scripts/publish-github-wiki.sh`)
+- [Docs site](https://0xtanzim.github.io/nextRush/docs) — full guides, concepts, production ops
+- [Benchmarks dashboard](https://0xtanzim.github.io/nextRush/docs/production/benchmarking) — interactive charts + methodology
+- [Performance tuning](https://0xtanzim.github.io/nextRush/docs/production/performance-tuning)
+- [Benchmark suite](./apps/benchmark) — reproduce every number in this README
+- [GitHub Wiki](https://github.com/0xTanzim/nextRush/wiki) — concise guides (source in [`wiki/`](./wiki); publish with `./scripts/publish-github-wiki.sh`)
 
 ## Versioning
 

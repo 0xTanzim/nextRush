@@ -99,18 +99,43 @@ pnpm bench:stress
 Single-run (`quick`) and stress profiles are marked **NOT publishable** — their reports carry a
 warning banner and their numbers must never be published (no variance / adversarial load).
 
-> **⏱ Time estimates** (6 frameworks, 13 scenarios, wall-clock):
+> **⏱ Time estimates** (13 scenarios × 6 frameworks, wall-clock, includes warmup/cooldown/pauses):
 >
-> | Profile    | Per pass | Total (all frameworks × repeats) |
-> | ---------- | -------- | -------------------------------- |
-> | `quick`    | ~2 min   | **~12 min**                      |
-> | `standard` | ~21 min  | **~6 hours**                     |
-> | `full`     | ~54 min  | **~27 hours**                    |
-> | `stress`   | ~45 min  | **~4.5 hours**                   |
+> | Profile    | Cells/fw | Per framework | Total (all frameworks × repeats) |
+> | ---------- | -------- | ------------- | -------------------------------- |
+> | `quick`    | 8        | ~2 min        | **~2 min** (NextRush only by default) |
+> | `standard` | 117      | ~63 min       | **~6.3 hours**                   |
+> | `full`     | 260      | ~4.6 hours    | **~27 hours**                    |
+> | `stress`   | 117      | ~4.1 hours    | **~24.5 hours**                  |
 >
-> A "pass" = one framework start → warmup → all scenarios × all connection levels → stop.
-> Rotation mode (default for publishable multi-framework runs) restarts every framework per
-> repeat, so total wall-clock ≈ passes × pass-time + cooldowns.
+> A "framework pass" = one framework start → warmup → all scenarios × all connection levels ×
+> runs → stop. Timed load dominates, so a pass is roughly
+> `warmup + scenarios×scenario-warmup + (scenarios×levels×runs)×duration + pauses`, and total ≈
+> `frameworks × per-framework + (frameworks−1)×cooldown`. Rotation mode (default for publishable
+> multi-framework runs) restarts every framework per repeat, adding no timed load — just the
+> small cooldowns.
+>
+> **How flags scale the estimate** (all of them scale the dominant cell-count × duration term):
+>
+> | Flag | Effect on total wall-clock |
+> | ---- | ------------------------- |
+> | `--runs N` | **Linear** in runs. `standard --runs 6` ≈ **12.6 h** (2× the default-3 figure) |
+> | `--time S` / `--duration S` | **Linear** in duration. `standard --time 15` ≈ **3.4 h**; `--time 10` ≈ **2.3 h** |
+> | `--connections a,b` | Multiplies cell count. Dropping a level (e.g. `1,256` vs `1,64,256`) cuts ~⅓ of the cells |
+> | `--scenario x` | One scenario only ⇒ `1 × levels × runs` cells — a `--scenario` run is minutes, not hours |
+> | `--compare` / `--frameworks` | `--compare` forces all 6 frameworks (≈6× the NextRush-only default); `--framework fastify` narrows to 1 |
+> | `--pin` / `--client-pin` / `--rotate` | No effect on wall-clock — scheduling / fairness only |
+>
+> Worked examples on the `standard` profile (all six frameworks, 13 scenarios):
+>
+> | Command | Cells × 6 fw | Estimate |
+> | ---- | ---- | ---- |
+> | `--profile standard --compare` | 13×3×3 = 117/fw | **~6.3 h** |
+> | `--profile standard --compare --runs 6` | 13×3×6 = 234/fw | **~12.6 h** |
+> | `--profile standard --compare --runs 6 --time 15` | 234/fw × 15s | **~6.7 h** |
+> | `--profile standard --compare --runs 6 --time 15 --connections 1,256` | 13×2×6 = 156/fw | **~4.5 h** |
+> | `--profile standard --compare --runs 6 --time 10 --connections 1,256` | 156/fw × 10s | **~3.2 h** |
+
 
 Framework selection defaults are intentional: `quick` (and the no-profile default) runs NextRush only; `standard`, `full`, and `stress` run all six default frameworks. `--compare` also forces all-framework mode, while `--framework` and `--frameworks` always override the profile default for targeted runs.
 
@@ -235,10 +260,20 @@ node scripts/run.js --connections 256                       # one custom level
 node scripts/run.js --profile standard --connections 512    # standard profile, only 512c
 node scripts/run.js --compare --connections 64,256,512      # several custom levels
 
-# Override duration — --duration and --time are the same flag; --time wins if
-# both are given (it's the more discoverable spelling)
-node scripts/run.js --duration 3 --runs 3    # 3s per run, 3 runs
+# Override duration per run — --duration and --time are the same flag; --time wins
+# if both are given (it's the more discoverable spelling). Defaults come from the
+# chosen profile (standard=30s, full=60s, etc). A publishable run needs >= 10s.
+node scripts/run.js --time 10          # 10s per run (instead of the profile default)
+node scripts/run.js --duration 3 --runs 3    # 3s per run, 3 runs (dev checkup, not publishable)
 node scripts/run.js --time 3 --runs 3        # identical, --time spelling
+
+# Override the run count — how many times each (framework × scenario × connection)
+# cell is measured. Defaults come from the profile (standard=3, full=5). A pub-
+# lishable run needs >= 3 runs AND, with rotation on, a multiple of the framework
+# count (6) so every framework is measured in every position equally — so 6 runs
+# is the minimum for a publishable all-framework comparison.
+node scripts/run.js --runs 6           # 6 runs per cell (min for publishable rotation balance)
+node scripts/run.js --runs 3           # 3 runs/cell (publishable only for <=3 frameworks)
 
 # Enable GC tracking (slower, more data)
 node scripts/run.js --trace-gc

@@ -15,11 +15,12 @@ name: Runtime Conformance
 #   act -j workerd-conformance
 # (see packages/adapters/conformance/README.md)
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+# Disabled — see git history. (Commented out so the workflow never triggers.)
+# on:
+#   push:
+#     branches: [main]
+#   pull_request:
+#     branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
