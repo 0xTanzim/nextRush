@@ -211,9 +211,10 @@ export function resolvePath(...paths: string[]): string {
   }
 
   // Fallback only before initFsSync has run — best-effort manual join.
+  // Normalize backslashes so Windows base paths don't produce mixed separators.
   const base = getCwd();
   const segments = [base, ...paths];
-  return segments.join('/').replace(/\/+/g, '/');
+  return segments.map((segment) => segment.replace(/\\/g, '/')).join('/').replace(/\/+/g, '/');
 }
 
 /**

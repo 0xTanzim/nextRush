@@ -1,6 +1,7 @@
 /** @nextrush/dev - File System Path Tests */
 
 import { describe, expect, it } from 'vitest';
+import { isAbsolute } from 'node:path';
 import { resolvePath, joinPath } from '../runtime/fs.js';
 
 describe('File System Path Operations', () => {
@@ -16,7 +17,7 @@ describe('File System Path Operations', () => {
 
       // Should handle absolute paths correctly
       const absolute = resolvePath('/absolute/path');
-      expect(absolute).toMatch(/^\//);
+      expect(isAbsolute(absolute)).toBe(true);
     });
 
     it('should normalize path separators', () => {
@@ -51,7 +52,7 @@ describe('File System Path Operations', () => {
     it('should handle root paths on all platforms', () => {
       // joinPath should normalize root references
       const result = joinPath('/root', 'sub', 'path');
-      expect(result).toMatch(/^\//);
+      expect(isAbsolute(result)).toBe(true);
     });
 
     it('should normalize relative path segments', () => {

@@ -14,6 +14,7 @@ import { consolidateImports } from '../codemods/consolidate-imports.js';
 import { getCwd, exitProcess, readFile, writeFile } from '../runtime/index.js';
 import { getNodeFs } from '../runtime/node-modules.js';
 import { error, log, success } from '../utils/logger.js';
+import { join } from 'node:path';
 
 export interface CodemodOptions {
   pattern?: string;
@@ -56,7 +57,9 @@ export async function runConsolidateImports(
   cwd: string = getCwd(),
 ): Promise<{ changed: number; files: string[] }> {
   const { globSync } = await getNodeFs();
-  const files = globSync(pattern, { cwd });
+  // Normalize to forward slashes: glob returns OS-specific separators on Windows,
+  // but callers (CLI output, tests) expect repo-relative POSIX paths.
+  const files = globSync(pattern, { cwd }).map((file) => file.replace(/\\/g, '/'));
 
   if (files.length === 0) {
     throw new Error(`No files matched pattern: ${pattern}`);
@@ -65,7 +68,7 @@ export async function runConsolidateImports(
   const changed: string[] = [];
 
   for (const file of files) {
-    const fullPath = `${cwd}/${file}`;
+    const fullPath = join(cwd, file);
     const source = await readFile(fullPath);
     const transformed = consolidateImports(source);
 
