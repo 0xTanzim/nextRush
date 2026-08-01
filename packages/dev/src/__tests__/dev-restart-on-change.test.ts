@@ -9,7 +9,7 @@
  *
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,12 +57,24 @@ describe('nextrush dev — restart on file change (task 2.2)', () => {
   });
 
   afterEach(() => {
-    if (child && !child.killed) {
-      child.kill('SIGKILL');
+    if (child?.pid) {
+      try {
+        if (process.platform === 'win32') {
+          // `nextrush dev` spawns the server as a child — kill the whole tree,
+          // otherwise the orphaned server holds the temp dir open (EPERM on rm).
+          execFileSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+            stdio: 'ignore',
+          });
+        } else {
+          child.kill('SIGKILL');
+        }
+      } catch {
+        // Process already gone.
+      }
     }
     child = undefined;
-    // Windows holds file handles briefly after the child dies — retry the delete.
-    rmSync(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    // Windows releases handles asynchronously after the tree kill — retry the delete.
+    rmSync(workDir, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
   });
 
   it(
