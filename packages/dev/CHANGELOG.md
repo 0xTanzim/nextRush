@@ -1,5 +1,13 @@
 # @nextrush/dev
 
+## 1.0.1
+
+### Patch Changes
+
+- [#35](https://github.com/0xTanzim/nextRush/pull/35) [`f5a8e95`](https://github.com/0xTanzim/nextRush/commit/f5a8e9525a88ede7abf26f3694b498aa325d6c14) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Fix dev CLI lint/typecheck failures: template-literal error in `formatSize`, async
+  spawn handlers with no await, and fixture `nextrush` module resolution (declare
+  `nextrush` as a workspace devDependency so its dist is built before dev tests run).
+
 ## 1.0.0
 
 ### Patch Changes
