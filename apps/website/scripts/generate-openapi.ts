@@ -18,8 +18,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { RouteDefinition, StandardSchemaV1 } from '../../../packages/types/dist/index.js';
-import { generateDocument } from '../../../packages/middleware/openapi/dist/index.js';
+import type { RouteDefinition, StandardSchemaV1 } from '@nextrush/types';
+import { generateDocument } from '@nextrush/openapi';
 import { z } from 'zod';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
