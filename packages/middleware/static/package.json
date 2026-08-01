@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/static",
-  "version": "1.0.0-beta.0",
+  "version": "1.0.0-beta.1",
   "description": "High-performance static file serving middleware for NextRush",
   "type": "module",
   "main": "./dist/index.js",

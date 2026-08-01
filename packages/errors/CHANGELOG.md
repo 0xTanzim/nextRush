@@ -1,5 +1,14 @@
 # @nextrush/errors
 
+## 4.0.0-beta.2
+
+### Patch Changes
+
+- Consolidated patch release across all NextRush public packages.
+
+- Updated dependencies []:
+  - @nextrush/types@4.0.0-beta.2
+
 ## 4.0.0-beta.1
 
 ### Patch Changes

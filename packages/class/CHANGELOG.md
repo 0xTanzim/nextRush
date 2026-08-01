@@ -1,5 +1,18 @@
 # @nextrush/class
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- Consolidated patch release across all NextRush public packages.
+
+- Updated dependencies []:
+  - @nextrush/core@4.0.0-beta.2
+  - @nextrush/di@4.0.0-beta.2
+  - @nextrush/errors@4.0.0-beta.2
+  - @nextrush/router@4.0.0-beta.2
+  - @nextrush/types@4.0.0-beta.2
+
 ## 1.0.0-beta.1
 
 ### Patch Changes

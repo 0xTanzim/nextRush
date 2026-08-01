@@ -35,7 +35,7 @@
     "changeset": "changeset",
     "version": "pnpm validate:changeset-baselines && pnpm verify:release-state && changeset version",
     "release:check": "pnpm verify:release-state && pnpm validate:changeset-baselines",
-    "release": "turbo run build && changeset publish --provenance",
+    "release": "turbo run build && changeset publish",
     "create": "node packages/create-nextrush/bin/create-nextrush.js"
   },
   "devDependencies": {

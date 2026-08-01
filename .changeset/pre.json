@@ -52,7 +52,6 @@
     "@nextrush/adapter-nextjs": "1.0.0-beta.0"
   },
   "changesets": [
-    "serverless-drop-in-handlers-ctx-platform",
-    "serverless-drop-in-handlers"
+    "patch-release-all-packages"
   ]
 }

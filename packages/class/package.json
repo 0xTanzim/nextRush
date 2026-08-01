@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/class",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Class-based API for NextRush - decorators, DI, and controller registration",
   "type": "module",
   "main": "./dist/index.js",

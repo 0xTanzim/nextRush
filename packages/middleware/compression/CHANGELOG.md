@@ -1,5 +1,14 @@
 # @nextrush/compression
 
+## 3.0.6-beta.0
+
+### Patch Changes
+
+- Consolidated patch release across all NextRush public packages.
+
+- Updated dependencies []:
+  - @nextrush/types@4.0.0-beta.2
+
 ## 3.0.6
 
 ### Patch Changes

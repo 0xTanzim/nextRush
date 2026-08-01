@@ -309,7 +309,7 @@ module-scope variables yourself) persists across warm invocations. Keep per-requ
 
 **What happens if my handler exceeds the timeout?**
 The invocation resolves with a 504 result and the still-running handler is cancelled cooperatively
-via `ctx.signal`. See the `timeout` option above.
+via `ctx.signal`. See the `timeout` option above
 
 ## Package relationships
 

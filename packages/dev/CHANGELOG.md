@@ -1,5 +1,11 @@
 # @nextrush/dev
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- Consolidated patch release across all NextRush public packages.
+
 ## 1.0.0-beta.0
 
 ### Minor Changes

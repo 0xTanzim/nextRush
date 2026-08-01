@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/helmet",
-  "version": "4.0.0-beta.0",
+  "version": "4.0.0-beta.1",
   "description": "Security headers middleware for NextRush",
   "type": "module",
   "main": "./dist/index.js",

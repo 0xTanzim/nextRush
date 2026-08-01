@@ -1,5 +1,18 @@
 # @nextrush/adapter-edge
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- Consolidated patch release across all NextRush public packages.
+
+- Updated dependencies []:
+  - @nextrush/core@4.0.0-beta.2
+  - @nextrush/errors@4.0.0-beta.2
+  - @nextrush/runtime@4.0.0-beta.2
+  - @nextrush/stream@1.0.0-beta.2
+  - @nextrush/types@4.0.0-beta.2
+
 ## 1.0.0-beta.1
 
 ### Patch Changes

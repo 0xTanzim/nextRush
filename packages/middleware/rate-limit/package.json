@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/rate-limit",
-  "version": "1.0.0-beta.0",
+  "version": "1.0.0-beta.1",
   "description": "Production-grade rate limiting middleware for NextRush with multiple algorithms",
   "type": "module",
   "main": "./dist/index.js",

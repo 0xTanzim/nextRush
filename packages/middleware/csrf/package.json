@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/csrf",
-  "version": "1.0.0-beta.0",
+  "version": "1.0.0-beta.1",
   "description": "CSRF protection middleware for NextRush — Signed Double-Submit Cookie pattern with HMAC-SHA256",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,5 +1,14 @@
 # @nextrush/openapi
 
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- Consolidated patch release across all NextRush public packages.
+
+- Updated dependencies []:
+  - @nextrush/types@4.0.0-beta.2
+
 ## 1.0.0-beta.0
 
 ### Patch Changes
