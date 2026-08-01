@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/openapi",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Zero-config OpenAPI 3.1 generation for NextRush — reads route metadata (validate() schemas + endpoint()) and serves /openapi.json + docs. The first renderer of the Route Metadata System.",
   "type": "module",
   "main": "./dist/index.js",

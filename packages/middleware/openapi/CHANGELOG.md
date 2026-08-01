@@ -1,5 +1,16 @@
 # @nextrush/openapi
 
+## 1.0.1
+
+### Patch Changes
+
+- [#38](https://github.com/0xTanzim/nextRush/pull/38) [`d4e7967`](https://github.com/0xTanzim/nextRush/commit/d4e79671f57d0daa58ea7447bb50475322113cca) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Add a `default` condition to the package's `exports` map so CJS-resolving tools
+  (e.g. `tsx` running the docs site's `generate-openapi.ts`) can import the package.
+  The docs website now declares `@nextrush/openapi` (and `@nextrush/types`, type-only
+  imports) as workspace devDependencies and imports by package specifier instead of a
+  relative `dist/` path — this also gives turbo the dependency edge it needs to build
+  them before the website build.
+
 ## 1.0.0
 
 ### Patch Changes
