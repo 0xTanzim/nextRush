@@ -32,7 +32,7 @@ describe.each(primarySecurityDrivers())(
         [driver]
       );
 
-      const [{ result }] = results;
+      const [{ result }] = [results[0]!];
       const body = JSON.parse(result.text()) as { path: string; originalPath: string };
       expect(body.path).toBe('/admin/users');
       expect(body.originalPath).toBe(PATH_TARGET_VARIANTS.mixedCaseAdminUsers);
@@ -58,7 +58,7 @@ describe.each(primarySecurityDrivers())(
         [driver]
       );
 
-      const [{ result }] = results;
+      const [{ result }] = [results[0]!];
       // Before the fix: a case-sensitive raw startsWith() prefix-mount test
       // never matched '/ADMIN/users' at all -> 404, empty body. After the
       // fix: the mount test canonicalizes first, matches, and the raw-path
@@ -81,7 +81,7 @@ describe.each(primarySecurityDrivers())(
         },
         [driver]
       );
-      const [{ result }] = results;
+      const [{ result }] = [results[0]!];
       expect(result.status).toBe(driver.name === 'node' ? 400 : 404);
     });
 
@@ -97,7 +97,7 @@ describe.each(primarySecurityDrivers())(
         },
         [driver]
       );
-      const [{ result }] = results;
+      const [{ result }] = [results[0]!];
       expect(result.status).toBe(driver.name === 'node' ? 400 : 404);
     });
 
@@ -113,7 +113,7 @@ describe.each(primarySecurityDrivers())(
         },
         [driver]
       );
-      const [{ result }] = results;
+      const [{ result }] = [results[0]!];
       expect(result.status).toBe(driver.name === 'node' ? 400 : 404);
     });
 
@@ -129,7 +129,7 @@ describe.each(primarySecurityDrivers())(
         },
         [driver]
       );
-      const [{ result }] = results;
+      const [{ result }] = [results[0]!];
       expect(result.status).toBe(driver.name === 'node' ? 404 : 200);
     });
 
@@ -145,7 +145,7 @@ describe.each(primarySecurityDrivers())(
         },
         [driver]
       );
-      const [{ result }] = results;
+      const [{ result }] = [results[0]!];
       expect(result.status).toBe(404);
     });
 
@@ -162,7 +162,7 @@ describe.each(primarySecurityDrivers())(
         [driver]
       );
 
-      const [{ result }] = results;
+      const [{ result }] = [results[0]!];
       expect(result.status).toBe(200);
     });
   }

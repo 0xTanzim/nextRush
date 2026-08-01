@@ -60,7 +60,7 @@ export const nextjsDriver: ConformanceDriver = {
     const methods = { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } as const;
     const method = (init?.method ?? 'GET').toUpperCase() as keyof typeof methods;
     const handler = methods[method];
-    const response = await handler(toRequest(init));
+    const response = await handler(toRequest(init), { params: Promise.resolve({}) });
     const bodyText = await response.text();
     return toResult(response, bodyText);
   },
@@ -89,7 +89,7 @@ export const nextjsDriver: ConformanceDriver = {
     const { GET } = handle(app);
     const controller = new AbortController();
     const request = new Request(new URL('/', BASE_URL), { signal: controller.signal });
-    const pending = GET(request).catch(() => undefined);
+    const pending = GET(request, { params: Promise.resolve({}) }).catch(() => undefined);
     setTimeout(() => {
       controller.abort();
     }, 10);
@@ -115,7 +115,7 @@ export const nextjsDriver: ConformanceDriver = {
       });
     });
     const { GET } = handle(app, { timeout: 10 });
-    const response = await GET(new Request(new URL('/', BASE_URL)));
+    const response = await GET(new Request(new URL('/', BASE_URL)), { params: Promise.resolve({}) });
     return { status: response.status, signalFired };
   },
 };

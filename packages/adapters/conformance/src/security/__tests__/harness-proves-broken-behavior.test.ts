@@ -35,7 +35,7 @@ describe.each(primarySecurityDrivers())('security harness proves broken behavior
       [driver]
     );
 
-    const [{ result }] = results;
+    const [{ result }] = [results[0]!];
     // Under proxy: 1 (one trusted hop), resolution walks the chain from the
     // right rather than trusting the client-authored leftmost entry — the
     // forged value ('203.0.113.9', the leftmost entry) must never surface.
@@ -75,7 +75,7 @@ describe.each(primarySecurityDrivers())('security harness proves broken behavior
     // Post-fix, ctx.ip is stable across requests that only rotate the
     // client-authored (leftmost) entry — the exact bypass a rate limiter's
     // per-IP key would otherwise fall for (SEC-01).
-    expect(first[0].result.text()).toBe(second[0].result.text());
+    expect(first[0]!.result.text()).toBe(second[0]!.result.text());
   });
 
   it('4.12: an untrusted direct peer cannot use a CIDR-list trust to inject a forged IP via headers', async () => {
@@ -99,7 +99,7 @@ describe.each(primarySecurityDrivers())('security harness proves broken behavior
       [driver]
     );
 
-    const [{ result }] = results;
+    const [{ result }] = [results[0]!];
     expect(result.text()).not.toBe('203.0.113.9');
     expect(result.text()).not.toBe('10.0.0.5');
   });
@@ -119,7 +119,7 @@ describe.each(primarySecurityDrivers())('security harness proves broken behavior
       [driver]
     );
 
-    const [{ result }] = results;
+    const [{ result }] = [results[0]!];
     // The router still dispatches; whether a path-comparing guard sees the
     // same request is the separate, more severe question the next test
     // covers — this only establishes that case folding lets the mismatched
@@ -153,7 +153,7 @@ describe.each(primarySecurityDrivers())('security harness proves broken behavior
       [driver]
     );
 
-    const [{ result }] = results;
+    const [{ result }] = [results[0]!];
     // The authorization-bypass shape of SEC-02: the handler is reached
     // ('bypassed'), but the raw-path guard never matched.
     expect(result.text()).toBe('bypassed');
