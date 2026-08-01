@@ -98,6 +98,11 @@ jobs:
       - name: Build workspace packages the matrix resolves versions against
         run: pnpm --filter "create-nextrush..." build
 
+      # The parity smoke test symlinks examples/dev-cli-fixture/node_modules, so
+      # nextrush + @nextrush/dev (fixture deps) must have dist built in this job.
+      - name: Build fixture workspace dependencies (nextrush, @nextrush/dev)
+        run: pnpm turbo run build --filter=dev-cli-fixture...
+
       - name: Generate-then-install matrix (every style x runtime x middleware cell)
         run: pnpm --filter create-nextrush test -- src/__tests__/generate-install-matrix.test.ts
 
