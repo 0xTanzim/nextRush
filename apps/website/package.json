@@ -35,6 +35,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@nextrush/openapi": "workspace:*",
+    "@nextrush/types": "workspace:*",
     "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/mdx": "^2.0.14",
