@@ -1,5 +1,16 @@
 # @nextrush/class
 
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- Updated dependencies [[`207dbca`](https://github.com/0xTanzim/nextRush/commit/207dbca2ee20a0ce7a00fe6ee14615bbb56562a2)]:
+  - @nextrush/types@4.0.0-beta.1
+  - @nextrush/core@4.0.0-beta.1
+  - @nextrush/di@4.0.0-beta.1
+  - @nextrush/errors@4.0.0-beta.1
+  - @nextrush/router@4.0.0-beta.1
+
 ## 1.0.0-beta.0
 
 ### Major Changes

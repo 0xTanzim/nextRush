@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/runtime",
-  "version": "4.0.0-beta.0",
+  "version": "4.0.0-beta.1",
   "description": "Runtime detection and cross-runtime abstractions for NextRush",
   "type": "module",
   "main": "./dist/index.js",

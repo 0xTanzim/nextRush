@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/types",
-  "version": "4.0.0-beta.0",
+  "version": "4.0.0-beta.1",
   "description": "Shared TypeScript types for NextRush framework",
   "type": "module",
   "main": "./dist/index.js",
