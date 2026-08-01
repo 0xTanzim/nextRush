@@ -43,6 +43,24 @@ export class BodyTooLargeError extends PayloadTooLargeError {
 }
 
 /**
+ * Error thrown when the request stream closes before the body has been fully
+ * read — a client disconnect/abort mid-body, not a server fault.
+ *
+ * @remarks
+ * F-10 (reliability hardening): classified as a client-side (4xx) condition
+ * distinct from a generic `Error`, so logs/metrics do not misattribute a
+ * client disconnect as a server (5xx) error.
+ */
+export class RequestAbortedError extends BadRequestError {
+  constructor() {
+    super('Request stream closed before the body was fully read (client disconnected)', {
+      code: 'REQUEST_ABORTED',
+    });
+    this.name = 'RequestAbortedError';
+  }
+}
+
+/**
  * Abstract base class for BodySource implementations
  *
  * @remarks
@@ -56,17 +74,20 @@ export class BodyTooLargeError extends PayloadTooLargeError {
  * ```typescript
  * // In @nextrush/adapter-node
  * export class NodeBodySource extends AbstractBodySource {
- *   constructor(req: IncomingMessage) {
+ *   constructor(private req: IncomingMessage) {
  *     super(req.headers['content-length'], req.headers['content-type']);
- *     this._stream = req;
  *   }
  *
  *   protected async _buffer(): Promise<Uint8Array> {
  *     const chunks: Buffer[] = [];
- *     for await (const chunk of this._stream) {
+ *     for await (const chunk of this.req) {
  *       chunks.push(chunk);
  *     }
  *     return Buffer.concat(chunks);
+ *   }
+ *
+ *   protected _stream(): NodeStreamLike {
+ *     return this.req;
  *   }
  * }
  * ```
@@ -105,10 +126,12 @@ export abstract class AbstractBodySource implements BodySource {
   }
 
   /**
-   * Runtime-specific buffer reading implementation
+   * Runtime-specific buffer reading implementation.
+   *
+   * @param limit - Effective byte limit to enforce incrementally while reading.
    * @internal
    */
-  protected abstract _buffer(): Promise<Uint8Array>;
+  protected abstract _buffer(limit: number): Promise<Uint8Array>;
 
   /**
    * Runtime-specific stream access
@@ -116,7 +139,7 @@ export abstract class AbstractBodySource implements BodySource {
    */
   protected abstract _stream(): NodeStreamLike | WebStreamLike;
 
-  async buffer(): Promise<Uint8Array> {
+  async buffer(limit?: number): Promise<Uint8Array> {
     if (this._consumed && this._cachedBuffer) {
       return this._cachedBuffer;
     }
@@ -125,17 +148,21 @@ export abstract class AbstractBodySource implements BodySource {
       throw new BodyConsumedError();
     }
 
+    // Effective limit: the caller-supplied per-read limit takes precedence over the
+    // construction-time limit (RFC 017 — BodySource limit propagation).
+    const effectiveLimit = limit ?? this.options.limit;
+
     // Check content-length limit before reading
-    if (this.contentLength !== undefined && this.contentLength > this.options.limit) {
-      throw new BodyTooLargeError(this.options.limit, this.contentLength);
+    if (this.contentLength !== undefined && this.contentLength > effectiveLimit) {
+      throw new BodyTooLargeError(effectiveLimit, this.contentLength);
     }
 
     this._consumed = true;
-    const buffer = await this._buffer();
+    const buffer = await this._buffer(effectiveLimit);
 
     // Check actual size after reading
-    if (buffer.length > this.options.limit) {
-      throw new BodyTooLargeError(this.options.limit, buffer.length);
+    if (buffer.length > effectiveLimit) {
+      throw new BodyTooLargeError(effectiveLimit, buffer.length);
     }
 
     this._cachedBuffer = buffer;
@@ -246,7 +273,7 @@ export class WebBodySource extends AbstractBodySource {
     this.request = request;
   }
 
-  protected async _buffer(): Promise<Uint8Array> {
+  protected async _buffer(limit: number): Promise<Uint8Array> {
     // If no body stream, use arrayBuffer() fast path
     if (!this.request.body) {
       const arrayBuffer = await this.request.arrayBuffer();
@@ -264,9 +291,9 @@ export class WebBodySource extends AbstractBodySource {
         if (done) break;
 
         totalBytes += value.byteLength;
-        if (totalBytes > this.options.limit) {
+        if (totalBytes > limit) {
           await reader.cancel();
-          throw new BodyTooLargeError(this.options.limit, totalBytes);
+          throw new BodyTooLargeError(limit, totalBytes);
         }
         chunks.push(value);
       }

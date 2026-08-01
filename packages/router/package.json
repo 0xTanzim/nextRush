@@ -1,7 +1,7 @@
 {
   "name": "@nextrush/router",
-  "version": "3.0.7",
-  "description": "High-performance radix tree router for NextRush",
+  "version": "4.0.0",
+  "description": "High-performance segment trie router for NextRush",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -32,7 +32,7 @@
   "devDependencies": {
     "@nextrush/core": "workspace:*",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   },
   "peerDependencies": {
     "@nextrush/core": "workspace:*"
@@ -45,6 +45,7 @@
   "keywords": [
     "nextrush",
     "router",
+    "segment-trie",
     "radix-tree",
     "http",
     "framework"

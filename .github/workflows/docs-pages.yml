@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "apps/docs/**"
+      - "apps/website/**"
       - "scripts/docs/**"
       - "pnpm-lock.yaml"
       - "package.json"
@@ -45,12 +45,12 @@ jobs:
           NEXTRUSH_REPO_BRANCH: main
           NEXTRUSH_DOCS_BASE_PATH: /${{ github.event.repository.name }}
           NEXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-        run: pnpm turbo build --filter=docs
+        run: pnpm turbo build --filter=website
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: apps/docs/out
+          path: apps/website/out
 
   deploy:
     needs: build

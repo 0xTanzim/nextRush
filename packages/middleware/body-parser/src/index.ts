@@ -31,7 +31,6 @@
 export type {
   BodyParserContext,
   BodyParserErrorCode,
-  BodyParserMiddleware,
   BodyParserOptions,
   JsonOptions,
   RawOptions,

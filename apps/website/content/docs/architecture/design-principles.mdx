@@ -1,0 +1,103 @@
+---
+title: Design Principles
+description: The philosophy behind NextRush's architecture — minimal core, explicit composition, and zero runtime dependencies.
+keywords: [architecture, design, nextrush, principles]
+---
+
+NextRush's design decisions trace back to three commitments stated in the project's own
+[README](https://github.com/0xTanzim/nextRush/blob/main/README.md) and enforced as hard rules in
+its engineering standards: a minimal core, explicit behavior over hidden magic, and zero external
+runtime dependencies. This page explains what each commitment means in practice and where the
+codebase holds the line — or doesn't.
+
+## Minimal core
+
+`@nextrush/core` targets **1,500 lines of code** as a hard ceiling (see [Package
+Hierarchy](/docs/architecture/package-hierarchy)). The README states the whole framework goal as
+"Under 3,000 lines of code" for the core. This is a deliberate constraint, not an accident: every
+capability that isn't `Application` + middleware composition lives in its own package — routing
+is `@nextrush/router`, dependency injection is `@nextrush/di`, HTTP errors are `@nextrush/errors`.
+
+The practical effect is that `createApp()` returns something you can read end-to-end in one
+sitting. There is no framework-wide singleton, no implicit global router, no hidden plugin
+registry inside `core` — those are composed in by the packages you choose to install.
+
+## Explicit over implicit
+
+Two places this shows up directly in the API surface:
+
+- **Middleware controls its own flow.** NextRush middleware calls `ctx.next()` (or accepts
+  `(ctx, next)`) explicitly — there is no automatic chaining based on return values or thrown
+  sentinels. `compose()` in `@nextrush/core` is an index-based dispatcher with no hidden control
+  flow (see
+  [Middleware Flow](/docs/architecture/middleware-internals)); nothing about the pipeline is
+  inferred from the middleware's return type.
+- **Composition over convention-based discovery, by default.** `createRouter()` and `app.route()`
+  are explicit calls — a router isn't auto-mounted by file location unless you opt into
+  `registerControllers`'s filesystem discovery mode, which is itself an explicit call, not
+  something that runs implicitly on `createApp()`.
+
+The dependency injection layer follows the same rule at a smaller scale: `@Service()` defaults to
+singleton scope, but every other scope (`transient`, `request`) is an explicit option, not an
+inferred behavior based on how a class is used (see [DI Internals](/docs/architecture/di-internals)).
+
+## Zero runtime dependencies
+
+Per the repository's `global-rules.instructions.md`, core, router, errors, types, adapters, and
+middleware packages carry **no external runtime dependencies** except three named, audited
+exceptions: `reflect-metadata` (decorator metadata for DI), `tsyringe` (the DI container itself,
+scoped to `@nextrush/di` only), and `@clack/prompts` (interactive CLI prompts, scoped to the
+`create-nextrush` scaffolder only). The [generated dependency graph](/docs/architecture/package-hierarchy#dependency-graph-generated-from-source)
+confirms this directly: scanning every `packages/*/package.json` shows no other external runtime
+dependency anywhere in the 36-package tree except one additional case — `@nextrush/logger`
+depends on the separately published `@nextrush/log` package (`^0.2.1`), which is outside this
+rule's three named exceptions and is flagged here rather than smoothed over.
+
+<Callout type="info" title="Why this constraint exists">
+  A zero-dependency core means the framework's attack surface, cold-start time, and version-drift
+  risk are bounded by NextRush's own code, not by a transitive dependency tree the maintainers
+  don't control. The tradeoff is that anything a dependency would normally provide — a JSON
+  schema validator, a template engine — has to be either vendored (if under ~50 lines) or shipped
+  as an opt-in package the application explicitly installs.
+</Callout>
+
+## Composition over inheritance
+
+The class runtime (`@nextrush/class`) reads like decorators and DI, which can look
+inheritance-heavy from the outside. In practice, the object model is composition throughout:
+a `@Controller` doesn't extend a base controller class, a `@Service` doesn't extend a base
+service class, and `@Module` composes other modules via `imports` rather than a subclassing
+hierarchy. `registerControllers` and `registerModule` walk a graph of plain classes wired
+together by DI, not an inheritance tree.
+
+## Where the constraints were catching up to the code (now closed)
+
+Design principles are only useful if they're checked against what actually ships. Two gaps were
+tracked here rather than glossed over, and both are now fixed:
+
+- **The router's internal file was named `radix-tree.ts`.** The router's own doc comments were
+  already explicit that the data structure is a **segment trie**, not a compressed radix tree
+  (see [Router Internals](/docs/architecture/router-internals) for the distinction), but the
+  implementation file and its `RadixNode` type predated that terminology correction. Both have
+  since been renamed — `radix-tree.ts` → `segment-trie.ts`, `RadixNode` → `TrieNode` — closing
+  the naming debt (verified: `grep -rni radix packages/router/src` returns only an intentional
+  negation, "segment trie... not a radix tree").
+- **`CONTRIBUTING.md` at the repo root said "Radix tree routing"** and listed a package
+  hierarchy (`decorators → controllers → adapters`) that predated the `@nextrush/class`
+  consolidation. `CONTRIBUTING.md` has since been corrected to the current hierarchy and
+  terminology; [Contributing](/docs/community/contributing) documents the verified hierarchy.
+
+Both were small, tracked inconsistencies rather than architectural drift — the design principles
+above hold at the level that matters (dependency direction, package boundaries, zero-dep audit),
+and "explicit over implicit" applies to documentation honesty too.
+
+## Next steps
+
+<Cards>
+  <Card title="Package Hierarchy" href="/docs/architecture/package-hierarchy">
+    See the dependency direction these principles produce, generated from real package.json files.
+  </Card>
+  <Card title="Middleware Flow" href="/docs/architecture/middleware-internals">
+    How the "explicit ctx.next()" principle is implemented in compose().
+  </Card>
+</Cards>

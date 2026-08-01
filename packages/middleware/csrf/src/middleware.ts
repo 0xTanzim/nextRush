@@ -18,6 +18,7 @@
  */
 
 import type { Context, Middleware } from '@nextrush/types';
+import { SECURITY_AUDIT, type SecurityAuditVerdict } from '@nextrush/types';
 import {
   CSRF_FIELD,
   CSRF_HEADER,
@@ -27,7 +28,7 @@ import {
   ERRORS,
   XSRF_HEADER,
 } from './constants.js';
-import { constantTimeEqual, generateToken, validateToken } from './token.js';
+import { constantTimeEqual, generateToken, isValidTokenShape, validateToken } from './token.js';
 import type {
   CsrfContext,
   CsrfCookieOptions,
@@ -69,24 +70,18 @@ function parseCookie(cookieHeader: string, name: string): string | undefined {
  *   1. `x-csrf-token` header (standard)
  *   2. `x-xsrf-token` header (Angular convention)
  *   3. `_csrf` body field (form submission)
- *   4. `_csrf` query parameter (fallback)
+ *
+ * The query string is never read — a token there would leak into access
+ * logs, `Referer` headers, and browser history. Applications that need
+ * query-string extraction supply an explicit `getTokenFromRequest`.
  */
 const defaultTokenExtractor: TokenExtractor = (ctx) => {
-  // Check headers first (fastest, most common for SPAs)
   const headerToken = ctx.get(CSRF_HEADER) ?? ctx.get(XSRF_HEADER);
   if (headerToken) return headerToken;
 
-  // Check body (form submissions)
   const body = ctx.body as Record<string, unknown> | undefined;
   if (body && typeof body === 'object' && CSRF_FIELD in body) {
     const val = body[CSRF_FIELD];
-    if (typeof val === 'string') return val;
-  }
-
-  // Check query (rare, last resort)
-  const query = ctx.query as Record<string, unknown> | undefined;
-  if (query && typeof query === 'object' && CSRF_FIELD in query) {
-    const val = query[CSRF_FIELD];
     if (typeof val === 'string') return val;
   }
 
@@ -97,36 +92,22 @@ const defaultTokenExtractor: TokenExtractor = (ctx) => {
 // Origin Check
 // ============================================================================
 
-function checkOrigin(ctx: Context, allowedOrigins?: string[]): boolean {
-  // Fetch Metadata: strongest signal (Chrome 76+, Firefox 90+, Edge 79+)
+/**
+ * Validate the request's `Origin` against the configured allowlist.
+ *
+ * Never compares against `Host` — that header is attacker-controlled on any
+ * request the client fully constructs. `Sec-Fetch-Site` is honored only as a
+ * reject signal (`cross-site` fails before the allowlist is even consulted);
+ * it never grants access on its own. A missing `Origin` fails closed.
+ */
+function checkOrigin(ctx: Context, allowedOrigins: string[]): boolean {
   const fetchSite = ctx.get('sec-fetch-site');
-  if (fetchSite) {
-    // 'same-origin' and 'same-site' are safe
-    if (fetchSite === 'same-origin' || fetchSite === 'same-site') return true;
-    // 'none' means direct navigation — allow
-    if (fetchSite === 'none') return true;
-    // 'cross-site' is dangerous
-    if (fetchSite === 'cross-site') return false;
-  }
+  if (fetchSite === 'cross-site') return false;
 
-  // Origin header check
   const origin = ctx.get('origin');
-  if (!origin) return true; // No Origin header = same-origin (non-CORS request)
+  if (!origin) return false;
 
-  if (allowedOrigins && allowedOrigins.length > 0) {
-    return allowedOrigins.includes(origin);
-  }
-
-  // Compare with Host header
-  const host = ctx.get('host');
-  if (!host) return false;
-
-  try {
-    const originUrl = new URL(origin);
-    return originUrl.host === host;
-  } catch {
-    return false;
-  }
+  return allowedOrigins.includes(origin);
 }
 
 // ============================================================================
@@ -137,15 +118,18 @@ function isPathExcluded(path: string, excludePaths: string[]): boolean {
   for (const pattern of excludePaths) {
     if (pattern === path) return true;
 
-    // Simple wildcard: /api/webhooks/* matches /api/webhooks/stripe
+    // Single wildcard: /api/webhooks/* matches /api/webhooks/stripe (exactly
+    // one remaining segment) but NOT /api/webhooks/stripe/deep.
     if (pattern.endsWith('/*')) {
       const prefix = pattern.slice(0, -2);
       if (path.startsWith(prefix) && path.length > prefix.length && path[prefix.length] === '/') {
-        return true;
+        const remainder = path.slice(prefix.length + 1);
+        if (remainder.length > 0 && !remainder.includes('/')) return true;
       }
+      continue;
     }
 
-    // Double wildcard: /api/webhooks/** matches any depth
+    // Double wildcard: /api/webhooks/** matches any depth.
     if (pattern.endsWith('/**')) {
       const prefix = pattern.slice(0, -3);
       if (path === prefix || (path.startsWith(prefix) && path[prefix.length] === '/')) {
@@ -161,16 +145,12 @@ function isPathExcluded(path: string, excludePaths: string[]): boolean {
 // Cookie Serialization
 // ============================================================================
 
-function serializeCookie(
-  name: string,
-  value: string,
-  options: Required<CsrfCookieOptions>
-): string {
+function serializeCookie(name: string, value: string, options: ResolvedCookieOptions): string {
   let cookie = `${name}=${value}`;
 
   if (options.path) cookie += `; Path=${options.path}`;
   if (options.domain) cookie += `; Domain=${options.domain}`;
-  cookie += `; Max-Age=${String(options.maxAge)}`;
+  if (options.maxAge !== undefined) cookie += `; Max-Age=${String(options.maxAge)}`;
   if (options.secure) cookie += '; Secure';
   if (options.httpOnly) cookie += '; HttpOnly';
   // sameSite is typed as 'strict' | 'lax' | 'none' after Required<>, but callers
@@ -187,17 +167,43 @@ function serializeCookie(
 // Options Resolution
 // ============================================================================
 
+/**
+ * Resolved cookie options. `maxAge` stays optional (unlike `Required<CsrfCookieOptions>`)
+ * so an omitted value can be distinguished from an explicit `0` — the cookie
+ * only emits `Max-Age` when the application configured one.
+ */
+type ResolvedCookieOptions = Required<Omit<CsrfCookieOptions, 'maxAge'>> &
+  Pick<CsrfCookieOptions, 'maxAge'>;
+
 interface ResolvedOptions {
   getSecret: () => string;
   getSessionIdentifier: ((ctx: Context) => string | undefined) | undefined;
   getTokenFromRequest: TokenExtractor;
   ignoredMethods: Set<string>;
   excludePaths: string[];
-  cookie: Required<CsrfCookieOptions>;
+  cookie: ResolvedCookieOptions;
   tokenSize: number;
   onError: (ctx: Context, reason: string) => void | Promise<void>;
   originCheck: boolean;
   allowedOrigins: string[];
+}
+
+function validateMaxAge(maxAge: number): void {
+  if (!Number.isFinite(maxAge) || maxAge < 0) {
+    throw new Error(`${ERRORS.INVALID_MAX_AGE}${String(maxAge)}`);
+  }
+}
+
+function validateSessionDecision(options: CsrfOptions): void {
+  const hasIdentifier = typeof options.getSessionIdentifier === 'function';
+  const binding: unknown = options.sessionBinding;
+
+  if (binding !== undefined && binding !== 'none') {
+    throw new Error(ERRORS.INVALID_SESSION_BINDING);
+  }
+  if (!hasIdentifier && binding === undefined) {
+    throw new Error(ERRORS.MISSING_SESSION_DECISION);
+  }
 }
 
 function resolveOptions(options: CsrfOptions): ResolvedOptions {
@@ -215,16 +221,28 @@ function resolveOptions(options: CsrfOptions): ResolvedOptions {
 
   const getSecret = typeof secret === 'function' ? secret : () => secret;
 
+  validateSessionDecision(options);
+
+  const originCheck = options.originCheck ?? true;
+  const allowedOrigins = options.allowedOrigins ?? [];
+  if (originCheck && allowedOrigins.length === 0) {
+    throw new Error(ERRORS.MISSING_ALLOWED_ORIGINS);
+  }
+
+  if (options.cookie?.maxAge !== undefined) {
+    validateMaxAge(options.cookie.maxAge);
+  }
+
   // Resolve cookie options
   const cookieName = options.cookie?.name ?? DEFAULT_COOKIE_NAME;
-  const cookieOptions: Required<CsrfCookieOptions> = {
+  const cookieOptions: ResolvedCookieOptions = {
     name: cookieName,
     path: options.cookie?.path ?? '/',
     sameSite: options.cookie?.sameSite ?? 'strict',
     secure: options.cookie?.secure ?? true,
     httpOnly: options.cookie?.httpOnly ?? false,
     domain: options.cookie?.domain ?? '',
-    maxAge: options.cookie?.maxAge ?? 0,
+    maxAge: options.cookie?.maxAge,
   };
 
   // Validate __Host- prefix constraints
@@ -260,8 +278,8 @@ function resolveOptions(options: CsrfOptions): ResolvedOptions {
     cookie: cookieOptions,
     tokenSize: options.tokenSize ?? DEFAULT_TOKEN_SIZE,
     onError: options.onError ?? defaultOnError,
-    originCheck: options.originCheck ?? false,
-    allowedOrigins: options.allowedOrigins ?? [],
+    originCheck,
+    allowedOrigins,
   };
 }
 
@@ -364,10 +382,16 @@ export function csrf(options: CsrfOptions): CsrfMiddleware {
       return resolved.onError(ctx, ERRORS.MISSING_COOKIE);
     }
 
-    // Extract submitted token from header/body/query
+    // Extract submitted token from header/body
     const submittedToken = resolved.getTokenFromRequest(ctx);
     if (!submittedToken) {
       return resolved.onError(ctx, ERRORS.MISSING_TOKEN);
+    }
+
+    // Structural shape check BEFORE any crypto.subtle call — a malformed
+    // token is rejected at zero cryptographic cost.
+    if (!isValidTokenShape(cookieToken) || !isValidTokenShape(submittedToken)) {
+      return resolved.onError(ctx, ERRORS.INVALID_TOKEN);
     }
 
     // Verify tokens match (constant-time comparison)
@@ -396,6 +420,30 @@ export function csrf(options: CsrfOptions): CsrfMiddleware {
     state.csrf = createCsrfContext(ctx, cookieToken);
     return next();
   };
+
+  /**
+   * Boot-time verdict for `cookie.secure: false` (task 8.1): the CSRF cookie
+   * is the double-submit token itself — serving it without `Secure` lets it
+   * be intercepted or overwritten on a shared/plaintext network. Warns
+   * rather than throws (local plaintext development is a legitimate use).
+   */
+  function auditVerdict(): SecurityAuditVerdict {
+    if (!resolved.cookie.secure) {
+      return {
+        level: 'warn',
+        message:
+          "csrf({ cookie: { secure: false } }) serves the CSRF cookie without the 'Secure' " +
+          'attribute — it can be intercepted or overwritten over plaintext HTTP. Remove the ' +
+          'override to keep the secure default, or confirm this is intentional for local development.',
+      };
+    }
+    return { level: 'ok' };
+  }
+
+  Object.defineProperty(protect, SECURITY_AUDIT, {
+    value: auditVerdict,
+    enumerable: false,
+  });
 
   return { protect, tokenProvider };
 }

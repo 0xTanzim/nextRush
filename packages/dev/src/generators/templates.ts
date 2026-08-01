@@ -35,7 +35,7 @@ export function toCamelCase(name: string): string {
 
 export function controllerTemplate(name: string): string {
   const className = `${toPascalCase(name)}Controller`;
-  return `import { Controller, Get, Post, Body, Param } from 'nextrush';
+  return `import { Controller, Get, Post, Body, Param } from 'nextrush/class';
 
 @Controller('/${name}')
 export class ${className} {
@@ -61,7 +61,7 @@ export class ${className} {
 
 export function serviceTemplate(name: string): string {
   const className = `${toPascalCase(name)}Service`;
-  return `import { Service } from 'nextrush';
+  return `import { Service } from 'nextrush/class';
 
 @Service()
 export class ${className} {
@@ -99,7 +99,7 @@ export const ${fnName}: Middleware = async (ctx) => {
 
 export function guardTemplate(name: string): string {
   const fnName = `${toCamelCase(name)}Guard`;
-  return `import type { GuardFn } from 'nextrush';
+  return `import type { GuardFn } from 'nextrush/class';
 
 export const ${fnName}: GuardFn = async (ctx) => {
   const token = ctx.get('authorization');

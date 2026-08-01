@@ -1,0 +1,186 @@
+---
+title: Troubleshooting
+description: Real error messages from NextRush, what causes them, and how to fix them.
+keywords: [help, nextrush, troubleshooting]
+---
+
+Error → cause → fix, for messages NextRush actually produces. Every error class here is
+verified against `packages/errors/src`. If your error isn't listed, check the
+[FAQ](/docs/help/faq) or open an [issue](https://github.com/0xTanzim/nextRush/issues).
+
+<Callout type="info" title="Error response shape">
+  Every typed error extends `NextRushError` and serializes through `toJSON()`:
+  `{ error, message, code, status }`, plus `details` and `cause` (both only when `expose` is
+  true — `cause` is redacted to `{ name, message, code }`, nested one level for a wrapped
+  cause chain, never the raw object) and, when set, `requestId` / `traceId` / `timestamp`.
+  `ValidationError` additionally serializes an `issues` array. See
+  `packages/errors/src/base.ts`.
+</Callout>
+
+## HTTP errors (`@nextrush/errors`)
+
+### `NotFoundError` — 404 Not Found
+
+**Cause:** You threw `new NotFoundError(...)`, or no route matched the request path/method and
+nothing else produced a 404.
+
+**Fix:** Confirm the route is registered on the router you mounted with `app.route(prefix,
+router)`, and that the HTTP method matches. Throw it explicitly where a lookup fails:
+
+```typescript
+import { NotFoundError } from '@nextrush/errors';
+
+const user = await db.users.findById(ctx.params.id);
+if (!user) throw new NotFoundError('User not found');
+```
+
+### `ValidationError` — 400 Bad Request, `code: "VALIDATION_ERROR"`
+
+**Cause:** Thrown by `@nextrush/validation`'s `validate()` (or a `@Body({ transform })`
+decorator) when a Standard Schema library (Zod, Valibot, ArkType) rejects the input. The
+response body includes an `issues` array (`path`, `message`, `rule`, `expected` — `received` is
+always stripped from the response to avoid leaking submitted values such as passwords or tokens).
+
+**Fix:** Read `issues` client-side to show field-level messages, or call
+`error.getFirstError('fieldName')` server-side. See the [Validation guide](/docs/guides/api-development/validation).
+
+### `UnauthorizedError` — 401 Unauthorized
+
+**Cause:** Thrown by your own auth middleware/guard, or `createError(401, ...)` / `unauthorized(...)`
+from `@nextrush/errors`' factory functions.
+
+**Fix:** Confirm authentication middleware runs before the route handler and that it throws
+(not merely sets `ctx.status`) when credentials are missing or invalid — see
+[Authentication](/docs/guides/authentication/authentication).
+
+### `TooManyRequestsError` — 429 Too Many Requests
+
+**Cause:** `@nextrush/rate-limit` (or your own code) throwing when a client exceeds its
+configured limit. The error optionally carries a `retryAfter` field surfaced in `details`.
+
+**Fix:** Respect the `Retry-After` semantics on the client, or raise the configured limit/window
+if the limit is too strict for real traffic. See [Production: Scaling](/docs/production/scaling).
+
+### A 5xx error's `message` field says `"Internal Server Error"` even though I passed a real message
+
+**Cause:** This is intentional, not a bug. Every `HttpError` subclass at 500+ (`InternalServerError`,
+`BadGatewayError`, `ServiceUnavailableError`, `GatewayTimeoutError`, and the rest of the 5xx family
+in `packages/errors/src/http-errors.ts`) is constructed with `expose: false` by default.
+`NextRushError.toJSON()` only serializes the real `message` when `expose` is `true` — for
+non-exposed errors it substitutes the generic status message so internal detail never reaches a
+client response body.
+
+**Fix:** Log the real error server-side (`error.message`, `error.cause`, `error.stack` — never
+gated by `expose`) and, if you deliberately want a specific message exposed to the client, pass
+`{ expose: true }` in the error's options:
+
+```typescript
+import { InternalServerError } from '@nextrush/errors';
+
+throw new InternalServerError('Upstream payment provider unavailable', { expose: true });
+```
+
+### My custom error's `details` aren't showing up in the response
+
+**Cause:** `details` is only serialized when `expose` is `true` (see `toJSON()` in
+`packages/errors/src/base.ts`). 4xx errors default to `expose: true`; 5xx errors default to
+`expose: false`.
+
+**Fix:** For a 5xx error where you intentionally want `details` visible, pass `{ expose: true,
+details: {...} }` explicitly. For 4xx errors, `details` should already appear — confirm you're
+reading the field before any custom `errorHandler({ transform })` overwrites the body.
+
+### My error middleware isn't catching thrown errors
+
+**Cause:** `errorHandler()` from `@nextrush/errors` wraps `next()` in a `try/catch` — it only
+catches errors thrown **downstream** of where it's registered. If it's registered after the
+route that throws, the error already propagated past it.
+
+**Fix:** Register `errorHandler()` early in the middleware chain, before your routes:
+
+```typescript
+import { errorHandler } from '@nextrush/errors';
+
+app.use(errorHandler({ includeStack: process.env.NODE_ENV !== 'production' }));
+app.route('/', router); // routes registered after the handler
+```
+
+---
+
+## Decorator metadata / DI setup
+
+### `reflect-metadata` errors, or DI resolves `undefined` for constructor parameters
+
+**Cause:** TypeScript's `emitDecoratorMetadata` compiler option wasn't enabled, or your build
+tool strips decorator metadata even when the flag is set. `tsx` and esbuild-based tool-chains do
+not emit `emitDecoratorMetadata` output — this is a known limitation of those transpilers, not a
+NextRush bug.
+
+**Fix:** For class-based code (`nextrush/class`, DI), set `"experimentalDecorators": true` and
+`"emitDecoratorMetadata": true` in `tsconfig.json` (see
+[Installation → Configure TypeScript](/docs/getting-started/installation#install-manually)), and for
+production builds use `nextrush build` (from `@nextrush/dev`), which compiles with SWC
+specifically because it preserves this metadata — see the
+[Dev Tools guide](/docs/guides/api-development/dev-tools) for the full explanation and setup.
+
+### `nextrush dev` works but `nextrush build` output loses DI behavior
+
+**Cause:** A dev-only script (`tsx`, plain `ts-node`, or a bundler without decorator-metadata
+support) is being used for the production build too.
+
+**Fix:** Use `nextrush build` for production builds — it's built specifically to solve this by
+compiling with SWC. See [Dev Tools](/docs/guides/api-development/dev-tools).
+
+---
+
+## Common setup issues
+
+### `Cannot find module 'nextrush/class'` or similar subpath import errors
+
+**Cause:** An outdated `nextrush` version, or a `package.json` `"exports"` misconfiguration in a
+non-standard bundler that doesn't respect subpath exports.
+
+**Fix:** Confirm your installed version on the
+[Compatibility Matrix](/docs/help/compatibility-matrix) and update if needed
+(`pnpm add nextrush@latest`). Most modern bundlers (Vite, esbuild, tsx, Node.js ESM) resolve
+subpath exports correctly out of the box.
+
+### An import compiles but the symbol doesn't exist at runtime
+
+**Cause:** Importing a symbol from the wrong package — for example, importing DI-only symbols
+like `@Config`, `@Injectable`, `@Optional`, or `delay` from `nextrush/class` instead of
+`@nextrush/di`. `nextrush/class` re-exports only `Service`, `Repository`, `container`,
+`createContainer`, `inject`, and `Container` from `@nextrush/di` — everything else in that
+package must be imported from `@nextrush/di` directly.
+
+**Fix:** Check the [DI reference](/docs/reference/class/di) for the exact re-export surface, or
+import directly from `@nextrush/di` for anything not on that list.
+
+### Routes return 404 even though the handler is registered
+
+**Cause:** The router instance was created but never mounted with `app.route(prefix, router)`,
+or the prefix doesn't match the request path.
+
+**Fix:** Confirm `createRouter()` (from `@nextrush/router`, or re-exported via `nextrush`) is
+mounted:
+
+```typescript
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+router.get('/users', (ctx) => ctx.json([]));
+app.route('/', router); // mounting step — easy to forget
+await listen(app, 8080);
+```
+
+---
+
+## Still stuck?
+
+- Check the [FAQ](/docs/help/faq) for design and setup questions that aren't error messages.
+- Check the [Glossary](/docs/help/glossary) if a term (Context, Middleware, Extension) is
+  unclear.
+- Open an [issue](https://github.com/0xTanzim/nextRush/issues) with your Node.js version,
+  NextRush version (see the [Compatibility Matrix](/docs/help/compatibility-matrix)), and a
+  minimal reproduction.

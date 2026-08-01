@@ -34,14 +34,14 @@ packages/
 ├── types/           # Shared TypeScript types
 ├── errors/          # HTTP error classes
 ├── core/            # Application, middleware composition
-├── router/          # Radix tree routing
+├── router/          # Segment trie routing
 ├── di/              # Dependency injection
-├── decorators/      # Controller/route decorators
+├── class/           # Class runtime (decorators, controllers, modules, guards, interceptors, filters)
 ├── runtime/         # Runtime detection
 ├── nextrush/        # Meta package (re-exports)
-├── adapters/        # Node, Bun, Deno, Edge
-├── middleware/       # cors, helmet, csrf, body-parser, etc.
-└── plugins/         # controllers, events, logger, etc.
+├── adapters/        # Node, Bun, Deno, Edge, Serverless
+├── middleware/       # cors, helmet, csrf, body-parser, logger, static, template, health, etc.
+└── extensions/      # events, websocket
 ```
 
 ## Development Commands
@@ -62,7 +62,7 @@ pnpm --filter @nextrush/<pkg> build    # Build a specific package
 Lower packages **never** import from higher packages. No circular dependencies.
 
 ```
-types → errors → core → router → di → decorators → controllers → adapters → middleware
+types → errors → core → router → runtime → di → class → adapters → middleware → extensions
 ```
 
 ## Coding Standards
@@ -83,9 +83,13 @@ types → errors → core → router → di → decorators → controllers → a
 - File names: `kebab-case.ts`
 - Barrel exports via `index.ts`
 
-### Zero Dependencies
+### Dependency Footprint
 
-No external runtime dependencies (except `reflect-metadata` for DI). If you need utility functionality, implement it internally.
+The functional core (`createApp`/`createRouter`/`listen` from `nextrush`) has zero external
+runtime dependencies. The class/DI path (`nextrush/class`) depends on `tsyringe` and
+`reflect-metadata` — see the [Dependency Footprint](README.md#dependency-footprint) table in the
+README for the full breakdown. If you need utility functionality elsewhere, implement it
+internally rather than adding a dependency.
 
 ## Testing
 
@@ -121,7 +125,7 @@ pnpm --filter @nextrush/core test -- --coverage
 Use clear, descriptive commit messages:
 
 ```
-feat(core): add plugin lifecycle hooks
+feat(core): add app.extend() Extension boot barrier
 fix(helmet): correct CSP directive merging
 test(csrf): add double-submit cookie edge cases
 docs(router): update API reference

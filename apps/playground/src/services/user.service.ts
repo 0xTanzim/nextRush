@@ -1,4 +1,4 @@
-import { Service } from '@nextrush/di';
+import { Service } from 'nextrush/class';
 
 export interface User {
   id: number;

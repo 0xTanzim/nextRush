@@ -1,8 +1,4 @@
-/**
- * @nextrush/runtime - BodySource Tests
- *
- * @packageDocumentation
- */
+/** @nextrush/runtime - BodySource Tests */
 
 import { describe, expect, it } from 'vitest';
 import {

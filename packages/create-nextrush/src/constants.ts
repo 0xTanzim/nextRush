@@ -1,5 +1,5 @@
 import type { MiddlewarePreset, Runtime, Style } from './types.js';
-import { getMwRange } from './version-store.js';
+import { getPackageRange } from './version-store.js';
 
 // Build-time injected (see tsup.config.ts define) — used only for --version flag
 declare const __VERSION__: string;
@@ -13,25 +13,33 @@ export const DEFAULT_STYLE: Style = 'functional';
 export const DEFAULT_RUNTIME: Runtime = 'node';
 export const DEFAULT_MIDDLEWARE: MiddlewarePreset = 'api';
 
-/** Middleware packages for each preset tier. */
+/** Framework Node.js engine floor — single-sourced across the CLI preflight and generated manifest. */
+export const MIN_NODE_MAJOR = 22;
+
+/** Package names for each middleware preset tier — the single source of truth for both
+ * dependency resolution (task 3.3) and version-map construction. */
+export const MIDDLEWARE_PACKAGE_NAMES: Record<MiddlewarePreset, readonly string[]> = {
+  minimal: [],
+  api: ['@nextrush/cors', '@nextrush/body-parser', '@nextrush/helmet'],
+  full: [
+    '@nextrush/cors',
+    '@nextrush/body-parser',
+    '@nextrush/helmet',
+    '@nextrush/rate-limit',
+    '@nextrush/compression',
+    '@nextrush/request-id',
+  ],
+};
+
+/** Middleware packages for each preset tier, each resolved to ITS OWN version range. */
 export function getMiddlewarePackages(): Record<MiddlewarePreset, Record<string, string>> {
-  const mw = getMwRange();
-  return {
-    minimal: {},
-    api: {
-      '@nextrush/cors': mw,
-      '@nextrush/body-parser': mw,
-      '@nextrush/helmet': mw,
-    },
-    full: {
-      '@nextrush/cors': mw,
-      '@nextrush/body-parser': mw,
-      '@nextrush/helmet': mw,
-      '@nextrush/rate-limit': mw,
-      '@nextrush/compression': mw,
-      '@nextrush/request-id': mw,
-    },
-  };
+  const result: Record<MiddlewarePreset, Record<string, string>> = { minimal: {}, api: {}, full: {} };
+  for (const preset of MIDDLEWARE_PRESETS) {
+    for (const pkgName of MIDDLEWARE_PACKAGE_NAMES[preset]) {
+      result[preset][pkgName] = getPackageRange(pkgName);
+    }
+  }
+  return result;
 }
 
 /** Middleware import statements for template generation. */
@@ -66,14 +74,23 @@ export const MIDDLEWARE_SETUP: Record<MiddlewarePreset, string> = {
   ].join('\n'),
 };
 
-/** Adapter packages for non-Node runtimes. */
+/** Adapter package name for each non-Node runtime (Node uses the built-in adapter). */
+export const ADAPTER_PACKAGE_NAMES: Record<Runtime, string | undefined> = {
+  node: undefined,
+  bun: '@nextrush/adapter-bun',
+  deno: '@nextrush/adapter-deno',
+};
+
+/** Adapter packages for non-Node runtimes, each resolved to ITS OWN version range. */
 export function getAdapterPackages(): Record<Runtime, Record<string, string>> {
-  const mw = getMwRange();
-  return {
-    node: {},
-    bun: { '@nextrush/adapter-bun': mw },
-    deno: { '@nextrush/adapter-deno': mw },
-  };
+  const result: Record<Runtime, Record<string, string>> = { node: {}, bun: {}, deno: {} };
+  for (const runtime of RUNTIMES) {
+    const pkgName = ADAPTER_PACKAGE_NAMES[runtime];
+    if (pkgName) {
+      result[runtime][pkgName] = getPackageRange(pkgName);
+    }
+  }
+  return result;
 }
 
 /** Valid npm package name pattern. */

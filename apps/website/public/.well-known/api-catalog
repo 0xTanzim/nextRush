@@ -1,0 +1,25 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://nextrush.dev",
+      "service-desc": [
+        {
+          "href": "https://nextrush.dev/openapi.json",
+          "type": "application/json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://nextrush.dev/docs",
+          "type": "text/html"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://nextrush.dev/health",
+          "type": "application/json"
+        }
+      ]
+    }
+  ]
+}

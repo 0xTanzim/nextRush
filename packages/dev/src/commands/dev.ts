@@ -1,7 +1,8 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- dev CLI runtime-specific dev-server spawn; platform optimization */
 /**
  * @nextrush/dev - Dev Command
  *
- * Development server with hot reload support.
+ * Development server with auto-restart on file change.
  * Works across Node.js, Bun, and Deno.
  *
  * @packageDocumentation
@@ -13,43 +14,17 @@ import {
     existsSync,
     exitProcess,
     getCwd,
-    getEnv,
     getRuntimeInfo,
     initFsSync,
     onSignal,
     resolvePath,
     spawn,
     type SpawnResult,
+    validateDenoPermissions,
 } from '../runtime/index.js';
-import { findEntry, getDefaultWatchPaths, validateDecoratorConfig } from '../utils/config.js';
-import { banner, clear, error, info, log } from '../utils/logger.js';
-
-const DEFAULT_DEV_PORT = 8080;
-
-function parsePositiveInteger(value: string | undefined, flag: string): number {
-  const parsed = Number(value);
-
-  if (!value || !Number.isInteger(parsed) || parsed <= 0) {
-    error(`${flag} expects a positive integer.`);
-    exitProcess(1);
-  }
-
-  return parsed;
-}
-
-function resolveDevPort(explicitPort: number | undefined): number {
-  if (explicitPort !== undefined) {
-    return explicitPort;
-  }
-
-  const envPort = getEnv('PORT');
-  if (!envPort) {
-    return DEFAULT_DEV_PORT;
-  }
-
-  const parsed = Number(envPort);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_DEV_PORT;
-}
+import { findEntry, loadConfig, validateDecoratorConfig } from '../utils/config.js';
+import { banner, clear, error, info, log, warn } from '../utils/logger.js';
+import { detectProjectRuntime } from './dev-helpers.js';
 
 /**
  * Development server options
@@ -93,7 +68,7 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
 
   const resolvedEntry = entry ?? options.entry ?? findEntry();
   // Respect PORT env var if options.port is not explicitly set.
-  const port = resolveDevPort(options.port);
+  const port = options.port ?? (parseInt(process.env.PORT ?? '8080', 10) || 8080);
   const cwd = getCwd();
 
   // Clear screen unless disabled
@@ -101,9 +76,12 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
     clear();
   }
 
-  // Get runtime info
+  // Get runtime info for banner (CLI process runtime)
   const runtimeInfo = getRuntimeInfo();
-  const runtime = detectRuntime();
+  const cliRuntime = detectRuntime();
+
+  // Detect project's target runtime from adapter dependency
+  const targetRuntime = detectProjectRuntime();
 
   // Show banner
   banner('Dev Server');
@@ -111,6 +89,11 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
   info('Entry', resolvedEntry);
   info('Port', String(port));
   info('Local', `http://127.0.0.1:${String(port)}`);
+
+  // Warn if CLI runtime differs from project target runtime
+  if (cliRuntime !== targetRuntime) {
+    log(`ℹ Target runtime: ${targetRuntime} (detected from project adapter)`);
+  }
 
   // Validate entry file exists
   const entryPath = resolvePath(cwd, resolvedEntry);
@@ -121,9 +104,15 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
     exitProcess(1);
   }
 
-  // Build watch paths
-  const watchPaths = options.watch ?? getDefaultWatchPaths();
-  info('Watching', watchPaths.join(', '));
+  // Watch strategy: only EXPLICIT `--watch <path>` args use path-scoped watching. With no
+  // explicit paths we use the runtime's portable "watch imported files" mode (bare
+  // `--watch` on Node) instead of `--watch-path`, which Node documents as macOS/Windows-only
+  // (RFC-019 D4, F-05). This makes the default `nextrush dev` portable across platforms.
+  const explicitWatchPaths = options.watch && options.watch.length > 0 ? options.watch : [];
+
+  const watchDisplay =
+    explicitWatchPaths.length > 0 ? explicitWatchPaths.join(', ') : 'imported files (auto)';
+  info('Watching', watchDisplay);
 
   // Show runtime-specific info
   if (runtimeInfo.needsSwc) {
@@ -140,14 +129,26 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
 
   log(''); // Blank line
 
-  // Build command arguments based on runtime
-  const { command, args } = buildDevArgs(
-    runtime,
-    resolvedEntry,
-    watchPaths,
-    options.inspect,
-    options.inspectPort
-  );
+  // Warn if explicit watch paths were given on Bun (unsupported there).
+  const warnUnsupported =
+    targetRuntime === 'bun' && explicitWatchPaths.length > 0
+      ? () => {
+          warn('Custom watch paths are not supported in Bun. Bun will watch all imported files instead.');
+        }
+      : undefined;
+
+  // Load project config for extra Deno permissions (dev-deno-permissions spec, D1: extend
+  // the default set, never replace it). Validate fail-fast before ever spawning Deno.
+  const config = await loadConfig();
+  const denoPermissions = config.dev?.deno?.permissions;
+  if (denoPermissions && denoPermissions.length > 0) {
+    try {
+      validateDenoPermissions(denoPermissions);
+    } catch (err) {
+      error((err as Error).message);
+      exitProcess(1);
+    }
+  }
 
   // Prepare environment
   const env: Record<string, string> = {
@@ -156,117 +157,101 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
     ...options.env,
   };
 
-  // Spawn the process
-  const child = await spawn(command, args, {
-    cwd,
-    env,
-    stdio: 'inherit',
-  });
+  // Only Node + explicit paths uses `--watch-path`; that's the case the fallback guards.
+  const nodeUsesWatchPath = targetRuntime === 'node' && explicitWatchPaths.length > 0;
 
-  // Handle errors
-  child.onError((err) => {
-    error(`Process error: ${err.message}`);
-  });
+  const spawnWith = async (
+    watchPathsForArgs: string[]
+  ): Promise<{ child: SpawnResult; command: string }> => {
+    const built = buildDevArgs(
+      targetRuntime,
+      resolvedEntry,
+      watchPathsForArgs,
+      options.inspect,
+      options.inspectPort,
+      denoPermissions,
+      warnUnsupported
+    );
+    const spawned = await spawn(built.command, built.args, { cwd, env, stdio: 'inherit' });
+    return { child: spawned, command: built.command };
+  };
 
-  // Handle process signals
-  const cleanup = () => {
+  const launchTime = Date.now();
+  const first = await spawnWith(explicitWatchPaths);
+  let child = first.child;
+  const command = first.command;
+  let watchPathFallbackDone = false;
+  let shuttingDown = false;
+
+  const wireHandlers = (c: SpawnResult): void => {
+    c.onError((err) => {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        // A missing target-runtime binary: name it and how to proceed, not a raw ENOENT (F-11).
+        error(`Cannot start the dev server: "${command}" was not found on PATH.`);
+        if (targetRuntime !== detectRuntime()) {
+          error(
+            `This project targets ${targetRuntime} (detected from its adapter dependency). ` +
+              `Install ${targetRuntime}, or run the project under ${detectRuntime()}.`
+          );
+        }
+        exitProcess(1);
+      } else {
+        error(`Process error: ${err.message}`);
+      }
+    });
+
+    c.onExit((exitCode) => {
+      // Clean shutdown initiated by a signal — the child is gone, so exit now.
+      if (shuttingDown) {
+        exitProcess(0);
+        return;
+      }
+
+      // Guarded `--watch-path` fallback (F-05): if `node --watch-path` dies fast (an older
+      // Node/platform without recursive watch throws ERR_FEATURE_UNAVAILABLE_ON_PLATFORM),
+      // retry ONCE with the portable bare `--watch` rather than crashing the dev server.
+      const diedFast = Date.now() - launchTime < 3000;
+      if (nodeUsesWatchPath && !watchPathFallbackDone && diedFast && exitCode !== 0 && exitCode !== null) {
+        watchPathFallbackDone = true;
+        warn(
+          '`--watch-path` appears unsupported on this platform/Node version; falling back to bare `--watch` (watching imported files).'
+        );
+        void spawnWith([]).then(({ child: retried }) => {
+          child = retried;
+          wireHandlers(retried);
+        });
+        return;
+      }
+
+      // Otherwise surface a genuine crash instead of exiting 0 silently.
+      if (exitCode !== 0 && exitCode !== null) {
+        error(`Dev process exited with code ${String(exitCode)}.`);
+        exitProcess(exitCode);
+      }
+    });
+  };
+
+  wireHandlers(child);
+
+  // Graceful shutdown: signal the child, let its `onExit` exit the parent once it is gone
+  // (so the port is released and the descendant app is reaped), and force-kill + exit if it
+  // does not terminate within the grace window rather than exiting instantly (F-04).
+  const cleanup = (): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     child.kill('SIGTERM');
-    exitProcess(0);
+    const force = setTimeout(() => {
+      child.kill('SIGKILL');
+      exitProcess(0);
+    }, 3000);
+    if (typeof (force as { unref?: () => void }).unref === 'function') {
+      (force as { unref: () => void }).unref();
+    }
   };
 
   onSignal('SIGINT', cleanup);
   onSignal('SIGTERM', cleanup);
 
   return child;
-}
-
-/**
- * CLI entry point for dev command
- */
-export function devCli(args: string[]): void {
-  const options: DevOptions = {};
-  let entry: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i] ?? '';
-
-    switch (arg) {
-      case '--port':
-      case '-p': {
-        const portArg = args[++i];
-        options.port = parsePositiveInteger(portArg, '--port');
-        break;
-      }
-      case '--inspect': {
-        options.inspect = true;
-        break;
-      }
-      case '--inspect-port': {
-        const inspectArg = args[++i];
-        options.inspectPort = parsePositiveInteger(inspectArg, '--inspect-port');
-        break;
-      }
-      case '--watch':
-      case '-w': {
-        const watchArg = args[++i];
-        if (watchArg) {
-          options.watch ??= [];
-          options.watch.push(watchArg);
-        }
-        break;
-      }
-      case '--no-clear': {
-        options.clearScreen = false;
-        break;
-      }
-      case '--verbose':
-      case '-v': {
-        options.verbose = true;
-        break;
-      }
-      case '--help':
-      case '-h': {
-        devHelp();
-        exitProcess(0);
-      }
-      default: {
-        if (!arg.startsWith('-')) {
-          entry = arg;
-        }
-        break;
-      }
-    }
-  }
-
-  // Run dev server
-  dev(entry, options).catch((err) => {
-    error(`Failed to start dev server: ${err.message}`);
-    exitProcess(1);
-  });
-}
-
-/**
- * Print dev command help
- */
-export function devHelp(): void {
-  log(`
-\x1b[36m⚡ NextRush Dev Server\x1b[0m
-
-Usage: nextrush dev [entry] [options]
-
-Options:
-  --port, -p <port>    Port number (default: 8080; env PORT overrides)
-  --watch, -w <path>   Additional path to watch (can be used multiple times)
-  --inspect            Enable Node.js inspector
-  --inspect-port       Inspector port (default: 9229)
-  --no-clear           Don't clear screen on start
-  --verbose, -v        Verbose output
-
-Examples:
-  nextrush dev
-  nextrush dev ./src/app.ts
-  nextrush dev --port 4000
-  nextrush dev --watch ./src --watch ./config
-  nextrush dev ./src/app.ts --port 4000 --inspect
-`);
 }

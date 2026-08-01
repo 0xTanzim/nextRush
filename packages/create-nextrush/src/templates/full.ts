@@ -17,8 +17,8 @@ export function generateFull(options: ProjectOptions): FileMap {
   files.set('src/routes/health.ts', generateHealthRoute());
   files.set('src/controllers/hello.controller.ts', generateHelloController());
   files.set('src/services/hello.service.ts', generateHelloService());
+  files.set('src/services/__tests__/hello.service.test.ts', generateHelloServiceTest());
   files.set('src/middleware/error-handler.ts', generateErrorHandler());
-  files.set('src/middleware/not-found.ts', generateNotFound());
 
   return files;
 }
@@ -32,18 +32,17 @@ function generateEntrypoint(options: ProjectOptions): string {
   const lines: string[] = [];
 
   lines.push(...getRuntimeEntrypointImports(options.runtime, 'serve'));
-  lines.push("import { controllersPlugin } from 'nextrush/class';");
+  lines.push("import { registerControllers } from 'nextrush/class';");
 
   if (middlewareImports) {
     lines.push(middlewareImports);
   }
 
   lines.push("import { errorHandler } from './middleware/error-handler.js';");
-  lines.push("import { notFoundHandler } from './middleware/not-found.js';");
   lines.push("import { healthRouter } from './routes/health.js';");
   lines.push('');
-  lines.push('const app = createApp();');
   lines.push('const router = createRouter();');
+  lines.push('const app = createApp({ router });');
   lines.push(portDecl);
   lines.push(controllerDiscoveryHelpers.trimEnd());
   lines.push('');
@@ -60,21 +59,13 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push('// Functional routes');
   lines.push("app.route('/health', healthRouter);");
   lines.push('');
-  lines.push('// Auto-discover controllers');
-  lines.push('await app.plugin(');
-  lines.push('  controllersPlugin({');
-  lines.push('    router,');
-  lines.push('    root: CONTROLLERS_ROOT,');
-  lines.push('    include: CONTROLLERS_INCLUDE,');
-  lines.push("    prefix: '/api',");
-  lines.push('    strict: true,');
-  lines.push('  })');
-  lines.push(');');
-  lines.push('');
-  lines.push("app.route('/', router);");
-  lines.push('');
-  lines.push('// 404 handler (after all routes)');
-  lines.push('app.use(notFoundHandler());');
+  lines.push('// Auto-discover controllers (registered on the app router)');
+  lines.push('await registerControllers(app, {');
+  lines.push('  root: CONTROLLERS_ROOT,');
+  lines.push('  include: CONTROLLERS_INCLUDE,');
+  lines.push("  prefix: '/api',");
+  lines.push('  strict: true,');
+  lines.push('});');
   lines.push('');
   lines.push('await serve(app, {');
   lines.push('  port: PORT,');
@@ -139,6 +130,25 @@ export class HelloService {
 `;
 }
 
+function generateHelloServiceTest(): string {
+  return `import { describe, expect, it } from 'vitest';
+
+import { HelloService } from '../hello.service.js';
+
+describe('HelloService', () => {
+  it('greets with a default message', () => {
+    const service = new HelloService();
+    expect(service.greet()).toEqual({ message: 'Hello from NextRush!' });
+  });
+
+  it('greets by name', () => {
+    const service = new HelloService();
+    expect(service.greetByName('Ada')).toEqual({ message: 'Hello, Ada!' });
+  });
+});
+`;
+}
+
 function generateErrorHandler(): string {
   return `import { HttpError, type Middleware } from 'nextrush';
 
@@ -157,22 +167,6 @@ export function errorHandler(): Middleware {
         statusCode,
       });
     }
-  };
-}
-`;
-}
-
-function generateNotFound(): string {
-  return `import type { Middleware } from 'nextrush';
-
-export function notFoundHandler(): Middleware {
-  return async (ctx) => {
-    ctx.status = 404;
-    ctx.json({
-      error: 'Not Found',
-      statusCode: 404,
-      path: ctx.path,
-    });
   };
 }
 `;

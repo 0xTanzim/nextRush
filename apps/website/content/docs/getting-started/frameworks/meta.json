@@ -1,0 +1,5 @@
+{
+  "title": "Framework Integrations",
+  "description": "Mount NextRush inside another framework's own request lifecycle.",
+  "pages": ["nextjs"]
+}

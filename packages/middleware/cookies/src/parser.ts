@@ -9,6 +9,23 @@
 import { MAX_COOKIES_PER_DOMAIN } from './constants.js';
 import { sanitizeCookieValue } from './validation.js';
 
+/**
+ * Prototype for the per-request `ParsedCookies` container.
+ *
+ * `Object.create(null)` satisfies the same prototype-pollution requirement —
+ * `Object.prototype` unreachable, so a cookie named `__proto__` binds as an
+ * own key — but it additionally puts the object into V8 dictionary mode,
+ * where property loads cannot be inline-cached. Deriving from a
+ * null-prototype base instead keeps fast properties with identical safety.
+ *
+ * Carries its own copy rather than depending on `@nextrush/runtime`: no
+ * `@nextrush/middleware/*` package currently depends on `runtime`, and one
+ * leaf constant does not justify adding that edge.
+ *
+ * @see docs/adr/ADR-0021-fast-property-request-containers.md
+ */
+const NULL_PROTO: object = Object.create(null) as object;
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -64,7 +81,7 @@ export function parseCookies(
   options: ParseOptions = {}
 ): ParsedCookies {
   const { decode = true, sanitize = true, maxCookies = MAX_COOKIES_PER_DOMAIN } = options;
-  const cookies = Object.create(null) as ParsedCookies;
+  const cookies = Object.create(NULL_PROTO) as ParsedCookies;
 
   if (!cookieHeader || typeof cookieHeader !== 'string') {
     return cookies;

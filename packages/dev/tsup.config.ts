@@ -14,6 +14,9 @@ export default defineConfig({
     'src/commands/index.ts',
     'src/commands/dev.ts',
     'src/commands/build.ts',
+    'src/commands/codemod.ts',
+    'src/codemods/index.ts',
+    'src/codemods/consolidate-imports.ts',
     'src/runtime/index.ts',
     'src/runtime/detect.ts',
     'src/runtime/spawn.ts',
@@ -37,11 +40,14 @@ export default defineConfig({
     'node:module',
     'node:url',
     'node:process',
+    'glob',
   ],
   define: {
     __VERSION__: JSON.stringify(pkg.version),
   },
-  // Use esbuild options to preserve node: prefix
+  // Bare Node built-ins are aliased to their `node:` form; combined with removing all
+  // STATIC `node:*` imports from source (crypto→pure-JS hash, fs→variable-specifier), the
+  // bundle contains no prefix-stripped builtin, so Deno can load it (RFC-019, F-01).
   esbuildOptions(options) {
     options.alias = {
       'fs': 'node:fs',

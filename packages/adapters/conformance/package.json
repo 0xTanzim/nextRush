@@ -1,0 +1,48 @@
+{
+  "name": "@nextrush/adapter-conformance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cross-adapter behavioral conformance suite — asserts identical observable behavior across the Node, Bun, Deno, Edge, and serverless adapters (audit F-01). Testing/dev tier: exposes a reusable entrypoint (`defineConformanceSuite`) so external adapter authors can certify their own adapter. Not part of the frozen runtime API.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./test-primitives": "./src/test-primitives.ts"
+  },
+  "scripts": {
+    "build": "echo 'no build — conformance is a test-only package'",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cert:matrix": "vitest run -u src/__tests__/certification.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@nextrush/adapter-bun": "workspace:^",
+    "@nextrush/adapter-deno": "workspace:^",
+    "@nextrush/adapter-edge": "workspace:^",
+    "@nextrush/adapter-nextjs": "workspace:^",
+    "@nextrush/adapter-node": "workspace:^",
+    "@nextrush/adapter-serverless": "workspace:^",
+    "@nextrush/core": "workspace:^",
+    "@nextrush/errors": "workspace:^",
+    "@nextrush/router": "workspace:^",
+    "@nextrush/runtime": "workspace:^",
+    "@nextrush/types": "workspace:^",
+    "@types/bun": "^1.3.14",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "keywords": [
+    "nextrush",
+    "adapter",
+    "conformance",
+    "testing"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

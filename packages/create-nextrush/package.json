@@ -1,6 +1,6 @@
 {
   "name": "create-nextrush",
-  "version": "3.0.9",
+  "version": "1.0.0",
   "description": "Create a new NextRush project with one command",
   "type": "module",
   "main": "./dist/index.js",
@@ -58,16 +58,17 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "preferUnplugged": true,
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@clack/prompts": "^1.2.0"
+    "@clack/prompts": "^1.7.0"
   },
   "devDependencies": {
-    "@types/node": "^25.5.2",
+    "@types/node": "^25.9.5",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

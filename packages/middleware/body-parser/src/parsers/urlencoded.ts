@@ -16,7 +16,7 @@ import {
 } from '../constants.js';
 import { Errors } from '../errors.js';
 import type { BodyParserContext, UrlEncodedOptions } from '../types.js';
-import { bufferToString } from '../utils/buffer.js';
+import { bufferToString, toRawBody } from '../utils/buffer.js';
 import { getContentType, matchContentType } from '../utils/content-type.js';
 import { parseLimit } from '../utils/limit.js';
 import { parseUrlEncoded } from '../utils/url-decode.js';
@@ -68,32 +68,34 @@ export function urlencoded(options: UrlEncodedOptions = {}): Middleware {
   const limitBytes = parseLimit(limit, DEFAULT_LIMITS.URLENCODED);
   const types = Array.isArray(type) ? type : [type];
 
-  return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
-    // Skip methods that don't have bodies
-    if (BODYLESS_METHODS.has(ctx.method)) {
-      if (next) await next();
-      return;
-    }
-
-    // Skip if body already parsed by another middleware
-    if (ctx.body !== undefined) {
-      if (next) await next();
-      return;
-    }
-
-    // Check content type
-    const contentType = getContentType(ctx.headers);
-    if (!matchContentType(contentType, types)) {
-      if (next) await next();
-      return;
+  return (async (
+    ctx: BodyParserContext,
+    next?: () => Promise<void>,
+    prechecked = false
+  ): Promise<void> => {
+    // Detection skipped when routed by the combined parser (BP-E).
+    if (!prechecked) {
+      if (BODYLESS_METHODS.has(ctx.method)) {
+        if (next) await next();
+        return;
+      }
+      if (ctx.body !== undefined) {
+        if (next) await next();
+        return;
+      }
+      const contentType = getContentType(ctx.headers);
+      if (!matchContentType(contentType, types)) {
+        if (next) await next();
+        return;
+      }
     }
 
     // Read body
     const buffer = await readBody(ctx, limitBytes);
 
-    // Store raw body if requested
+    // Store raw body if requested (Buffer on Node, Uint8Array on edge)
     if (rawBody) {
-      ctx.rawBody = buffer;
+      ctx.rawBody = toRawBody(buffer);
     }
 
     // Handle empty body
@@ -105,7 +107,7 @@ export function urlencoded(options: UrlEncodedOptions = {}): Middleware {
 
     // Invoke verify callback before parsing
     if (verify) {
-      await verify(ctx, buffer, 'utf-8');
+      await verify(ctx, toRawBody(buffer), 'utf-8');
     }
 
     // Parse URL-encoded string

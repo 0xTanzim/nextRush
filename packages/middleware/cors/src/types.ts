@@ -111,8 +111,13 @@ export interface CorsOptions {
   /**
    * Request headers the client is allowed to send.
    *
-   * If not specified, mirrors the `Access-Control-Request-Headers` header
-   * from preflight requests (dynamic reflection).
+   * If not specified, the preflight response intersects the client's
+   * requested headers against a conservative default allowlist
+   * (`Content-Type`, `Accept`, `X-Requested-With`, plus `Authorization` when
+   * `credentials: true`) rather than echoing the request back verbatim
+   * (SEC-10) — an unlisted requested header is silently dropped, and the
+   * response header is omitted entirely when nothing survives the
+   * intersection.
    *
    * @example
    * ```typescript
@@ -218,11 +223,6 @@ export interface CorsOptions {
    */
   blockNullOrigin?: boolean;
 }
-
-/**
- * CORS middleware function type (for backward compatibility)
- */
-export type CorsMiddleware = Middleware;
 
 /**
  * Re-export core types for convenience

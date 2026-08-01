@@ -1,0 +1,6 @@
+{
+  "title": "Validation",
+  "icon": "BadgeCheck",
+  "defaultOpen": false,
+  "pages": ["validation"]
+}

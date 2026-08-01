@@ -1,0 +1,7 @@
+{
+  "title": "Background Jobs",
+  "description": "Background task processing and job queues with NextRush.",
+  "pages": [],
+  "learningPath": [],
+  "references": ["../data", "../../recipes/queue"]
+}

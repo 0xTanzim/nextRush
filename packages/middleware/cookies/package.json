@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/cookies",
-  "version": "3.0.5",
+  "version": "1.0.0",
   "description": "Cookie parsing and serialization middleware for NextRush",
   "type": "module",
   "main": "./dist/index.js",
@@ -53,10 +53,11 @@
     "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
+    "fast-check": "3.23.2",
     "rimraf": "^6.1.3",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "engines": {
     "node": ">=22.0.0"

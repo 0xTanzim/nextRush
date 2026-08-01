@@ -1,0 +1,111 @@
+---
+title: Google Cloud Functions
+description: Deploy a NextRush app to Google Cloud Functions using @nextrush/adapter-serverless's true drop-in handler.
+keywords: [cloud, deployment, functions, gcf, google, nextrush, production]
+---
+
+`@nextrush/adapter-serverless`'s `createGoogleHandler` is a true drop-in for the Node.js
+`functions-framework`'s Express-style `(req, res)` contract — no manual field bridge, no
+translating `req.rawBody` yourself. Register it directly with `functions.http(...)` and it
+handles the event translation via the same [Event mapping](/docs/concepts/event-mapping)
+mechanism every other serverless platform in this package uses.
+
+## Installation
+
+<PackageInstall packages={['@nextrush/core', '@nextrush/adapter-serverless', '@google-cloud/functions-framework']} />
+
+`@google-cloud/functions-framework` is Google's own local dev/test server for Cloud Functions —
+it's what runs your function locally and is also what the deployed Cloud Function's runtime
+uses to invoke your export.
+
+## Minimal deployment
+
+```ts title="index.mjs"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { createGoogleHandler } from '@nextrush/adapter-serverless';
+import * as functions from '@google-cloud/functions-framework';
+
+const app = createApp();
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+functions.http('api', createGoogleHandler(app));
+```
+
+Deploy it as a 2nd-generation, HTTP-triggered Cloud Function:
+
+```bash
+gcloud functions deploy my-nextrush-api \
+  --project=<your-project-id> \
+  --region=us-central1 \
+  --runtime=nodejs22 \
+  --source=. \
+  --entry-point=api \
+  --trigger-http \
+  --allow-unauthenticated \
+  --gen2 \
+  --timeout=10s
+```
+
+`--entry-point=api` must match the name you passed to `functions.http('api', ...)`.
+`--allow-unauthenticated` makes the function publicly invocable with no IAM check — put your own
+authentication in NextRush middleware (`app.use(...)`) rather than relying on that flag alone;
+omit it and use `--no-allow-unauthenticated` if every caller can present a valid IAM identity
+token instead.
+
+<Callout type="warn" title="Build the app at module scope, not inside the handler">
+  `createApp()` and `createGoogleHandler()` must run once, at module scope, before
+  `functions.http(...)` registers the handler — not inside a wrapper function called per
+  invocation. Cloud Functions keeps warm instances alive between invocations and reuses them;
+  rebuilding the app on every invocation defeats that reuse and repeats the cold-start cost on
+  every request instead of only the first one on a fresh instance.
+</Callout>
+
+## What the drop-in actually does
+
+`createGoogleHandler(app)` returns a plain `(req, res) => Promise<void>` function —
+`functions-framework`'s exact expected handler shape. Internally it bridges `req`/`res` into the
+same `Request`/`Response` pair `@nextrush/adapter-edge`'s fetch engine runs everywhere else, using
+the built-in GCF `EventMapper`. One detail worth knowing if you handle file uploads or other
+binary bodies: the bridge prefers `req.rawBody` (the raw, undecoded buffer `functions-framework`
+attaches) over `req.body` (which the framework may have already parsed, and which is lossy for
+binary payloads); if `rawBody` is unavailable and `req.body` is a non-string object, the body is
+omitted rather than silently sent as a corrupted `"[object Object]"` string, and a
+`[nextrush/serverless]`-prefixed warning is logged so the omission is never silent.
+
+If you need the older struct-based signature instead (fixture testing, a custom bridge, a
+non-standard host), `createGoogleEventHandler` preserves the pre-drop-in behavior unchanged — see
+[Serverless adapter reference](/docs/reference/platforms/serverless) for both signatures.
+
+## Timeout
+
+```ts
+functions.http('api', createGoogleHandler(app, { timeout: 5000 }));
+```
+
+`timeout` races the handler and returns a `504`-shaped result on expiry instead of hanging until
+Cloud Functions' own function timeout kills the invocation. Set it below whatever you configure
+as the function's own `--timeout` (Cloud Functions Gen 2's hard limit is 3600s for HTTP
+functions) so NextRush's timeout fires first and produces an observable response.
+
+## Requirements
+
+- Node.js 22 runtime (`nodejs22`) — matches this repo's engine floor.
+- 2nd-generation Cloud Functions (`--gen2`) — the app is not tested against 1st-gen.
+
+<Callout type="info" title="Verification status">
+  Unlike Azure Functions (see [Azure Functions deployment](/docs/production/deployment/azure-functions)),
+  this deployment path runs on a real Google Cloud Function in a scheduled CI job
+  (`gcf-deploy-verify` in `.github/workflows/deploy-verification.yml`) whenever the required GCP
+  secrets are configured — not only simulated under Node/vitest. See the
+  [compatibility matrix](/docs/help/compatibility-matrix) for the adapter's overall status.
+</Callout>
+
+## Related
+
+- [Serverless runtime tutorial](/docs/getting-started/runtime/serverless) — the getting-started walkthrough this page's deployment content extends.
+- [Serverless adapter reference](/docs/reference/platforms/serverless) — the full `@nextrush/adapter-serverless` surface, including `createGoogleEventHandler` for the struct-based path.
+- [Event mapping](/docs/concepts/event-mapping) — how a GCF request becomes the same `Context` every other adapter produces.
+- [AWS Lambda](/docs/production/deployment/aws-lambda) — the sibling serverless platform page.

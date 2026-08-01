@@ -1,119 +1,120 @@
 /**
- * Express 5 Benchmark Server — All scenarios.
+ * Express 5 benchmark server — all scenarios.
+ *
+ * Fairness notes:
+ * - Response bodies come from the shared payload module.
+ * - Body parser is attached only to the POST route.
+ * - Error-handling middleware (4-arg) fires only on error (no per-request cost).
  */
 
 import express from 'express';
+import { KEEP_ALIVE_TIMEOUT_MS, LISTEN_BACKLOG, LISTEN_HOST } from '../config/constants.js';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+import {
+  ERROR_BODY,
+  ERROR_MESSAGE,
+  HELLO_WORLD,
+  JSON_USER,
+  LARGE_JSON,
+  MIDDLEWARE_BODY,
+  MIDDLEWARE_HEADERS,
+  SEND_OBJECT_BODY,
+  deepRoute,
+  largePostResponse,
+  mwHeaderValue,
+  postUserResponse,
+  searchResponse,
+  userById,
+} from './_shared/payloads.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const PORT = parseInt(process.env.PORT || '8080', 10);
 const app = express();
-
-// Body parser ONLY for POST routes (fair comparison)
+// Fairness: Express sends `X-Powered-By: Express` by default, extra header bytes
+// no other server emits. Disable it so on-the-wire responses match (audit F-M01).
+app.disable('x-powered-by');
+// Fairness: Express also defaults to `etag: 'weak'`, which runs a SHA-1 over the
+// FULL response body on every `res.json()` — work and header bytes no other
+// server in this suite produces. Measured cost before disabling: -14% RPS on
+// `/json` (18.4k -> 21.4k with it off) and -13.7% on `/large-json` (13.1k ->
+// 15.2k), i.e. larger than the gap that separates mid-field frameworks, applied
+// to every like-for-like scenario. Leaving it on while `x-powered-by` was
+// disabled normalized the cheap default and kept the expensive one.
+app.set('etag', false);
 const jsonParser = express.json();
 
-// 1. Hello World
-app.get('/', (req, res) => {
-  res.json({ message: 'Hello World' });
+app.get('/', (_req, res) => {
+  res.json(HELLO_WORLD);
+});
+app.get('/json', (_req, res) => {
+  res.json(JSON_USER);
+});
+app.get('/large-json', (_req, res) => {
+  res.json(LARGE_JSON);
 });
 
-// 2. JSON serialization
-app.get('/json', (req, res) => {
-  res.json({ id: 1, name: 'John Doe', email: 'john@example.com', role: 'developer', active: true });
-});
-
-// 3. Route parameters
 app.get('/users/:id', (req, res) => {
-  const { id } = req.params;
-  res.json({ id, name: `User ${id}`, email: `user${id}@example.com` });
+  res.json(userById(req.params.id));
 });
 
-// 4. Query strings
 app.get('/search', (req, res) => {
-  const { q = '', limit = '10' } = req.query;
-  const limitNum = Math.min(parseInt(limit, 10), 10);
-  res.json({
-    query: q,
-    limit: limitNum,
-    results: Array.from({ length: limitNum }, (_, i) => ({
-      id: i + 1,
-      title: `Result ${i + 1} for "${q}"`,
-    })),
-  });
+  res.json(searchResponse(req.query.q, req.query.limit));
 });
 
-// 5. POST JSON
-app.post('/users', jsonParser, (req, res) => {
-  const data = req.body;
-  res.json({
-    success: true,
-    user: { id: Math.floor(Math.random() * 10000), ...data, createdAt: new Date().toISOString() },
-  });
-});
-
-// 6. Deep route
 app.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (req, res) => {
-  res.json({ orgId: req.params.orgId, teamId: req.params.teamId, memberId: req.params.memberId });
+  res.json(deepRoute(req.params.orgId, req.params.teamId, req.params.memberId));
 });
 
-// 7. Middleware stack
-const mw1 = (req, res, next) => {
-  res.set('X-Request-Id', '12345');
-  next();
-};
-const mw2 = (req, res, next) => {
-  res.set('X-Timestamp', Date.now().toString());
-  next();
-};
-const mw3 = (req, res, next) => {
-  res.set('X-Framework', 'express');
-  next();
-};
-const mw4 = (req, res, next) => {
-  res.set('X-Version', '5.0');
-  next();
-};
-const mw5 = (req, res, next) => {
-  res.set('X-Processed', 'true');
-  next();
-};
-
-app.get('/middleware', mw1, mw2, mw3, mw4, mw5, (req, res) => {
-  res.json({ middleware: true, layers: 5 });
+app.post('/users', jsonParser, (req, res) => {
+  res.json(postUserResponse(req.body));
 });
 
-// 8. Error handling
-app.get('/error', (req, res) => {
-  throw new Error('Benchmark error');
+app.get('/send-object', (_req, res) => {
+  res.json(SEND_OBJECT_BODY);
 });
 
-// 9. Large JSON
-const largeData = Array.from({ length: 50 }, (_, i) => ({
-  id: i + 1,
-  name: `User ${i + 1}`,
-  email: `user${i + 1}@example.com`,
-  role: i % 2 === 0 ? 'developer' : 'designer',
-  active: i % 3 !== 0,
-}));
-
-app.get('/large-json', (req, res) => {
-  res.json(largeData);
+// Raised past Express's default 100kb limit — the scenario body is ~1.5MB
+// by design so it never rides the boundary of a default.
+const largeJsonParser = express.json({ limit: '5mb' });
+app.post('/large-post', largeJsonParser, (req, res) => {
+  res.json(largePostResponse(Array.isArray(req.body?.items) ? req.body.items.length : 0));
 });
 
-// 10. Empty response
-app.get('/empty', (req, res) => {
+// Path-scoped so unrelated routes never pay serve-static's per-request
+// fs.stat — matching how every other server in this suite scopes static
+// serving (see the fairness note in nextrush-v3.js).
+app.use('/static', express.static(join(__dirname, '..', 'public', 'static')));
+
+// 5-layer middleware stack — one header per layer, chained via next().
+const middleware = MIDDLEWARE_HEADERS.map((header) => (_req, res, next) => {
+  res.set(header.name, mwHeaderValue(header));
+  next();
+});
+app.get('/middleware', ...middleware, (_req, res) => {
+  res.json(MIDDLEWARE_BODY);
+});
+
+app.get('/error', () => {
+  throw new Error(ERROR_MESSAGE);
+});
+
+app.get('/empty', (_req, res) => {
   res.status(204).end();
 });
 
-// Error handler middleware
-app.use((err, req, res, _next) => {
-  res.status(500).json({ error: 'Internal Server Error' });
+// eslint-disable-next-line no-unused-vars -- Express identifies error middleware by 4 args.
+app.use((_err, _req, res, _next) => {
+  res.status(500).json(ERROR_BODY);
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`Express server listening on http://localhost:${PORT}`);
+const server = app.listen({ port: PORT, host: LISTEN_HOST, backlog: LISTEN_BACKLOG }, () => {
+  console.log(`Express server listening on http://${LISTEN_HOST}:${PORT}`);
 });
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
 
-const shutdown = () => {
-  server.close(() => process.exit(0));
-};
+const shutdown = () => server.close(() => process.exit(0));
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

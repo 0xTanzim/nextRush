@@ -1,0 +1,140 @@
+---
+title: Bun
+description: Deploy a NextRush app to Bun using @nextrush/adapter-bun.
+keywords: [bun, deployment, nextrush, production]
+---
+
+`@nextrush/adapter-bun` connects a NextRush `Application` to `Bun.serve()`. Bun runs TypeScript
+natively, so there's no separate build step for local development or for the container image
+below.
+
+## Installation
+
+<PackageInstall packages={['nextrush', '@nextrush/adapter-bun']} />
+
+## Minimal deployment
+
+```ts title="src/index.ts"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { serve } from '@nextrush/adapter-bun';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+serve(app, { port: Number(process.env.PORT ?? 8080) });
+```
+
+```bash
+bun run src/index.ts
+```
+
+<Callout type="warn" title="The `nextrush` meta package defaults to Node.js">
+  `nextrush`'s `createApp`/`listen` re-export `@nextrush/adapter-node`. For Bun, import
+  `createApp` from `@nextrush/core` directly and call `serve()` from `@nextrush/adapter-bun` —
+  as shown above — instead of `nextrush`'s `listen()`.
+</Callout>
+
+## `serve()` options that matter in production
+
+<TypeTable
+  title="ServeOptions (@nextrush/adapter-bun)"
+  types={{
+    port: { type: 'number', description: 'Port to listen on.', default: '8080' },
+    host: { type: 'string', description: 'Host/interface to bind to.', default: "'0.0.0.0'" },
+    timeout: { type: 'number', description: 'Request timeout in ms, enforced via `AbortController` (Bun.serve has no built-in per-request timeout).', default: '30000' },
+    maxRequestBodySize: { type: 'number', description: 'Max request body size in bytes, applied at the Bun.serve level.', default: '1048576 (1 MB)' },
+    shutdownTimeout: { type: 'number', description: 'Grace period to drain in-flight requests during `close()` before force-closing.', default: '30000' },
+    development: { type: 'boolean', description: 'Enables Bun dev-mode features.', default: 'false' },
+    tls: { type: '{ cert, key, ca? }', description: 'Enables HTTPS.', optional: true },
+  }}
+/>
+
+<Callout type="warn" title="Bun's default body-size limit is 128 MB">
+  `Bun.serve()` defaults to a 128 MB request body limit. `@nextrush/adapter-bun` always applies
+  `maxRequestBodySize` (default 1 MB, matching `@nextrush/adapter-node`) to override that —
+  raise it explicitly for endpoints that accept large uploads.
+</Callout>
+
+```ts title="src/index.ts"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { serve } from '@nextrush/adapter-bun';
+
+const app = createApp();
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+const server = await serve(app, {
+  port: Number(process.env.PORT ?? 8080),
+  maxRequestBodySize: 10 * 1024 * 1024, // 10 MB
+  onListen: ({ port }) => console.log(`listening on ${port}`),
+});
+
+process.on('SIGTERM', async () => {
+  await server.close(); // drains in-flight requests, then tears down extensions
+  process.exit(0);
+});
+```
+
+## Graceful shutdown
+
+`server.close()` calls `Bun.serve()`'s `stop()`, waits up to `shutdownTimeout` for in-flight
+requests to finish, then force-closes remaining connections and tears down extensions. See
+[Reliability](/docs/production/reliability) for the full shutdown pattern and which signals to
+handle.
+
+## Hot reload in development
+
+```bash
+bun --hot run src/index.ts
+```
+
+Bun reloads on file change without restarting the process. This is a development convenience —
+production deployments should still run under a supervisor (systemd, PM2, or a container
+orchestrator) rather than `--hot`.
+
+## Deploying
+
+Bun apps deploy the same way as any long-running Node-compatible process — a VM, a container, or
+a platform with native Bun support (e.g. Railway, Fly.io). To containerize:
+
+```dockerfile title="Dockerfile"
+FROM oven/bun:1-alpine AS runtime
+WORKDIR /app
+
+COPY package.json bun.lock ./
+RUN bun install --production
+
+COPY src/ ./src/
+
+ENV NODE_ENV=production
+ENV PORT=8080
+EXPOSE 8080
+
+USER bun
+CMD ["bun", "run", "src/index.ts"]
+```
+
+<Callout type="info" title="This Dockerfile is illustrative, not verified">
+  Unlike the Node.js Dockerfile in [Docker](/docs/production/deployment/docker) — which was
+  actually built and health-checked against a running container as part of this documentation's
+  verification gate — this Bun Dockerfile has not been build-tested here. Verify it against your
+  own `bun.lock` and Bun version before relying on it.
+</Callout>
+
+## Requirements
+
+- Bun >= 1.0.0
+- `@types/bun` as a dev dependency for editor/TypeScript support (already declared in
+  `@nextrush/adapter-bun`'s own `devDependencies`)
+
+## Related
+
+- [Node.js](/docs/production/deployment/node) — the default runtime target
+- [Docker](/docs/production/deployment/docker) — a verified, build-tested Dockerfile (Node.js)
+- [Reliability](/docs/production/reliability) — graceful shutdown, health checks, timeouts

@@ -8,7 +8,7 @@ import {
   DEFAULT_MESSAGE,
   DEFAULT_STATUS_CODE,
   DEFAULT_WINDOW,
-  extractClientIp,
+  defaultKeyGenerator,
   fixedWindow,
   getAlgorithm,
   INFO_CACHE_MAX,
@@ -197,6 +197,65 @@ describe('MemoryStore', () => {
   });
 });
 
+describe('rateLimit app.onClose wiring (N10, F-07)', () => {
+  /** Minimal fake of the structural onClose host `rateLimit()` accepts. */
+  function createFakeApp(): { onClose: (hook: () => void | Promise<void>) => void; runClose: () => Promise<void> } {
+    const hooks: Array<() => void | Promise<void>> = [];
+    return {
+      onClose(hook) {
+        hooks.push(hook);
+      },
+      async runClose() {
+        for (const hook of hooks) {
+          await hook();
+        }
+      },
+    };
+  }
+
+  it('registers the default MemoryStore cleanup interval via app.onClose when app is provided', async () => {
+    const app = createFakeApp();
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval');
+
+    const middleware = rateLimit({ max: 10, window: '1m', app });
+
+    // Simulate app.close(): the registered hook must clear the store's interval.
+    await app.runClose();
+
+    expect(clearIntervalSpy).toHaveBeenCalled();
+
+    clearIntervalSpy.mockRestore();
+    // shutdown() was already invoked via the onClose hook; a second call must
+    // remain a safe no-op (MemoryStore.shutdown() is idempotent).
+    await middleware.shutdown();
+  });
+
+  it('does not register anything when app is omitted (backward compatible)', async () => {
+    // No `app` passed — must behave exactly as before: no onClose call site
+    // exists, and the store's own unref'd interval is the only cleanup path.
+    const middleware = rateLimit({ max: 10, window: '1m' });
+    const ctx = createMockContext();
+
+    await middleware(ctx);
+
+    await middleware.shutdown();
+  });
+
+  it('does not register cleanup via app.onClose when a custom store is supplied', async () => {
+    const app = createFakeApp();
+    const onCloseSpy = vi.spyOn(app, 'onClose');
+    const customStore = createMemoryStore({ disableCleanup: true });
+
+    const middleware = rateLimit({ max: 10, window: '1m', app, store: customStore });
+
+    // Custom stores are caller-owned; rateLimit() must not silently take over
+    // their lifecycle just because `app` was passed.
+    expect(onCloseSpy).not.toHaveBeenCalled();
+
+    await middleware.shutdown();
+  });
+});
+
 describe('Algorithms', () => {
   let store: ReturnType<typeof createMemoryStore>;
 
@@ -332,35 +391,20 @@ describe('IP Utilities', () => {
     });
   });
 
-  describe('extractClientIp', () => {
-    it('should use ctx.ip when trustProxy is false', () => {
+  describe('defaultKeyGenerator', () => {
+    it('reads ctx.ip only — never scans proxy headers itself (RFC-030, SEC-01)', () => {
       const ctx = createMockContext({
         ip: '192.168.1.1',
-        headers: { 'x-forwarded-for': '10.0.0.1' },
+        headers: { 'x-forwarded-for': '10.0.0.1, 172.16.0.1', 'cf-connecting-ip': '203.0.113.1' },
       });
 
-      expect(extractClientIp(ctx, false)).toBe('192.168.1.1');
+      expect(defaultKeyGenerator(ctx)).toBe('rl:192.168.1.1');
     });
 
-    it('should use X-Forwarded-For when trustProxy is true', () => {
-      const ctx = createMockContext({
-        ip: '192.168.1.1',
-        headers: { 'x-forwarded-for': '10.0.0.1, 172.16.0.1' },
-      });
+    it('falls back to 127.0.0.1 when ctx.ip is empty', () => {
+      const ctx = createMockContext({ ip: '' });
 
-      expect(extractClientIp(ctx, true)).toBe('10.0.0.1');
-    });
-
-    it('should use CF-Connecting-IP when present', () => {
-      const ctx = createMockContext({
-        ip: '192.168.1.1',
-        headers: {
-          'cf-connecting-ip': '203.0.113.1',
-          'x-forwarded-for': '10.0.0.1',
-        },
-      });
-
-      expect(extractClientIp(ctx, true)).toBe('203.0.113.1');
+      expect(defaultKeyGenerator(ctx)).toBe('rl:127.0.0.1');
     });
   });
 
@@ -596,23 +640,33 @@ describe('rateLimit Middleware', () => {
     await middleware.shutdown();
   });
 
-  it('should support trustProxy option', async () => {
+  it('SEC-01: rate-limit keys off ctx.ip only — a rotating X-Forwarded-For header has no effect', async () => {
     const middleware = rateLimit({
-      max: 2,
+      max: 5,
       window: '1m',
-      trustProxy: true,
     });
 
-    const ctx = createMockContext({
-      ip: '127.0.0.1',
-      headers: { 'x-forwarded-for': '10.0.0.50' },
-    });
+    let requestCount = 0;
+    const makeRequest = async (): Promise<number> => {
+      requestCount += 1;
+      const ctx = createMockContext({
+        ip: '127.0.0.1',
+        headers: { 'x-forwarded-for': `203.0.113.${requestCount}, 10.0.0.5` },
+      });
+      await middleware(ctx);
+      return ctx.status;
+    };
 
-    await middleware(ctx);
-    await middleware(ctx);
-    await middleware(ctx);
+    const statuses: number[] = [];
+    for (let i = 0; i < 10; i += 1) {
+      statuses.push(await makeRequest());
+    }
 
-    expect(ctx.status).toBe(429);
+    // Every request shares the same ctx.ip (rate-limit never reads XFF
+    // itself), so the shared key correctly rate-limits after 5 requests —
+    // unlike the pre-fix behavior, where a header the middleware scanned
+    // directly let each request mint a fresh key.
+    expect(statuses.filter((s) => s === 429).length).toBeGreaterThan(0);
 
     await middleware.shutdown();
   });

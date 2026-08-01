@@ -1,0 +1,137 @@
+---
+title: JWT Authentication (Functional)
+description: Verify a bearer JWT in plain middleware using `jose` — no class runtime, no legacy `jsonwebtoken`.
+keywords: [authentication, functional, jwt, jose, middleware, nextrush, recipes]
+difficulty: intermediate
+readingTime: "10 min"
+status: stable
+---
+
+> Verify a JWT on incoming requests using functional middleware. Uses [`jose`](https://github.com/panva/jose) (modern, multi-runtime) — not `jsonwebtoken`.
+
+## Before you start
+
+- Node.js 18+, Bun 1.0+, or Deno 1.30+
+- A `JWT_SECRET` environment variable (32+ characters)
+
+## Why `jose`?
+
+`jose` is built on the Web Crypto API — it works on **Node, Bun, Deno, Cloudflare Workers, Vercel Edge, and browsers**. Unlike `jsonwebtoken` (Node-only, callback-based), `jose` is async, TypeScript-first, and RFC compliant.
+
+For guard-based auth with role checks and refresh tokens, see the [Authentication guide](/docs/guides/authentication/authentication) instead.
+
+## Setup
+
+```bash
+npm install jose
+```
+
+## Usage
+
+### 1. Auth middleware
+
+```ts title="src/middleware/require-auth.ts"
+import { jwtVerify } from 'jose';
+import { UnauthorizedError } from 'nextrush';
+import type { Middleware } from 'nextrush';
+
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET ?? '',
+);
+
+if (JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET env variable must be at least 32 characters');
+}
+
+interface JwtPayload {
+  sub: string;
+  email: string;
+}
+
+export const requireAuth: Middleware = async (ctx) => {
+  const header = ctx.get('authorization');
+
+  if (!header || !header.startsWith('Bearer ')) {
+    throw new UnauthorizedError('Missing bearer token');
+  }
+
+  const token = header.slice('Bearer '.length);
+
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    ctx.state.user = { id: payload.sub as string, email: payload.email as string };
+  } catch {
+    throw new UnauthorizedError('Invalid or expired token');
+  }
+
+  await ctx.next();
+};
+```
+
+<Callout type="tip" title="TextEncoder">
+  `jose` requires keys as `Uint8Array`. `new TextEncoder().encode()` converts a string secret — same across all runtimes. No `Buffer.from()` needed.
+</Callout>
+
+### 2. Use it
+
+```ts title="src/index.ts"
+import { createApp, listen, errorHandler } from 'nextrush';
+import { requireAuth } from './middleware/require-auth';
+
+const app = createApp();
+
+app.use(errorHandler());
+
+app.get('/public', (ctx) => {
+  ctx.json({ message: 'anyone can see this' });
+});
+
+app.get('/me', requireAuth, (ctx) => {
+  ctx.json({ user: ctx.state.user });
+});
+
+listen(app, 8080);
+```
+
+<Callout type="warn" title="Route-level, not global">
+  Register `requireAuth` per-route or per-router — not `app.use(requireAuth)`. A global registration blocks public routes like `/health` or `/public`.
+</Callout>
+
+### 3. Signing tokens (for tests or login)
+
+```ts
+import { SignJWT } from 'jose';
+
+const token = await new SignJWT({ sub: '1', email: 'a@example.com' })
+  .setProtectedHeader({ alg: 'HS256' })
+  .setIssuedAt()
+  .setExpirationTime('1h')
+  .sign(new TextEncoder().encode(process.env.JWT_SECRET!));
+```
+
+## Compatibility
+
+| Runtime | jose | jsonwebtoken |
+|---------|------|-------------|
+| Node    | ✅   | ✅          |
+| Bun     | ✅   | ❌          |
+| Deno    | ✅   | ❌          |
+| CF Workers | ✅ | ❌          |
+| Edge    | ✅   | ❌          |
+| Browser | ✅   | ❌          |
+
+## Troubleshooting
+
+| Error | Reason | Fix |
+|-------|--------|-----|
+| `jose.JWTExpired` | Token past `exp` | Issue new token |
+| `jose.JWSSignatureVerificationFailed` | Wrong secret | Check `JWT_SECRET` matches signer |
+| `payload.sub as string` returns undefined | Claim not in payload | Add claim when signing |
+| `TextEncoder is not defined` | Old Node version | Use Node 18+ or polyfill |
+
+---
+
+- 🛠  Guide: [Authentication](/docs/guides/authentication/authentication) — full guard-based auth with refresh tokens and RBAC
+- 🧠  Concept: [Context](/docs/concepts/context) — `ctx.get()`, `ctx.state`, and `ctx.next()`
+- 🧠  Concept: [Middleware](/docs/concepts/middleware) — execution order and registration
+- 🍳  Recipe: [Per-User Rate Limiting](/docs/recipes/authentication/rate-limiting) — pair with auth to limit by user

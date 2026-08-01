@@ -11,6 +11,23 @@ import { Errors } from '../errors.js';
 import type { ParsedUrlEncoded } from '../types.js';
 
 /**
+ * Prototype for every per-request key/value container this parser builds.
+ *
+ * `Object.create(null)` satisfies the same prototype-pollution requirement —
+ * `Object.prototype` unreachable, so a key like `__proto__` binds as an own
+ * key — but it additionally puts the object into V8 dictionary mode, where
+ * property loads cannot be inline-cached. Deriving from a null-prototype base
+ * instead keeps fast properties with identical safety.
+ *
+ * Carries its own copy rather than depending on `@nextrush/runtime`: no
+ * `@nextrush/middleware/*` package currently depends on `runtime`, and one
+ * leaf constant does not justify adding that edge.
+ *
+ * @see docs/adr/ADR-0021-fast-property-request-containers.md
+ */
+const NULL_PROTO: object = Object.create(null) as object;
+
+/**
  * Safely decode a URI component.
  *
  * Returns original string on decode failure instead of throwing.
@@ -58,12 +75,18 @@ export function setNestedValue(
   value: string,
   maxDepth: number = DEFAULT_PARAMETER_LIMITS.MAX_DEPTH
 ): void {
-  // Split key into parts: 'user[profile][name]' -> ['user', 'profile', 'name']
-  const parts = key.split(/\[|\]/).filter(Boolean);
+  // `key[]` is append-to-array notation. Strip the trailing `[]` and remember
+  // to push rather than assign (BP-3).
+  const isArrayPush = key.endsWith('[]');
+  const cleanKey = isArrayPush ? key.slice(0, -2) : key;
 
-  // Check depth limit
-  if (parts.length > maxDepth) {
-    throw Errors.depthExceeded(parts.length, maxDepth);
+  // Split key into parts: 'user[profile][name]' -> ['user', 'profile', 'name']
+  const parts = cleanKey.split(/\[|\]/).filter(Boolean);
+
+  // Check depth limit (an array push adds one implicit level)
+  const effectiveDepth = parts.length + (isArrayPush ? 1 : 0);
+  if (effectiveDepth > maxDepth) {
+    throw Errors.depthExceeded(effectiveDepth, maxDepth);
   }
 
   // Validate all parts for prototype pollution
@@ -73,7 +96,11 @@ export function setNestedValue(
     }
   }
 
-  // Navigate/create the nested structure
+  if (parts.length === 0) {
+    return;
+  }
+
+  // Navigate/create the nested structure down to the parent of the last part
   let current: Record<string, unknown> = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {
@@ -82,30 +109,31 @@ export function setNestedValue(
       continue;
     }
 
-    // Check if current part exists
-    if (!(part in current)) {
-      // Check next part to determine if we need an array or object
-      const nextPart = parts[i + 1];
-      const isNextNumeric = nextPart !== undefined && /^\d+$/.test(nextPart);
-      current[part] = isNextNumeric ? [] : (Object.create(null) as Record<string, unknown>);
-    }
+    const nextPart = parts[i + 1];
+    const isNextNumeric = nextPart !== undefined && /^\d+$/.test(nextPart);
+    const existing = current[part];
 
-    const next = current[part];
-
-    // Ensure we have an object to traverse into
-    if (typeof next !== 'object' || next === null) {
-      // Can't traverse into primitive, overwrite with object
-      const nextPart = parts[i + 1];
-      const isNextNumeric = nextPart !== undefined && /^\d+$/.test(nextPart);
-      current[part] = isNextNumeric ? [] : (Object.create(null) as Record<string, unknown>);
+    // Create an object/array to traverse into when missing or a primitive
+    if (typeof existing !== 'object' || existing === null) {
+      current[part] = isNextNumeric ? [] : (Object.create(NULL_PROTO) as Record<string, unknown>);
     }
 
     current = current[part] as Record<string, unknown>;
   }
 
-  // Set the final value
   const lastPart = parts[parts.length - 1];
   if (lastPart === undefined) {
+    return;
+  }
+
+  // key[] → append to (or create) an array at the final key
+  if (isArrayPush) {
+    const existing = current[lastPart];
+    if (Array.isArray(existing)) {
+      existing.push(value);
+    } else {
+      current[lastPart] = [value];
+    }
     return;
   }
 
@@ -136,7 +164,7 @@ export function parseUrlEncoded(
   parameterLimit: number = DEFAULT_PARAMETER_LIMITS.MAX_PARAMS,
   depth: number = DEFAULT_PARAMETER_LIMITS.MAX_DEPTH
 ): ParsedUrlEncoded {
-  const result: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  const result: Record<string, unknown> = Object.create(NULL_PROTO) as Record<string, unknown>;
 
   // Handle empty string
   if (!str || str.length === 0) {

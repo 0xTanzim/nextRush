@@ -1,0 +1,23 @@
+{
+  "//": "Real-runtime conformance runner (F-01, ADR-0010). Runs the FULL shared defineConformanceSuite under REAL Deno (not simulated under Node/vitest). @nextrush/* map to built dist — run `pnpm --filter @nextrush/adapter-conformance... build` first.",
+  "imports": {
+    "@nextrush/types": "../../../types/dist/index.js",
+    "@nextrush/errors": "../../../errors/dist/index.js",
+    "@nextrush/core": "../../../core/dist/index.js",
+    "@nextrush/router": "../../../router/dist/index.js",
+    "@nextrush/runtime": "../../../runtime/dist/index.js",
+    "@nextrush/stream": "../../../stream/dist/index.js",
+    "@nextrush/di": "../../../di/dist/index.js",
+    "@nextrush/adapter-deno": "../../deno/dist/index.js",
+    "@nextrush/adapter-node": "../../node/dist/index.js",
+    "@nextrush/adapter-bun": "../../bun/dist/index.js",
+    "@nextrush/adapter-edge": "../../edge/dist/index.js",
+    "@nextrush/adapter-serverless": "../../serverless/dist/index.js",
+    "@nextrush/adapter-conformance": "../src/index.ts",
+    "@nextrush/adapter-conformance/test-primitives": "./test-primitives.deno.ts",
+    "@std/expect": "jsr:@std/expect@^1.0.13"
+  },
+  "tasks": {
+    "conformance": "deno test --no-check --allow-env --allow-read --allow-net --unstable-sloppy-imports conformance.deno.test.ts"
+  }
+}

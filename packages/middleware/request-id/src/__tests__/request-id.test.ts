@@ -569,6 +569,34 @@ describe('@nextrush/request-id', () => {
       // crypto.randomUUID() is available in all modern runtimes
       expect(typeof crypto.randomUUID).toBe('function');
     });
+
+    it('should generate IDs via the global crypto, not node:crypto', async () => {
+      // Guards against the mechanism, not just the output shape: node:crypto's
+      // randomUUID() produces an identical-looking UUID to the global, so a
+      // shape-only assertion (above) cannot tell the two implementations
+      // apart. Scans the whole package src (excluding tests) for a `node:`
+      // import — the only way to distinguish "uses the portable global" from
+      // "happens to produce the same output via a Node-only import" on this
+      // runtime, where both are available. Doubles as the portability
+      // regression guard: fails if any future edit reintroduces a `node:`
+      // import anywhere in this edge-safe package.
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const srcDir = path.join(import.meta.dirname, '..');
+
+      const sourceFiles = fs
+        .readdirSync(srcDir)
+        .filter((f) => f.endsWith('.ts'))
+        .map((f) => path.join(srcDir, f));
+
+      for (const file of sourceFiles) {
+        const source = fs.readFileSync(file, 'utf8');
+        expect(source, `${path.basename(file)} must not import from 'node:*'`).not.toMatch(
+          /from ['"]node:/
+        );
+      }
+      expect(sourceFiles.length).toBeGreaterThan(0);
+    });
   });
 
   // ============================================================================

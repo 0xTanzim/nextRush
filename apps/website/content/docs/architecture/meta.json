@@ -1,0 +1,23 @@
+{
+  "title": "Architecture",
+  "description": "How NextRush works internally — design principles, contracts, the router and DI internals, package hierarchy, RFCs, and versioning.",
+  "pages": [
+    "index",
+    "design-principles",
+    "contracts",
+    "router-internals",
+    "capability-composition",
+    "package-hierarchy",
+    "session-position",
+    "benchmarks",
+    "---Internals---",
+    "di-internals",
+    "middleware-internals",
+    "adapters",
+    "---History---",
+    "rfcs",
+    "versioning",
+    "release-handbook"
+  ],
+  "references": ["../reference", "../getting-started", "../production"]
+}

@@ -11,9 +11,10 @@
  * @packageDocumentation
  */
 
-import { buildCli, buildHelp, devCli, devHelp } from './commands/index.js';
+import { buildCli, buildHelp, codemodCli, codemodHelp, devCli, devHelp } from './commands/index.js';
 import { generateCli, generateHelp } from './generators/index.js';
 import { exitProcess, getRuntimeInfo } from './runtime/index.js';
+import { getDenoGlobal } from './runtime/runtime-globals.js';
 import { error } from './utils/logger.js';
 
 // Version injected at build time via tsup define
@@ -25,8 +26,7 @@ const VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.
  */
 function getCliArgs(): string[] {
   if ('Deno' in globalThis) {
-    // @ts-expect-error Deno global exists in Deno runtime
-    return (globalThis.Deno as { args: string[] }).args;
+    return [...getDenoGlobal().args];
   }
 
   // Node.js and Bun both use process.argv
@@ -76,7 +76,15 @@ export function cli(): void {
       if (commandArgs.includes('--help') || commandArgs.includes('-h')) {
         generateHelp();
       } else {
-        generateCli(commandArgs);
+        void generateCli(commandArgs);
+      }
+      break;
+
+    case 'codemod':
+      if (commandArgs.includes('--help') || commandArgs.includes('-h')) {
+        codemodHelp();
+      } else {
+        void codemodCli(commandArgs);
       }
       break;
 
@@ -100,9 +108,10 @@ function printHelp(): void {
 Usage: nextrush <command> [options]
 
 Commands:
-  dev          Start development server with hot reload
+  dev          Start development server with auto-restart on file change
   build        Build for production with decorator metadata
   generate, g  Generate controller, service, middleware, guard, or route
+  codemod      Run automated code transformations
 
 Global Options:
   --help, -h       Show help
@@ -120,9 +129,11 @@ Examples:
   nextrush generate controller user
   nextrush g s user-profile
 
+  nextrush codemod consolidate-imports src/**/*.ts
+
 Run "nextrush <command> --help" for command-specific help.
 
-Documentation: https://github.com/0xTanzim/nextRush/blob/main/apps/docs/content/docs/guides/dev-tools.mdx
+Documentation: https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/guides/dev-tools.mdx
 `);
 }
 

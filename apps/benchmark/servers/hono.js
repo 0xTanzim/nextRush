@@ -1,115 +1,100 @@
 /**
- * Hono Benchmark Server — All scenarios via @hono/node-server.
+ * Hono benchmark server — all scenarios via @hono/node-server.
+ *
+ * Fairness notes:
+ * - Response bodies come from the shared payload module.
+ * - `app.onError` is idiomatic and fires only on error (no per-request cost).
  */
 
-import { serve } from '@hono/node-server';
+import { createAdaptorServer } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
+import { fileURLToPath } from 'node:url';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+import { KEEP_ALIVE_TIMEOUT_MS, LISTEN_BACKLOG, LISTEN_HOST } from '../config/constants.js';
+
+import {
+  ERROR_BODY,
+  ERROR_MESSAGE,
+  HELLO_WORLD,
+  JSON_USER,
+  LARGE_JSON,
+  MIDDLEWARE_BODY,
+  MIDDLEWARE_HEADERS,
+  SEND_OBJECT_BODY,
+  deepRoute,
+  largePostResponse,
+  mwHeaderValue,
+  postUserResponse,
+  searchResponse,
+  userById,
+} from './_shared/payloads.js';
+
+const PORT = parseInt(process.env.PORT || '8080', 10);
 const app = new Hono();
 
-// 1. Hello World
-app.get('/', (c) => c.json({ message: 'Hello World' }));
+// Fairness: Hono's `c.json()` emits `application/json` (no charset) while every
+// other server emits `application/json; charset=utf-8`. The content type is
+// overridden via c.json's own headers argument rather than hand-rolling a
+// `c.body(JSON.stringify(...))` replacement, so Hono's REAL serialization helper
+// is what gets measured — a hand-written stand-in would make the `send-object`
+// scenario (whose stated purpose is dispatching through each framework's own
+// response helper) measure benchmark code instead of Hono (audit F-06/F-M02).
+const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' };
+const jsonRes = (c, obj, status = 200) => c.json(obj, status, JSON_HEADERS);
 
-// 2. JSON serialization
-app.get('/json', (c) =>
-  c.json({ id: 1, name: 'John Doe', email: 'john@example.com', role: 'developer', active: true })
+app.get('/', (c) => jsonRes(c, HELLO_WORLD));
+app.get('/json', (c) => jsonRes(c, JSON_USER));
+app.get('/large-json', (c) => jsonRes(c, LARGE_JSON));
+
+app.get('/users/:id', (c) => jsonRes(c, userById(c.req.param('id'))));
+
+app.get('/search', (c) => jsonRes(c, searchResponse(c.req.query('q'), c.req.query('limit'))));
+
+app.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (c) =>
+  jsonRes(c, deepRoute(c.req.param('orgId'), c.req.param('teamId'), c.req.param('memberId')))
 );
 
-// 3. Route parameters
-app.get('/users/:id', (c) => {
-  const id = c.req.param('id');
-  return c.json({ id, name: `User ${id}`, email: `user${id}@example.com` });
+app.post('/users', async (c) => jsonRes(c, postUserResponse(await c.req.json())));
+
+app.get('/send-object', (c) => jsonRes(c, SEND_OBJECT_BODY));
+
+app.post('/large-post', async (c) => {
+  const body = await c.req.json();
+  const items = body?.items;
+  return jsonRes(c, largePostResponse(Array.isArray(items) ? items.length : 0));
 });
 
-// 4. Query strings
-app.get('/search', (c) => {
-  const q = c.req.query('q') || '';
-  const limit = Math.min(parseInt(c.req.query('limit') || '10', 10), 10);
-  return c.json({
-    query: q,
-    limit,
-    results: Array.from({ length: limit }, (_, i) => ({
-      id: i + 1,
-      title: `Result ${i + 1} for "${q}"`,
-    })),
+app.use('/static/*', serveStatic({ root: fileURLToPath(new URL('../public', import.meta.url)) }));
+
+// 5-layer middleware stack — one header per layer.
+for (const header of MIDDLEWARE_HEADERS) {
+  // Sync layer returning next() — see the koa/fastify notes: the async form
+  // costs a promise per layer per request that the sync servers do not pay.
+  app.use('/middleware', (c, next) => {
+    c.header(header.name, mwHeaderValue(header));
+    return next();
   });
-});
+}
+app.get('/middleware', (c) => jsonRes(c, MIDDLEWARE_BODY));
 
-// 5. POST JSON
-app.post('/users', async (c) => {
-  const data = await c.req.json();
-  return c.json({
-    success: true,
-    user: { id: Math.floor(Math.random() * 10000), ...data, createdAt: new Date().toISOString() },
-  });
-});
-
-// 6. Deep route
-app.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (c) => {
-  return c.json({
-    orgId: c.req.param('orgId'),
-    teamId: c.req.param('teamId'),
-    memberId: c.req.param('memberId'),
-  });
-});
-
-// 7. Middleware stack — 5 middleware layers
-app.use('/middleware', async (c, next) => {
-  c.header('X-Request-Id', '12345');
-  await next();
-});
-app.use('/middleware', async (c, next) => {
-  c.header('X-Timestamp', Date.now().toString());
-  await next();
-});
-app.use('/middleware', async (c, next) => {
-  c.header('X-Framework', 'hono');
-  await next();
-});
-app.use('/middleware', async (c, next) => {
-  c.header('X-Version', '4.0');
-  await next();
-});
-app.use('/middleware', async (c, next) => {
-  c.header('X-Processed', 'true');
-  await next();
-});
-app.get('/middleware', (c) => c.json({ middleware: true, layers: 5 }));
-
-// 8. Error handling
 app.get('/error', () => {
-  throw new Error('Benchmark error');
+  throw new Error(ERROR_MESSAGE);
 });
 
-// 9. Large JSON
-const largeData = Array.from({ length: 50 }, (_, i) => ({
-  id: i + 1,
-  name: `User ${i + 1}`,
-  email: `user${i + 1}@example.com`,
-  role: i % 2 === 0 ? 'developer' : 'designer',
-  active: i % 3 !== 0,
-}));
+app.get('/empty', (c) => c.newResponse(null, 204));
 
-app.get('/large-json', (c) => c.json(largeData));
+app.onError((_err, c) => jsonRes(c, ERROR_BODY, 500));
 
-// 10. Empty response
-app.get('/empty', (c) => {
-  c.status(204);
-  return c.body(null);
+// `serve()` has no backlog option, so the server is created without listening
+// and `listen` is called directly — the only way to give Hono the same
+// accept-queue depth as the other five servers.
+const server = createAdaptorServer({ fetch: app.fetch });
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
+server.listen({ port: PORT, host: LISTEN_HOST, backlog: LISTEN_BACKLOG }, () => {
+  console.log(`Hono server listening on http://${LISTEN_HOST}:${PORT}`);
 });
 
-// Error handler
-app.onError((err, c) => {
-  return c.json({ error: 'Internal Server Error' }, 500);
-});
-
-const server = serve({ fetch: app.fetch, port: PORT }, (info) => {
-  console.log(`Hono server listening on http://localhost:${info.port}`);
-});
-
-const shutdown = () => {
-  server.close(() => process.exit(0));
-};
+const shutdown = () => server.close(() => process.exit(0));
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

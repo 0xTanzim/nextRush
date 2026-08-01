@@ -1,0 +1,5 @@
+{
+  "title": "Help",
+  "description": "Frequently asked questions, troubleshooting guides, glossary, and compatibility information.",
+  "pages": ["faq", "troubleshooting", "glossary", "compatibility-matrix"]
+}

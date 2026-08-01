@@ -1,0 +1,299 @@
+---
+title: Guards
+description: How NextRush runs a yes/no access check before a controller handler — so authentication and authorization live in one declared place instead of the top of every handler.
+keywords: [concepts, extension, guards, nextrush, system]
+---
+
+Every protected route asks the same question before it does any real work: is this caller allowed in? Answer it inline and the check is copy-pasted into the top of each handler — read the token, verify it, check the role, bail out on failure — with the one line that matters buried underneath. Miss it in a single handler and you have a hole no one sees until it is exploited.
+
+## What you'll learn
+
+- **Understand** why an access check copied into every handler is both duplication and a security risk
+- **Understand** how a guard runs *before* the handler and decides, with one boolean, whether the request proceeds
+- **Recognize** the two guard shapes — a `GuardFn` function and a `CanActivate` class — and when each fits
+- **Choose** guards for access decisions, and something else (middleware, an interceptor) when the job isn't yes/no
+
+## The problem
+
+The direct way to protect a controller route is to check access at the top of the handler. It reads fine once, then it multiplies:
+
+```ts
+// The access check is repeated in every handler; the real work is one line at the bottom.
+import { createRouter } from 'nextrush';
+
+declare function verifyToken(token: string): Promise<{ role: string } | null>;
+declare function getAllUsers(): Promise<unknown>;
+
+const router = createRouter();
+
+router.get('/admin/users', async (ctx) => {
+  const token = ctx.get('Authorization');
+  if (!token) {
+    ctx.status = 401;
+    return ctx.json({ error: 'Unauthorized' });
+  }
+
+  const user = await verifyToken(token);
+  if (!user) {
+    ctx.status = 401;
+    return ctx.json({ error: 'Invalid token' });
+  }
+
+  if (user.role !== 'admin') {
+    ctx.status = 403;
+    return ctx.json({ error: 'Forbidden' });
+  }
+
+  ctx.json(await getAllUsers()); // the actual work
+});
+```
+
+Each new admin route repeats the same preamble. A change to how tokens are verified has to be found and edited in every handler, and a handler that forgets the check fails silently — it serves data it should have refused.
+
+## Why this matters
+
+Access control is not a feature you write once; it is a rule every protected handler has to honor, forever. Multiply the inline check across a growing controller surface and a growing team, and "did this route remember to verify the caller?" becomes a question you cannot answer by reading one file. The cost is rarely a single dramatic bug — it is a security posture that depends on no one ever forgetting, which is not a posture at all.
+
+## The solution
+
+NextRush lets you attach a **guard** to a controller or a route with `@UseGuard`. A guard is a function or a class that runs before the handler and returns a boolean: `true` lets the request through, `false` rejects it. Guards run in order and every one must pass, so you declare *what protection a route needs* once, next to the route, and every request behind it inherits the check. The handler runs only after the guards say yes — and never sees the requests they turned away.
+
+## Core idea
+
+Think of a guard as a **gate that stands in front of the handler**. The request reaches the gate first; the gate answers one question — allowed or not — and only an allowed request continues to the handler. A gate that says no ends the request there. There is no "maybe," no transformation of the response — a guard's entire job is the yes/no decision.
+
+## Mental model
+
+<Mermaid
+  chart="
+sequenceDiagram
+    actor Client
+    participant Runner as Guard runner
+    participant Auth as AuthGuard
+    participant Role as RoleGuard
+    participant Handler
+    Client->>Runner: request to a guarded route
+    Runner->>Auth: run guard (returns boolean / may throw)
+    activate Auth
+    alt returns false
+        Auth-->>Client: 403 GuardRejectionError — handler never runs
+    else throws (e.g. UnauthorizedError)
+        Auth-->>Client: the thrown error propagates unchanged (e.g. 401)
+    else returns true
+        Auth->>Role: run the next guard
+        activate Role
+        alt Role rejects
+            Role-->>Client: 403 — handler still never runs
+        else returns true
+            Role->>Handler: all guards passed
+            activate Handler
+            Handler-->>Client: 200 response
+            deactivate Handler
+        end
+        deactivate Role
+    end
+    deactivate Auth
+"
+/>
+
+Read the diagram as a checkpoint chain, not parallel checks: the runner awaits each guard before the next, and the first `false` or thrown error ends the request — the handler is reached only down the all-`true` path. Notice the two failure arrows differ: a `false` return becomes a 403, while a *thrown* error keeps its own status.
+
+## Quick example
+
+The smallest guard is a function that reads the request and returns a boolean. Attach it with `@UseGuard`, and every route on the controller is protected:
+
+```ts title="app.ts"
+import { createApp, listen } from 'nextrush';
+import { Controller, Get, UseGuard, registerControllers } from 'nextrush/class';
+import type { GuardFn } from 'nextrush/class';
+
+// A function guard: read the request, return true to allow or false to reject.
+const AuthGuard: GuardFn = (ctx) => {
+  return ctx.get('authorization') !== undefined;
+};
+
+@UseGuard(AuthGuard)
+@Controller('/users')
+class UserController {
+  @Get()
+  list() {
+    return [{ id: 1, name: 'Alice' }]; // runs only when AuthGuard returned true
+  }
+}
+
+const app = createApp();
+await registerControllers(app, { controllers: [UserController] });
+listen(app, 8080);
+```
+
+No `if`/`return` preamble sits in the handler. `AuthGuard` runs first; a request with no `Authorization` header is rejected before `list()` is ever called.
+
+## How it works
+
+**Example** — guards come in two shapes. A `GuardFn` is a plain function; a class implementing `CanActivate` is resolved from the DI container so it can use injected services:
+
+```ts title="two-shapes.ts"
+import { Service, UseGuard, Controller, Get } from 'nextrush/class';
+import type { GuardFn, CanActivate, GuardContext } from 'nextrush/class';
+
+// Your real session check — resolves the user from a token, or null.
+declare function verifySession(token: string | undefined): { role: string } | null;
+
+// Shape 1 — a function guard, ideal for a factory that closes over config.
+const RoleGuard = (...roles: string[]): GuardFn => {
+  return (ctx) => {
+    const user = ctx.state.user as { role: string } | undefined;
+    return user !== undefined && roles.includes(user.role);
+  };
+};
+
+// Shape 2 — a class implementing CanActivate, resolved from the DI container.
+@Service()
+class AuthGuard implements CanActivate {
+  async canActivate(ctx: GuardContext): Promise<boolean> {
+    const user = verifySession(ctx.get('authorization'));
+    if (!user) return false;
+
+    ctx.state.user = user; // attach for later guards and the handler
+    return true;
+  }
+}
+
+@UseGuard(AuthGuard, RoleGuard('admin'))
+@Controller('/admin')
+class AdminController {
+  @Get()
+  dashboard() {
+    return { ok: true };
+  }
+}
+```
+
+**Observation** — `AuthGuard` runs first and writes the verified user onto `ctx.state`; `RoleGuard` runs next and reads it. Reverse the two and `RoleGuard` sees no user and rejects everyone — order is the contract.
+
+**Explanation** — a few rules govern that behavior, all of them from the guard runner:
+
+- **Two contracts, one pipeline.** A `GuardFn` receives a `GuardContext` and returns `boolean | Promise<boolean>`. A class implementing `CanActivate` does the same through a `canActivate(ctx)` method, and the runner resolves it from the DI container per request — so a class guard can declare its collaborators as constructor parameters (`constructor(private auth: AuthService) {}`) and the container injects them, exactly as it does for a [service](/docs/concepts/dependency-injection).
+- **`GuardContext` is a read-only snapshot with one live channel.** Guards see `method`, `path`, `params`, `query`, `headers`, `body`, and `get(name)` captured when guards begin; they cannot send a response. The exception is `ctx.state`, which is the *live* state bag — the supported way for a guard to pass a verified user forward to later guards and the handler.
+- **Order is class-then-method, and the chain short-circuits.** Guards on the `@Controller` class run before guards on the method, and within a single `@UseGuard(A, B, C)` call they run left to right. The runner awaits each and stops at the first that fails, so a rejected request never reaches controller resolution, parameter injection, or the handler.
+
+The exact resolution and snapshotting live in the [`@nextrush/class` reference](/docs/reference/class/decorators) — a concept teaches the model, not every field.
+
+<Callout type="warn" title="Stacked decorators apply bottom-to-top">
+  Separate stacked `@UseGuard()` calls are applied in TypeScript's decorator order (bottom-to-top),
+  which can surprise you. For a guaranteed sequence, pass the guards in one call —
+  `@UseGuard(AuthGuard, RoleGuard('admin'))` — where left-to-right order is explicit.
+</Callout>
+
+## Typical use cases
+
+Guards fit any decision that resolves to "let this request through or not":
+
+- **Authentication** — verify a token or session and reject anonymous callers, attaching the resolved user to `ctx.state` for everything downstream.
+- **Authorization** — check the authenticated user's role, ownership, or permission against what the route requires.
+- **Coarse gating** — feature flags, per-plan access, or a maintenance lock that closes a route to everyone.
+
+Each is a yes/no call made before the handler. Work that transforms the request or response, or that must run on every request regardless of route, belongs in [middleware](/docs/concepts/middleware) instead.
+
+## Configuration
+
+`@UseGuard` takes no options object — only a rest list of guards (`GuardFn` or a `CanActivate` class), and their position is the whole configuration:
+
+```ts title="composing-guards.ts"
+import { UseGuard, Controller, Get } from 'nextrush/class';
+import type { GuardFn } from 'nextrush/class';
+
+const AuthGuard: GuardFn = (ctx) => ctx.get('authorization') !== undefined;
+const RateLimitGuard: GuardFn = () => true;
+
+@UseGuard(AuthGuard) // protects every route on the controller
+@Controller('/posts')
+class PostController {
+  @Get()
+  list() {} // AuthGuard only
+
+  @UseGuard(RateLimitGuard) // adds a second guard to this route alone
+  @Get('/trending')
+  trending() {} // AuthGuard (class) then RateLimitGuard (method)
+}
+```
+
+When a guard needs to be parameterized — a required role, a rate limit — write a **guard factory**: a function that takes the options and returns a `GuardFn` closing over them, as `RoleGuard('admin')` does above. That is the intended way to configure guard behavior; there is no global guard-config surface.
+
+## Performance
+
+- **Complexity** — the guard list for a route is resolved once, when the controller's route handler is built, and captured in a closure; it is not re-read from metadata per request. Each request then runs the guards sequentially, so a route's guard cost is the *sum* of its guards' latencies, not the max.
+- **Memory** — the resolved guard list is shared across every request to that route. A class guard registered as a singleton (`@Service()` default) resolves to one cached instance; a `transient` guard is rebuilt on each request.
+- **Scaling** — because guards run in series, order them cheapest-first so a fast in-memory check can reject before an expensive network call runs. A rejected guard skips controller resolution and parameter injection entirely — no work is wasted on a request that was refused. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before tuning.
+
+## Security
+
+Guards *are* the access boundary for controller routes, so how they fail and what they trust is the whole point.
+
+- **Unverified input.** *Threat:* a guard trusts a header or `ctx.state` value that was never validated. *Why:* `GuardContext` carries client-supplied data verbatim, and `ctx.state` is only as trustworthy as whatever wrote to it. *Safe default:* verify tokens cryptographically and attach a user to `ctx.state` only *after* a successful check. *Avoid:* returning `true` on the mere presence of a header, or reading a role from an unverified `ctx.state`.
+- **Ordering.** *Threat:* a `RoleGuard` that reads `ctx.state.user` runs before the `AuthGuard` that sets it. *Why:* guards run in a defined order and share state through it. *Safe default:* put the guard that establishes identity before any guard that reads it, in a single `@UseGuard` call. *Avoid:* relying on stacked-decorator order for a security-critical sequence.
+- **Leaked failure detail.** *Threat:* a rejection response exposes the guard name or internal message. *Why:* `GuardRejectionError` records the `guardName` for diagnostics. *Safe default:* let your error boundary map rejections to a clean 403 in production. *Avoid:* returning the raw error body to clients — see [exception filters](/docs/concepts/exception-filters).
+
+<Callout type="warn">
+  A guard's `state` field is the live `ctx.state` — the one writable surface it has. Attach a user to
+  it only after verification, and never treat a value already on `ctx.state` as trusted merely because
+  it is present. An upstream guard or middleware may have put it there without checking.
+</Callout>
+
+## Trade-offs
+
+**Why a boolean gate before the handler** — it isolates the one decision "may this request proceed?" into a declared, reusable unit, kept out of the handler entirely.
+
+- **Benefits** — one place to change an access rule instead of every handler; a guard is a pure, unit-testable function (or an injectable class); a rejected request costs nothing downstream; the protection a route needs is visible in its decorators.
+- **Costs** — guards apply only to class-based controller routes, not functional routes; the read-only `GuardContext` means a guard cannot shape the response, only permit or deny; a `false` return always yields a 403, so a different status needs a thrown error.
+- **Alternatives** — [middleware](/docs/concepts/middleware) can gate a request too, and is the right tool when the check must run on every route or must also transform the response; an [interceptor](/docs/concepts/interceptors) wraps the handler to shape input and output but is not an access gate.
+- **Why NextRush chose this** — a dedicated yes/no primitive keeps access control declarative and legible: reading a controller's decorators tells you what it requires, and the boolean contract keeps each guard testable in isolation.
+
+## Decision guide
+
+**Choose a guard when:**
+
+- ✓ The decision is yes/no access control — authentication, authorization, a feature gate — on a controller route
+- ✓ You want the check declared next to the route and reused across its methods
+- ✓ The guard benefits from injected services (use a `CanActivate` class) or from configuration (use a `GuardFn` factory)
+
+**Reach for something else when:**
+
+- ✗ You need to transform the request or response — that is [middleware](/docs/concepts/middleware) or an [interceptor](/docs/concepts/interceptors), not a guard
+- ✗ The check must run on *every* request regardless of controller — register [middleware](/docs/concepts/middleware) instead
+- ✗ You are on a functional route with no controller — guards require the `@UseGuard` decorator
+
+## Common mistakes
+
+- **Forgetting to `await` an async check.** *Why it happens:* a guard calls an async verifier but returns before it resolves. *Correct approach:* `await` the async call and return its result. *If ignored:* the guard returns a truthy promise-less value early and lets everyone through — an open door.
+- **Not attaching the verified user to `ctx.state`.** *Why it happens:* the guard checks the token but discards the user it resolved. *Correct approach:* set `ctx.state.user` after verifying, so later guards and the handler can read it. *If ignored:* downstream code has no user, and a role check has nothing to authorize against.
+- **Expecting a thrown `UnauthorizedError` to become a 403.** *Why it happens:* guards are associated with 403 rejections. *Correct approach:* know that a *thrown* error propagates unchanged — throw `UnauthorizedError` for a 401 and return `false` for a 403. *If ignored:* you fight the framework trying to change the status of a `false` return, when throwing the typed error was the tool all along.
+
+## Key takeaways
+
+- A guard runs before the handler and answers one question — allow or deny — so access checks stop living at the top of every handler.
+- Two shapes share one pipeline: a `GuardFn` function, and a `CanActivate` class resolved from the DI container with its dependencies injected.
+- `return true` lets the request through; `return false` throws a `GuardRejectionError` (403); a *thrown* error propagates unchanged, so throwing `UnauthorizedError` yields a 401.
+- Guards run in order — class guards before method guards, left-to-right within one `@UseGuard` call — and the chain stops at the first failure.
+- `GuardContext` is a read-only snapshot except for `ctx.state`, the live channel a guard uses to pass a verified user forward.
+- Guards are for yes/no access only; use middleware or an interceptor when the job is to transform the request or response.
+
+## Continue learning
+
+<Cards>
+  <Card title="Interceptors" href="/docs/concepts/interceptors">
+    Wrap a handler to shape its input and output — the transform tool a guard deliberately isn't.
+  </Card>
+  <Card title="Exception filters" href="/docs/concepts/exception-filters">
+    How a rejected guard's error is turned into a clean HTTP response.
+  </Card>
+  <Card title="Dependency injection & scopes" href="/docs/concepts/dependency-injection">
+    How a CanActivate class guard gets its injected services and what its scope means.
+  </Card>
+  <Card title="Authentication guide" href="/docs/guides/authentication/authentication">
+    Put guards to work — build real authentication and authorization in a class-based app.
+  </Card>
+  <Card title="@nextrush/class reference" href="/docs/reference/class/decorators">
+    The full @UseGuard, GuardFn, CanActivate, and GuardContext signatures.
+  </Card>
+</Cards>

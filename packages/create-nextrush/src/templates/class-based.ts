@@ -13,6 +13,7 @@ export function generateClassBased(options: ProjectOptions): FileMap {
   files.set('src/index.ts', generateEntrypoint(options));
   files.set('src/controllers/health.controller.ts', generateHealthController());
   files.set('src/services/app.service.ts', generateAppService());
+  files.set('src/services/__tests__/app.service.test.ts', generateAppServiceTest());
 
   return files;
 }
@@ -26,15 +27,15 @@ function generateEntrypoint(options: ProjectOptions): string {
   const lines: string[] = [];
 
   lines.push(...getRuntimeEntrypointImports(options.runtime, 'listen'));
-  lines.push("import { controllersPlugin } from 'nextrush/class';");
+  lines.push("import { registerControllers } from 'nextrush/class';");
 
   if (middlewareImports) {
     lines.push(middlewareImports);
   }
 
   lines.push('');
-  lines.push('const app = createApp();');
   lines.push('const router = createRouter();');
+  lines.push('const app = createApp({ router });');
   lines.push(portDecl);
   lines.push(controllerDiscoveryHelpers.trimEnd());
   lines.push('');
@@ -46,17 +47,12 @@ function generateEntrypoint(options: ProjectOptions): string {
   }
 
   lines.push('// Auto-discover controllers');
-  lines.push('await app.plugin(');
-  lines.push('  controllersPlugin({');
-  lines.push('    router,');
-  lines.push('    root: CONTROLLERS_ROOT,');
-  lines.push('    include: CONTROLLERS_INCLUDE,');
-  lines.push("    prefix: '/api',");
-  lines.push('    strict: true,');
-  lines.push('  })');
-  lines.push(');');
-  lines.push('');
-  lines.push("app.route('/', router);");
+  lines.push('await registerControllers(app, {');
+  lines.push('  root: CONTROLLERS_ROOT,');
+  lines.push('  include: CONTROLLERS_INCLUDE,');
+  lines.push("  prefix: '/api',");
+  lines.push('  strict: true,');
+  lines.push('});');
   lines.push('');
   lines.push('await listen(app, PORT);');
   lines.push('');
@@ -93,5 +89,23 @@ export class AppService {
     };
   }
 }
+`;
+}
+
+function generateAppServiceTest(): string {
+  return `import { describe, expect, it } from 'vitest';
+
+import { AppService } from '../app.service.js';
+
+describe('AppService', () => {
+  it('reports status ok with a timestamp and uptime', () => {
+    const service = new AppService();
+    const result = service.getHealth();
+
+    expect(result.status).toBe('ok');
+    expect(new Date(result.timestamp).toString()).not.toBe('Invalid Date');
+    expect(result.uptime).toBeGreaterThanOrEqual(0);
+  });
+});
 `;
 }

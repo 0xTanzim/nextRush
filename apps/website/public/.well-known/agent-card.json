@@ -1,0 +1,32 @@
+{
+  "name": "NextRush Documentation",
+  "version": "1.0.0",
+  "description": "Agent-accessible documentation for the NextRush framework. Provides documentation, skills discovery, and API catalog via agent-friendly endpoints.",
+  "supportedInterfaces": [
+    {
+      "type": "documentation",
+      "url": "https://nextrush.dev/docs",
+      "transport": "HTTPS",
+      "protocols": ["HTTP/2", "HTTP/3"]
+    }
+  ],
+  "capabilities": {
+    "contentNegotiation": {
+      "markdown": true,
+      "format": "text/markdown"
+    },
+    "discovery": {
+      "agentSkills": true,
+      "apiCatalog": true,
+      "dnsAid": true
+    }
+  },
+  "skills": [
+    {
+      "id": "nextrush",
+      "name": "NextRush Framework",
+      "description": "Build backend applications with NextRush framework. Develop routes, middleware, server actions, and use NextRush APIs.",
+      "url": "/.well-known/agent-skills/nextrush/SKILL.md"
+    }
+  ]
+}

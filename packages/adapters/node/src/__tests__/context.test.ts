@@ -32,6 +32,11 @@ function createMockRes(): ServerResponse {
   // Mock response methods
   vi.spyOn(res, 'setHeader').mockImplementation(() => res);
   vi.spyOn(res, 'end').mockImplementation(() => res);
+  // Mirror writeHead's statusCode side effect so status assertions stay faithful.
+  vi.spyOn(res, 'writeHead').mockImplementation((status: number) => {
+    res.statusCode = status;
+    return res;
+  });
 
   return res;
 }
@@ -99,8 +104,12 @@ describe('NodeContext', () => {
     it('should send JSON response', () => {
       ctx.json({ message: 'hello' });
 
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json; charset=utf-8');
-      // Response is sent as string directly (optimized - no Buffer.from intermediate)
+      // HP-14: Content-Type + Content-Length + status go through a single
+      // writeHead (not two setHeader calls); the body is sent as a string directly.
+      expect(res.writeHead).toHaveBeenCalledWith(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Length': String(Buffer.byteLength('{"message":"hello"}')),
+      });
       expect(res.end).toHaveBeenCalledWith('{"message":"hello"}');
     });
 
@@ -468,5 +477,39 @@ describe('runtime detection', () => {
     // Valid runtime values as defined in @nextrush/types
     const validRuntimes = ['node', 'bun', 'deno', 'edge', 'unknown'];
     expect(validRuntimes).toContain(ctx.runtime);
+  });
+});
+
+describe('NodeContext.set — Set-Cookie contract', () => {
+  /** Build a context over a real ServerResponse so header accumulation is observable. */
+  function realCtx(): { ctx: NodeContext; res: ServerResponse } {
+    const socket = new Socket();
+    const rawReq = new IncomingMessage(socket);
+    rawReq.method = 'GET';
+    rawReq.url = '/';
+    rawReq.headers = {};
+    const rawRes = new ServerResponse(rawReq);
+    return { ctx: new NodeContext(rawReq, rawRes), res: rawRes };
+  }
+
+  it('appends multiple Set-Cookie headers instead of overwriting (matches web adapter)', () => {
+    const { ctx, res } = realCtx();
+    ctx.set('Set-Cookie', 'a=1; Path=/');
+    ctx.set('Set-Cookie', 'b=2; Path=/');
+    expect(res.getHeader('set-cookie')).toEqual(['a=1; Path=/', 'b=2; Path=/']);
+  });
+
+  it('replaces the header when given an array (set-these semantics)', () => {
+    const { ctx, res } = realCtx();
+    ctx.set('Set-Cookie', 'stale=1');
+    ctx.set('Set-Cookie', ['a=1', 'b=2']);
+    expect(res.getHeader('set-cookie')).toEqual(['a=1', 'b=2']);
+  });
+
+  it('still overwrites non-cookie headers', () => {
+    const { ctx, res } = realCtx();
+    ctx.set('X-Test', '1');
+    ctx.set('X-Test', '2');
+    expect(res.getHeader('x-test')).toBe('2');
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "nextrush",
-  "version": "3.0.7",
+  "version": "4.0.0",
   "description": "Minimal, modular, blazing fast Node.js framework",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,15 +14,21 @@
     "./class": {
       "types": "./dist/class.d.ts",
       "import": "./dist/class.js"
+    },
+    "./nextjs": {
+      "types": "./dist/nextjs.d.ts",
+      "import": "./dist/nextjs.js"
     }
   },
   "files": [
     "dist",
-    "scripts",
+    "bin",
     "README.md"
   ],
+  "bin": {
+    "nextrush": "./bin/nextrush.js"
+  },
   "scripts": {
-    "postinstall": "node scripts/postinstall.js",
     "build": "tsup",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
@@ -69,22 +75,42 @@
   ],
   "dependencies": {
     "@nextrush/adapter-node": "workspace:*",
-    "@nextrush/controllers": "workspace:*",
     "@nextrush/core": "workspace:*",
-    "@nextrush/decorators": "workspace:*",
-    "@nextrush/di": "workspace:*",
     "@nextrush/errors": "workspace:*",
     "@nextrush/router": "workspace:*",
-    "@nextrush/types": "workspace:*",
+    "@nextrush/types": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nextrush/adapter-nextjs": "workspace:*",
+    "@nextrush/class": "workspace:*",
+    "@nextrush/di": "workspace:*",
     "reflect-metadata": "^0.2.2"
   },
+  "peerDependenciesMeta": {
+    "@nextrush/adapter-nextjs": {
+      "optional": true
+    },
+    "@nextrush/class": {
+      "optional": true
+    },
+    "@nextrush/di": {
+      "optional": true
+    },
+    "reflect-metadata": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@nextrush/adapter-nextjs": "workspace:*",
     "@nextrush/body-parser": "workspace:*",
+    "@nextrush/class": "workspace:*",
     "@nextrush/compression": "workspace:*",
     "@nextrush/cors": "workspace:*",
+    "@nextrush/di": "workspace:*",
     "@nextrush/helmet": "workspace:*",
+    "reflect-metadata": "^0.2.2",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

@@ -6,7 +6,15 @@
  * @packageDocumentation
  */
 
-import { randomUUID } from 'node:crypto';
+// NOTE: intentionally uses the global `crypto.randomUUID()` rather than
+// `node:crypto`'s `randomUUID` — this is the only Web-standard-vs-Node-module
+// choice in the package, and choosing the module would make an otherwise
+// edge-safe middleware Node-only for no behavioral difference. The global is
+// available on Node ≥19, Bun, Deno, Cloudflare Workers, Vercel Edge, and
+// Netlify Edge. `requestId()` in middleware.ts already assumes this and
+// throws a clear capability error when the global is absent and the caller
+// hasn't supplied a custom generator — this makes that check correspond to
+// what it actually guards.
 
 // ============================================================================
 // Header Names
@@ -62,9 +70,15 @@ export const MIN_ID_LENGTH = 1;
 // ============================================================================
 
 /**
- * Default ID generator using crypto.randomUUID().
+ * Default ID generator using the global crypto.randomUUID().
  * Produces RFC 4122 version 4 UUIDs.
+ *
+ * @remarks
+ * `requestId()` in middleware.ts performs a one-time capability check
+ * (`typeof globalThis.crypto?.randomUUID !== 'function'`) before relying on
+ * this generator, and throws a clear, actionable error naming the missing
+ * capability if the global is absent — never an unguarded `ReferenceError`.
  *
  * @returns A new random UUID string
  */
-export const defaultGenerator = (): string => randomUUID();
+export const defaultGenerator = (): string => crypto.randomUUID();

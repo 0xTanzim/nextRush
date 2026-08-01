@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { generateProject } from '../generator.js';
-import { setVersions } from '../version-store.js';
 import type { ProjectOptions } from '../types.js';
+import { seedAllPackageVersions } from './test-helpers.js';
 
 beforeEach(() => {
-  setVersions('^3.0.5', '^3.0.5');
+  seedAllPackageVersions('^3.0.5');
 });
 
 function createOptions(overrides: Partial<ProjectOptions> = {}): ProjectOptions {
@@ -129,6 +129,14 @@ describe('generateProject', () => {
       expect(pkg.dependencies['reflect-metadata']).toBeUndefined();
     });
 
+    it('does not include @nextrush/class in dependencies (optional peer, functional-only)', () => {
+      // nextrush declares @nextrush/class as an OPTIONAL peer dependency (framework-composition
+      // integrity, task 5.6/5.1) — a functional project must not scaffold it.
+      const files = generateProject(createOptions({ style: 'functional' }));
+      const pkg = JSON.parse(files.get('package.json')!);
+      expect(pkg.dependencies['@nextrush/class']).toBeUndefined();
+    });
+
     it('includes middleware imports for api preset', () => {
       const files = generateProject(createOptions({ style: 'functional', middleware: 'api' }));
       const entry = files.get('src/index.ts')!;
@@ -143,11 +151,11 @@ describe('generateProject', () => {
       expect(entry).not.toContain('@nextrush/cors');
     });
 
-    it('generates a health route with JSON response', () => {
+    it('generates a health route wired to a testable pure status function', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const health = files.get('src/routes/health.ts')!;
       expect(health).toContain('healthRouter');
-      expect(health).toContain("status: 'ok'");
+      expect(health).toContain('getHealthStatus');
     });
 
     it('uses adapter-bun listen import for bun runtime', () => {
@@ -159,15 +167,15 @@ describe('generateProject', () => {
     it('uses simple PORT declaration in entrypoint', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('const PORT = Number(process.env.PORT) || 3000;');
+      expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
       expect(entry).toContain('await listen(app, PORT);');
     });
 
-    it('uses process.uptime() in health route', () => {
+    it('uses process.uptime() in the health-status pure function', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
-      const health = files.get('src/routes/health.ts')!;
-      expect(health).toContain('process.uptime()');
-      expect(health).not.toContain('getUptimeSeconds');
+      const status = files.get('src/routes/health-status.ts')!;
+      expect(status).toContain('process.uptime()');
+      expect(status).not.toContain('getUptimeSeconds');
     });
   });
 
@@ -185,21 +193,20 @@ describe('generateProject', () => {
       expect(entry).not.toContain("import 'reflect-metadata'");
     });
 
-    it('uses awaited controllersPlugin with runtime-safe discovery config', () => {
+    it('uses awaited registerControllers with runtime-safe discovery config', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('await app.plugin(');
-      expect(entry).toContain('controllersPlugin');
+      expect(entry).toContain('await registerControllers(');
       expect(entry).toContain('root: CONTROLLERS_ROOT');
       expect(entry).toContain('include: CONTROLLERS_INCLUDE');
       expect(entry).toContain('strict: true');
-      expect(entry).toContain("const CONTROLLERS_ROOT = IS_DIST_RUNTIME ? './dist' : './src';");
+      expect(entry).toContain("const CONTROLLERS_ROOT = IS_DIST_RUNTIME ? './dist/controllers' : './src/controllers';");
     });
 
     it('uses simple PORT declaration in class-based entrypoint', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('const PORT = Number(process.env.PORT) || 3000;');
+      expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
       expect(entry).toContain('await listen(app, PORT);');
     });
 
@@ -229,6 +236,15 @@ describe('generateProject', () => {
       expect(pkg.dependencies['reflect-metadata']).toBeDefined();
     });
 
+    it('includes @nextrush/class in dependencies (required optional peer for the class subpath)', () => {
+      // nextrush declares @nextrush/class as an OPTIONAL peer dependency (framework-composition
+      // integrity, task 5.6) — class-based/full scaffolds must add it explicitly or
+      // `nextrush/class` fails to resolve for a generated project.
+      const files = generateProject(createOptions({ style: 'class-based' }));
+      const pkg = JSON.parse(files.get('package.json')!);
+      expect(pkg.dependencies['@nextrush/class']).toBeDefined();
+    });
+
     it('does not generate functional route files', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       expect(files.has('src/routes/health.ts')).toBe(false);
@@ -243,7 +259,6 @@ describe('generateProject', () => {
       expect(files.has('src/controllers/hello.controller.ts')).toBe(true);
       expect(files.has('src/services/hello.service.ts')).toBe(true);
       expect(files.has('src/middleware/error-handler.ts')).toBe(true);
-      expect(files.has('src/middleware/not-found.ts')).toBe(true);
     });
 
     it('uses serve instead of listen', () => {
@@ -253,11 +268,10 @@ describe('generateProject', () => {
       expect(entry).toContain('onListen');
     });
 
-    it('imports error and not-found handlers', () => {
+    it('imports the error handler', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
       expect(entry).toContain('errorHandler');
-      expect(entry).toContain('notFoundHandler');
     });
 
     it('uses @Post and @Body decorators', () => {
@@ -271,6 +285,12 @@ describe('generateProject', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const pkg = JSON.parse(files.get('package.json')!);
       expect(pkg.dependencies['reflect-metadata']).toBeDefined();
+    });
+
+    it('includes @nextrush/class in dependencies (required optional peer for the class subpath)', () => {
+      const files = generateProject(createOptions({ style: 'full' }));
+      const pkg = JSON.parse(files.get('package.json')!);
+      expect(pkg.dependencies['@nextrush/class']).toBeDefined();
     });
 
     it('error handler catches and returns JSON', () => {
@@ -290,23 +310,16 @@ describe('generateProject', () => {
     it('entrypoint uses simple PORT declaration', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('const PORT = Number(process.env.PORT) || 3000;');
+      expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
     });
 
-    it('uses awaited controllersPlugin with runtime-safe discovery config in full template', () => {
+    it('uses awaited registerControllers with runtime-safe discovery config in full template', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('await app.plugin(');
+      expect(entry).toContain('await registerControllers(');
       expect(entry).toContain('root: CONTROLLERS_ROOT');
       expect(entry).toContain('include: CONTROLLERS_INCLUDE');
       expect(entry).toContain('strict: true');
-    });
-
-    it('not-found handler returns 404', () => {
-      const files = generateProject(createOptions({ style: 'full' }));
-      const handler = files.get('src/middleware/not-found.ts')!;
-      expect(handler).toContain('ctx.status = 404');
-      expect(handler).toContain("'Not Found'");
     });
   });
 
@@ -355,8 +368,8 @@ describe('generateProject', () => {
     it('bun runtime scripts use bun tooling', () => {
       const files = generateProject(createOptions({ runtime: 'bun' }));
       const pkg = JSON.parse(files.get('package.json')!);
-      expect(pkg.scripts.dev).toBe('nextrush dev');
-      expect(pkg.scripts.build).toBe('nextrush build');
+      expect(pkg.scripts.dev).toBe('bun nextrush dev');
+      expect(pkg.scripts.build).toBe('bun nextrush build');
       expect(pkg.scripts.start).toBe('bun dist/index.js');
     });
 
@@ -366,35 +379,41 @@ describe('generateProject', () => {
       expect(pkg.dependencies['@nextrush/adapter-deno']).toBeDefined();
     });
 
-    it('deno runtime scripts use deno tooling', () => {
+    it('deno runtime scripts route through the toolchain — no @latest, no blanket -A', () => {
       const files = generateProject(createOptions({ runtime: 'deno' }));
       const pkg = JSON.parse(files.get('package.json')!);
-      expect(pkg.scripts.dev).toBe(
-        'deno run --watch --allow-net --allow-read --allow-env --unstable-sloppy-imports src/index.ts'
-      );
-      expect(pkg.scripts.build).toBe('deno run -A npm:@nextrush/dev@latest build');
+
+      expect(pkg.scripts.dev).toContain('npm:nextrush dev');
+      expect(pkg.scripts.build).toContain('npm:nextrush build');
       expect(pkg.scripts.start).toBe('deno run --allow-net --allow-read --allow-env dist/index.js');
+
+      for (const script of [pkg.scripts.dev, pkg.scripts.build, pkg.scripts.start]) {
+        expect(script).not.toContain('@latest');
+        expect(script).not.toMatch(/(^|\s)-A(\s|$)/);
+      }
     });
   });
 
   describe('file counts', () => {
     it('functional minimal generates correct number of files', () => {
       const files = generateProject(createOptions({ style: 'functional', middleware: 'minimal' }));
-      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts, routes/health.ts
-      expect(files.size).toBe(7);
+      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts,
+      // routes/health.ts, routes/health-status.ts, routes/__tests__/health-status.test.ts
+      expect(files.size).toBe(9);
     });
 
     it('class-based generates correct number of files', () => {
       const files = generateProject(createOptions({ style: 'class-based', middleware: 'minimal' }));
-      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts, health.controller.ts, app.service.ts
-      expect(files.size).toBe(8);
+      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts,
+      // health.controller.ts, app.service.ts, services/__tests__/app.service.test.ts
+      expect(files.size).toBe(9);
     });
 
     it('full generates correct number of files', () => {
       const files = generateProject(createOptions({ style: 'full', middleware: 'minimal' }));
       // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts,
       // routes/health.ts, controllers/hello.controller.ts, services/hello.service.ts,
-      // middleware/error-handler.ts, middleware/not-found.ts
+      // services/__tests__/hello.service.test.ts, middleware/error-handler.ts
       expect(files.size).toBe(11);
     });
 

@@ -1,0 +1,151 @@
+---
+title: Deployment
+description: Deploy a NextRush app to Node.js, Bun, Deno, or an edge runtime, containerize it with Docker, or deploy straight to AWS Lambda, Google Cloud Functions, or Azure Functions.
+keywords: [deployment, index, nextrush, production]
+---
+
+NextRush ships one adapter per runtime — `@nextrush/adapter-node`, `@nextrush/adapter-bun`,
+`@nextrush/adapter-deno`, and `@nextrush/adapter-edge`. Your application code (routes,
+middleware, context usage) stays the same across all four; only the adapter import and the
+`serve`/`listen` call change. The pages below are organized by two different questions: **which
+runtime** your app runs on (Node/Bun/Deno/Edge), and **which platform** you're shipping to (AWS
+Lambda, Google Cloud Functions, and Azure Functions each have their own page; Vercel, Netlify,
+and Cloudflare are covered under [Edge](/docs/production/deployment/edge) instead, since a
+runtime and a platform aren't the same axis — see [Event mapping](/docs/concepts/event-mapping)
+for why the serverless platforms need their own translation layer that edge platforms don't).
+
+## Pick a runtime
+
+<Tabs items={['Node.js', 'Bun', 'Deno', 'Edge']}>
+  <Tab value="Node.js">
+    The default, most-deployed target. Runs anywhere Node.js runs — VMs, containers, PaaS.
+    See [Node.js deployment](/docs/production/deployment/node).
+  </Tab>
+  <Tab value="Bun">
+    Drop-in replacement for Node.js with a faster cold start and native TypeScript execution.
+    See [Bun deployment](/docs/production/deployment/bun).
+  </Tab>
+  <Tab value="Deno">
+    Secure-by-default runtime with explicit permission flags. See
+    [Deno deployment](/docs/production/deployment/deno).
+  </Tab>
+  <Tab value="Edge">
+    V8 isolates at the network edge (Cloudflare Workers, Vercel Edge, Netlify Edge). No
+    filesystem, no long-running process. See [Edge deployment](/docs/production/deployment/edge).
+  </Tab>
+</Tabs>
+
+## Pick a platform
+
+A platform (the vendor you ship to) is a different question from a runtime — Vercel runs both
+Node and Edge functions, and AWS Lambda's serverless invocation model isn't a distinct runtime
+in NextRush's adapter layer at all (`createLambdaHandler` is built directly on the edge adapter's
+fetch engine — see [Serverless](/docs/getting-started/runtime/serverless)). Platform pages document what's
+specific to shipping there: CLI, config, IAM/permissions, and event-shape translation where one
+applies.
+
+<Cards>
+  <Card title="AWS Lambda" href="/docs/production/deployment/aws-lambda">
+    Function URL or API Gateway, module-scope warm reuse, and response streaming.
+  </Card>
+  <Card title="Google Cloud Functions" href="/docs/production/deployment/gcf">
+    A true drop-in for functions-framework — no manual field bridge.
+  </Card>
+  <Card title="Azure Functions" href="/docs/production/deployment/azure-functions">
+    A true drop-in for the v4 programming model — scaffolded and locally verified; not yet run
+    against a real Azure subscription in CI (see the page's own verification-status callout).
+  </Card>
+</Cards>
+
+Vercel, Netlify, and Cloudflare don't have a separate platform page here — they're already fully
+covered by the runtime-keyed [Edge deployment](/docs/production/deployment/edge) page (CLI,
+config, and platform bindings for all three), so a duplicate page under a different name wouldn't
+add anything new.
+
+## The import that changes per runtime
+
+Application code — routes, middleware, `ctx` usage — is identical across all four runtimes.
+Only the adapter import and the `serve`/`listen` call change, as shown below for a minimal
+health-check route:
+
+<Tabs items={['Node.js', 'Bun', 'Deno', 'Edge']}>
+<Tab value="Node.js">
+```ts
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+await listen(app, 8080);
+```
+</Tab>
+<Tab value="Bun">
+```ts
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { serve } from '@nextrush/adapter-bun';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+serve(app, { port: 8080 });
+```
+</Tab>
+<Tab value="Deno">
+```ts
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { serve } from '@nextrush/adapter-deno';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+serve(app, { port: 8080 });
+```
+</Tab>
+<Tab value="Edge">
+```ts
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { createCloudflareHandler } from '@nextrush/adapter-edge';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+export default createCloudflareHandler(app);
+```
+</Tab>
+</Tabs>
+
+## Containerize with Docker
+
+If you're deploying to Kubernetes, ECS, Railway, Fly.io, or any container platform, see
+[Docker](/docs/production/deployment/docker) for a real, tested multi-stage Dockerfile using the
+Node.js adapter.
+
+## Adapter comparison
+
+| Adapter | Package | Server API wrapped | Long-running process? |
+| --- | --- | --- | --- |
+| Node.js | `@nextrush/adapter-node` | `http.createServer` | Yes |
+| Bun | `@nextrush/adapter-bun` | `Bun.serve()` | Yes |
+| Deno | `@nextrush/adapter-deno` | `Deno.serve()` | Yes |
+| Edge | `@nextrush/adapter-edge` | Fetch API (`fetch(request)`) | No — request-scoped only |
+
+<Callout type="info" title="The `nextrush` meta package defaults to Node.js">
+  `import { listen } from 'nextrush'` re-exports `@nextrush/adapter-node`. For Bun, Deno, or
+  edge, install the matching adapter package directly and import `createApp` from
+  `@nextrush/core` — see each runtime's page for the exact imports.
+</Callout>

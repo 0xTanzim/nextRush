@@ -1,0 +1,309 @@
+---
+title: Context
+description: How NextRush folds request input, response output, and shared state into one ctx object per request — so a handler never touches raw req/res.
+keywords: [concepts, context, core, framework, nextrush]
+---
+
+Every HTTP handler needs the same two things: the data that came in, and a way to send data back. Node's built-in model hands you those as two separate objects, `req` and `res`, and leaves you to remember which properties exist on which — and which middleware added them along the way. That ambiguity is where a surprising number of bugs live.
+
+<div className="not-prose mt-4 flex flex-wrap gap-2">
+  <DocHeroPill>Beginner</DocHeroPill>
+  <DocHeroPill>~10 min read</DocHeroPill>
+  <DocHeroPill>Core concept</DocHeroPill>
+</div>
+
+## What you'll learn
+
+- **Understand** why splitting request and response into two objects makes handlers harder to reason about
+- **Understand** how NextRush unifies both into one per-request `ctx` object
+- **Recognize** which parts of `ctx` are input, which are output, and which are shared scratch space
+- **Choose** when to reach for the `ctx.raw` escape hatch — and why you rarely should
+
+## Where Context sits
+
+Every request walks the same pipeline. Context is the shared state every node reads from and writes to — it's not a step on the flow; it's what the flow travels through.
+
+<MentalModelFlow steps={['Request', 'Application', 'Middleware', 'Router', 'Context', 'Handler', 'Response']} />
+
+The purple stop above is where we are — the rest of this page explains what that means.
+
+## The problem
+
+The classic Node signature gives you two objects and no map of what is on them:
+
+```ts
+// The raw Node model — two objects, and you track which is which.
+import { createServer } from 'node:http';
+
+createServer((req, res) => {
+  const auth = req.headers['authorization']; // input lives on req
+  res.statusCode = 200;                       // output lives on res
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ ok: true }));      // manual serialization
+});
+```
+
+This works, but it leans on you to remember three things at once: input reads from `req`, output writes to `res`, and any property a middleware attached (`req.user`, `req.session`) is invisible to the type system. When auth middleware sets `req.user`, nothing tells the next reader whether it is there. The bug hides in the gap between what is on the object and what you assume is on it.
+
+## Why this matters
+
+A handler is the code you write most of in any application, and this friction is paid on every one of them. Multiplied across a growing team and a growing route table, "which object holds this again?" and "is `req.user` set here?" become a steady tax on reading and changing code — the kind of small, constant drag that never shows up as a single bug but slows every change. Removing it once, at the framework boundary, pays back on every handler you will ever write.
+
+## Why NextRush replaced req/res with one object
+
+NextRush gives every request a single **Context** object, conventionally named `ctx`. Request data, response methods, and a typed bag for sharing data between middleware all live on that one object, and the adapter translates between `ctx` and the platform's real request/response at the edges. You read input from `ctx`, write output through `ctx`, and never handle raw `req`/`res` unless you deliberately opt out.
+
+## Core idea
+
+Think of `ctx` as one envelope that travels the whole request. It has three faces: an **input** side (what the client sent), an **output** side (what you send back), and a **shared** side (`ctx.state`, scratch space that middleware and the handler pass along). The same object is handed from the adapter through every middleware to your handler and back — it is never copied or replaced.
+
+<Mermaid
+  chart='
+flowchart LR
+    subgraph Input
+      direction TB
+      I1[params] --- I2[query] --- I3[headers] --- I4[body] --- I5[method]
+    end
+    subgraph Shared
+      direction TB
+      S1[state] --- S2["next()"]
+    end
+    subgraph Output
+      direction TB
+      O1["json()"] --- O2["send()"] --- O3[status] --- O4["set()"] --- O5["redirect()"]
+    end
+    Input --> Shared --> Output
+'
+/>
+
+Every method on `ctx` belongs to one of these three faces. Input is what arrived from the client; shared is what middleware passes along; output is what goes back in the response. One object, three roles.
+
+## Mental model
+
+<Mermaid
+  chart='
+sequenceDiagram
+    actor Client
+    participant Adapter
+    participant ctx as Context (ctx)
+    participant Pipeline as Middleware
+    participant Handler
+    Client->>Adapter: HTTP request
+    Adapter->>ctx: create one ctx from the raw request
+    activate ctx
+    Adapter->>Pipeline: pass ctx
+    Pipeline->>ctx: read ctx.headers, write ctx.state
+    Pipeline->>Handler: await ctx.next()
+    Handler->>ctx: read ctx.params / ctx.body
+    Handler->>ctx: ctx.json(data)
+    ctx-->>Adapter: status + headers + body
+    deactivate ctx
+    Adapter-->>Client: HTTP response
+'
+/>
+
+The activation bar on `ctx` is the point: one object is alive for the whole request, and everyone reads from and writes to it. Don't track two objects moving in parallel — notice that the adapter builds `ctx` once at the front, everything in between shares it, and the adapter serializes it back only at the end.
+
+## Quick example
+
+The smallest handler reads input and sends output through the same object, with no imports beyond the framework entry point:
+
+```ts title="app.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/users/:id', (ctx) => {
+  const id = ctx.params.id;      // input: route parameter
+  const fields = ctx.query.fields; // input: query string
+  ctx.json({ id, fields });      // output: JSON response
+});
+
+app.route('/', router);
+listen(app, 8080);
+```
+
+There is no `res` and no `req` — `ctx.params` and `ctx.query` are the input, `ctx.json()` is the output, and both hang off the one object the handler is given.
+
+## How it works
+
+**Why share state through `ctx` instead of a separate object?** Because passing a second object alongside `ctx` means every middleware author has to remember two things to hand forward — the envelope AND the extra bag. `ctx.state` makes it one thing: `await ctx.next()` passes both the pipeline control AND whatever was written to `ctx.state` in one call. The sequence diagram in [Mental model](#mental-model) shows this visually — notice how every arrow either reads from or writes to `ctx`.
+
+**Example** — a middleware sets a value, and the handler reads it:
+
+```ts title="state-sharing.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+
+// Runs first: attach a request id, then hand control onward.
+app.use(async (ctx) => {
+  ctx.state.requestId = ctx.get('X-Request-Id') ?? crypto.randomUUID();
+  ctx.set('X-Request-Id', ctx.state.requestId as string);
+  await ctx.next();
+});
+
+const router = createRouter();
+router.get('/', (ctx) => {
+  ctx.json({ requestId: ctx.state.requestId }); // reads what the middleware wrote
+});
+
+app.route('/', router);
+listen(app, 8080);
+```
+
+**Observation** — the handler sees `ctx.state.requestId` even though a different function set it, and the `X-Request-Id` header goes out on the response — all through the same `ctx`.
+
+**Explanation** — three groups of members back that behavior (the same three faces from the diagram in [Core idea](#core-idea)):
+
+- **Input (what the client sent):** `ctx.method`, `ctx.path`, `ctx.query`, `ctx.headers`, `ctx.ip`, and `ctx.get(name)` for a case-insensitive header lookup — these are read-only. `ctx.params` is also input, but the router populates it during matching (it is not read-only). `ctx.body` is input too, but it is `undefined` until a body-parser middleware fills it in.
+- **Output:** set `ctx.status`, then send with `ctx.json()`, `ctx.send()`, `ctx.html()`, or `ctx.redirect()`; add headers with `ctx.set()`. NextRush picks the `Content-Type`, sets `Content-Length`, and suppresses the body for `HEAD`/`204`/`304` responses on its own.
+- **Shared:** `ctx.state` is a plain object the whole pipeline reads and writes, and `ctx.next()` passes control to the next middleware. Sharing through `ctx.state` is what [middleware](/docs/concepts/middleware) uses to move data forward without a new object.
+
+You never wire any of this yourself. The adapter constructs `ctx` from the platform's real request and serializes the response back — how that construction differs per runtime is the [adapter's job](/docs/architecture/adapters), not the handler's.
+
+## Typical use cases
+
+`ctx` earns its shape most in middleware, where reading input, sharing a derived value, and passing control all happen on one object. The auth middleware below follows the same pattern as the state-sharing example above — read from `ctx`, optionally write to `ctx.state`, then `await ctx.next()`:
+
+<details>
+<summary>See the full auth middleware example</summary>
+
+```ts title="auth.ts"
+import { createApp } from 'nextrush';
+
+// Your real token check — returns the authenticated user.
+declare function verifyToken(token: string): Promise<{ id: string }>;
+
+const app = createApp();
+
+app.use(async (ctx) => {
+  const token = ctx.get('Authorization')?.replace('Bearer ', '');
+  if (token) {
+    ctx.state.user = await verifyToken(token); // share with everything downstream
+  }
+  await ctx.next();
+});
+```
+
+</details>
+
+Any middleware that authenticates, logs, tags, or times a request follows this shape: read from `ctx`, optionally write to `ctx.state`, then `await ctx.next()`. The [request lifecycle](/docs/concepts/request-lifecycle) concept walks the full ordering of that pipeline, using the same sequence diagram you saw in [Mental model](#mental-model).
+
+<Callout type="info" title="Check yourself">
+Which of these three faces does `ctx.get('Authorization')` belong to — input, shared, or output?
+
+<details>
+<summary>Show answer</summary>
+
+**Input.** `ctx.get()` does a case-insensitive header lookup — it reads what the client sent. The three faces are: input (what arrived), shared (`ctx.state` + `ctx.next()`), and output (`ctx.json()`, `ctx.status`, etc.). A method that reads from the request always belongs to the input face.
+
+</details>
+</Callout>
+
+## Configuration
+
+`ctx` itself has no options — its behavior is fixed by the adapter that builds it. The one application-level setting that changes what `ctx` reports is `proxy`, passed to `createApp`:
+
+```ts title="proxy.ts"
+import { createApp } from 'nextrush';
+
+const app = createApp({ proxy: true }); // trust X-Forwarded-For for ctx.ip
+```
+
+With `proxy: false` (the default), `ctx.ip` reflects the real socket peer and forwarding headers are ignored. Set `proxy: true` only behind a proxy you control, because it makes `ctx.ip` trust the client-supplied `X-Forwarded-For`/`X-Real-IP` headers. The full option list lives in the [`@nextrush/core` reference](/docs/reference); this page covers only what the option *means* for `ctx`.
+
+## Performance
+
+- **Complexity** — `ctx` is a per-request object created once; reading `ctx.query` or `ctx.params` is a plain property access, not a re-parse. Query parsing runs a single time when `ctx` is built.
+- **Memory** — `ctx.params`, `ctx.query`, and `ctx.state` are plain objects passed by reference and never deep-cloned, so mutating one mutates the live request state for the rest of the pipeline.
+- **Scaling** — `ctx.get()` does a case-insensitive lookup that costs slightly more than a direct `ctx.headers[key]` read, and `ctx.send()` inspects its argument's type to choose serialization. In a hot path where the header casing or response type is already known, `ctx.headers[key]`, `ctx.json()`, or `ctx.html()` skip that work. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before optimizing.
+
+## Security
+
+`ctx` is the boundary between the client and your code, so everything it carries from the request is untrusted by default.
+
+- **Request input.** *Threat:* `ctx.body`, `ctx.query`, `ctx.params`, and `ctx.headers` are all attacker-controlled. *Why:* `ctx` transports them but does not validate them. *Safe default:* check type, range, length, and format before use — a missing body-parser surfaces as `undefined`, not an error. *Avoid:* passing any of them straight into a query, file path, or redirect target.
+- **Client IP.** *Threat:* a spoofed `X-Forwarded-For` can forge `ctx.ip`. *Why:* forwarding headers are client-supplied. *Safe default:* leave `proxy: false` unless you sit behind a proxy you control. *Avoid:* trusting `ctx.ip` for authorization or rate-limiting decisions when `proxy` is on but no trusted proxy sets the header.
+- **Raw escape hatch.** *Threat:* code that reads `ctx.raw` only runs on the runtime it was written for. *Why:* `ctx.raw` exposes the platform object (`IncomingMessage`/`ServerResponse` on Node, `Request` on Bun/Deno/Edge), bypassing every cross-runtime guarantee. *Safe default:* use the `ctx` API. *Avoid:* `ctx.raw` unless a platform feature genuinely has no `ctx` equivalent.
+
+<Callout type="warn">
+Everything the client sends arrives on `ctx` unvalidated. `ctx` guarantees a consistent shape across runtimes — it never guarantees the *values* are safe. Validating them is your handler's job.
+</Callout>
+
+## Trade-offs
+
+**Why one Context object** — it optimizes for handler clarity: one place to look for input, output, and shared state, fully typed.
+
+- **Benefits** — a single, discoverable, type-safe surface; identical behavior across every runtime; no ambiguity about which object holds what, or whether a middleware value is present.
+- **Costs** — one layer of indirection over the platform's real request/response, and a per-request object allocation instead of reusing the raw handles directly.
+- **Alternatives** — the raw `req`/`res` model is closer to the metal but pushes cross-cutting bookkeeping into every handler; it remains reachable through `ctx.raw` when you truly need it.
+- **Why NextRush chose this** — the same application code has to run unchanged on Node, Bun, Deno, and edge runtimes, whose native request objects differ. A unified `ctx` is what makes that portability possible while keeping the common path readable.
+
+## Decision guide
+
+**Use the `ctx` API when:**
+
+- ✓ You are writing a handler or middleware — this is the default and the right choice for essentially all application code
+- ✓ You want the same code to run across Node, Bun, Deno, and edge runtimes
+
+**Reach for `ctx.raw` when:**
+
+- ✓ You need a platform-specific feature with no cross-runtime `ctx` equivalent, and you accept that the code is now runtime-bound
+- ✗ Avoid it for anything the `ctx` API already covers — you would trade portability for nothing
+
+## Common mistakes
+
+- **Reading `ctx.body` with no body parser.** *Why it happens:* `ctx.body` looks like it is always populated. *Correct approach:* add a body-parser middleware (for example [`@nextrush/body-parser`](/docs/reference/body-parser)) before the handler. *If ignored:* `ctx.body` is `undefined` and the handler misreads it as an empty payload.
+- **Forgetting `await` on `ctx.next()`.** *Why it happens:* `next()` returns a promise that is quick to overlook. *Correct approach:* always `await ctx.next()` when work must run after downstream middleware. *If ignored:* code after the call runs before downstream finishes, and the response can be sent early.
+- **Sending two responses.** *Why it happens:* two branches each call a send method on the same `ctx`. *Correct approach:* send exactly once per request. *If ignored:* the second call errors or is discarded, depending on where it runs.
+
+## Wrong mental model
+
+People learn by correcting mistakes. If any of these feel true, unlearn them now:
+
+<Callout type="warn" title="Middleware creates Context">
+❌ **Wrong.** The adapter creates Context before any middleware runs. Middleware only *reads from* and *writes to* `ctx` — it never builds it. The sequence diagram in [Mental model](#mental-model) shows the adapter building `ctx` first, then passing it to the pipeline.
+</Callout>
+
+<Callout type="warn" title="Context is just req/res renamed">
+❌ **Wrong.** `ctx` unifies request input, response output, and shared state on *one* object with *one* consistent API across Node, Bun, Deno, and edge. `req` and `res` are two separate platform objects with different shapes per runtime. `ctx` is the abstraction that makes "one app, every runtime" true.
+</Callout>
+
+<Callout type="warn" title="ctx.body is always populated">
+❌ **Wrong.** `ctx.body` is `undefined` until a body-parser middleware fills it in. The adapter does not parse request bodies — that is a middleware responsibility. Reading `ctx.body` in a route with no body-parser middleware returns `undefined`, not an empty object.
+</Callout>
+
+## What you now understand
+
+<RecapCheckpoint
+  act="Context"
+  items={[
+    'One `ctx` object per request unifies input, output, and shared state — no `req`/`res` juggling',
+    'Input members (`params`, `query`, `headers`, `body`) are what the client sent; `body` needs a parser first',
+    'Output goes through `ctx.status` + `ctx.json()` / `ctx.send()` / `ctx.redirect()`; never touch raw response objects',
+    '`ctx.state` carries data between middleware; `ctx.next()` passes control down the pipeline',
+    'Everything the client sends is untrusted — validate before use, even though `ctx` has a consistent shape',
+    '`ctx.raw` is a runtime escape hatch; prefer the cross-runtime `ctx` API for anything the framework already covers',
+  ]}
+/>
+
+> **If you remember one thing:** every NextRush request gives you one `ctx` — input, output, and shared state, all on the same object. No `req`/`res` juggling, no runtime surprises, no guessing which middleware set what.
+
+## Continue learning
+
+<Cards>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    How the pipeline runs, and why ctx.state is the way to share data through it.
+  </Card>
+  <Card title="Custom middleware" href="/docs/guides/api-development/custom-middleware">
+    Put ctx to work — read input, share state, and pass control in your own middleware.
+  </Card>
+  <Card title="@nextrush/core reference" href="/docs/reference">
+    The full Context surface — every property and method, with signatures.
+  </Card>
+  <Card title="Adapters" href="/docs/architecture/adapters">
+    How each runtime's adapter builds ctx from a native request and serializes it back.
+  </Card>
+</Cards>

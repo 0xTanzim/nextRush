@@ -1,0 +1,177 @@
+---
+title: Node.js
+description: Deploy a NextRush app to Node.js using @nextrush/adapter-node.
+keywords: [deployment, nextrush, node, node.js, production]
+---
+
+`@nextrush/adapter-node` connects a NextRush `Application` to Node's built-in `http.createServer`.
+It's the default target — the `nextrush` meta package re-exports it directly, so
+`import { listen } from 'nextrush'` already runs on Node.js with no extra install.
+
+## Minimal deployment
+
+```ts title="src/index.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+await listen(app, Number(process.env.PORT ?? 8080));
+```
+
+```bash
+node dist/index.js
+```
+
+`listen()` is a thin wrapper: it calls `serve()` and logs a startup line through
+`app.logger`. `serve()` itself calls `app.ready()` (boots any registered extensions), creates the
+Node.js server, and resolves once it's bound.
+
+<Callout type="warn" title="No log without a logger">
+  `createApp()`'s default logger is a no-op — `listen()`'s startup message and any
+  `ctx`/`app.logger` calls produce no output until you attach a real logger (e.g.
+  `@nextrush/logger`) via `createApp({ logger })`. Don't assume you'll see console output in
+  production without configuring one.
+</Callout>
+
+## `serve()` options that matter in production
+
+`@nextrush/adapter-node`'s `serve(app, options)` accepts:
+
+<TypeTable
+  title="ServeOptions (@nextrush/adapter-node)"
+  types={{
+    port: { type: 'number', description: 'Port to listen on.', default: '8080' },
+    host: { type: 'string', description: 'Host/interface to bind to.', default: "'0.0.0.0'" },
+    timeout: { type: 'number', description: 'Per-request socket timeout in ms (`server.timeout`).', default: '30000' },
+    keepAliveTimeout: { type: 'number', description: 'Keep-alive timeout in ms (`server.keepAliveTimeout`).', default: '5000' },
+    shutdownTimeout: { type: 'number', description: 'Grace period to drain in-flight requests during `close()` before force-closing.', default: '30000' },
+    onListen: { type: '(info: { port: number; host: string }) => void', description: 'Called once the server is bound.', optional: true },
+    onError: { type: '(error: Error) => void', description: 'Custom handler for uncaught server-level errors.', optional: true },
+  }}
+/>
+
+```ts title="src/index.ts"
+import { createApp, createRouter } from 'nextrush';
+import { serve } from '@nextrush/adapter-node';
+
+const app = createApp();
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+const server = await serve(app, {
+  port: Number(process.env.PORT ?? 8080),
+  host: '0.0.0.0',
+  onListen: ({ port, host }) => {
+    console.log(`listening on ${host}:${port}`);
+  },
+});
+
+process.on('SIGTERM', async () => {
+  await server.close(); // drains in-flight requests, then tears down extensions
+  process.exit(0);
+});
+```
+
+`server.close()` stops accepting new connections, waits up to `shutdownTimeout` for in-flight
+requests to drain, then calls `app.close()` for extension teardown. See
+[Reliability](/docs/production/reliability) for the full graceful-shutdown pattern, including
+which signals to handle and how health checks should react during drain.
+
+## Behind a reverse proxy
+
+If NextRush sits behind nginx, an ALB, or a platform load balancer, enable `proxy: true` so
+`ctx.ip` reads `X-Forwarded-For` from a trusted upstream instead of the raw socket address:
+
+```ts
+const app = createApp({ proxy: true });
+```
+
+<Callout type="error" title="Only trust proxies you control">
+  `proxy: true` makes NextRush trust client-supplied `X-Forwarded-For` headers. Enabling it
+  behind an untrusted or misconfigured proxy lets clients spoof their own IP — only set this
+  when a proxy you control is guaranteed to overwrite that header on every request.
+</Callout>
+
+## Running under a process manager
+
+A raw `node dist/index.js` process won't restart itself after a crash and won't survive a
+reboot. Two common approaches:
+
+<Tabs items={['systemd', 'PM2']}>
+  <Tab value="systemd">
+    ```ini title="/etc/systemd/system/nextrush-app.service"
+    [Unit]
+    Description=NextRush application
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=nextrush
+    WorkingDirectory=/opt/nextrush-app
+    Environment=NODE_ENV=production
+    Environment=PORT=8080
+    ExecStart=/usr/bin/node dist/index.js
+    Restart=on-failure
+    RestartSec=2
+    # systemd sends SIGTERM by default — matches the shutdown handler above.
+    KillSignal=SIGTERM
+    TimeoutStopSec=35
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+
+    ```bash
+    sudo systemctl enable --now nextrush-app
+    sudo systemctl status nextrush-app
+    ```
+  </Tab>
+  <Tab value="PM2">
+    ```bash
+    pm2 start dist/index.js --name nextrush-app
+    pm2 save
+    pm2 startup   # generates a boot script for your init system
+    ```
+
+    See [Scaling — process managers](/docs/production/scaling#a-process-manager-pm2-or-your-platforms-equivalent)
+    for when to use PM2's cluster mode versus letting a container orchestrator manage replicas
+    instead — don't run both at once.
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="On a container platform, skip the process manager">
+  If you're deploying to Kubernetes, ECS, or Cloud Run, the orchestrator already restarts
+  crashed containers and manages replica count. Run one process per container (see
+  [Docker](/docs/production/deployment/docker)) instead of adding PM2/systemd inside it.
+</Callout>
+
+## Environment setup
+
+```bash
+# .env (never commit this file)
+NODE_ENV=production
+PORT=8080
+```
+
+```ts
+const PORT = Number(process.env.PORT ?? 8080);
+```
+
+`NODE_ENV=production` is read by `createApp()` to decide default error-response verbosity —
+see [Configuration](/docs/production/configuration) for the full list of environment-driven
+defaults and how to externalize secrets.
+
+## Requirements
+
+- Node.js >= 22.0.0 (declared in `@nextrush/adapter-node`'s `package.json` `engines` field)
+
+## Related
+
+- [Docker](/docs/production/deployment/docker) — containerize this same app
+- [Reliability](/docs/production/reliability) — graceful shutdown, health checks, timeouts
+- [Configuration](/docs/production/configuration) — environment variables and secrets

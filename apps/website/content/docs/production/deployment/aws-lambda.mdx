@@ -1,0 +1,139 @@
+---
+title: AWS Lambda
+description: Deploy a NextRush app to AWS Lambda behind a Function URL or API Gateway using @nextrush/adapter-serverless.
+keywords: [aws, deployment, lambda, nextrush, production]
+---
+
+`@nextrush/adapter-serverless`'s `createLambdaHandler` wraps a NextRush `Application` in the
+plain AWS Lambda handler contract — `(event, context?) => Promise<result>`. It detects Lambda
+Function URL, API Gateway HTTP API (payload format 2.0), and API Gateway REST API (payload
+format 1.0) events automatically, so you never name a provider or touch a mapper yourself. Under
+the hood it reuses `@nextrush/adapter-edge`'s fetch engine — the same per-invocation execution
+model (stateless, timeout races the handler, warm-instance reuse) that runs Cloudflare Workers,
+translated from a Lambda event to a Web `Request` and back. See [Event mapping](/docs/concepts/event-mapping)
+for how that translation works.
+
+## Installation
+
+<PackageInstall packages={['@nextrush/core', '@nextrush/adapter-serverless']} />
+
+## Minimal deployment — Function URL
+
+```ts title="index.ts"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { createLambdaHandler } from '@nextrush/adapter-serverless';
+
+// Module scope — runs once per cold start, reused across every warm invocation.
+const app = createApp();
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+export const handler = createLambdaHandler(app);
+```
+
+Package `index.ts` plus your `node_modules` into a zip and deploy it as a Node.js function with
+a public Function URL:
+
+```bash
+zip -r function.zip . -x "*.git*"
+
+aws lambda create-function \
+  --function-name my-nextrush-api \
+  --runtime nodejs22.x \
+  --handler index.handler \
+  --role arn:aws:iam::<account-id>:role/<execution-role> \
+  --zip-file fileb://function.zip \
+  --timeout 10
+
+aws lambda create-function-url-config \
+  --function-name my-nextrush-api \
+  --auth-type NONE
+
+aws lambda add-permission \
+  --function-name my-nextrush-api \
+  --statement-id FunctionURLAllowPublicAccess \
+  --action lambda:InvokeFunctionUrl \
+  --principal '*' \
+  --function-url-auth-type NONE
+```
+
+`--auth-type NONE` makes the URL publicly invocable with no IAM signing — put your own
+authentication in NextRush middleware (`app.use(...)`) rather than relying on Function URL auth
+alone; `AuthType: AWS_IAM` is the alternative if every caller can sign requests with AWS
+credentials.
+
+<Callout type="warn" title="Build the app at module scope, not inside the handler">
+  `createApp()` and `createLambdaHandler()` must run once, outside the exported `handler`
+  function. Lambda keeps a "warm" instance alive between invocations and reuses it; building the
+  app inside `handler` re-boots it on every single invocation and defeats warm reuse entirely —
+  the cold-start cost you'd otherwise pay once repeats on every request instead.
+</Callout>
+
+## API Gateway instead of a Function URL
+
+`createLambdaHandler` accepts the same event from API Gateway HTTP API (payload format 2.0) or
+REST API (payload format 1.0) with no code change — point API Gateway's Lambda proxy integration
+at the same function, and swap `create-function-url-config` for an API Gateway resource/route.
+The handler detects which of the three event shapes it received and maps it identically; you
+don't choose or configure this.
+
+## Response streaming
+
+The default `createLambdaHandler` buffers the full response body before returning it, because
+that's the shape a plain Lambda result requires. For a lower time-to-first-byte or an unbounded
+response body, use `createLambdaStreamingHandler` instead — it writes chunks to Lambda's
+`responseStream` as your app produces them via `ctx.sendStream(...)`:
+
+```ts title="index.ts"
+import { createApp } from '@nextrush/core';
+import { createLambdaStreamingHandler } from '@nextrush/adapter-serverless';
+
+const app = createApp();
+app.use((ctx) => {
+  ctx.sendStream(async function* () {
+    yield 'first chunk\n';
+    yield 'second chunk\n';
+  });
+});
+
+export const handler = createLambdaStreamingHandler(app);
+```
+
+Deploying a streaming handler additionally requires configuring the function for
+`RESPONSE_STREAM` invoke mode (via a Function URL's `InvokeMode`, or a Lambda alias/version
+configured for streaming) — this is an AWS-side setting, not something `createLambdaStreamingHandler`
+configures for you.
+
+## Timeout
+
+```ts
+export const handler = createLambdaHandler(app, { timeout: 5000 });
+```
+
+`timeout` races the handler and returns a `504`-shaped result on expiry instead of hanging until
+Lambda's own function timeout kills the invocation outright. Set it below whatever you configure
+as the function's own `--timeout` (Lambda's hard limit, 900s max) so NextRush's timeout fires
+first and produces an observable response rather than a bare platform-level termination.
+
+## Requirements
+
+- Node.js 22.x Lambda runtime (`nodejs22.x`) — matches this repo's engine floor.
+- An execution role with, at minimum, the AWS-managed `AWSLambdaBasicExecutionRole` (CloudWatch
+  Logs write access); add further permissions only for what your route handlers actually call.
+
+<Callout type="info" title="Verification status">
+  `@nextrush/adapter-serverless` passes its full conformance suite, but that suite currently runs
+  in-process under Node/vitest rather than on a real Lambda invocation in CI — see the
+  [compatibility matrix](/docs/help/compatibility-matrix)'s runtime support table for the exact
+  🟡 status and what it does and doesn't cover before pinning a production version.
+</Callout>
+
+## Related
+
+- [Serverless runtime tutorial](/docs/getting-started/runtime/serverless) — the getting-started walkthrough this page's deployment content extends.
+- [Serverless adapter reference](/docs/reference/platforms/serverless) — the full `@nextrush/adapter-serverless` surface, including `createGoogleHandler`/`createAzureHandler` for Google Cloud Functions and Azure Functions.
+- [Google Cloud Functions](/docs/production/deployment/gcf) · [Azure Functions](/docs/production/deployment/azure-functions) — the sibling serverless platform pages.
+- [Event mapping](/docs/concepts/event-mapping) — how a Lambda event becomes the same `Context` every other adapter produces.
+- [Edge](/docs/production/deployment/edge) — the long-running-process alternative, and the fetch engine `createLambdaHandler` is built on.

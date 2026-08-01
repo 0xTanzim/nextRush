@@ -1,0 +1,156 @@
+---
+title: From Express
+description: Map Express req/res/next and app.use() patterns to NextRush's ctx and onion-model middleware.
+keywords: [express, from, migrate, nextrush]
+---
+
+Most of what you know from Express transfers directly — routes, middleware, and error handling
+all exist in NextRush. The biggest change is that `req` and `res` merge into a single `ctx`
+object, and middleware runs as an **onion** (before-and-after in one function) instead of a
+linear chain.
+
+## Concept Mapping
+
+<TypeTable
+  title="Express → NextRush"
+  types={{
+    'req + res + next': { type: 'ctx', description: 'A single context object carries everything — no third next() parameter to thread through.' },
+    'app.get(path, handler)': { type: 'router.get(path, handler)', description: 'Routes are registered on a Router, mounted onto the app.' },
+    'app.use(middleware)': { type: 'app.use(middleware)', description: 'Same call shape; the middleware signature changes.' },
+    'req.params': { type: 'ctx.params', description: 'Same shape.' },
+    'req.query': { type: 'ctx.query', description: 'Same shape.' },
+    'req.body': { type: 'ctx.body', description: 'Populated by @nextrush/body-parser, not automatic.' },
+    'res.json(data)': { type: 'ctx.json(data)', description: 'Same behavior.' },
+    'res.status(code)': { type: 'ctx.status = code', description: 'A property assignment, not a method call.' },
+    'res.redirect(url)': { type: 'ctx.redirect(url)', description: 'Same behavior.' },
+    'next(err)': { type: 'throw new HttpError(...)', description: 'Throw a typed error instead of calling next with one.' },
+  }}
+/>
+
+## Before / After
+
+<Tabs items={['Express', 'NextRush']}>
+  <Tab value="Express">
+    ```ts
+    import express from 'express';
+
+    const app = express();
+    app.use(express.json());
+
+    app.get('/users/:id', (req, res) => {
+      const user = findUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      res.json(user);
+    });
+
+    app.listen(8080);
+    ```
+  </Tab>
+  <Tab value="NextRush">
+    ```ts
+    import { createApp, createRouter, listen } from 'nextrush';
+    import { bodyParser } from '@nextrush/body-parser';
+    import { NotFoundError } from 'nextrush';
+
+    const app = createApp();
+    app.use(bodyParser());
+
+    const users = createRouter();
+    users.get('/:id', (ctx) => {
+      const user = findUser(ctx.params.id);
+      if (!user) throw new NotFoundError('Not found');
+      ctx.json(user);
+    });
+    app.route('/users', users);
+
+    listen(app, 8080);
+    ```
+  </Tab>
+</Tabs>
+
+`createApp`, `createRouter`, and `listen` all come from the `nextrush` meta package — see the
+[Quick Start](/docs/getting-started/quick-start) if you haven't installed it yet. `bodyParser` is a
+separate install (`@nextrush/body-parser`), same as Express's `body-parser` used to be before
+`express.json()` was folded in.
+
+## Middleware: linear chain vs. onion
+
+Express middleware runs once, forward. NextRush middleware wraps the rest of the chain, so
+"before" and "after" logic live in the same function:
+
+```ts
+// Express — needs a 'finish' event to run code after the response
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    console.log(`${req.method} ${req.url} ${Date.now() - start}ms`);
+  });
+  next();
+});
+```
+
+```ts
+// NextRush — before and after in one function
+app.use(async (ctx, next) => {
+  const start = Date.now();
+  await next();
+  console.log(`${ctx.method} ${ctx.path} ${Date.now() - start}ms`);
+});
+```
+
+NextRush's `Middleware` type accepts both the modern `async (ctx) => { await ctx.next(); }` form
+and this traditional `async (ctx, next) => { await next(); }` form — pick whichever reads more
+naturally for a given handler.
+
+## Error handling
+
+Express error middleware must be last-registered and take exactly four parameters. NextRush
+throws typed error classes and reads the status code off the error itself:
+
+```ts
+import { NotFoundError, BadRequestError } from 'nextrush';
+
+router.get('/users/:id', (ctx) => {
+  const user = findUser(ctx.params.id);
+  if (!user) throw new NotFoundError('User not found');
+  ctx.json(user);
+});
+
+// Optional: a custom handler for anything not already an HttpError
+app.setErrorHandler((error, ctx) => {
+  ctx.status = 500;
+  ctx.json({ error: 'Internal error' });
+});
+```
+
+`NotFoundError`, `BadRequestError`, and the rest of the HTTP error hierarchy come from
+`@nextrush/errors` and are re-exported by `nextrush` — see the
+[error handling reference](/docs/reference) for the full list.
+
+## Common middleware translation
+
+<TypeTable
+  title="Express package → NextRush package"
+  types={{
+    cors: { type: '@nextrush/cors', description: 'Included in the nextrush meta package.' },
+    helmet: { type: '@nextrush/helmet', description: 'Included in the nextrush meta package.' },
+    'body-parser / express.json()': { type: '@nextrush/body-parser', description: 'Separate install — not automatic.' },
+    'express-rate-limit': { type: '@nextrush/rate-limit', description: 'Separate install.' },
+    'cookie-parser': { type: '@nextrush/cookies', description: 'Separate install.' },
+    compression: { type: '@nextrush/compression', description: 'Separate install.' },
+    'serve-static': { type: '@nextrush/static', description: 'Separate install.' },
+  }}
+/>
+
+<Callout type="info" title="No built-in session middleware">
+  NextRush has no equivalent to `express-session`. Use `@nextrush/cookies` plus your own session
+  store, or a stateless approach (JWT) via a custom middleware.
+</Callout>
+
+## Next steps
+
+- [Middleware](/docs/concepts/middleware) — the onion model, in depth.
+- [Context](/docs/concepts/context) — everything `ctx` carries.
+- [Routing](/docs/concepts/routing) — routers, mounting, and route parameters.

@@ -1,26 +1,64 @@
 /**
  * @nextrush/cookies - Signing Utilities
  *
- * Cryptographic cookie signing using HMAC-SHA256.
- * Uses Web Crypto API for cross-runtime compatibility.
+ * Cryptographic cookie signing using HMAC-SHA256, with a context-bound
+ * message construction (RFC-031 / ADR-0019, SEC-07): the HMAC input binds
+ * the cookie name so a value signed for one cookie cannot verify under
+ * another, and an issue time so a signed value can expire independent of
+ * the cookie's own `Max-Age`. Message construction lives in
+ * `signing-message.ts`; base64url/HMAC plumbing lives in `signing-codec.ts`.
  *
  * @packageDocumentation
  */
 
-import { HASH_ALGORITHM, HMAC_ALGORITHM, SIGNATURE_SEPARATOR } from './constants.js';
+import { SIGNATURE_SEPARATOR } from './constants.js';
+import { importHmacKey, toBase64Url, verifyHmac } from './signing-codec.js';
+import {
+  buildLegacyMessage,
+  buildSignedMessage,
+  splitLegacyFormat,
+  splitNewFormat,
+  warnLegacyAcceptanceOnce,
+} from './signing-message.js';
+
+export { resetLegacyAcceptanceWarning } from './signing-message.js';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-/**
- * Key rotation support - multiple secrets.
- */
+/** Key rotation support - multiple secrets. */
 export interface SigningKeys {
   /** Primary key for signing new cookies */
   current: string;
   /** Previous keys for verifying old cookies during rotation */
   previous?: string[];
+}
+
+/** Options for {@link signCookie}. */
+export interface SignCookieOptions {
+  /**
+   * Bounds the signed value's lifetime in seconds, embedded in the signed
+   * message as an issue time. Verification only enforces this when the same
+   * `maxAge` is passed to {@link unsignCookie}.
+   */
+  maxAge?: number;
+}
+
+/** Options for {@link unsignCookie}. */
+export interface UnsignCookieOptions {
+  /**
+   * Enforces the embedded issue time against this lifetime (seconds). When
+   * omitted, a present issue time is not checked for expiry.
+   */
+  maxAge?: number;
+  /**
+   * Accepts the pre-RFC-031 value-only signature format (no name/issuedAt
+   * binding) as a rotation fallback. Off by default — see the cookies
+   * README's signed-cookie format migration section. Logs once per process
+   * when exercised.
+   */
+  acceptLegacySignatures?: boolean;
 }
 
 // ============================================================================
@@ -31,26 +69,12 @@ export interface SigningKeys {
 const KEY_CACHE = new Map<string, CryptoKey>();
 const MAX_CACHED_KEYS = 10;
 
-/**
- * Import a secret key for HMAC operations.
- * Results are cached in a bounded map (LRU-ish eviction).
- */
 async function importKey(secret: string): Promise<CryptoKey> {
   const cached = KEY_CACHE.get(secret);
   if (cached) return cached;
 
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secret);
+  const key = await importHmacKey(secret);
 
-  const key = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: HMAC_ALGORITHM, hash: HASH_ALGORITHM },
-    false,
-    ['sign', 'verify']
-  );
-
-  // Evict oldest entry when cache is full
   if (KEY_CACHE.size >= MAX_CACHED_KEYS) {
     const firstKey = KEY_CACHE.keys().next().value;
     if (firstKey !== undefined) KEY_CACHE.delete(firstKey);
@@ -69,157 +93,144 @@ export function clearKeyCache(): void {
 }
 
 // ============================================================================
-// Base64 URL Encoding
-// ============================================================================
-
-/**
- * Encode bytes to URL-safe base64.
- */
-function toBase64Url(bytes: Uint8Array): string {
-  const base64 = btoa(String.fromCharCode(...bytes));
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-/**
- * Decode URL-safe base64 to bytes.
- */
-function fromBase64Url(str: string): Uint8Array {
-  // Add padding if needed
-  const padding = (4 - (str.length % 4)) % 4;
-  const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(padding);
-
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-// ============================================================================
 // Cookie Signing
 // ============================================================================
 
 /**
- * Sign a cookie value with HMAC-SHA256.
+ * Sign a cookie value with HMAC-SHA256, binding the signature to the
+ * cookie's name and an issue time.
  *
+ * @param name - Cookie name the value is bound to (SEC-07)
  * @param value - Value to sign
  * @param secret - Secret key for signing
- * @returns Signed value in format: `value.signature`
+ * @param _options - See {@link SignCookieOptions}. Reserved for a future
+ *   sign-time expiry policy; verification enforces `maxAge`, not signing.
+ * @returns Signed value in wire format: `value.issuedAt.signature`
  *
  * @example
  * ```typescript
- * const signed = await signCookie('session-data', 'my-secret');
- * // 'session-data.XYZ123...'
+ * const signed = await signCookie('tier', 'premium', 'my-secret');
  * ```
  */
-export async function signCookie(value: string, secret: string): Promise<string> {
+export async function signCookie(
+  name: string,
+  value: string,
+  secret: string,
+  _options: SignCookieOptions = {}
+): Promise<string> {
+  if (!name || typeof name !== 'string') {
+    throw new TypeError('Cookie name must be a non-empty string');
+  }
   if (!value || typeof value !== 'string') {
     throw new TypeError('Cookie value must be a non-empty string');
   }
-
   if (!secret || typeof secret !== 'string') {
     throw new TypeError('Secret must be a non-empty string');
   }
 
+  const issuedAt = Date.now();
+  const message = buildSignedMessage(name, value, issuedAt);
+
   const encoder = new TextEncoder();
   const key = await importKey(secret);
-  const data = encoder.encode(value);
-
-  const signature = await crypto.subtle.sign(HMAC_ALGORITHM, key, data);
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
   const signatureBase64 = toBase64Url(new Uint8Array(signature));
 
-  return `${value}${SIGNATURE_SEPARATOR}${signatureBase64}`;
+  return `${value}${SIGNATURE_SEPARATOR}${String(issuedAt)}${SIGNATURE_SEPARATOR}${signatureBase64}`;
 }
 
 /**
- * Verify and extract a signed cookie value.
+ * Verify and extract a signed cookie value, checking that the signature was
+ * issued for `name` and (when `options.maxAge` is given) has not expired.
  *
- * @param signedValue - Signed value in format: `value.signature`
+ * @param name - Cookie name the signature must be bound to (SEC-07)
+ * @param signedValue - Signed value in wire format: `value.issuedAt.signature`
  * @param secret - Secret key used for signing
- * @returns Original value if valid, undefined if tampered
+ * @param options - See {@link UnsignCookieOptions}
+ * @returns Original value if valid, undefined if tampered, name-mismatched,
+ *   expired, or (absent `acceptLegacySignatures`) in the legacy format.
  *
  * @example
  * ```typescript
- * const value = await unsignCookie(signedValue, 'my-secret');
+ * const value = await unsignCookie('tier', signedValue, 'my-secret');
  * if (value === undefined) {
- *   console.log('Cookie was tampered with!');
+ *   console.log('Cookie was tampered with, replayed under another name, or expired!');
  * }
  * ```
  */
 export async function unsignCookie(
+  name: string,
   signedValue: string,
-  secret: string
+  secret: string,
+  options: UnsignCookieOptions = {}
 ): Promise<string | undefined> {
-  if (!signedValue || typeof signedValue !== 'string') {
-    return undefined;
-  }
+  if (!name || typeof name !== 'string') return undefined;
+  if (!signedValue || typeof signedValue !== 'string') return undefined;
 
-  const lastDotIndex = signedValue.lastIndexOf(SIGNATURE_SEPARATOR);
-  if (lastDotIndex === -1) {
-    return undefined;
-  }
-
-  const value = signedValue.slice(0, lastDotIndex);
-  const signature = signedValue.slice(lastDotIndex + 1);
-
-  if (!value || !signature) {
-    return undefined;
-  }
-
-  try {
-    const encoder = new TextEncoder();
+  const parsed = splitNewFormat(signedValue);
+  if (parsed) {
+    const message = buildSignedMessage(name, parsed.value, Number(parsed.issuedAt));
     const key = await importKey(secret);
-    const data = encoder.encode(value);
-    const signatureBytes = fromBase64Url(signature);
-
-    const isValid = await crypto.subtle.verify(
-      HMAC_ALGORITHM,
-      key,
-      signatureBytes as BufferSource,
-      data
-    );
-
-    return isValid ? value : undefined;
-  } catch {
-    // Signature verification failed (malformed base64, corrupted data).
-    // Return undefined — same behavior as tampered/invalid cookie.
-    return undefined;
+    const isValid = await verifyHmac(message, parsed.signature, key);
+    if (isValid) {
+      if (options.maxAge !== undefined) {
+        const ageSeconds = (Date.now() - Number(parsed.issuedAt)) / 1000;
+        if (ageSeconds > options.maxAge) return undefined;
+      }
+      return parsed.value;
+    }
   }
+
+  if (options.acceptLegacySignatures) {
+    const legacy = splitLegacyFormat(signedValue);
+    if (legacy) {
+      const message = buildLegacyMessage(legacy.value);
+      const key = await importKey(secret);
+      const isValid = await verifyHmac(message, legacy.signature, key);
+      if (isValid) {
+        warnLegacyAcceptanceOnce();
+        return legacy.value;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 /**
- * Verify a signed cookie with key rotation support.
+ * Verify a signed cookie with key rotation support, threading `name` and
+ * `options` through to each attempted key.
  *
  * Tries the current key first, then falls back to previous keys.
- * This allows for seamless key rotation.
  *
+ * @param name - Cookie name the signature must be bound to (SEC-07)
  * @param signedValue - Signed value to verify
  * @param keys - Current and previous signing keys
+ * @param options - See {@link UnsignCookieOptions}
  * @returns Original value if valid with any key, undefined if invalid
  *
  * @example
  * ```typescript
- * const value = await unsignCookieWithRotation(signedValue, {
+ * const value = await unsignCookieWithRotation('tier', signedValue, {
  *   current: 'new-secret',
  *   previous: ['old-secret-1', 'old-secret-2']
  * });
  * ```
  */
 export async function unsignCookieWithRotation(
+  name: string,
   signedValue: string,
-  keys: SigningKeys
+  keys: SigningKeys,
+  options: UnsignCookieOptions = {}
 ): Promise<string | undefined> {
-  // Try current key first
-  const result = await unsignCookie(signedValue, keys.current);
+  const result = await unsignCookie(name, signedValue, keys.current, options);
   if (result !== undefined) {
     return result;
   }
 
-  // Try previous keys
   if (keys.previous) {
     for (const previousKey of keys.previous) {
-      const previousResult = await unsignCookie(signedValue, previousKey);
+      const previousResult = await unsignCookie(name, signedValue, previousKey, options);
       if (previousResult !== undefined) {
         return previousResult;
       }
@@ -236,27 +247,19 @@ export async function unsignCookieWithRotation(
 /**
  * Timing-safe string comparison.
  *
- * @param a - First string
- * @param b - Second string
- * @returns True if strings are equal
- *
- * @note Web Crypto's verify() is already timing-safe.
- * This is provided for cases where manual comparison is needed.
+ * @note Web Crypto's verify() is already timing-safe. This is provided for
+ * cases where manual comparison is needed.
  */
 export function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    // Still need constant-time operation for equal-length case
-    let _result = 0;
-    const maxLen = Math.max(a.length, b.length);
-    for (let i = 0; i < maxLen; i++) {
-      _result |= a.charCodeAt(i % a.length) ^ b.charCodeAt(i % b.length);
-    }
-    return false;
-  }
+  const aLen = a.length;
+  const bLen = b.length;
 
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  let result = aLen ^ bLen;
+  const len = aLen > bLen ? aLen : bLen;
+  for (let i = 0; i < len; i++) {
+    const ca = i < aLen ? a.charCodeAt(i) : 0;
+    const cb = i < bLen ? b.charCodeAt(i) : 0;
+    result |= ca ^ cb;
   }
 
   return result === 0;

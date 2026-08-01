@@ -1,0 +1,155 @@
+---
+title: Benchmarks
+description: NextRush v3 performance dashboard — head-to-head HTTP throughput vs Fastify, Hono, Koa, Express, and a raw Node.js baseline. Interactive charts, heatmap, scenario explorer, and reproducible methodology.
+keywords: [benchmarking, nextrush, performance, rps, throughput, fastify, express, koa, hono, charts, dashboard]
+---
+
+NextRush is built for production throughput without sacrificing safety. This page is a **performance dashboard** for the latest parity-validated suite run — not a wall of anonymous bar charts. Every figure comes from [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) and the same `results.json` you can regenerate yourself.
+
+<BenchmarkDashboard />
+
+## How to read the scoreboard
+
+The headline number is **not** “wins every RPS race.” It is a **points total** over like-for-like work:
+
+| Rule | Detail |
+| ---- | ------ |
+| Scored scenarios | 9 like-for-like scenarios (byte-identical responses across frameworks) |
+| Concurrency | Ranked at **64c** and **256c** (1c is a latency probe, not headline) |
+| Points | 6 frameworks → win = 6 pts, last = 1 pt per cell |
+| Max | 9 × 2 × 6 = **108 points** |
+| Excluded | `middleware-stack`, `error-handling`, `static-file` (idiomatic mechanisms) · `large-post` (not measured at headline concurrency) |
+
+Raw Node.js is the **zero-framework baseline**. It winning most cells is expected — it is the yardstick, not a product competitor.
+
+| Rank | Framework | Score | Scenario wins | Role |
+| ---- | --------- | ----- | ------------- | ---- |
+| 🥇 | **Raw Node.js** | **105.5** / 108 | 18 | baseline |
+| 🥈 | **Fastify** | **90.5** / 108 | 5 | comparison |
+| 🥉 | **NextRush v3** | **68.1** / 108 | 0 | target |
+| 4 | Hono | 60.1 / 108 | 0 | comparison |
+| 5 | Koa | 34.0 / 108 | 0 | comparison |
+| 6 | Express | 20.0 / 108 | 0 | comparison |
+
+### Story in one paragraph
+
+NextRush sits **consistently mid-pack of modern frameworks**: above Hono/Koa/Express, behind Fastify and the raw baseline. On serialization-heavy routes it reaches **~90–92% of baseline**. The main relative gap is **POST JSON (75%)**, where parsers do unequal safety work. Several NextRush ↔ Fastify / Hono orderings fall **inside measurement noise** and are scored as ties — treat those as “too close to call,” not marketing wins.
+
+## Summary table @ 256 connections
+
+Requests per second (mean of 6 runs). **Bold** = fastest in row. `†` = idiomatic (not in headline score).
+
+| Scenario | Raw Node | NextRush v3 | Fastify | Hono | Koa | Express |
+| -------- | -------- | ----------- | ------- | ---- | --- | ------- |
+| Hello World | **35,503** | 31,343 | 32,703 | 31,073 | 24,779 | 22,508 |
+| JSON Serialization | **34,466** | 31,242 | 33,570 | 29,515 | 24,224 | 22,567 |
+| Route Parameters | **33,672** | 28,847 | 30,743 | 27,911 | 23,217 | 20,889 |
+| Query Strings | **27,786** | 24,652 | 26,452 | 23,542 | 19,530 | 18,395 |
+| POST JSON | **25,420** | 19,144 | 20,508 | 19,953 | 16,132 | 15,617 |
+| Deep Route | **32,669** | 28,637 | 30,776 | 28,521 | 22,844 | 21,332 |
+| Large JSON | **22,589** | 20,717 | 21,748 | 19,416 | 17,209 | 15,558 |
+| Empty Response | **44,818** | 35,778 | 39,782 | 35,714 | 30,077 | 32,730 |
+| Send Object | **35,329** | 31,751 | 31,456 | 29,849 | 24,201 | 21,570 |
+| Middleware Stack † | **30,749** | 24,188 | 30,527 | 24,273 | 21,964 | 20,180 |
+| Error Handling † | **24,971** | 19,409 | 21,534 | 20,457 | 16,763 | 15,474 |
+| Static File † | **14,759** | 9,238 | 11,000 | 7,922 | 6,556 | 10,996 |
+
+NextRush **vs baseline** (like-for-like only): Hello 88% · JSON 91% · Params 86% · Query 89% · POST 75% · Deep 88% · Large JSON **92%** · Empty 80% · Send Object 90%.
+
+## Measurement environment
+
+| Property | Value |
+| -------- | ----- |
+| Run ID | `2026-07-31T18-15-15` |
+| CPU | Intel Core i5-8300H @ 2.30GHz (8 logical cores) |
+| Platform | linux x64 · kernel 7.1.5 |
+| Node.js | v26.5.1 |
+| Memory | 15.46 GB total |
+| Load tool | wrk 4.2.0 (process-isolated) |
+| Duration | 30 s per cell |
+| Connections | 1 · 64 · 256 |
+| Runs / config | 6 (mean ± sample stddev + CV%) |
+| CPU pinning | server cores 2–7 · client cores 0–1 |
+| Order | framework order rotated |
+| Timed cells | 1,404 × 30s |
+
+### Framework versions (recorded at run time)
+
+| Server | Version | Role |
+| ------ | ------- | ---- |
+| Raw Node.js | Node v26.5.1 | baseline |
+| NextRush v3 | 4.0.0-beta.0 (workspace) | target |
+| Fastify | 5.10.0 | comparison |
+| Hono | 4.12.30 | comparison |
+| Koa | 3.2.1 | comparison |
+| Express | 5.2.1 | comparison |
+
+## Methodology
+
+<Steps>
+  <Step>
+    ### Parity gate first
+
+    `pnpm bench:validate` boots every server and asserts **byte-identical** bodies, statuses, and headers for like-for-like scenarios. A mismatch aborts the run before any timing.
+  </Step>
+  <Step>
+    ### Process isolation
+
+    **wrk** runs as a separate C process. It does **not** share the server’s Node event loop (unlike in-process autocannon).
+  </Step>
+  <Step>
+    ### Warmup + cooldown
+
+    Framework-level and per-scenario warmup so JIT paths are hot. Cooldown between frameworks; pause between cells.
+  </Step>
+  <Step>
+    ### Noise control
+
+    CPU pinning, rotated framework order, no HTTP pipelining, multi-run statistics. Adjacent rankings whose gap is smaller than combined stddev are **ties**, not leads.
+  </Step>
+  <Step>
+    ### Disclosed deviations
+
+    Stock defaults that would break parity (e.g. Express etag hashing, Fastify response schemas) are adjusted and **listed in the report** with who they help or hurt.
+  </Step>
+</Steps>
+
+<Callout type="warn" title="Read absolute RPS carefully">
+  Load runs over **loopback** — client and server share one machine. Absolute RPS reflects the whole box, not a framework in isolation. Use **relative rankings on identical hardware**. Different machines (and dirty working trees) produce different absolute numbers. Body/query parsers also do unequal safety work; a parse scenario rewards the least-defensive parser.
+</Callout>
+
+Known work asymmetries called out in the report:
+
+- **query-string** — NextRush decodes pairs and enforces limits + prototype-key rejection; raw Node uses bare `URLSearchParams`.
+- **post-json** — Fastify uses secure-json-parse by default; NextRush adds nesting-depth checks; raw Node uses bare `JSON.parse`.
+- **static-file** — raw Node matches one literal path with no traversal-safe resolver (mechanism comparison).
+
+## Run it yourself
+
+```bash
+cd apps/benchmark
+pnpm install
+
+# 1. Confirm fairness — identical bodies/headers or the run aborts
+pnpm bench:validate
+
+# 2. Publishable multi-framework compare (CPU-pinned)
+node scripts/run.js --compare --profile standard --runs 6 --pin 2-7 --client-pin 0-1
+
+# 3. Generate report + tables from results.json
+pnpm report
+```
+
+| Profile | Duration | Connections | Runs | Publishable? |
+| ------- | -------- | ----------- | ---- | ------------ |
+| `quick` | 10s | 64, 128 | 1 | No |
+| `standard` | 30s | 1, 64, 256 | 3+ | Yes (when clean + multi-run) |
+| `full` | 60s | 1, 64, 256, 512 | 5 | Yes |
+
+Full methodology, fairness guarantees, and wall-clock estimates live in [`apps/benchmark/README.md`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark). Latest machine report: `apps/benchmark/results/latest/REPORT.md`.
+
+## Related
+
+- [Performance tuning](/docs/production/performance-tuning) — middleware order, hot-path hygiene, runtime flags
+- [Framework comparison](/docs/architecture/benchmarks) — code patterns and architecture (not RPS)
+- [Scaling](/docs/production/scaling) — horizontal scaling and deployment topology

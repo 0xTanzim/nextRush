@@ -1,0 +1,21 @@
+{
+  "title": "Reference",
+  "description": "Complete API reference for every NextRush package — grouped by capability, with each package's npm name shown on its page.",
+  "pages": [
+    "index",
+    "packages",
+    "---",
+    "(core-routing)",
+    "(request-body)",
+    "(security)",
+    "(validation)",
+    "(responses-views)",
+    "(observability)",
+    "(realtime-streaming)",
+    "(api-docs)",
+    "class",
+    "platforms",
+    "(dev-testing)"
+  ],
+  "references": ["../getting-started", "../guides", "../architecture"]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "dev-cli-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal fixture exercising `nextrush dev` and `nextrush build` — used by CI's multi-OS toolchain jobs (see openspec/changes/close-phase0-ci-matrix-and-metadata-preflight)",
+  "dependencies": {
+    "nextrush": "workspace:*"
+  },
+  "devDependencies": {
+    "@nextrush/dev": "workspace:*",
+    "typescript": "^6.0.3"
+  }
+}

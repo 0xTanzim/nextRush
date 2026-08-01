@@ -13,7 +13,13 @@
  */
 
 import type { HttpMethod, IncomingHeaders, RawHttp, ResponseBody } from './http';
-import type { BodySource, Runtime } from './runtime';
+import type { BodySource, PlatformId, Runtime } from './runtime';
+import type {
+  NDJSONStreamWriter,
+  SSEStreamWriter,
+  StreamRun,
+  TextStreamWriter,
+} from './stream';
 
 // ============================================================================
 // Route Parameters
@@ -80,11 +86,27 @@ export interface Context {
   readonly url: string;
 
   /**
-   * Request path without query string
+   * Request path without query string, canonicalized by the router (case
+   * folded per `caseSensitive`, structurally normalized) — the value the
+   * router actually matched on, and the one path-based policy middleware
+   * should compare against instead of hand-rolling its own normalization
+   * (RFC-029). See {@link originalPath} for the untouched raw target.
    * @example '/users/123'
    * @readonly
    */
   readonly path: string;
+
+  /**
+   * The raw request target as received, before router canonicalization —
+   * still query-string-free, but not case-folded or structurally normalized.
+   * Optional: populated once the router's dispatch middleware runs; absent
+   * (or equal to {@link path}) when no router has run yet, or when a caller
+   * constructs a `Context` directly (e.g. a test double) without one. Prefer
+   * `path` for any security- or routing-relevant comparison (RFC-029).
+   * @example '/Users/123' when a request for '/USERS/123' matched '/users/:id'
+   * @readonly
+   */
+  readonly originalPath?: string;
 
   /**
    * Parsed query string parameters
@@ -385,6 +407,26 @@ export interface Context {
   readonly runtime: Runtime;
 
   /**
+   * Named deployment platform, when known — orthogonal to {@link runtime}.
+   *
+   * @remarks
+   * `undefined` on adapters/runtimes with no named platform to report (e.g.
+   * plain Node.js, Bun, Deno). On `@nextrush/adapter-edge` and
+   * `@nextrush/adapter-serverless`, set when the platform is detectable
+   * (Cloudflare Workers, Vercel Edge, Netlify Edge) or explicitly known by
+   * the Tier-1 handler that built this context (AWS Lambda, Google Cloud
+   * Functions, Azure Functions).
+   *
+   * @example
+   * ```typescript
+   * if (ctx.platform === 'lambda') {
+   *   // AWS Lambda-specific behavior
+   * }
+   * ```
+   */
+  readonly platform: PlatformId | undefined;
+
+  /**
    * Body source for cross-runtime body reading
    *
    * @remarks
@@ -400,11 +442,83 @@ export interface Context {
    * ```
    */
   readonly bodySource: BodySource;
-}
 
-// ============================================================================
-// Middleware Types
-// ============================================================================
+  // =========================================================================
+  // RESPONSE STREAMING (text / SSE / NDJSON)
+  // See docs/RFC/request-data/003-stream.md
+  // =========================================================================
+
+  /**
+   * Abort signal that fires when the client disconnects mid-response.
+   *
+   * @internal
+   * @remarks
+   * Adapter-level primitive consumed by `@nextrush/stream`. Handlers should use
+   * `writer.signal` inside `ctx.stream()`/`ctx.sse()`/`ctx.ndjson()` instead of
+   * accessing this directly. Synthesized on Node from response `close`/request
+   * `aborted`; passed through natively on Bun/Deno/Edge from `Request.signal`.
+   */
+  readonly signal: AbortSignal;
+
+  /**
+   * Send a raw byte stream as the response body.
+   *
+   * @internal
+   * @remarks
+   * Adapter-level transport primitive consumed by `@nextrush/stream`. Not
+   * intended for direct handler use — use `ctx.stream()`/`ctx.sse()`/
+   * `ctx.ndjson()`. Resolves when the stream is fully flushed (Node) or once the
+   * response body is wired (Bun/Deno/Edge).
+   *
+   * @param source - A Web `ReadableStream` of bytes to stream to the client.
+   */
+  sendStream(source: ReadableStream<Uint8Array>): Promise<void>;
+
+  /**
+   * Stream a raw text/byte response. The connection closes automatically when
+   * the callback resolves.
+   *
+   * @param run - Callback that receives a {@link TextStreamWriter}.
+   *
+   * @example
+   * ```typescript
+   * await ctx.stream(async (writer) => {
+   *   await writer.write('Loading...\n');
+   *   await writer.write('Done.\n');
+   * });
+   * ```
+   */
+  stream(run: StreamRun<TextStreamWriter>): Promise<void>;
+
+  /**
+   * Stream a Server-Sent Events (`text/event-stream`) response.
+   *
+   * @param run - Callback that receives an {@link SSEStreamWriter}.
+   *
+   * @example
+   * ```typescript
+   * await ctx.sse(async (writer) => {
+   *   for await (const token of llm) await writer.write({ data: token });
+   * });
+   * ```
+   */
+  sse(run: StreamRun<SSEStreamWriter>): Promise<void>;
+
+  /**
+   * Stream a newline-delimited JSON (`application/x-ndjson`) response.
+   *
+   * @param run - Callback that receives an {@link NDJSONStreamWriter}.
+   *
+   * @example
+   * ```typescript
+   * await ctx.ndjson(async (writer) => {
+   *   await writer.write({ step: 'search' });
+   *   await writer.write({ step: 'done' });
+   * });
+   * ```
+   */
+  ndjson(run: StreamRun<NDJSONStreamWriter>): Promise<void>;
+}
 
 /**
  * Next function type (traditional Koa-style)

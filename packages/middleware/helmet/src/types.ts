@@ -244,16 +244,6 @@ export type ReferrerPolicyValue =
   | 'unsafe-url';
 
 // ============================================================================
-// Frame Options Types
-// ============================================================================
-
-/**
- * X-Frame-Options values.
- * @deprecated Use CSP frame-ancestors instead
- */
-export type XFrameOptionsValue = 'DENY' | 'SAMEORIGIN';
-
-// ============================================================================
 // Cross-Origin Policy Types
 // ============================================================================
 
@@ -380,13 +370,6 @@ export interface HelmetOptions {
    * @default 'off'
    */
   dnsPrefetchControl?: 'on' | 'off' | false;
-
-  /**
-   * X-Frame-Options header.
-   * @default 'SAMEORIGIN'
-   * @deprecated Use CSP frame-ancestors instead
-   */
-  frameguard?: XFrameOptionsValue | false;
 
   /**
    * Strict-Transport-Security header.

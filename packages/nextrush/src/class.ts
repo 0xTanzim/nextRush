@@ -14,7 +14,7 @@
  * @example
  * ```typescript
  * import { createApp, listen } from 'nextrush';
- * import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
+ * import { Controller, Get, Service, registerControllers } from 'nextrush/class';
  *
  * @Service()
  * class UserService {
@@ -30,34 +30,58 @@
  * }
  *
  * const app = createApp();
- * app.plugin(controllersPlugin({ root: './src' }));
- * listen(app, 3000);
+ * await registerControllers(app, { root: './src' });
+ * await listen(app, 8080);
  * ```
  */
 
-// Side-effect: ensure reflect-metadata polyfill is loaded for DI/decorators.
-// This runs once when 'nextrush/class' is imported — no manual import needed.
-import 'reflect-metadata';
+// ============================================
+// OPTIONAL-PEER LOADING (framework-composition-integrity)
+// ============================================
+//
+// @nextrush/class, @nextrush/di, and reflect-metadata are OPTIONAL peer dependencies of
+// `nextrush` (see docs/RFC/framework-composition/020-framework-composition-integrity.md) — a
+// functional-only install never resolves them. A STATIC `export { X } from '@nextrush/class'`
+// would fail module LINKING (before any module body runs) with an opaque Node error the moment
+// that package is unresolvable — there is no way to catch a static specifier's resolution
+// failure from inside the module. So every RUNTIME (value) export below is loaded dynamically
+// and re-exported by re-assignment, letting this try/catch convert a missing-peer failure into
+// an actionable message. `export type` declarations stay static: type-only specifiers are
+// erased before runtime and never cause a module-resolution failure, so they are unaffected.
+import { describeMissingClassPeerError } from './class-peer-guard.js';
+
+type DiModule = typeof import('@nextrush/di');
+type ClassModule = typeof import('@nextrush/class');
+
+let di: DiModule;
+let cls: ClassModule;
+
+try {
+  await import('reflect-metadata');
+  di = await import('@nextrush/di');
+  cls = await import('@nextrush/class');
+} catch (err) {
+  const guardedMessage = describeMissingClassPeerError(err);
+  throw guardedMessage ? new Error(guardedMessage, { cause: err }) : err;
+}
 
 // ============================================
 // DI: Dependency Injection Container
 // ============================================
-export {
-  AutoInjectable,
-  Config,
-  container,
-  createContainer,
-  delay,
-  inject,
-  Injectable,
-  Optional,
-  Repository,
-  Service,
-} from '@nextrush/di';
+export const Config = di.Config;
+export const container = di.container;
+export const createContainer = di.createContainer;
+export const delay = di.delay;
+export const inject = di.inject;
+export const Injectable = di.Injectable;
+export const Optional = di.Optional;
+export const Repository = di.Repository;
+export const Service = di.Service;
+
 export type {
   ClassProvider,
   ConfigOptions,
-  ContainerInterface,
+  Container,
   FactoryProvider,
   Provider,
   Scope,
@@ -67,56 +91,68 @@ export type {
 } from '@nextrush/di';
 
 // ============================================
-// DECORATORS: Controller, Route & Parameter
+// DECORATORS & CONTROLLERS: From @nextrush/class
 // ============================================
-export {
-  // Route decorators
-  All,
-  // Parameter decorators
-  Body,
-  // Class decorators
-  Controller,
-  // Custom param decorator factory
-  createCustomParamDecorator,
-  Ctx,
-  Delete,
-  Get,
-  Head,
-  Header,
-  Options,
-  Param,
-  Patch,
-  Post,
-  Put,
-  Query,
-  // Response decorators
-  Redirect,
-  Req,
-  Res,
-  SetHeader,
-  // Guard decorators
-  UseGuard,
-} from '@nextrush/decorators';
+export const All = cls.All;
+export const Body = cls.Body;
+export const Controller = cls.Controller;
+export const Module = cls.Module;
+export const createCustomParamDecorator = cls.createCustomParamDecorator;
+export const Ctx = cls.Ctx;
+export const Delete = cls.Delete;
+export const Get = cls.Get;
+export const Head = cls.Head;
+export const Header = cls.Header;
+export const HttpCode = cls.HttpCode;
+export const Options = cls.Options;
+export const Param = cls.Param;
+export const Patch = cls.Patch;
+export const Post = cls.Post;
+export const Put = cls.Put;
+export const Query = cls.Query;
+export const Redirect = cls.Redirect;
+export const Req = cls.Req;
+export const Res = cls.Res;
+export const SetHeader = cls.SetHeader;
+export const UseGuard = cls.UseGuard;
+export const Catch = cls.Catch;
+export const UseFilter = cls.UseFilter;
+export const UseInterceptor = cls.UseInterceptor;
+export const isOnInit = cls.isOnInit;
+export const isOnShutdown = cls.isOnShutdown;
+export const getModuleMetadata = cls.getModuleMetadata;
+export const isModule = cls.isModule;
+export const registerControllers = cls.registerControllers;
+export const registerModule = cls.registerModule;
+
 export type {
+  // Decorators
   BodyOptions,
   CanActivate,
   ControllerMetadata,
   ControllerOptions,
+  ControllerRouteMetadata,
   CustomParamExtractor,
+  ExceptionFilter,
   GuardContext,
   GuardFn,
   HeaderOptions,
+  Interceptor,
+  ModuleMetadata,
+  ModuleOptions,
+  ModuleProvider,
+  ModuleProviderConfig,
   ParamMetadata,
   ParamOptions,
   ParamSource,
   QueryOptions,
+  /** @deprecated Use ControllerRouteMetadata. Removed in the next major. */
   RouteMetadata,
   RouteOptions,
   TransformFn,
-} from '@nextrush/decorators';
-
-// ============================================
-// CONTROLLERS: Auto-discovery Plugin
-// ============================================
-export { controllersPlugin } from '@nextrush/controllers';
-export type { ControllersPluginOptions } from '@nextrush/controllers';
+  OnInit,
+  OnShutdown,
+  // Controllers
+  ControllersOptions,
+  ModuleRegistrationOptions,
+} from '@nextrush/class';

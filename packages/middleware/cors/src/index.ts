@@ -35,7 +35,6 @@ export {
 
 export type {
   CorsContext,
-  CorsMiddleware,
   CorsOptions,
   OriginOption,
   OriginValidator

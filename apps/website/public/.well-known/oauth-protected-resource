@@ -1,0 +1,7 @@
+{
+  "resource": "https://nextrush.dev",
+  "authorization_servers": ["https://nextrush.dev"],
+  "scopes_supported": ["read:docs", "read:blog", "read:skills", "read:catalog"],
+  "bearer_methods_supported": ["header"],
+  "resource_documentation": "https://nextrush.dev/auth.md"
+}

@@ -3,12 +3,12 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { generateProject } from '../generator.js';
-import { setVersions } from '../version-store.js';
 import type { ProjectOptions } from '../types.js';
 import { writeFiles } from '../utils.js';
+import { seedAllPackageVersions } from './test-helpers.js';
 
 beforeEach(() => {
-  setVersions('^3.0.5', '^3.0.5');
+  seedAllPackageVersions('^3.0.5');
 });
 
 function createOptions(overrides: Partial<ProjectOptions> = {}): ProjectOptions {
@@ -96,7 +96,6 @@ describe('integration: file writing', () => {
     expect(existsSync(join(testDir, 'src/controllers/hello.controller.ts'))).toBe(true);
     expect(existsSync(join(testDir, 'src/services/hello.service.ts'))).toBe(true);
     expect(existsSync(join(testDir, 'src/middleware/error-handler.ts'))).toBe(true);
-    expect(existsSync(join(testDir, 'src/middleware/not-found.ts'))).toBe(true);
   });
 
   it('file content matches generated content', () => {

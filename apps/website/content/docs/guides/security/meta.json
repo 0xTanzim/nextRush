@@ -1,0 +1,7 @@
+{
+  "title": "Security",
+  "description": "Security best practices for NextRush applications.",
+  "pages": ["security"],
+  "learningPath": ["security"],
+  "references": ["../authentication", "../api-development", "../../recipes/authentication"]
+}

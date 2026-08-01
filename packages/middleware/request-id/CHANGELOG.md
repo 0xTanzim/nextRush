@@ -1,5 +1,54 @@
 # @nextrush/request-id
 
+## 1.0.0
+
+### Patch Changes
+
+- [`d4cb1f7`](https://github.com/0xTanzim/nextRush/commit/d4cb1f7982a3ff6f2f8ec8b0bc4000e109a49fd9) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Consolidated patch release across all NextRush public packages.
+
+- Updated dependencies [[`d4cb1f7`](https://github.com/0xTanzim/nextRush/commit/d4cb1f7982a3ff6f2f8ec8b0bc4000e109a49fd9)]:
+  - @nextrush/types@4.0.0
+
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- Consolidated patch release across all NextRush public packages.
+
+- Updated dependencies []:
+  - @nextrush/types@4.0.0-beta.2
+
+## 1.0.0-beta.0
+
+### Patch Changes
+
+- 6dfe7ab: `@nextrush/request-id`'s default ID generator now uses the global `crypto.randomUUID()` instead of
+  importing `randomUUID` from `node:crypto`, making the package genuinely edge-safe rather than
+  Node-only for no functional reason.
+
+  The package's `requestId()` middleware already performed a one-time capability check
+  (`typeof globalThis.crypto?.randomUUID !== 'function'`) before relying on the default generator,
+  and threw a clear error naming the missing capability if it was absent — but `defaultGenerator`
+  itself still imported the Node-only module form, so that guard never actually protected against
+  what it checked for. `defaultGenerator` now calls the same global the guard checks, and the
+  `node:crypto` import is removed entirely.
+
+  Output is unchanged: both forms produce identical RFC 4122 v4 UUIDs. No public API, option, or
+  behavior change — only the internal generation mechanism, which is now portable to every runtime
+  the package's README already claimed to support (Node, Bun, Deno, Cloudflare Workers, Vercel Edge).
+
+- Updated dependencies [2820a4c]
+- Updated dependencies [838367f]
+  - @nextrush/types@4.0.0-beta.0
+
+## 3.0.6
+
+### Patch Changes
+
+- Updated dependencies [d7eb075]
+- Updated dependencies [32a0db6]
+  - @nextrush/types@3.1.0
+
 ## 3.0.5
 
 ### Patch Changes

@@ -3,11 +3,13 @@ import {
   Controller,
   createCustomParamDecorator,
   Get,
+  inject,
+  Optional,
   Param,
   Post,
   UseGuard,
-} from '@nextrush/decorators';
-import { inject, Optional } from '@nextrush/di';
+} from 'nextrush/class';
+import { NotFoundError } from 'nextrush';
 import { AdminGuard } from '../guards/auth.guard.js';
 import { ItemRepository } from '../services/item.repository.js';
 import type { ILogger } from '../services/logger.service.js';
@@ -38,7 +40,7 @@ const ClientIP = createCustomParamDecorator((ctx) => ctx.get('x-forwarded-for') 
  * - createCustomParamDecorator (sync + async)
  * - Parameter transform
  */
-@Controller('/items')
+@Controller({ path: '/items', tags: ['items'] })
 export class ItemController {
   constructor(
     private itemRepo: ItemRepository,
@@ -64,11 +66,11 @@ export class ItemController {
    * GET /api/items/:id
    * Tests: @Param with transform, async custom param decorator
    */
-  @Get('/:id')
+  @Get('/:id', { description: 'Get an item by id' })
   findById(@Param('id', { transform: Number }) id: number, @RequestTimestamp timestamp: string) {
     const item = this.itemRepo.findById(id);
     if (!item) {
-      return { error: 'Item not found', timestamp };
+      throw new NotFoundError('Item not found');
     }
     return { ...item, fetchedAt: timestamp };
   }

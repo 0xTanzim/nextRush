@@ -1,0 +1,157 @@
+---
+title: Deno
+description: Deploy a NextRush app to Deno using @nextrush/adapter-deno.
+keywords: [deno, deployment, nextrush, production]
+---
+
+`@nextrush/adapter-deno` connects a NextRush `Application` to `Deno.serve()`. Deno is
+secure-by-default — the process has no filesystem, network, or environment access until you
+grant it explicitly with `--allow-*` flags.
+
+## Installation
+
+Deno resolves npm packages directly with the `npm:` specifier, or via an import map:
+
+```ts title="server.ts"
+import { createApp } from 'npm:@nextrush/core';
+import { createRouter } from 'npm:@nextrush/router';
+import { serve } from 'npm:@nextrush/adapter-deno';
+```
+
+```json title="deno.json"
+{
+  "imports": {
+    "@nextrush/core": "npm:@nextrush/core",
+    "@nextrush/adapter-deno": "npm:@nextrush/adapter-deno",
+    "@nextrush/router": "npm:@nextrush/router"
+  }
+}
+```
+
+## Minimal deployment
+
+```ts title="server.ts"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { serve } from '@nextrush/adapter-deno';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+serve(app, { port: Number(Deno.env.get('PORT') ?? '8080') });
+```
+
+```bash
+deno run --allow-net --allow-env server.ts
+```
+
+<Callout type="warn" title="The `nextrush` meta package defaults to Node.js">
+  `nextrush`'s `createApp`/`listen` re-export `@nextrush/adapter-node`. For Deno, import
+  `createApp` from `@nextrush/core` directly and call `serve()` from `@nextrush/adapter-deno` —
+  as shown above.
+</Callout>
+
+## Required permissions
+
+Deno requires explicit flags for every capability the app touches:
+
+<TypeTable
+  title="Common permission flags"
+  types={{
+    '--allow-net': { type: 'flag', description: 'Required — binds the HTTP server and accepts connections.' },
+    '--allow-env': { type: 'flag', description: 'Required if reading `Deno.env.get(...)` for port/config.' },
+    '--allow-read': { type: 'flag', description: 'Only if serving static files or reading TLS cert/key from disk.' },
+  }}
+/>
+
+```bash
+# Minimal — server only, no env/file access
+deno run --allow-net server.ts
+
+# With environment-driven config
+deno run --allow-net --allow-env server.ts
+
+# With TLS certs read from disk
+deno run --allow-net --allow-env --allow-read server.ts
+```
+
+## `serve()` options that matter in production
+
+<TypeTable
+  title="ServeOptions (@nextrush/adapter-deno)"
+  types={{
+    port: { type: 'number', description: 'Port to listen on.', default: '8080' },
+    host: { type: 'string', description: 'Host/interface to bind to.', default: "'0.0.0.0'" },
+    timeout: { type: 'number', description: 'Request timeout in ms, enforced via `Promise.race` (Deno.serve has no built-in per-request timeout).', default: '30000' },
+    shutdownTimeout: { type: 'number', description: 'Grace period to drain in-flight requests during `close()` — guards against `server.shutdown()` hanging on a stalled connection.', default: '30000' },
+    cert: { type: 'string', description: 'TLS certificate (enables HTTPS with `key`).', optional: true },
+    key: { type: 'string', description: 'TLS private key.', optional: true },
+  }}
+/>
+
+```ts title="server.ts"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { serve } from '@nextrush/adapter-deno';
+
+const app = createApp();
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+const server = serve(app, {
+  port: Number(Deno.env.get('PORT') ?? '8080'),
+  onListen: ({ port }) => console.log(`listening on ${port}`),
+});
+
+Deno.addSignalListener('SIGTERM', async () => {
+  await server.close(); // drains in-flight requests, then tears down extensions
+  Deno.exit(0);
+});
+
+await server.finished;
+```
+
+`server.finished` resolves when the underlying `Deno.serve()` instance stops — awaiting it keeps
+the process alive until shutdown completes. See [Reliability](/docs/production/reliability) for
+the full graceful-shutdown pattern.
+
+## HTTPS / TLS
+
+```ts
+const cert = await Deno.readTextFile('./cert.pem');
+const key = await Deno.readTextFile('./key.pem');
+
+serve(app, { port: 443, cert, key });
+```
+
+## Deno Deploy
+
+[Deno Deploy](https://deno.com/deploy) runs a handler function rather than a long-lived
+`Deno.serve()` call you own — use `createHandler()` and let the platform own the server:
+
+```ts title="main.ts"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { createHandler } from '@nextrush/adapter-deno';
+
+const app = createApp();
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+Deno.serve(createHandler(app));
+```
+
+## Requirements
+
+- Deno >= 2.0
+
+## Related
+
+- [Node.js](/docs/production/deployment/node) — the default runtime target
+- [Docker](/docs/production/deployment/docker) — a verified, build-tested Dockerfile (Node.js)
+- [Reliability](/docs/production/reliability) — graceful shutdown, health checks, timeouts

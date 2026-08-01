@@ -1,0 +1,747 @@
+---
+title: Class-Based Controllers
+description: Build structured APIs with decorators, dependency injection, and automatic route registration
+keywords: [api, based, class, class-based, controllers, development, guides, nextrush]
+---
+
+## What You Will Build
+
+A REST API using decorator-based controllers, dependency injection, and guards. By the end, you will have:
+
+- A `UserController` with CRUD routes wired through decorators
+- Services and repositories injected automatically via DI
+- Route protection with function-based and class-based guards
+- A working test setup for controllers
+
+## When to Use Class-Based Style
+
+| Scenario            | Recommended Style |
+| ------------------- | ------------------ |
+| Small APIs, scripts | Functional |
+| Large applications  | Class-based |
+| Team projects       | Class-based |
+| Microservices       | Either |
+| Prototype/POC       | Functional |
+
+Class-based controllers pay off when you need automatic dependency injection, organized route
+grouping, and a testable architecture across a team.
+
+## Prerequisites
+
+Class-based controllers require decorator metadata. Use the NextRush dev tools:
+
+```bash
+pnpm add -D @nextrush/dev
+```
+
+Your `tsconfig.json` must include:
+
+```json
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}
+```
+
+## Installation
+
+<PackageInstall packages={['nextrush']} />
+
+The `nextrush` meta-package includes the class runtime (`nextrush/class`) — controllers,
+decorators, and DI — and auto-imports `reflect-metadata`. No separate packages to install.
+
+## Minimal Usage
+
+A controller with one injected service, registered with `registerControllers` — a **registrar**:
+a plain async function you call once, awaited, before starting the server. It reads `app.router`
+and `app.container` directly; there is no plugin lifecycle to opt into.
+
+```typescript
+import { createApp, listen } from 'nextrush';
+import { Controller, Get, Param, Service, registerControllers } from 'nextrush/class';
+
+@Service()
+class UserService {
+  private users = [{ id: '1', name: 'Alice' }];
+
+  findAll() {
+    return this.users;
+  }
+
+  findById(id: string) {
+    return this.users.find((u) => u.id === id);
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.userService.findAll();
+  }
+
+  @Get('/:id')
+  findById(@Param('id') id: string) {
+    return this.userService.findById(id);
+  }
+}
+
+const app = createApp();
+
+await registerControllers(app, {
+  root: './src', // Auto-discovers all @Controller classes
+  prefix: '/api',
+});
+
+await listen(app, 8080);
+```
+
+<Callout type="warn" title="Import Order Matters">
+  Always import `reflect-metadata` **first**, before any other imports. This ensures decorator
+  metadata is available for all classes.
+</Callout>
+
+For how the registrar resolves controllers, executes guards, and builds handlers internally, see
+[Controllers Reference](/docs/reference/class/controllers).
+
+## Registering Services
+
+`@Repository()` is a semantic alias for `@Service()`, useful for naming data-access classes.
+Constructor parameter types resolve automatically — no manual wiring:
+
+```typescript
+import { Repository, Service } from 'nextrush/class';
+
+@Repository()
+class UserRepository {
+  async findById(id: string) {
+    // Database query
+  }
+}
+
+@Service()
+class UserService {
+  // UserRepository is injected automatically
+  constructor(private repo: UserRepository) {}
+}
+```
+
+Services are singletons by default; pass `{ scope: 'transient' }` for a new instance per
+resolution. For how DI resolves dependencies and detects circular references, see
+[Dependency Injection & Scopes](/docs/concepts/dependency-injection#how-it-works).
+
+Mark a constructor parameter as optional with `@Optional()` so the app still resolves when the
+dependency isn't registered — see
+[Dependency Injection & Scopes](/docs/concepts/dependency-injection) for details.
+
+<Callout type="info">
+`@Optional()` lives in `@nextrush/di`, not `nextrush/class` — import it directly:
+`import { Optional } from '@nextrush/di'`. Same applies to `delay()`, covered under Common
+Mistakes below.
+</Callout>
+
+### Request scope
+
+Use `{ scope: 'request' }` for a service that lives for one request and is shared by every
+collaborator within that request — a per-request identity, a unit-of-work, or a correlation ID:
+
+```typescript
+import { Service } from 'nextrush/class';
+
+@Service({ scope: 'request' })
+class RequestId {
+  readonly id = crypto.randomUUID();
+}
+```
+
+When a controller (or anything in its dependency graph) uses request scope, `registerControllers`
+resolves that controller from a fresh per-request child container on every request. Request-scoped
+instances are fresh per request and shared within one; singletons stay shared across requests.
+
+**Scope bubbling.** A singleton (or transient) that transitively depends on a request-scoped
+service is itself treated as request-scoped — otherwise a singleton controller would cache one
+request's instances forever. You do not annotate the outer class; the effective scope is computed
+from the dependency graph.
+
+**Cost.** A purely-singleton controller keeps the lazy-memoized singleton path — no per-request
+child is created, so there is zero added per-request overhead unless request scope is actually in
+play.
+
+<Callout type="info" title="Accessing the request inside a service">
+  Request-scoped services do not receive the request `Context` in their constructor. Read the
+  request in the controller via the `@Ctx` parameter decorator and pass what the service needs.
+  Constructor-injected request context is future work.
+</Callout>
+
+## Controller and Parameter Decorators
+
+`@Controller('/path')` groups routes under a common prefix. Route decorators (`@Get`, `@Post`,
+`@Put`, `@Patch`, `@Delete`, `@Head`, `@Options`, `@All`) map methods to HTTP verbs, and parameter
+decorators (`@Body()`, `@Param()`, `@Query()`, `@Header()`, `@Ctx()`) extract request data directly
+into handler arguments:
+
+```typescript
+@Controller('/products')
+class ProductController {
+  @Get() // GET /products
+  findAll() {}
+
+  @Get('/:id') // GET /products/:id
+  findById(@Param('id') id: string) {}
+
+  @Post() // POST /products
+  create(@Body() data: CreateProductDto, @Ctx() ctx: Context) {}
+
+  @Put('/:id') // PUT /products/:id
+  update(@Param('id') id: string, @Body() data: Partial<CreateProductDto>) {}
+
+  @Delete('/:id') // DELETE /products/:id
+  remove(@Param('id') id: string) {}
+}
+```
+
+`@SetHeader()`, `@Redirect()`, and `createCustomParamDecorator()` cover response headers,
+redirects, and custom extractors. Full signatures and options are in the
+[Decorators API reference](/docs/reference/class/decorators).
+
+## Guards
+
+Guards protect routes by returning `true` or `false` before the handler runs. A function guard is
+the simplest form:
+
+```typescript
+import { UseGuard, type GuardFn } from 'nextrush/class';
+
+const AuthGuard: GuardFn = async (ctx) => {
+  const token = ctx.get('authorization');
+  if (!token) return false;
+
+  const user = await verifyToken(token);
+  ctx.state.user = user;
+  return true;
+};
+
+@UseGuard(AuthGuard)
+@Controller('/users')
+class UserController {
+  @Get()
+  findAll() {
+    // Only executed if AuthGuard returns true
+  }
+}
+```
+
+Guards can also be classes resolved from DI, useful when the guard itself has dependencies (for
+example, an injected `AuthService`). Class guards run before method guards, and a `false` return
+rejects the request with 403 Forbidden. See
+[Decorators Reference](/docs/reference/class/decorators) for the class
+guard pattern and how rejection integrates with error handling.
+
+### Role-based access
+
+Stack a second guard, built as a factory, to restrict a controller to specific roles:
+
+```typescript title="src/guards/role.guard.ts"
+import type { GuardFn } from 'nextrush/class';
+
+export const RoleGuard =
+  (allowedRoles: string[]): GuardFn =>
+  async (ctx) => {
+    const user = ctx.state.user as { role: string } | undefined;
+    if (!user) return false;
+    return allowedRoles.includes(user.role);
+  };
+```
+
+```typescript title="src/controllers/admin.controller.ts"
+import { Controller, Get, UseGuard, SetHeader, Redirect } from 'nextrush/class';
+import { AuthGuard } from '../guards/auth.guard';
+import { RoleGuard } from '../guards/role.guard';
+
+@UseGuard(AuthGuard)
+@UseGuard(RoleGuard(['admin']))
+@Controller('/admin')
+export class AdminController {
+  @SetHeader('Cache-Control', 'no-store')
+  @Get('/stats')
+  getStats() {
+    return { users: 100, orders: 500 };
+  }
+
+  @Redirect('/admin/stats', 301)
+  @Get('/dashboard')
+  legacyDashboard() {
+    // Redirects to /admin/stats
+  }
+}
+```
+
+Multiple `@UseGuard` decorators stack — every guard must return `true` for the handler to run.
+
+### Custom parameter decorators
+
+Extract common values cleanly with `createCustomParamDecorator`:
+
+```typescript title="src/decorators/current-user.ts"
+import { createCustomParamDecorator } from 'nextrush/class';
+import type { Context } from 'nextrush';
+
+export const CurrentUser = createCustomParamDecorator((ctx: Context) => ctx.state.user);
+```
+
+```typescript title="src/controllers/profile.controller.ts"
+import { Controller, Get } from 'nextrush/class';
+import { CurrentUser } from '../decorators/current-user';
+
+@Controller('/profile')
+export class ProfileController {
+  @Get()
+  getProfile(@CurrentUser user: { id: string; role: string }) {
+    return { user };
+  }
+}
+```
+
+## Integration Example
+
+A complete authenticated CRUD API combining a repository, service, guard, and controller, with
+CORS and body parsing wired in. Install the middleware separately:
+
+<PackageInstall packages={['@nextrush/cors', '@nextrush/body-parser']} />
+
+<details>
+<summary>Full authenticated REST API example</summary>
+
+```typescript
+import { createApp, listen } from 'nextrush';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuard,
+  Service,
+  Repository,
+  registerControllers,
+} from 'nextrush/class';
+import { json } from '@nextrush/body-parser';
+import { cors } from '@nextrush/cors';
+import type { GuardFn } from 'nextrush/class';
+
+// ===== Domain Types =====
+interface User {
+  id: string;
+  email: string;
+  name: string;
+}
+
+interface CreateUserDto {
+  email: string;
+  name: string;
+}
+
+// ===== Repository =====
+@Repository()
+class UserRepository {
+  private users: User[] = [{ id: '1', email: 'alice@example.com', name: 'Alice' }];
+
+  findAll() {
+    return this.users;
+  }
+
+  findById(id: string) {
+    return this.users.find((u) => u.id === id);
+  }
+
+  create(data: CreateUserDto): User {
+    const user: User = { id: String(Date.now()), ...data };
+    this.users.push(user);
+    return user;
+  }
+
+  update(id: string, data: Partial<CreateUserDto>) {
+    const user = this.findById(id);
+    if (user) Object.assign(user, data);
+    return user;
+  }
+
+  delete(id: string) {
+    const index = this.users.findIndex((u) => u.id === id);
+    if (index >= 0) this.users.splice(index, 1);
+  }
+}
+
+// ===== Service =====
+@Service()
+class UserService {
+  constructor(private repo: UserRepository) {}
+
+  findAll() {
+    return this.repo.findAll();
+  }
+
+  findById(id: string) {
+    const user = this.repo.findById(id);
+    if (!user) throw new Error('User not found');
+    return user;
+  }
+
+  create(data: CreateUserDto) {
+    return this.repo.create(data);
+  }
+
+  update(id: string, data: Partial<CreateUserDto>) {
+    return this.repo.update(id, data);
+  }
+
+  delete(id: string) {
+    this.repo.delete(id);
+  }
+}
+
+// ===== Guard =====
+const AuthGuard: GuardFn = (ctx) => {
+  const apiKey = ctx.get('x-api-key');
+  return apiKey === 'secret-key';
+};
+
+// ===== Controller =====
+@UseGuard(AuthGuard)
+@Controller('/api/users')
+class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.userService.findAll();
+  }
+
+  @Get('/:id')
+  findById(@Param('id') id: string) {
+    return this.userService.findById(id);
+  }
+
+  @Post()
+  create(@Body() data: CreateUserDto) {
+    return this.userService.create(data);
+  }
+
+  @Put('/:id')
+  update(@Param('id') id: string, @Body() data: Partial<CreateUserDto>) {
+    return this.userService.update(id, data);
+  }
+
+  @Delete('/:id')
+  delete(@Param('id') id: string) {
+    this.userService.delete(id);
+    return { deleted: true };
+  }
+}
+
+// ===== Bootstrap =====
+const app = createApp();
+
+// Global middleware
+app.use(cors());
+app.use(json());
+
+// Auto-discover all @Controller classes in ./src
+await registerControllers(app, {
+  root: './src',
+  prefix: '/api',
+});
+
+await listen(app, 8080);
+```
+
+</details>
+
+## Testing Controllers
+
+Controllers are testable by design — dependencies are injected through the constructor. Use
+`createContainer()` for an isolated container per test:
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createContainer } from 'nextrush/class';
+import { UserController } from './user.controller';
+import { UserService } from './user.service';
+
+describe('UserController', () => {
+  let controller: UserController;
+
+  beforeEach(() => {
+    const mockService: Partial<UserService> = {
+      findAll: () => [{ id: '1', name: 'Test' }],
+    };
+
+    const container = createContainer();
+    container.register(UserService, { useValue: mockService as UserService });
+    container.register(UserController, { useClass: UserController });
+
+    controller = container.resolve(UserController);
+  });
+
+  it('should return all users', () => {
+    const result = controller.findAll();
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('Test');
+  });
+});
+```
+
+Services and repositories are plain classes, so you can skip the container entirely and construct
+them by hand when a test only needs one or two collaborators:
+
+```typescript title="src/services/user.service.test.ts"
+import { describe, it, expect, beforeEach } from 'vitest';
+import { UserService } from './user.service';
+import { UserRepository } from '../repositories/user.repository';
+
+describe('UserService', () => {
+  let service: UserService;
+  let repo: UserRepository;
+
+  beforeEach(() => {
+    repo = new UserRepository();
+    service = new UserService(repo);
+  });
+
+  it('throws NotFoundError when the user does not exist', () => {
+    expect(() => service.findById('missing')).toThrow('User not found');
+  });
+});
+```
+
+Both patterns work because `@Service()` and `@Repository()` classes have no framework coupling —
+`createContainer()` is for exercising DI resolution itself; direct construction is faster when the
+dependency graph is small enough to wire by hand.
+
+## Functional vs Class-Based
+
+| Aspect        | Functional     | Class-Based      |
+| ------------- | -------------- | ---------------- |
+| Lines of code | ~80 lines      | ~200 lines       |
+| Setup         | Minimal        | More boilerplate |
+| DI support    | Manual         | Automatic        |
+| Testing       | Mock functions | Inject mocks     |
+| Type safety   | Good           | Excellent        |
+| Scalability   | Medium         | High             |
+
+Choose functional for simplicity, class-based for structure. See
+[Building REST APIs](/docs/guides/api-development/rest-api) for the same user-management API built without
+decorators.
+
+## Common Mistakes
+
+### 1. Missing reflect-metadata Import
+
+```typescript
+// ❌ Wrong - decorators fail silently
+import { Service } from 'nextrush/class';
+
+@Service()
+class MyService {}
+
+// ✅ Correct - use nextrush meta-package (auto-imports reflect-metadata)
+import { Service } from 'nextrush/class';
+
+@Service()
+class MyService {}
+```
+
+Using individual packages instead of the meta-package requires an explicit
+`import 'reflect-metadata';` at the top of your entry file.
+
+### 2. Circular Dependencies
+
+```typescript
+// ❌ Wrong - circular dependency error
+@Service()
+class ServiceA {
+  constructor(private b: ServiceB) {}
+}
+
+@Service()
+class ServiceB {
+  constructor(private a: ServiceA) {} // Circular!
+}
+
+// ✅ Correct - use delay() for circular deps
+// delay() and Optional() live in @nextrush/di, not re-exported by nextrush/class
+import { Service, inject } from 'nextrush/class';
+import { delay } from '@nextrush/di';
+
+@Service()
+class ServiceA {
+  constructor(@inject(delay(() => ServiceB)) private b: ServiceB) {}
+}
+```
+
+### 3. Forgetting to Register Controller
+
+```typescript
+// ❌ Wrong - no root provided, nothing will be discovered
+await registerControllers(app, {
+  // Missing root: './src'
+});
+
+// ✅ Correct - auto-discover all controllers
+await registerControllers(app, {
+  root: './src', // Scans all .ts/.js files recursively
+  prefix: '/api',
+});
+```
+
+## Verification
+
+After starting the server, verify your routes work:
+
+```bash
+# List users
+curl http://localhost:8080/api/users
+
+# Get a single user
+curl http://localhost:8080/api/users/1
+
+# Create a user (with API key header)
+curl -X POST http://localhost:8080/api/users \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: secret-key" \
+  -d '{"email": "bob@example.com", "name": "Bob"}'
+```
+
+Expected responses:
+
+- `GET /api/users` → `[{"id":"1","email":"alice@example.com","name":"Alice"}]`
+- `GET /api/users/1` → `{"id":"1","email":"alice@example.com","name":"Alice"}`
+- `POST /api/users` without `x-api-key` → `403 Forbidden`
+- `POST /api/users` with valid key → `{"id":"...","email":"bob@example.com","name":"Bob"}`
+
+## Grouping Features with Modules
+
+As an application grows, listing every controller in one `registerControllers`
+call stops describing the shape of the app. A **module** groups a feature's
+controllers, its providers, and the sub-features it composes behind one
+declaration, and `registerModule` wires the whole graph in one call.
+
+```ts
+import { Module, Controller, Get, Service } from 'nextrush/class';
+
+@Service()
+class UserService {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.users.findAll();
+  }
+}
+
+@Module({
+  controllers: [UserController],
+  providers: [UserService],
+})
+class UserModule {}
+```
+
+`@Module` takes four optional fields:
+
+| Field         | Purpose                                                          |
+| ------------- | ---------------------------------------------------------------- |
+| `imports`     | Other `@Module` classes this module composes                     |
+| `controllers` | `@Controller` classes owned by this module                       |
+| `providers`   | Services/values/factories this module registers with DI          |
+| `exports`     | Providers made visible to importers (recorded now — see below)   |
+
+### Composing modules with `imports`
+
+A root module composes feature modules through `imports`. `registerModule` walks
+the graph, registers every module's providers, and registers all controllers
+across the graph through the same pipeline as `registerControllers`:
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { registerModule } from 'nextrush/class';
+
+@Module({
+  imports: [UserModule, BillingModule],
+})
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule, { prefix: '/api' });
+await listen(app, 8080);
+```
+
+Imports are walked safely: a module reached through two paths (a diamond) is
+registered once, and a mutual import cycle is guarded rather than looping
+forever.
+
+### Provider forms
+
+A provider is either a bare class (registered with its declared `@Service`
+scope) or a config object binding a token to a class, value, or factory:
+
+```ts
+@Module({
+  controllers: [ReportController],
+  providers: [
+    ReportService, // bare class — uses its @Service scope
+    { provide: 'CONFIG', useValue: { pageSize: 20 } }, // constant
+    { provide: 'CLOCK', useClass: SystemClock }, // class under a token
+    { provide: 'DB', useFactory: () => connectDb(), scope: 'singleton' }, // factory
+  ],
+})
+class ReportModule {}
+```
+
+Services read these tokens with `@inject('CONFIG')` in their constructors.
+
+<Callout type="warn" title="Modules group, they do not yet encapsulate">
+  Today `@Module` is a composition and grouping unit. Every provider in the graph
+  is visible to every other module through the shared DI container — there is no
+  module-private scoping yet. The `exports` field is recorded in metadata but not
+  enforced. True per-module encapsulation (private providers, export-gated
+  resolution) is planned follow-up work; see
+  `docs/RFC/class-runtime/012-modules.md`.
+</Callout>
+
+`registerModule` accepts the same options as `registerControllers` where they
+apply: `prefix`, `middleware`, `container`, `isolate`, `validate`, and `debug`.
+Lifecycle hooks (`OnInit`/`OnShutdown`) and request-scoped services work through
+a module exactly as they do through `registerControllers`.
+
+## Next Steps
+
+<Cards>
+  <Card title="Dev Tools" href="/docs/guides/api-development/dev-tools">
+    Set up development and build tools for decorators.
+  </Card>
+  <Card title="Dependency Injection & Scopes" href="/docs/concepts/dependency-injection">
+    Understand how DI and scopes work internally.
+  </Card>
+  <Card title="Testing" href="/docs/guides/testing/testing">
+    Test your controllers and services.
+  </Card>
+  <Card title="Controllers Package" href="/docs/reference/class/controllers">
+    Full API reference for controller registration and discovery.
+  </Card>
+  <Card title="Security Best Practices" href="/docs/guides/security/security">
+    Helmet, CORS, rate limiting, and input validation.
+  </Card>
+</Cards>

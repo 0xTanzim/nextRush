@@ -1,0 +1,154 @@
+---
+title: 'Hardening the security boundaries: 19 findings, one root cause'
+description: >
+  A security review turned up 19 findings — spoofable client IPs, a CSRF default that deletes
+  its own cookie, cookies signed to the wrong name. Almost all of them came from the same
+  mistake. Here's what we fixed and what we left alone on purpose.
+author: NextRush Team
+date: '2026-07-27'
+tags:
+  - security
+  - architecture
+  - internals
+---
+
+A security review of the framework turned up 19 findings. Two were exploitable by an
+unauthenticated attacker with a single header. One made `@nextrush/csrf`'s own documented
+default configuration reject every state-changing request — which mostly just teaches
+developers to rip the middleware out instead of debugging it.
+
+Here's what we found, what tied it all together, and what we shipped.
+
+The findings are catalogued end to end in
+[`report/security-review.md`](https://github.com/0xtanzim/nextrush/blob/main/report/security-review.md),
+with the remediation mapped finding-by-finding in
+[`report/security-review-remediation-index.md`](https://github.com/0xtanzim/nextrush/blob/main/report/security-review-remediation-index.md).
+This post walks through the mechanism behind them, not the full list.
+
+## Nineteen bugs, one mistake
+
+At first the findings didn't look related. A proxy-trust boolean. A router that lowercases
+paths for its own lookup. A cookie signature that never checks which cookie it's on. Different
+packages, different code paths, no obvious thread between them.
+
+But keep reading them and the same shape keeps showing up: **a security decision made from a
+value the framework normalized for someone else, or from a value the attacker controls.**
+
+The router folds case to match a route, then hands the *raw* path to whatever middleware runs
+next. So a case-insensitive router and a case-sensitive auth guard can both be individually
+correct and still disagree about which request they're looking at. `proxy` used to be a
+boolean, which meant "trust the proxy" and "trust the client" were the same setting — and the
+client always won. A signed cookie's HMAC covered the *value*. Never the *name*. Sign something
+for a low-privilege cookie, replay it under a high-privilege one, and it still verifies.
+
+Once you see it, fixing 19 symptoms one at a time stops being the plan. You fix the mistake,
+and the symptoms go away on their own.
+
+## The clearest example: trusting whatever header shows up first
+
+Take SEC-01. It's the easiest one to walk through end to end.
+
+`X-Forwarded-For` is a chain. Every proxy along the way appends its own address, so by the time
+a request lands on your server it might read `203.0.113.9, 10.0.0.5` — the client first, then
+the one reverse proxy in front of you. The old `proxy: boolean` option had two states: trust
+nothing, or trust the *first* entry.
+
+That first entry is the one the client wrote. Not the proxy. You don't need to breach anyone's
+infrastructure to control it — you just set the header yourself. Pair that with `proxy: true`
+and a rate limiter keyed on `ctx.ip`, and an attacker rotates one header value per request and
+gets an unlimited supply of fresh rate-limit buckets. Free.
+
+We replaced the boolean with a typed contract: `proxy: false | number | string[]`. A number is
+a hop count — trust exactly this many proxies, resolve the address they actually saw. A CIDR
+list is a trusted-peer set — trust these specific machines, walk the chain right to left until
+you leave that set. Either way, resolution starts from the *right* edge, where the trusted
+infrastructure wrote its own observation, and only walks as far left as the trust setting
+allows. The full design and the alternatives we rejected are in
+[RFC-030](https://github.com/0xtanzim/nextrush/blob/main/docs/RFC/runtime-adapters/030-typed-proxy-trust.md);
+the final decision is recorded in
+[ADR-0018](https://github.com/0xtanzim/nextrush/blob/main/docs/adr/ADR-0018-typed-proxy-trust.md).
+
+```ts
+// packages/runtime/src/proxy-trust.ts
+export function resolveByHopCount(forwarded: string, hopCount: number): string | undefined {
+  const chain = splitChain(forwarded);
+  for (let index = chain.length - hopCount; index >= 0; index -= 1) {
+    const candidate = isValidClientIp(chain[index]);
+    if (candidate) return candidate;
+  }
+  return undefined;
+}
+```
+
+`proxy: 1` against that same `203.0.113.9, 10.0.0.5` chain now resolves to `10.0.0.5` — the
+address your proxy actually saw, not the client-forged entry ahead of it. And `proxy: true`
+throws at boot, naming both replacements so you don't have to guess which one applies.
+
+We also found a second copy of the same bug living in `@nextrush/rate-limit`, an independent
+eight-header scan doing the exact same unsafe thing on its own. We deleted it. A policy like
+this needs exactly one implementation, not two that happen to agree today.
+
+## Everything else the same mistake explains
+
+CSRF's default `Max-Age: 0` deleted its own token cookie the moment it landed, because an
+omitted `cookie.maxAge` got coerced to `0` instead of just... staying unset. The middleware's
+documented default never actually worked end to end. Now it does — no `maxAge` means no
+`Max-Age` header at all, which is what a normal session cookie is supposed to look like.
+
+Signed cookies bound value, not identity — a signature minted for cookie `tier` verified fine
+when replayed as cookie `user`, because the HMAC never touched the name. Signing now covers a
+length-prefixed tuple of name, value, and issue time, so a signature is only good for the exact
+cookie it came from.
+
+Static file serving trusted the extension on the way in. An `.svg` a user uploaded and you
+serve back can carry an inline `<script>` — a stored-XSS vector hiding behind "we're just
+serving files, what could go wrong." `serveStatic({ untrusted: true })` now forces
+`Content-Disposition: attachment` and a sandboxing CSP on every script-capable type, no matter
+whether the file was resolved directly, through a directory index, or through an extension
+fallback.
+
+And CORS used to echo back whatever headers a preflight asked for. `Access-Control-Allow-
+Headers` now intersects the request against a real allowlist, and `Authorization` only shows up
+when `credentials: true` is set on purpose.
+
+Six teams shipped these in parallel, each working in its own git worktree so nobody could
+collide on a shared file. The last one landed a boot-time production audit and a `security()`
+preset that wires up helmet, cookies, CSRF, and rate limiting in one call, with a single
+required-configuration check instead of four separate ones to forget.
+
+## What we didn't fix
+
+Two things worth saying out loud, because "security review complete" is exactly the claim this
+kind of work tempts you into — and it's the wrong claim.
+
+`caseSensitive` still defaults to `false`. Flipping it would close the case-fold bug more
+completely than the path-canonicalization fix alone does, and we know that. We didn't flip it
+anyway. Changing a router default that size deserves its own release, not a rider on a security
+patch — every route table in production would have to re-check its own case assumptions at the
+same moment it absorbs a security fix, and that's two different kinds of risk to hand someone
+in one upgrade.
+
+<Callout type="warn" title="Deferred, not forgotten">
+  The RFC for flipping `caseSensitive` to `true` is written and approved —
+  [RFC-029](https://github.com/0xtanzim/nextrush/blob/main/docs/RFC/request-data/029-canonical-request-path.md),
+  decision recorded in
+  [ADR-0017](https://github.com/0xtanzim/nextrush/blob/main/docs/adr/ADR-0017-canonical-request-path.md).
+  It ships in the next major release, on its own, so a case-sensitivity audit never has to ride
+  along with a security patch.
+</Callout>
+
+And the review doesn't cover everything. Node's own request-parsing internals past the new
+raw-socket suite, `@nextrush/form-data`'s parser and storage layer, `body-parser`'s JSON
+charset handling, `@nextrush/template`'s auto-escaping, `@nextrush/class`'s guard ordering —
+none of that got touched here. We're saying so directly instead of letting it go unmentioned.
+
+<Callout type="info" title="What's explicitly out of scope">
+  That surface has its own scoped follow-up proposed and tracked in
+  [`report/security-review-unreviewed-surface-followup.md`](https://github.com/0xtanzim/nextrush/blob/main/report/security-review-unreviewed-surface-followup.md).
+  A security review that won't tell you what it skipped isn't one you can trust the edges of.
+</Callout>
+
+The rule behind all 19 findings outlives this one review, too: a security decision is only as
+good as the value it's built from. If that value came from somewhere else — another consumer's
+normalization, a header the request handed you itself — check that it actually belongs to the
+decision you're about to make. Don't assume it does just because it's sitting right there.

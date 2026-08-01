@@ -8,19 +8,38 @@
  */
 
 import { HttpError } from '@nextrush/errors';
-import { getRuntime, METHODS_WITHOUT_BODY } from '@nextrush/runtime';
+import {
+  assertHeaderSafe,
+  getRuntime,
+  isBodylessResponse,
+  METHODS_WITHOUT_BODY,
+  NULL_PROTO,
+  resolveClientIp,
+} from '@nextrush/runtime';
+import {
+  runNDJSONStream,
+  runSSEStream,
+  runTextStream,
+  StreamAbortedError,
+} from '@nextrush/stream';
 import type {
+    AdapterContext,
     BodySource,
-    Context,
     ContextState,
     HttpMethod,
     IncomingHeaders,
+    NDJSONStreamWriter,
     NodeStreamLike,
+    PlatformId,
+    ProxyTrust,
     QueryParams,
     RawHttp,
     ResponseBody,
     RouteParams,
     Runtime,
+    SSEStreamWriter,
+    StreamRun,
+    TextStreamWriter,
     WebStreamLike,
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -37,40 +56,142 @@ type NodeRawHttp = RawHttp<IncomingMessage, ServerResponse>;
  */
 export interface NodeContextOptions {
   /**
-   * Whether to trust proxy headers (X-Forwarded-For, X-Forwarded-Proto, etc.)
-   * When false, IP is always read from the socket.
+   * Proxy-trust specification for `ctx.ip` resolution (RFC-030).
+   * When `false`, IP is always read from the socket.
    * @default false
    */
-  trustProxy?: boolean;
+  proxy?: ProxyTrust;
 }
 
-/** Shared empty params object — avoids allocation per request (overwritten by router) */
-const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(null)) as RouteParams;
+/**
+ * Shared empty params object — avoids allocation per request (overwritten by
+ * router). Built on `NULL_PROTO` because it is *read* on every params-less
+ * request, where a dictionary-mode miss-read measured 2.2x slower.
+ */
+const EMPTY_PARAMS: RouteParams = Object.freeze(Object.create(NULL_PROTO)) as RouteParams;
+
+/**
+ * Shared frozen empty query object (HP-2) — avoids allocating a fresh `{}` on
+ * every query-less request (the common case), mirroring {@link EMPTY_PARAMS}.
+ * `ctx.query` is typed `readonly` and holds URL-parsed data, so the frozen
+ * shared instance is safe; no code path mutates `ctx.query`.
+ */
+const EMPTY_QUERY: QueryParams = Object.freeze(Object.create(NULL_PROTO)) as QueryParams;
+
+/** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
+const RESOLVED_NEXT: Promise<void> = Promise.resolve();
+
+/**
+ * Wait for `res` to drain, settling early if the response socket disconnects
+ * first (F-01 / design.md D5).
+ *
+ * @remarks
+ * `res.once('drain', ...)` alone never fires once the underlying socket is
+ * destroyed — a byte pump parked on it after a backpressured `res.write()`
+ * returns `false` hangs forever, so a disconnect during backpressure never
+ * settles the streaming handler's promise (no `finally` runs, no cleanup).
+ * This races the drain wait against `res` `'close'`/`'error'`, exactly the
+ * `settled`-guarded pattern already proven in
+ * `packages/middleware/static/src/send-file.ts`'s `streamToResponse`, adapted
+ * here as a small internal helper shared by both Node byte-pump call sites
+ * (`sendStream()` and the Web-`ReadableStream` branch of `send()`) instead of
+ * duplicated inline. Rejects with {@link StreamAbortedError} on disconnect so
+ * callers unwind through the same path as any other stream-abort — no new
+ * error type, no `@nextrush/stream` API change.
+ */
+function waitForDrainOrDisconnect(res: ServerResponse): Promise<void> {
+  if (!res.writableNeedDrain && !res.destroyed) {
+    // Already drained (or never actually needed to wait) — the common case
+    // when this is called defensively; avoids a listener round-trip.
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const onDrain = (): void => {
+      settle(resolve);
+    };
+    const onDisconnect = (): void => {
+      settle(() => {
+        reject(new StreamAbortedError());
+      });
+    };
+
+    function settle(fn: () => void): void {
+      if (settled) return;
+      settled = true;
+      res.off('drain', onDrain);
+      res.off('close', onDisconnect);
+      res.off('error', onDisconnect);
+      fn();
+    }
+
+    res.once('drain', onDrain);
+    res.once('close', onDisconnect);
+    res.once('error', onDisconnect);
+  });
+}
 
 /**
  * Node.js Context implementation
  */
-export class NodeContext implements Context {
+export class NodeContext implements AdapterContext {
   readonly method: HttpMethod;
   readonly url: string;
   readonly path: string;
+  /**
+   * Declared here, not added by the router, so dispatch's assignment is a value
+   * write to an existing slot rather than a property addition that transitions
+   * the context's hidden class on every request. Initialized to `path`, which
+   * is the documented value when no router has canonicalized the target.
+   *
+   * @see RFC-029
+   */
+  readonly originalPath: string;
   readonly query: QueryParams;
   readonly headers: IncomingHeaders;
   readonly ip: string;
-  readonly raw: NodeRawHttp;
   readonly runtime: Runtime;
-  readonly bodySource: BodySource;
+
+  /**
+   * Named deployment platform (RFC-026). Always `undefined` on the Node.js
+   * adapter — no named FaaS platform reporting is defined for `adapter-node`.
+   */
+  readonly platform: PlatformId | undefined = undefined;
+
+  /**
+   * BP-F: backing field for the lazily-built {@link bodySource}. A body-method
+   * request that never reads the body allocates no `NodeBodySource`.
+   */
+  private _bodySource?: BodySource;
 
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
   status = 200;
-  state: ContextState = {};
+
+  /**
+   * HP-5: the request/response are held as private fields; the public
+   * `{ req, res }` wrapper is built lazily by {@link raw} and memoized here, so
+   * a request that never reads `ctx.raw` allocates no wrapper. Every internal
+   * response method reads these fields, never `this.raw`.
+   */
+  private readonly _req: IncomingMessage;
+  private readonly _res: ServerResponse;
+  private _raw?: NodeRawHttp;
+
+  /**
+   * NF-2: `ctx.state` backing field, materialized lazily by {@link state}. A
+   * request that never touches `state` allocates no object — mirroring the lazy
+   * `_raw` wrapper above.
+   */
+  private _state?: ContextState;
 
   private _next: (() => Promise<void>) | null = null;
   private _responded = false;
+  private _abortController?: AbortController;
 
   constructor(req: IncomingMessage, res: ServerResponse, options: NodeContextOptions = {}) {
-    this.raw = { req, res };
+    this._req = req;
+    this._res = res;
     this.runtime = getRuntime();
     this.method = (req.method?.toUpperCase() ?? 'GET') as HttpMethod;
     this.url = req.url ?? '/';
@@ -82,37 +203,91 @@ export class NodeContext implements Context {
       this.query = parseQueryString(this.url.slice(questionIndex + 1));
     } else {
       this.path = this.url;
-      this.query = {};
+      this.query = EMPTY_QUERY;
     }
+    this.originalPath = this.path;
 
-    this.headers = req.headers as IncomingHeaders;
-    this.ip = this.getClientIp(req, options.trustProxy ?? false);
-
-    // Create body source (empty for methods without body)
-    this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
-      ? createEmptyBodySource()
-      : new NodeBodySource(req);
+    this.headers = req.headers;
+    this.ip = this.getClientIp(req, options.proxy ?? false);
   }
 
   /**
-   * Get client IP address.
-   * Only trusts X-Forwarded-For when trustProxy is explicitly enabled.
+   * Cross-runtime request body source (BP-F).
+   *
+   * @remarks
+   * Built lazily and memoized, mirroring the lazy `_raw` / `_state` / `signal`
+   * fields: a body-method request (`POST`/`PUT`/`PATCH`/…) whose body is never
+   * read allocates no `NodeBodySource` and attaches no stream listeners. Bodyless
+   * methods (per the runtime `METHODS_WITHOUT_BODY` policy) resolve to the shared
+   * `EmptyBodySource` singleton. Identity is stable across reads
+   * (`ctx.bodySource === ctx.bodySource`).
    */
-  private getClientIp(req: IncomingMessage, trustProxy: boolean): string {
-    if (trustProxy) {
-      const forwarded = req.headers['x-forwarded-for'];
-      if (typeof forwarded === 'string') {
-        const firstIp = forwarded.split(',')[0]?.trim() ?? '';
-        // Basic IP format validation: reject clearly malformed values
-        if (firstIp && /^[\da-fA-F.:]+$/.test(firstIp)) {
-          return firstIp;
-        }
-        // Malformed X-Forwarded-For — fall through to socket address
-      }
-    }
+  get bodySource(): BodySource {
+    return (this._bodySource ??= METHODS_WITHOUT_BODY.has(this.method)
+      ? createEmptyBodySource()
+      : new NodeBodySource(this._req, undefined, this._res));
+  }
 
-    // Fall back to socket remote address
-    return req.socket.remoteAddress ?? '';
+  /**
+   * Resolve the client IP via the shared cross-adapter policy (audit F-11, RFC-030).
+   *
+   * @remarks
+   * HP-1 trim: when `proxy` is `false` (default) the socket address IS the
+   * client IP, so it is returned directly — no header-lookup closure, no
+   * {@link resolveClientIp} call — byte-identical to the policy's own
+   * `trust: false` branch. Otherwise resolution goes through the shared
+   * policy so precedence/validation match Bun/Deno/Edge. The socket address
+   * doubles as both `directIp` and `peerIp` (Node's peer IS the direct
+   * connection) and is read eagerly, so `ctx.ip` stays stable even after the
+   * socket is torn down.
+   */
+  private getClientIp(req: IncomingMessage, proxy: ProxyTrust): string {
+    const directIp = req.socket.remoteAddress ?? '';
+    if (proxy === false) {
+      return directIp;
+    }
+    return resolveClientIp(
+      (name) => {
+        const value = req.headers[name];
+        return Array.isArray(value) ? value[0] : value;
+      },
+      { trust: proxy, directIp, peerIp: directIp }
+    );
+  }
+
+  /**
+   * The raw `{ req, res }` pair (HP-5).
+   *
+   * @remarks
+   * Built lazily and memoized: the wrapper object is allocated only on first
+   * read and the same object is returned thereafter (`ctx.raw === ctx.raw`),
+   * matching the identity of the former eager field. Internal response methods
+   * use the private `_req`/`_res` fields instead, so a request that never reads
+   * `ctx.raw` allocates no wrapper at all.
+   */
+  get raw(): NodeRawHttp {
+    return (this._raw ??= { req: this._req, res: this._res });
+  }
+
+  /**
+   * Per-request shared state (NF-2).
+   *
+   * @remarks
+   * Materialized lazily and memoized: the `{}` object is allocated only on first
+   * access (`??=`) and the same object is returned thereafter
+   * (`ctx.state === ctx.state`), matching the identity of the former eager
+   * `state = {}` field. A request that never reads `state` (the Hello-World /
+   * route-params / POST hot paths) allocates no object at all. The setter
+   * preserves whole-object reassignment (`ctx.state = {...}`); reads and
+   * symbol-keyed writes (the `createPrefixMount` path) both go through the
+   * getter, so behavior is identical to the eager object.
+   */
+  get state(): ContextState {
+    return (this._state ??= {});
+  }
+
+  set state(value: ContextState) {
+    this._state = value;
   }
 
   /**
@@ -132,24 +307,25 @@ export class NodeContext implements Context {
    * HEAD requests, 204 No Content, and 304 Not Modified must not include a body (RFC 7231).
    */
   private shouldSuppressBody(): boolean {
-    return (
-      this.method === 'HEAD' ||
-      this.status === 204 ||
-      this.status === 304 ||
-      (this.status >= 100 && this.status < 200)
-    );
+    return isBodylessResponse(this.method, this.status);
   }
 
   json(data: unknown): void {
-    if (this._responded || this.raw.res.headersSent) return;
+    if (this._responded || this._res.headersSent) return;
     this._responded = true;
 
-    const res = this.raw.res;
+    const res = this._res;
     const json = JSON.stringify(data);
 
-    res.statusCode = this.status;
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Content-Length', Buffer.byteLength(json));
+    // HP-14: one outgoing-header-map write instead of two setHeader calls.
+    // Node merges these with any headers set earlier via setHeader() (e.g. a
+    // middleware's ctx.set() headers, including accumulated Set-Cookie), giving
+    // writeHead precedence — so prior headers survive and json()'s Content-Type
+    // still overrides a middleware-set one, byte-identical to the old two-call form.
+    res.writeHead(this.status, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Length': String(Buffer.byteLength(json)),
+    });
 
     if (this.shouldSuppressBody()) {
       res.end();
@@ -159,9 +335,9 @@ export class NodeContext implements Context {
   }
 
   send(data: ResponseBody): void {
-    if (this._responded || this.raw.res.headersSent) return;
+    if (this._responded || this._res.headersSent) return;
 
-    const res = this.raw.res;
+    const res = this._res;
     res.statusCode = this.status;
     const suppress = this.shouldSuppressBody();
 
@@ -265,11 +441,17 @@ export class NodeContext implements Context {
             return;
           }
           if (!res.write(value)) {
-            await new Promise<void>((resolve) => res.once('drain', resolve));
+            await waitForDrainOrDisconnect(res);
           }
         }
       };
       pump().catch((err: unknown) => {
+        if (err instanceof StreamAbortedError) {
+          // Client disconnected while backpressured — expected, no response
+          // to salvage; the `res.on('close')` cleanup above already cancelled
+          // the reader.
+          return;
+        }
         if (!res.headersSent) {
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
@@ -296,10 +478,10 @@ export class NodeContext implements Context {
   }
 
   html(content: string): void {
-    if (this._responded || this.raw.res.headersSent) return;
+    if (this._responded || this._res.headersSent) return;
     this._responded = true;
 
-    const res = this.raw.res;
+    const res = this._res;
     res.statusCode = this.status;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Length', Buffer.byteLength(content));
@@ -312,10 +494,10 @@ export class NodeContext implements Context {
   }
 
   redirect(url: string, status = 302): void {
-    if (this._responded || this.raw.res.headersSent) return;
+    if (this._responded || this._res.headersSent) return;
     this._responded = true;
 
-    const res = this.raw.res;
+    const res = this._res;
     res.statusCode = status;
     res.setHeader('Location', url);
     // Use plain text to avoid HTML injection via user-controlled URLs
@@ -324,26 +506,160 @@ export class NodeContext implements Context {
   }
 
   // ===========================================================================
+  // Response Streaming (see docs/RFC/request-data/003-stream.md)
+  // ===========================================================================
+
+  /**
+   * Abort signal that fires when the client disconnects.
+   *
+   * @remarks
+   * Lazily synthesized: the `AbortController` and its listeners are only created
+   * on first access, keeping the non-streaming hot path allocation-free.
+   */
+  get signal(): AbortSignal {
+    if (!this._abortController) {
+      const controller = new AbortController();
+      this._abortController = controller;
+      const abort = (): void => {
+        if (!controller.signal.aborted) controller.abort();
+      };
+      this._res.on('close', abort);
+      // F-10: `req 'aborted'` is deprecated (Node 16+) in favor of `req 'close'`
+      // combined with `req.destroyed`/`req.aborted` state — a request stream
+      // that closes without having fully completed is the client-disconnect
+      // signal `'aborted'` used to carry, without relying on the deprecated event.
+      this._req.on('close', () => {
+        if (this._req.destroyed || !this._req.complete) abort();
+      });
+    }
+    return this._abortController.signal;
+  }
+
+  /**
+   * Abort the in-flight request via `ctx.signal` (F-04).
+   *
+   * @remarks
+   * Mirrors the Web adapters' `triggerTimeout` so a handler-level timeout race
+   * can cooperatively cancel a still-running Node handler. Reads `ctx.signal`
+   * first to ensure the (lazily-created) `AbortController` exists, then aborts
+   * it directly — the client-disconnect listeners wired by the `signal` getter
+   * are unaffected (they no-op once already aborted).
+   *
+   * @internal
+   */
+  triggerTimeout(reason?: unknown): void {
+    void this.signal; // ensure _abortController is materialized
+    if (!this._abortController) return; // unreachable after the line above; type-narrowing guard
+    if (!this._abortController.signal.aborted) {
+      this._abortController.abort(reason ?? new Error('Request timeout'));
+    }
+  }
+
+  /**
+   * @internal Stream a byte source to the client (Node eager pump). Resolves
+   * when the stream is fully flushed; rejects on a non-abort transport error.
+   */
+  sendStream(source: ReadableStream<Uint8Array>): Promise<void> {
+    if (this._responded || this._res.headersSent) return Promise.resolve();
+    this._responded = true;
+
+    const res = this._res;
+    res.statusCode = this.status;
+    const reader = source.getReader();
+    // Cancel the source if the client disconnects mid-stream.
+    res.on('close', () => {
+      void reader.cancel().catch((): undefined => undefined);
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      const pump = async (): Promise<void> => {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) {
+            res.end();
+            return;
+          }
+          if (!res.write(value)) {
+            await waitForDrainOrDisconnect(res);
+          }
+        }
+      };
+      pump().then(resolve, (err: unknown) => {
+        if (err instanceof StreamAbortedError) {
+          // Client disconnected while backpressured (F-01) — the reader was
+          // already cancelled by the `res.on('close')` handler above; settle
+          // cleanly instead of tearing down an already-gone response.
+          resolve();
+          return;
+        }
+        if (!res.headersSent) {
+          res.statusCode = 500;
+          res.end();
+        } else {
+          res.destroy(err instanceof Error ? err : new Error(String(err)));
+        }
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
+    });
+  }
+
+  stream(run: StreamRun<TextStreamWriter>): Promise<void> {
+    return runTextStream(this, run);
+  }
+
+  sse(run: StreamRun<SSEStreamWriter>): Promise<void> {
+    return runSSEStream(this, run);
+  }
+
+  ndjson(run: StreamRun<NDJSONStreamWriter>): Promise<void> {
+    return runNDJSONStream(this, run);
+  }
+
+  // ===========================================================================
   // Header Helpers
   // ===========================================================================
 
   set(field: string, value: string | number | string[]): void {
-    // Validate for CRLF injection (header splitting attack)
-    if (field.includes('\r') || field.includes('\n')) {
-      throw new Error('Header field contains invalid characters');
-    }
-    if (typeof value === 'string') {
-      if (value.includes('\r') || value.includes('\n')) {
-        throw new Error('Header value contains invalid characters');
+    // Guard against CRLF injection (header splitting) via the shared helper.
+    assertHeaderSafe(field, value);
+
+    const res = this._res;
+
+    // Set-Cookie must accumulate across calls (multiple headers), not overwrite —
+    // matching the web adapter's append semantics so `ctx.set('Set-Cookie', …)`
+    // behaves identically on every runtime. An array value means "set exactly
+    // these", so it still replaces (Node emits one header per array element).
+    //
+    // HP-15: gate the toLowerCase() allocation behind a constant-time pre-check —
+    // 'set-cookie' is exactly 10 chars and starts with 's'/'S' — so a lowercased
+    // string is only ever allocated for a field that could actually be set-cookie,
+    // not for every header. Detection stays case-insensitive across all casings.
+    if (
+      !Array.isArray(value) &&
+      field.length === 10 &&
+      (field.charCodeAt(0) | 0x20) === 0x73 /* 's' */ &&
+      field.toLowerCase() === 'set-cookie'
+    ) {
+      const cookie = String(value);
+      const appendHeader = (res as { appendHeader?: (name: string, v: string) => void })
+        .appendHeader;
+      if (typeof appendHeader === 'function') {
+        appendHeader.call(res, field, cookie);
+        return;
       }
-    } else if (Array.isArray(value)) {
-      for (const v of value) {
-        if (v.includes('\r') || v.includes('\n')) {
-          throw new Error('Header value contains invalid characters');
-        }
+      // Fallback for response objects without appendHeader: merge manually.
+      const existing = res.getHeader(field);
+      if (existing === undefined) {
+        res.setHeader(field, [cookie]);
+      } else if (Array.isArray(existing)) {
+        res.setHeader(field, [...existing.map(String), cookie]);
+      } else {
+        res.setHeader(field, [String(existing), cookie]);
       }
+      return;
     }
-    this.raw.res.setHeader(field, value);
+
+    res.setHeader(field, value);
   }
 
   get(field: string): string | undefined {
@@ -358,10 +674,19 @@ export class NodeContext implements Context {
   // Middleware
   // ===========================================================================
 
-  async next(): Promise<void> {
-    if (this._next) {
-      await this._next();
-    }
+  /**
+   * Advance the middleware chain.
+   *
+   * @remarks
+   * HP-7 trim: forwards the composer's dispatch thunk directly instead of
+   * wrapping it in an extra `async` frame. The thunk always returns a promise
+   * and never throws synchronously (the composer converts sync throws to
+   * `Promise.reject`), so ordering, rejection propagation, and the
+   * `Promise<void>` contract are preserved. Unwired → a cached resolved promise
+   * (the same no-op as before, without a per-call allocation).
+   */
+  next(): Promise<void> {
+    return this._next ? this._next() : RESOLVED_NEXT;
   }
 
   // ===========================================================================

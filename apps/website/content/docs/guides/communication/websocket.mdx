@@ -1,0 +1,171 @@
+---
+title: WebSocket Chat
+description: Build a real-time chat application with NextRush WebSocket support.
+keywords: [chat, communication, guides, nextrush, websocket]
+---
+
+A real-time chat server using `@nextrush/websocket`. Handles connections, rooms, broadcasts, and graceful disconnection.
+
+## What This Example Demonstrates
+
+- `createWebSocketExtension()` — the recommended way to wire a WebSocket server into a NextRush app, with automatic disposal on `app.close()`
+- Connection lifecycle (`message`, `close`)
+- Room-based broadcasting via `conn.join()` and `conn.broadcast()`
+- User identification via query params
+- Graceful disconnect with notifications
+
+## Prerequisites
+
+- Node.js 22+ — `@nextrush/websocket` is Node-only; it has no Bun, Deno, or edge runtime code path (use each runtime's native WebSocket API there instead)
+- `nextrush` and `@nextrush/websocket` installed
+- The `ws` package (a peer dependency, loaded dynamically by `@nextrush/websocket`)
+
+```bash
+pnpm add nextrush @nextrush/websocket ws
+```
+
+## Full Code
+
+```typescript title="src/chat.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+import { createWebSocketExtension, type WSConnection } from '@nextrush/websocket';
+
+const app = createApp().extend(createWebSocketExtension());
+await app.ready();
+
+const router = createRouter();
+
+// Track username per connection id (Connection has no built-in metadata slot)
+const usernames = new Map<string, string>();
+
+// Health check
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+
+// REST endpoint — room membership is only visible through broadcasts in this
+// example; expose whatever room bookkeeping your app needs here.
+
+app.wss.on('/ws', (conn: WSConnection) => {
+  const url = new URL(conn.url, 'http://localhost');
+  const room = url.searchParams.get('room') ?? 'general';
+  const username = url.searchParams.get('user') ?? 'anonymous';
+
+  usernames.set(conn.id, username);
+  conn.join(room);
+
+  conn.broadcastJson(room, {
+    type: 'system',
+    message: `${username} joined`,
+    timestamp: Date.now(),
+  });
+
+  conn.on('message', (data) => {
+    const message = typeof data === 'string' ? data : data.toString();
+
+    conn.broadcastJson(room, {
+      type: 'message',
+      user: username,
+      message,
+      timestamp: Date.now(),
+    });
+  });
+
+  conn.on('close', () => {
+    usernames.delete(conn.id);
+
+    conn.broadcastJson(room, {
+      type: 'system',
+      message: `${username} left`,
+      timestamp: Date.now(),
+    });
+  });
+});
+
+app.use(app.wss.upgrade());
+app.route('/', router);
+
+const { server } = await listen(app, 8080);
+await app.wss.attach(server);
+
+// app.close() now also calls app.wss.close() automatically — no separate
+// wss.close() call needed. See the manual createWebSocket() form below if you
+// need full manual lifecycle control instead.
+
+console.log('Chat server running on http://localhost:8080');
+console.log('WebSocket endpoint: ws://localhost:8080/ws?room=general&user=alice');
+```
+
+<Callout type="info" title="conn.broadcast excludes the sender">
+  `conn.broadcastJson(room, data)` sends to every other member of `room` — never back to the
+  connection that called it. There is no `exclude` parameter to configure; the sender is always
+  excluded automatically.
+</Callout>
+
+<Callout type="info" title="Manual form: createWebSocket()">
+  `createWebSocketExtension()` (used above) is the recommended default — `app.extend()` decorates
+  `app.wss` and wires `app.wss.close()` into `app.close()`'s teardown automatically, so a missed
+  manual disposal can never leak the heartbeat timer or leave sockets open. Reach for the manual
+  `createWebSocket()` factory only when attaching to a server outside a NextRush `Application`, or
+  when you need full manual lifecycle control (including calling `wss.close()` yourself). Both
+  forms still require the same two-call upgrade wiring — `app.use(wss.upgrade())` and
+  `wss.attach(server)` — only *disposal* differs between them.
+</Callout>
+
+## How to Run
+
+```bash
+nextrush dev src/chat.ts
+```
+
+## Test with wscat
+
+```bash
+# Terminal 1 — Alice joins
+npx wscat -c "ws://localhost:8080/ws?room=general&user=alice"
+
+# Terminal 2 — Bob joins
+npx wscat -c "ws://localhost:8080/ws?room=general&user=bob"
+
+# In Alice's terminal, type:
+> Hello Bob!
+
+# Bob sees:
+< {"type":"message","user":"alice","message":"Hello Bob!","timestamp":1704067200000}
+```
+
+## Expected Output
+
+When Alice connects:
+
+```json
+// Bob receives:
+{ "type": "system", "message": "alice joined", "timestamp": 1704067200000 }
+```
+
+When Alice sends "Hello":
+
+```json
+// Bob receives:
+{ "type": "message", "user": "alice", "message": "Hello", "timestamp": 1704067200001 }
+```
+
+When Alice disconnects:
+
+```json
+// Bob receives:
+{ "type": "system", "message": "alice left", "timestamp": 1704067200002 }
+```
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="@nextrush/websocket API Reference"
+    description="Full Connection, RoomManager, and configuration options."
+    href="/docs/reference/websocket"
+  />
+  <Card
+    title="REST API Guide"
+    description="Combine WebSocket routes with a standard REST API on the same app."
+    href="/docs/guides/api-development/rest-api"
+  />
+</Cards>

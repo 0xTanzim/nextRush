@@ -1,0 +1,203 @@
+---
+title: 'DI Errors & Utilities'
+description: 'DI error classes, metadata inspection utilities, and common mistakes.'
+keywords: [class, errors, nextrush, reference, utilities]
+---
+
+Continued from [Dependency Injection](/docs/reference/class/di) — error classes, metadata
+utilities, and the full import surface for `@nextrush/di`. Only `Service`, `Repository`,
+`container`, `createContainer`, `inject`, and the `Container` type are re-exported by
+`nextrush/class` — every symbol on this page below is imported from `@nextrush/di` directly.
+
+---
+
+## Error and Failure Behavior
+
+All DI errors extend `DIError` and include actionable messages with fix suggestions.
+
+```typescript
+import { container } from 'nextrush/class';
+import { DIError, DependencyResolutionError, CircularDependencyError } from '@nextrush/di';
+
+try {
+  container.resolve(UnregisteredService);
+} catch (error) {
+  if (error instanceof DependencyResolutionError) {
+    console.log(error.missingDependency); // token name
+    console.log(error.chain); // resolution path
+  }
+  if (error instanceof CircularDependencyError) {
+    console.log(error.cycle); // ['ServiceA', 'ServiceB', ...]
+  }
+}
+```
+
+<TypeTable
+  title="Error Classes"
+  types={{
+    DIError: { type: 'Error', description: 'Base class for all DI errors' },
+    DependencyResolutionError: {
+      type: 'DIError',
+      description:
+        'Token not registered and cannot be resolved. Includes chain and missingDependency properties. Error messages include fix suggestions (@Service, @Repository, @Config hints).',
+    },
+    CircularDependencyError: {
+      type: 'DIError',
+      description:
+        'Circular dependency detected during resolution (wrapper-level + tsyringe-internal chains). Includes cycle property.',
+    },
+    InvalidProviderError: {
+      type: 'DIError',
+      description:
+        'Provider object missing useClass, useValue, or useFactory. Includes token property.',
+    },
+  }}
+/>
+
+---
+
+## Utility Functions
+
+These functions inspect decorator metadata set by `@Service()` and `@Repository()`.
+
+```typescript
+import { Service } from 'nextrush/class';
+import { hasServiceMetadata, getServiceType, getServiceScope } from '@nextrush/di';
+import { isParameterOptional, getOptionalParams, Optional } from '@nextrush/di';
+
+@Service({ scope: 'transient' })
+class MyService {}
+
+hasServiceMetadata(MyService); // true
+getServiceType(MyService); // 'service'
+getServiceScope(MyService); // 'transient'
+
+// Optional parameter utilities
+@Service()
+class WithOptional {
+  constructor(@Optional() private dep?: SomeDep) {}
+}
+
+isParameterOptional(WithOptional, 0); // true
+getOptionalParams(WithOptional); // Set { 0 }
+```
+
+Used internally by the controller registrar for auto-discovery. Useful when building custom tooling that scans for injectable classes.
+
+### `getConfigPrefix(target)`
+
+Read the environment variable prefix stored by `@Config({ prefix })` on a class. Returns `undefined` if the class has no `@Config()` decorator or no `prefix` was set. Import from `@nextrush/di`.
+
+```typescript
+import { Config, getConfigPrefix } from '@nextrush/di';
+
+@Config({ prefix: 'DB' })
+class DatabaseConfig {}
+
+getConfigPrefix(DatabaseConfig); // 'DB'
+```
+
+### `markInjectable(target)`
+
+<Callout type="warn" title="Internal API">
+  Used internally by `@Controller()` to register a class as resolvable by the container without
+  attaching `@Service()`/`@Repository()` metadata. Most applications never call this directly —
+  use `@Service()`, `@Repository()`, or `@Injectable()` instead.
+</Callout>
+
+Registers a class constructor as injectable with the underlying tsyringe container, without setting NextRush service-type metadata. This is the abstraction boundary that lets controller registration wire up constructor injection without depending on tsyringe directly. Import from `@nextrush/di`.
+
+```typescript
+import { markInjectable } from '@nextrush/di';
+
+markInjectable(SomeControllerClass);
+```
+
+---
+
+## Common Mistakes
+
+**Missing `reflect-metadata` import** — if using individual `@nextrush/*` packages (not the `nextrush` meta-package), `reflect-metadata` must be imported before any decorated class is loaded. Place `import 'reflect-metadata'` at the top of your entry file. The `nextrush` meta-package handles this automatically.
+
+**Wrong TypeScript settings** — without `experimentalDecorators` and `emitDecoratorMetadata` in `tsconfig.json`, constructor parameter types are unavailable at runtime.
+
+**Using `tsx` or `esbuild` directly** — these strip types without emitting decorator metadata. Use `tsc + node` or `@nextrush/dev` instead.
+
+**Forgetting `@Service()` on a dependency** — if class `B` depends on class `A`, both must be decorated. An undecorated `A` causes `DependencyResolutionError`.
+
+---
+
+## TypeScript Exports
+
+All types and runtime exports are available across two entry points. `nextrush/class` re-exports
+only the core DI surface; everything else is imported from `@nextrush/di` directly.
+
+<details>
+<summary>Complete import reference</summary>
+
+```ts
+// Re-exported by nextrush/class (core DI surface)
+import {
+  Service,
+  Repository,
+  container,
+  createContainer,
+  inject,
+} from 'nextrush/class';
+import type { Container } from 'nextrush/class';
+
+// Everything else: import from @nextrush/di directly
+
+// Decorators
+import {
+  Config,
+  Injectable,
+  Optional,
+  delay,
+} from '@nextrush/di';
+
+// Utility functions
+import {
+  hasServiceMetadata,
+  getServiceType,
+  getServiceScope,
+  getConfigPrefix,
+  markInjectable,
+  isParameterOptional,
+  getOptionalParams,
+} from '@nextrush/di';
+
+// Metadata keys
+import { METADATA_KEYS } from '@nextrush/di';
+
+// Error classes
+import {
+  DIError,
+  DependencyResolutionError,
+  CircularDependencyError,
+  InvalidProviderError,
+} from '@nextrush/di';
+
+// Types
+import type {
+  Provider,
+  ClassProvider,
+  ValueProvider,
+  FactoryProvider,
+  Token,
+  Constructor,
+  Scope,
+  ServiceOptions,
+  ConfigOptions,
+} from '@nextrush/di';
+```
+
+</details>
+
+---
+
+## Next Steps
+
+- [Dependency Injection](/docs/reference/class/di) — Decorators, scopes, and the container API
+- [Decorators](/docs/reference/class/decorators) — Controller, route, parameter, guard, interceptor, and filter decorators
+- [@nextrush/class overview](/docs/reference/class) — How the class runtime fits together

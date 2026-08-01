@@ -1,0 +1,75 @@
+{
+  "name": "@nextrush/adapter-serverless",
+  "version": "1.0.0",
+  "description": "Serverless adapter for NextRush (AWS Lambda, API Gateway, GCF, Azure) via a generic, adapter-scoped EventMapper registry",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "bench:cold-start": "node bench/cold-start.mjs",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nextrush/adapter-edge": "workspace:^",
+    "@nextrush/core": "workspace:^",
+    "@nextrush/errors": "workspace:^",
+    "@nextrush/runtime": "workspace:^",
+    "@nextrush/stream": "workspace:^",
+    "@nextrush/types": "workspace:^"
+  },
+  "devDependencies": {
+    "@nextrush/class": "workspace:^",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "keywords": [
+    "nextrush",
+    "adapter",
+    "serverless",
+    "lambda",
+    "aws",
+    "api-gateway",
+    "gcf",
+    "azure",
+    "vercel",
+    "http",
+    "framework"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
+    "directory": "packages/adapters/serverless"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/adapters/serverless#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "sideEffects": false
+}

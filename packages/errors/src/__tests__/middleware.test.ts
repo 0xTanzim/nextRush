@@ -5,7 +5,8 @@
 import type { Context } from '@nextrush/types';
 import { describe, expect, it, vi } from 'vitest';
 import { BadRequestError, InternalServerError, NotFoundError } from '../http-errors';
-import { catchAsync, errorHandler, notFoundHandler } from '../middleware';
+import { errorHandler, notFoundHandler } from '../middleware';
+import { ValidationError } from '../validation';
 
 function createMockContext(): Context {
   const ctx = {
@@ -119,6 +120,88 @@ describe('errorHandler', () => {
       const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(jsonCall.stack).toBeUndefined();
     });
+
+    // SEC-14: includeStack: true must be a no-op in production, not honored
+    // unconditionally — a stack trace is a map of internal paths/dependency
+    // versions, and the previous behavior handed that map to any client the
+    // moment a deploy forgot to flip includeStack off.
+    describe('production guard (SEC-14)', () => {
+      it('ignores includeStack: true in production and logs exactly one warning', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const handler = errorHandler({ includeStack: true, isProduction: true });
+        const ctx = createMockContext();
+
+        await handler(ctx, async () => {
+          throw new BadRequestError('Invalid');
+        });
+
+        const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(jsonCall.stack).toBeUndefined();
+        // The default 4xx logger also calls console.warn — isolate the
+        // SEC-14 guard's own warning by content rather than call count.
+        const sec14Warnings = warnSpy.mock.calls.filter((call) =>
+          String(call[0]).includes('includeStack')
+        );
+        expect(sec14Warnings).toHaveLength(1);
+        warnSpy.mockRestore();
+      });
+
+      it('warns only once across multiple requests in production, not once per request', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const handler = errorHandler({ includeStack: true, isProduction: true });
+
+        for (let i = 0; i < 3; i++) {
+          const ctx = createMockContext();
+          await handler(ctx, async () => {
+            throw new BadRequestError('Invalid');
+          });
+        }
+
+        const sec14Warnings = warnSpy.mock.calls.filter((call) =>
+          String(call[0]).includes('includeStack')
+        );
+        expect(sec14Warnings).toHaveLength(1);
+        warnSpy.mockRestore();
+      });
+
+      it('preserves development behavior — stack is present when isProduction is false', async () => {
+        const handler = errorHandler({ includeStack: true, isProduction: false });
+        const ctx = createMockContext();
+
+        await handler(ctx, async () => {
+          throw new BadRequestError('Invalid');
+        });
+
+        const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(jsonCall.stack).toBeDefined();
+      });
+
+      it('preserves development behavior when isProduction is omitted (default)', async () => {
+        const handler = errorHandler({ includeStack: true });
+        const ctx = createMockContext();
+
+        await handler(ctx, async () => {
+          throw new BadRequestError('Invalid');
+        });
+
+        const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(jsonCall.stack).toBeDefined();
+      });
+
+      it('a plain (non-HttpError) Error never exposes its message in production, with or without includeStack', async () => {
+        const handler = errorHandler({ includeStack: true, isProduction: true });
+        const ctx = createMockContext();
+
+        await handler(ctx, async () => {
+          throw new Error('internal db connection string: postgres://secret');
+        });
+
+        const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(jsonCall.stack).toBeUndefined();
+        expect(JSON.stringify(jsonCall)).not.toContain('postgres://secret');
+        expect(jsonCall.message).toBe('Internal Server Error');
+      });
+    });
   });
 
   describe('logger option', () => {
@@ -174,6 +257,42 @@ describe('errorHandler', () => {
 
       expect(transform).toHaveBeenCalled();
       expect(ctx.json).toHaveBeenCalledWith({ customError: true });
+    });
+  });
+
+  describe('ValidationError serialization (regression)', () => {
+    it('includes `issues` in the response body for a ValidationError', async () => {
+      const handler = errorHandler();
+      const ctx = createMockContext();
+
+      await handler(ctx, async () => {
+        throw new ValidationError([
+          { path: 'body.email', message: 'Invalid email address' },
+          { path: 'body.name', message: 'Name is required' },
+        ]);
+      });
+
+      const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(jsonCall.issues).toEqual([
+        { path: 'body.email', message: 'Invalid email address' },
+        { path: 'body.name', message: 'Name is required' },
+      ]);
+      expect(jsonCall.code).toBe('VALIDATION_ERROR');
+      expect(ctx.status).toBe(400);
+    });
+
+    it('never leaks the raw `received` value for a ValidationError', async () => {
+      const handler = errorHandler();
+      const ctx = createMockContext();
+
+      await handler(ctx, async () => {
+        throw new ValidationError([
+          { path: 'body.password', message: 'Invalid', received: 'super-secret-value' },
+        ]);
+      });
+
+      const jsonCall = (ctx.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(JSON.stringify(jsonCall)).not.toContain('super-secret-value');
     });
   });
 
@@ -300,38 +419,6 @@ describe('notFoundHandler', () => {
 
     expect(ctx.status).toBe(201);
     expect(ctx.json).not.toHaveBeenCalled();
-  });
-});
-
-describe('catchAsync', () => {
-  it('should pass through successful handlers', async () => {
-    const innerHandler = vi.fn().mockResolvedValue(undefined);
-    const handler = catchAsync(innerHandler);
-    const ctx = createMockContext();
-
-    await handler(ctx, noop);
-
-    expect(innerHandler).toHaveBeenCalledWith(ctx, noop);
-  });
-
-  it('should re-throw errors', async () => {
-    const error = new NotFoundError('Not found');
-    const innerHandler = vi.fn().mockRejectedValue(error);
-    const handler = catchAsync(innerHandler);
-    const ctx = createMockContext();
-
-    await expect(handler(ctx, noop)).rejects.toThrow(error);
-  });
-
-  it('should pass next to inner handler', async () => {
-    const innerHandler = vi.fn().mockResolvedValue(undefined);
-    const handler = catchAsync(innerHandler);
-    const ctx = createMockContext();
-    const next = vi.fn();
-
-    await handler(ctx, next);
-
-    expect(innerHandler).toHaveBeenCalledWith(ctx, next);
   });
 });
 

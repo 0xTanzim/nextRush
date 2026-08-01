@@ -17,15 +17,19 @@
   "license": "ISC",
   "dependencies": {
     "@nextrush/body-parser": "workspace:*",
-    "@nextrush/controllers": "workspace:*",
-    "@nextrush/decorators": "workspace:*",
+    "@nextrush/dev": "workspace:*",
     "@nextrush/di": "workspace:*",
+    "@nextrush/errors": "workspace:*",
+    "@nextrush/openapi": "workspace:*",
+    "@nextrush/router": "workspace:*",
     "@nextrush/runtime": "workspace:*",
+    "@nextrush/validation": "workspace:*",
     "nextrush": "workspace:*",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@nextrush/dev": "workspace:*",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   }
 }

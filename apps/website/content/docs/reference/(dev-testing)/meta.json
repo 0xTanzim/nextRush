@@ -1,0 +1,6 @@
+{
+  "title": "Dev & Testing",
+  "icon": "Wrench",
+  "defaultOpen": false,
+  "pages": ["dev", "testing"]
+}

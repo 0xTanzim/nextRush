@@ -1,462 +1,435 @@
 ---
 name: nextrush
 description: >
-  Build high-performance APIs with the NextRush framework — a minimal, modular
-  Node.js/Bun/Deno framework with zero runtime dependencies. Covers functional
-  routing (createApp, createRouter from 'nextrush'), decorator-based controllers
-  (@Controller, @Get, @Post, @Service from 'nextrush/class'), Koa-style async
-  middleware, dependency injection (@Service, @Repository, container, inject),
-  error handling (HttpError hierarchy, errorHandler, catchAsync), guards
-  (@UseGuard, GuardFn, CanActivate), parameter decorators (@Body, @Param,
-  @Query, @Header), Context API (ctx.json, ctx.send, ctx.html, ctx.redirect),
-  and the complete middleware ecosystem (body-parser, cors, helmet, rate-limit,
-  compression, cookies, csrf, multipart, request-id, timer). Also covers plugins
-  (controllers, events, logger, static files, templates, websocket), platform
-  adapters (Node.js, Bun, Deno, Edge/Cloudflare/Vercel/Netlify), and dev tools
-  (CLI with nextrush dev/build/generate). Use this skill whenever the user works
-  with any 'nextrush' or '@nextrush/*' import, writes nextrush middleware or
-  routes, scaffolds a nextrush project, configures middleware packages, sets up
-  DI containers, builds REST APIs, asks about nextrush patterns or architecture,
-  or mentions any @nextrush/* package — even if they don't say "NextRush"
-  explicitly but the code clearly uses its APIs.
+  Build backend APIs with NextRush — runtime-independent, web-standards-first TypeScript framework.
+  Use whenever the user mentions NextRush, nextrush, createApp, createRouter, @Controller, @Get/@Post,
+  registerControllers, nextrush/class, nextrush/nextjs, adapter-edge, adapter-serverless, adapter-nextjs,
+  createLambdaHandler, createCloudflareHandler, ctx.sse, ctx.ndjson, websocket rooms, create-nextrush,
+  or asks to build/debug/deploy a NextRush app on Node, Bun, Deno, Cloudflare Workers, Vercel Edge,
+  Netlify Edge, AWS Lambda, GCF, Azure Functions, or inside a Next.js App Router route.ts.
+  Also use for NextRush middleware (cors, helmet, body-parser, validation, rate-limit, openapi),
+  DI/guards/interceptors, streaming SSE/NDJSON, testing with createTestModule, or scaffold CLI.
 license: MIT
 metadata:
-  author: nextrush
-  version: '2.0'
   framework: nextrush
-  node: '>=22.0.0'
+  version: "1.1"
 ---
 
-# NextRush Framework
+# NextRush Framework Skill
 
-Minimal, modular, high-performance Node.js framework. Zero external runtime
-dependencies. Dual paradigm: functional routes and decorator-based controllers.
-Targets: 30,000+ RPS, <200KB memory, <30ms cold start. Benchmarks use wrk (C-based, primary) and autocannon (Node.js, fallback).
+Teach agents how to build, configure, test, and deploy NextRush applications across every supported runtime and host — including Next.js App Router, edge, and serverless.
 
-## When to Use
+> **Also present: `AGENTS.md` in this folder.** Many agent hosts auto-load `AGENTS.md` into
+> context when the skill is installed. That file is the short standing-orders layer; this
+> `SKILL.md` is the full body. Keep both files in sync on public-API changes.
 
-Use this skill when the user:
+## Framework Identity
 
-- Creates, reviews, or refactors any NextRush application or API
-- Writes middleware, routes, controllers, or services
-- Uses any `nextrush` or `@nextrush/*` import
-- Sets up dependency injection, guards, or parameter decorators
-- Configures middleware packages (cors, helmet, body-parser, rate-limit, etc.)
-- Works with the Context API (`ctx.json`, `ctx.params`, `ctx.body`, etc.)
-- Builds plugins, adapters, or error handling logic
-- Scaffolds a new project with `create-nextrush` or `nextrush generate`
-- Asks about NextRush patterns, architecture, or best practices
-- Writes code that clearly uses NextRush APIs (even without saying "NextRush")
+NextRush is a **runtime-independent, web-standards-first** TypeScript backend framework.
 
-## Import Architecture
+- **Web Platform foundation**: `Request` / `Response` / `ReadableStream` / `AbortSignal` / `URL` / `crypto.subtle`
+- **Core imports no runtime API**: no `node:*`, `process`, `Buffer`, `Deno`, or `Bun` in core/router/middleware
+- **Behavior by capability, never runtime identity**: do not branch on `if (runtime === 'x')` for features
+- **Dual paradigm**: functional API (`nextrush`) + class-based DI/decorators (`nextrush/class`)
+- **Adapters own the host**: Node, Bun, Deno, Edge, Serverless, Next.js — same app code
 
-NextRush has **two entry points** from the meta-package. Getting imports right
-is critical — using the wrong entry point will cause missing export errors.
+## Which Surface? (decision table)
 
-```typescript
-// FUNCTIONAL API — routing, errors, types, adapters
-import { createApp, createRouter, listen } from 'nextrush';
+| Goal | Package / entry |
+|------|-----------------|
+| Standalone API (Node default) | `nextrush` → `serve` / `listen` |
+| Bun / Deno process | `@nextrush/adapter-bun` / `@nextrush/adapter-deno` |
+| Cloudflare / Vercel Edge / Netlify Edge | `@nextrush/adapter-edge` |
+| AWS Lambda / GCF / Azure Functions | `@nextrush/adapter-serverless` |
+| Mount inside Next.js App Router | `nextrush/nextjs` → `handle(app)` |
+| Controllers + DI | `nextrush/class` |
+| SSE / NDJSON / text stream | `ctx.sse` / `ctx.ndjson` / `ctx.stream` (`@nextrush/stream`) |
+| Bidirectional realtime (Node only) | `@nextrush/websocket` |
+| Typed app events | `@nextrush/events` |
+| Class-module unit tests | `@nextrush/testing` |
+| Scaffold project | `pnpm create nextrush` |
 
-// CLASS-BASED API — DI, decorators, controllers (auto-imports reflect-metadata)
-import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
+**Next.js is NOT a separate skill.** It is one adapter. Keep Next.js work in this skill via `references/nextjs.md`.
+
+## Scaffold First
+
+```bash
+pnpm create nextrush my-api
+# or: npx create-nextrush@latest my-api
+cd my-api && pnpm dev
 ```
 
-**Rule**: Never import class-based APIs (`Controller`, `Service`, `inject`,
-`controllersPlugin`, etc.) from `'nextrush'` — they only exist in
-`'nextrush/class'`. Functional APIs (`createApp`, `createRouter`, `listen`,
-errors, types) only exist in `'nextrush'`.
+Templates: functional | class-based | full. Runtimes: node | bun | deno. Flags: `--yes --no-git --no-install`.
 
-**tsconfig requirement for class-based**: When using `nextrush/class`, the
-project's `tsconfig.json` must have `"experimentalDecorators": true` and
-`"emitDecoratorMetadata": true` under `compilerOptions`. Functional-only
-projects don't need these flags.
+Dev toolkit (`@nextrush/dev`):
 
-When using individual packages directly (advanced), import from `@nextrush/*`:
-
-```typescript
-import { createApp } from '@nextrush/core';
-import { createRouter } from '@nextrush/router';
-import { Service, container } from '@nextrush/di';
-import { Controller, Get, Body } from '@nextrush/decorators';
-import { controllersPlugin } from '@nextrush/controllers';
-import { NotFoundError } from '@nextrush/errors';
-import type { Context, Middleware } from '@nextrush/types';
+```bash
+nextrush dev                 # multi-runtime dev server
+nextrush build               # production build
+nextrush g controller user   # also: service, middleware, guard, route
 ```
 
-## Package Map
-
-| Package                  | Import Path              | Purpose                                        |
-| ------------------------ | ------------------------ | ---------------------------------------------- |
-| **Meta (functional)**    | `nextrush`               | createApp, createRouter, listen, errors, types |
-| **Meta (class-based)**   | `nextrush/class`         | DI, decorators, controllers, reflect-metadata  |
-| `@nextrush/core`         | `@nextrush/core`         | Application, middleware composition            |
-| `@nextrush/router`       | `@nextrush/router`       | Radix tree routing                             |
-| `@nextrush/errors`       | `@nextrush/errors`       | HTTP error hierarchy (40+ classes)             |
-| `@nextrush/types`        | `@nextrush/types`        | Shared TypeScript types                        |
-| `@nextrush/di`           | `@nextrush/di`           | Dependency injection (tsyringe wrapper)        |
-| `@nextrush/decorators`   | `@nextrush/decorators`   | Controller, route, param, guard decorators     |
-| `@nextrush/controllers`  | `@nextrush/controllers`  | Auto-discovery, handler building               |
-| `@nextrush/adapter-node` | `@nextrush/adapter-node` | Node.js HTTP adapter                           |
-| `@nextrush/adapter-bun`  | `@nextrush/adapter-bun`  | Bun adapter                                    |
-| `@nextrush/adapter-deno` | `@nextrush/adapter-deno` | Deno adapter                                   |
-| `@nextrush/adapter-edge` | `@nextrush/adapter-edge` | Edge/Cloudflare/Vercel/Netlify                 |
-| `@nextrush/body-parser`  | `@nextrush/body-parser`  | JSON, URL-encoded, text, raw body              |
-| `@nextrush/cors`         | `@nextrush/cors`         | CORS with presets                              |
-| `@nextrush/helmet`       | `@nextrush/helmet`       | Security headers with presets                  |
-| `@nextrush/rate-limit`   | `@nextrush/rate-limit`   | Rate limiting (token bucket, sliding window)   |
-| `@nextrush/compression`  | `@nextrush/compression`  | gzip, deflate, brotli                          |
-| `@nextrush/cookies`      | `@nextrush/cookies`      | Cookie parsing, signing, sessions              |
-| `@nextrush/csrf`         | `@nextrush/csrf`         | CSRF protection                                |
-| `@nextrush/multipart`    | `@nextrush/multipart`    | File uploads (disk/memory storage)             |
-| `@nextrush/request-id`   | `@nextrush/request-id`   | Request ID, correlation, tracing               |
-| `@nextrush/timer`        | `@nextrush/timer`        | Response time, Server-Timing header            |
-| `@nextrush/events`       | `@nextrush/events`       | Event emitter plugin                           |
-| `@nextrush/logger`       | `@nextrush/logger`       | Structured logging plugin                      |
-| `@nextrush/static`       | `@nextrush/static`       | Static file serving                            |
-| `@nextrush/template`     | `@nextrush/template`     | Template engine (EJS, Handlebars, Pug, etc.)   |
-| `@nextrush/websocket`    | `@nextrush/websocket`    | WebSocket support                              |
-| `@nextrush/dev`          | `@nextrush/dev`          | CLI: dev, build, generate                      |
-| `@nextrush/runtime`      | `@nextrush/runtime`      | Runtime detection, body source                 |
-
-## Quick Start
-
-### Functional Style
+## Functional Quickstart
 
 ```typescript
-import { createApp, createRouter, listen } from 'nextrush';
+import { createApp, createRouter, serve, errorHandler } from 'nextrush';
+import { bodyParser } from '@nextrush/body-parser';
 
 const app = createApp();
 const router = createRouter();
 
-router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush' }));
-router.get('/users/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+app.use(errorHandler()); // outermost
+app.use(bodyParser());
 
-app.route('/', router);
-listen(app, 3000);
+router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush!' }));
+router.get('/users/:id', (ctx) => {
+  ctx.assert(ctx.params.id, 400, 'id required');
+  ctx.json({ id: ctx.params.id });
+});
+router.post('/users', (ctx) => {
+  ctx.status = 201;
+  ctx.json({ created: true, data: ctx.body });
+});
+
+// Routes registered on the app's default router auto-mount — no app.route() needed
+// if you passed the same router into createApp, or use createApp()'s built-in router via app.get:
+
+app.get('/health', (ctx) => ctx.json({ ok: true }));
+
+await serve(app, { port: 8080 });
 ```
 
-### Class-Based Style
+`createApp()` from `nextrush` wires a default router so `app.get` / `app.post` work out of the box. Import `createApp` from `@nextrush/core` only when you want a bare engine (bring-your-own router).
+
+## Class-Based Quickstart
 
 ```typescript
-import { createApp, createRouter, listen } from 'nextrush';
-import { Controller, Get, Post, Body, Service, controllersPlugin } from 'nextrush/class';
+import { createApp, serve, errorHandler } from 'nextrush';
+import { bodyParser } from '@nextrush/body-parser';
+import {
+  Controller, Get, Post, Body, Param, Service,
+  registerControllers, UseGuard,
+} from 'nextrush/class';
+import { NotFoundError } from 'nextrush';
 
 @Service()
 class UserService {
-  async findAll() {
-    return [{ id: 1, name: 'Alice' }];
-  }
+  findById(id: number) { return { id, name: 'Alice' }; }
+  create(data: { name: string }) { return { id: 1, ...data }; }
 }
 
 @Controller('/users')
 class UserController {
-  constructor(private userService: UserService) {}
+  constructor(private users: UserService) {}
 
-  @Get()
-  async list() {
-    return this.userService.findAll();
+  @Get('/:id')
+  findById(@Param('id', { transform: Number }) id: number) {
+    const user = this.users.findById(id);
+    if (!user) throw new NotFoundError('User not found');
+    return user; // auto-JSON
   }
 
   @Post()
-  async create(@Body() data: { name: string }) {
-    return data;
+  create(@Body() data: { name: string }) {
+    return this.users.create(data);
   }
 }
 
 const app = createApp();
-const router = createRouter();
-await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
-app.route('/', router);
-listen(app, 3000);
-```
-
-## Context API
-
-The Context object is the primary interface for request/response handling.
-
-```typescript
-// ── Request (Input) ──────────────────────────────
-ctx.method; // HttpMethod ('GET', 'POST', etc.)
-ctx.path; // Request path ('/users/123')
-ctx.url; // Full URL string
-ctx.params; // Route parameters { id: '123' }
-ctx.query; // Query parameters { page: '1', limit: '10' }
-ctx.body; // Parsed request body (set by body-parser)
-ctx.headers; // Request headers (readonly)
-ctx.ip; // Client IP address
-ctx.get('header'); // Get specific request header
-ctx.state; // Mutable state bag for middleware data passing
-
-// ── Response (Output) ────────────────────────────
-ctx.json(data); // Send JSON response (sets Content-Type)
-ctx.send(data); // Send text, Buffer, or stream
-ctx.html(str); // Send HTML response
-ctx.redirect(url); // Redirect (default 302, pass status as 2nd arg)
-ctx.status = 201; // Set status code
-ctx.set('key', 'v'); // Set response header
-ctx.responded; // Boolean — true if response already sent
-
-// ── Error Helpers ────────────────────────────────
-ctx.throw(404, 'Not found'); // Throw HttpError
-ctx.assert(condition, 400, 'Bad'); // Assert or throw
-
-// ── Flow Control ─────────────────────────────────
-await ctx.next(); // Call next middleware in chain
-
-// ── Raw Access ───────────────────────────────────
-ctx.raw; // Raw HTTP request/response (platform-specific)
-ctx.runtime; // Runtime identifier ('node', 'bun', 'deno', 'edge')
-ctx.bodySource; // Body source for streaming
-```
-
-## Middleware
-
-Koa-style async middleware. Must call `ctx.next()` OR send a response — never
-both, never neither.
-
-```typescript
-import type { Middleware } from 'nextrush';
-
-const logger: Middleware = async (ctx) => {
-  const start = Date.now();
-  await ctx.next();
-  console.log(`${ctx.method} ${ctx.path} ${Date.now() - start}ms`);
-};
-
-app.use(logger);
-```
-
-Order matters: first registered = outermost. Register error/security middleware
-first, then business logic.
-
-## Application
-
-```typescript
-import { createApp } from 'nextrush';
-const app = createApp({ env: 'production', proxy: true });
-
-app.use(middleware); // Register middleware
-app.route('/prefix', router); // Mount router at prefix
-await app.plugin(myPlugin); // Install plugin (sync or async)
-app.setErrorHandler(handler); // Custom error handler
-app.getPlugin('name'); // Get installed plugin
-app.hasPlugin('name'); // Check if plugin installed
-app.callback(); // Build request handler (for adapters)
-```
-
-## Routing Quick Reference
-
-```typescript
-import { createRouter } from 'nextrush';
-const router = createRouter();
-
-router.get('/users', handler); // GET
-router.post('/users', handler); // POST
-router.put('/users/:id', handler); // PUT
-router.patch('/users/:id', handler); // PATCH
-router.delete('/users/:id', handler); // DELETE
-router.head('/health', handler); // HEAD
-router.options('/users', handler); // OPTIONS
-router.all('/any', handler); // All methods
-router.redirect('/old', '/new', 301); // Redirect
-router.use(middleware); // Router-scoped middleware
-router.use('/nested', childRouter); // Mount sub-router
-```
-
-Route params: `/:id` → `ctx.params.id`. Wildcard: `/*` catches all.
-
-## Controllers & Decorators Quick Reference
-
-```typescript
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Patch,
-  Body,
-  Param,
-  Query,
-  Header,
-  Ctx,
-  UseGuard,
-  Redirect,
-  SetHeader,
-  Service,
-  Repository,
-  inject,
-  container,
-  controllersPlugin,
-} from 'nextrush/class';
-import type { GuardFn, CanActivate, GuardContext } from 'nextrush/class';
-```
-
-| Decorator                                              | Purpose                                 |
-| ------------------------------------------------------ | --------------------------------------- |
-| `@Controller('/path')`                                 | Define controller with route prefix     |
-| `@Get()`, `@Post()`, `@Put()`, `@Delete()`, `@Patch()` | Route methods                           |
-| `@Body()`, `@Body('key')`                              | Request body / specific field           |
-| `@Param()`, `@Param('id')`                             | Route params / specific param           |
-| `@Query()`, `@Query('page')`                           | Query params / specific param           |
-| `@Header()`, `@Header('auth')`                         | Headers / specific header               |
-| `@Ctx()`                                               | Full Context object                     |
-| `@Req()`, `@Res()`                                     | Raw request/response (escape hatch)     |
-| `@UseGuard(guard)`                                     | Apply guard (class or method level)     |
-| `@Redirect(url, status?)`                              | Redirect response                       |
-| `@SetHeader(key, value)`                               | Set response header                     |
-| `@Service()`                                           | Singleton DI registration (default)     |
-| `@Service({ scope: 'transient' })`                     | New instance per resolve                |
-| `@Repository()`                                        | Semantic alias for data access          |
-| `@Config()`                                            | Configuration holder (always singleton) |
-| `@Optional()`                                          | Mark constructor param as optional      |
-| `@inject(token)`                                       | Inject by token (for interfaces)        |
-
-Parameter transforms: `@Param('id', { transform: Number })` or
-`@Body({ transform: zodSchema.parseAsync })`.
-
-## Error Handling Quick Reference
-
-```typescript
-import { NotFoundError, BadRequestError, HttpError, errorHandler } from 'nextrush';
-
-// Throw typed errors
-throw new NotFoundError('User not found');
-throw new BadRequestError('Invalid input');
-
-// Use built-in error handler middleware
 app.use(errorHandler());
-
-// Or use ctx helpers
-ctx.throw(404, 'Not found');
-ctx.assert(user, 404, 'User not found');
+app.use(bodyParser());
+await registerControllers(app, { root: './src', prefix: '/api' });
+await serve(app, { port: 8080 });
 ```
 
-Common errors from `nextrush`: `BadRequestError` (400), `UnauthorizedError` (401),
-`ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409),
-`TooManyRequestsError` (429), `InternalServerError` (500).
-Extended errors (from `@nextrush/errors` only): `ValidationError`,
-`RequiredFieldError`, `PaymentRequiredError`, `GoneError`, etc.
-See [error-handling.md](references/error-handling.md) for the full list of
-40+ error classes and factory functions.
+Class exports live under `nextrush/class` (or `@nextrush/class`). Functional entry does **not** pull DI/`reflect-metadata`.
 
-## Built-in Middleware Packages
-
-Install individually from `@nextrush/*`:
+## Context (accurate surface)
 
 ```typescript
-import { bodyParser } from '@nextrush/body-parser';
+// Request
+ctx.method, ctx.path, ctx.url, ctx.query, ctx.params, ctx.body
+ctx.headers, ctx.get('authorization'), ctx.ip
+ctx.runtime   // 'node' | 'bun' | 'deno' | 'edge' | 'cloudflare-workers' | 'vercel-edge' | ...
+ctx.platform  // 'lambda' | 'gcf' | 'azure' | 'cloudflare-workers' | 'vercel-edge' | 'netlify-edge' | undefined
+ctx.signal    // AbortSignal (client disconnect + timeout)
+ctx.state      // per-request bag
+ctx.env       // edge bindings (Cloudflare KV/D1/R2 when using createCloudflareHandler)
+
+// Response
+ctx.status = 201
+ctx.set('X-Custom', 'v')
+ctx.json(data) | ctx.send(data) | ctx.html(html) | ctx.redirect(url, 302)
+ctx.stream(async (w) => { await w.write('chunk'); })
+ctx.sse(async (w) => { await w.write({ data: token }); })
+ctx.ndjson(async (w) => { await w.write({ event: 'step', data }); })
+ctx.sendStream(readableStream)
+
+// Errors
+ctx.throw(404, 'missing')
+ctx.assert(user, 404, 'User not found')
+
+// Edge / serverless background work
+ctx.waitUntil?.(promise)  // when platform provides execution context
+```
+
+**Never invent helpers** like `ctx.ok()` / `ctx.created()` — use `ctx.status` + `ctx.json`.
+
+Full detail: `references/context.md`.
+
+## Adapter Decision Guide
+
+```
+Need listen()/own process?
+  Node → nextrush (adapter-node re-export)
+  Bun  → @nextrush/adapter-bun
+  Deno → @nextrush/adapter-deno
+
+Fetch API host (no listen)?
+  Cloudflare Workers → createCloudflareHandler(app)
+  Vercel Edge        → createVercelHandler(app)
+  Netlify Edge       → createNetlifyHandler(app)
+  Generic Fetch      → createFetchHandler(app)
+
+FaaS event shapes?
+  AWS Lambda (URL / APIGW v1/v2) → createLambdaHandler(app)
+  Lambda response streaming      → createLambdaStreamingHandler(app)
+  Google Cloud Functions         → createGoogleHandler(app)
+  Azure Functions v4             → createAzureHandler(app)
+
+Inside Next.js App Router?
+  app/api/[[...route]]/route.ts → handle(app) from 'nextrush/nextjs'
+```
+
+### Critical adapter rules
+
+1. **Build app at module scope** on serverless (once per cold start), never inside the handler.
+2. On serverless/edge via these adapters, `ctx.runtime` is often `'edge'` — use **`ctx.platform`** to know provider (`'lambda' | 'gcf' | 'azure' | ...`).
+3. Next.js: only App Router. Pages Router unsupported. Mount paths live on the **app** (`app.route('/api', router)`), not the bridge.
+4. WebSocket package is **Node-only**. Edge/Bun/Deno: use platform native WS or SSE via `@nextrush/stream`.
+
+Details: `references/adapters.md`, `references/nextjs.md`, `references/serverless-edge.md`.
+
+## Next.js (in this skill)
+
+```typescript
+// src/server/app.ts
+import { createApp, createRouter } from 'nextrush';
+const app = createApp();
+const api = createRouter();
+api.get('/hello', (ctx) => ctx.json({ ok: true }));
+app.route('/api', api);
+export { app };
+
+// app/api/[[...route]]/route.ts
+import { app } from '@/server/app';
+import { handle } from 'nextrush/nextjs';
+export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = handle(app);
+```
+
+Class/DI apps: pass async factory to `handle(() => bootApp())` so boot is memoized. See `references/nextjs.md`.
+
+## Middleware (install separately)
+
+```typescript
 import { cors } from '@nextrush/cors';
 import { helmet } from '@nextrush/helmet';
+import { bodyParser } from '@nextrush/body-parser';
+import { validate } from '@nextrush/validation';
 import { rateLimit } from '@nextrush/rate-limit';
-
-const app = createApp();
-app.use(helmet()); // Security headers
-app.use(cors()); // CORS
-app.use(bodyParser()); // Parse JSON/form bodies
-app.use(rateLimit({ max: 100, window: 60 })); // Rate limiting
-```
-
-| Package     | Quick Usage                                                 | Presets                                        |
-| ----------- | ----------------------------------------------------------- | ---------------------------------------------- |
-| body-parser | `bodyParser()`, `json()`, `urlencoded()`, `text()`, `raw()` | —                                              |
-| cors        | `cors()`                                                    | `devCors()`, `strictCors()`, `simpleCors()`    |
-| helmet      | `helmet()`                                                  | `strictHelmet()`, `devHelmet()`, `apiHelmet()` |
-| rate-limit  | `rateLimit({ max, window })`                                | `tokenBucket`, `slidingWindow`, `fixedWindow`  |
-| compression | `compression()`                                             | `gzip()`, `deflate()`, `brotli()`              |
-| cookies     | `cookies({ secret })`                                       | `secureOptions()`, `sessionOptions()`          |
-| csrf        | `csrf()`                                                    | —                                              |
-| multipart   | `multipart({ storage })`                                    | `DiskStorage`, `MemoryStorage`                 |
-| request-id  | `requestId()`                                               | `correlationId()`, `traceId()`                 |
-| timer       | `timer()`                                                   | `responseTime()`, `serverTiming()`             |
-
-See [middleware.md](references/middleware.md) for detailed configuration.
-
-## Plugins
-
-```typescript
-// Controllers — auto-discovery of @Controller classes
-import { controllersPlugin } from 'nextrush/class';
-await app.plugin(controllersPlugin({ router, root: './src', prefix: '/api' }));
-
-// Events — pub/sub event system
-import { eventsPlugin } from '@nextrush/events';
-
-// Logger — structured logging
-import { createLogger } from '@nextrush/logger';
-
-// Static — serve static files
+import { compression } from '@nextrush/compression';
+import { cookies } from '@nextrush/cookies';
+import { csrf } from '@nextrush/csrf';
+import { logger } from '@nextrush/logger';
+import { requestId } from '@nextrush/request-id';
+import { timer } from '@nextrush/timer';
+import { health } from '@nextrush/health';
+import { openapi } from '@nextrush/openapi';
 import { staticMiddleware } from '@nextrush/static';
+import { z } from 'zod';
 
-// Template — render templates (EJS, Handlebars, Pug, etc.)
-import { templateMiddleware } from '@nextrush/template';
+app.use(errorHandler());
+app.use(requestId());
+app.use(timer());
+app.use(logger());
+app.use(helmet());
+app.use(cors());
+app.use(compression());
+app.use(bodyParser());
+app.use(rateLimit({ windowMs: 60_000, max: 100 }));
 
-// WebSocket — real-time communication
-import { createWebSocket } from '@nextrush/websocket';
+const CreateUser = z.object({ name: z.string().min(1), email: z.string().email() });
+app.post('/users', validate(CreateUser), (ctx) => {
+  ctx.status = 201;
+  ctx.json(ctx.body);
+});
+
+app.use(openapi({ router: app.router /* or your router */, info: { title: 'API', version: '1.0' } }));
 ```
 
-See [ecosystem.md](references/ecosystem.md) for detailed plugin docs.
+Order rule: **errorHandler outermost**; bodyParser before anything reading `ctx.body`; validation after bodyParser. Full catalog: `references/middleware.md`.
 
-## Adapters
+## Streaming vs WebSocket vs Events
 
-Default adapter is Node.js (included in `nextrush`). For other runtimes:
+| Need | Use |
+|------|-----|
+| One-way server→client (LLM tokens, logs) | `ctx.sse` / `ctx.ndjson` / `ctx.stream` |
+| Bidirectional chat/rooms (Node process) | `@nextrush/websocket` Extension |
+| In-process typed pub/sub | `@nextrush/events` Extension |
 
 ```typescript
-// Bun
-import { listen } from '@nextrush/adapter-bun';
-listen(app, 3000);
+// SSE
+app.post('/chat', async (ctx) => {
+  await ctx.sse(async (writer) => {
+    for await (const token of tokens) {
+      await writer.write({ data: token });
+    }
+  });
+});
 
-// Deno
-import { listen } from '@nextrush/adapter-deno';
-listen(app, 3000);
-
-// Edge (Cloudflare Workers, Vercel Edge, Netlify Edge)
-import { createCloudflareHandler } from '@nextrush/adapter-edge';
-export default { fetch: createCloudflareHandler(app) };
+// WebSocket (Node)
+import { createWebSocketExtension } from '@nextrush/websocket';
+const app = createApp().extend(createWebSocketExtension());
+await app.ready();
+app.wss.on('/chat', (conn) => {
+  conn.join('general');
+  conn.on('message', (msg) => conn.broadcast('general', msg));
+});
+app.use(app.wss.upgrade());
+const { server } = await listen(app, 8080);
+await app.wss.attach(server);
 ```
 
-## Dev Tools
+See `references/streaming.md`, `references/websocket-events.md`.
 
-```bash
-# Scaffold a new project (package name on npm: create-nextrush)
-npm create nextrush@latest       # "create" + space + "nextrush" → create-nextrush
-pnpm create nextrush@latest
-npx create-nextrush@latest my-app
-pnpm dlx create-nextrush@latest  # dlx: use hyphenated package name, not "create nextrush"
+## Errors
 
-# Development
-nextrush dev               # Start dev server with HMR
-nextrush build             # Production build
+```typescript
+import { NotFoundError, createError, errorHandler, isHttpError } from 'nextrush';
 
-# Code generators
-nextrush generate controller user   # Generate controller
-nextrush generate service user      # Generate service
-nextrush generate middleware auth   # Generate middleware
-nextrush generate guard admin       # Generate guard
+app.use(errorHandler({ includeStack: process.env.NODE_ENV !== 'production' }));
+
+app.get('/x/:id', (ctx) => {
+  if (!found) throw new NotFoundError('missing');
+  // or: ctx.throw(404, 'missing'); createError(418, "teapot");
+});
 ```
 
-## Topic Reference
+Classes: `BadRequestError`, `UnauthorizedError`, `ForbiddenError`, `NotFoundError`, `ConflictError`, `UnprocessableEntityError`, `TooManyRequestsError`, `InternalServerError`, `ValidationError`, … Full list: `references/errors.md`.
 
-Read reference files for detailed patterns, edge cases, and troubleshooting:
+## Testing (class modules)
 
-| Topic       | File                                                                     | Use When                                                          |
-| ----------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| Middleware  | [references/middleware.md](references/middleware.md)                     | Writing middleware, configuring body-parser/cors/helmet/etc.      |
-| Routing     | [references/routing.md](references/routing.md)                           | CRUD endpoints, params, router composition, mounting              |
-| Controllers | [references/controllers.md](references/controllers.md)                   | Decorator-based routes, guards, param injection, transforms       |
-| DI          | [references/dependency-injection.md](references/dependency-injection.md) | Service registration, scopes, tokens, testing with mocks          |
-| Errors      | [references/error-handling.md](references/error-handling.md)             | Error classes, factory functions, custom errors, error middleware |
-| Ecosystem   | [references/ecosystem.md](references/ecosystem.md)                       | Plugins, adapters, dev tools, runtime detection                   |
+```typescript
+import { createTestModule } from '@nextrush/testing';
 
-## Global Rules
+const ref = await createTestModule({
+  controllers: [UserController],
+  providers: [UserService],
+})
+  .override(UserService)
+  .useValue(fakeUsers)
+  .compile();
 
-- `nextrush` = functional only. `nextrush/class` = class-based (DI, decorators, controllers)
-- Zero `any` — use `unknown` at boundaries, proper types internally
-- No `eval()`, `Function()`, or dynamic code execution
-- Error responses must never leak stack traces or internal paths
-- Middleware must call `ctx.next()` or send a response — never both, never neither
-- `reflect-metadata` is auto-imported by `nextrush/class` — no manual import needed
-- Lower packages never import from higher packages in the hierarchy
-- No external runtime dependencies in core packages
-- Use `ctx.state` for passing data between middleware — not globals
-- Register error/security middleware before business logic middleware
+const res = await ref.request('GET', '/users/1');
+// res.status, res.body
+await ref.close();
+```
+
+See `references/testing.md`.
+
+## Architecture Mental Model
+
+```
+Your routes / controllers / services
+        ↓
+   Application (compose middleware + router)
+        ↓
+   Context (WebContextBase) — Request/Response wrapper
+        ↓
+   Adapter (node | bun | deno | edge | serverless | nextjs)
+        ↓
+   Host runtime
+```
+
+Request path: middleware chain → match route → handler → build Response. Errors bubble to outermost `errorHandler`. Class path inserts guards → interceptors → handler → filters.
+
+Deeper diagrams & package hierarchy: `references/architecture.md`.
+
+## Best Practices (agents MUST follow)
+
+1. **Prefer golden path**: `createApp` + middleware + routes + `serve` / `handle` / `createLambdaHandler` — minimal config.
+2. **Thin handlers**: validate at boundary, call one service, return data. No business logic in controllers/route files.
+3. **errorHandler first**, bodyParser before body use, specific routes before wildcards.
+4. **Same app, many hosts**: write against Context; pick adapter only at the entry file.
+5. **Capability over identity**: branch on `ctx.platform` / explicit options, not `ctx.runtime === 'node'`.
+6. **Serverless**: module-scope app; no per-request mutable globals; per-request data on `ctx.state`.
+7. **Next.js**: one `src/server/app.ts` export; route.ts is only the bridge; App Router catch-all.
+8. **Class vs functional**: small/service = functional; growing domain + DI/guards = class. Hybrid OK.
+9. **Do not import Node APIs into shared app code** destined for edge.
+10. **ESM-only** packages — use `"type": "module"`.
+11. **OpenAPI**: attach `endpoint({...})` + `validate(schema)`; mount `openapi({ router })`.
+12. **Test with `@nextrush/testing`** for class modules; use `app.handle(new Request(...))` for functional.
+
+Expanded checklist: `references/best-practices.md`.
+
+## Package Map
+
+```
+nextrush                 # functional meta: createApp, router, listen/serve, errors, types
+nextrush/class           # @Controller, DI, guards, interceptors, modules
+nextrush/nextjs          # handle(app) → Next App Router exports
+
+@nextrush/core           # Application engine
+@nextrush/router         # segment-trie router
+@nextrush/di             # container
+@nextrush/types          # Context, Middleware, Runtime, PlatformId
+@nextrush/errors         # HttpError hierarchy
+@nextrush/runtime        # WebContextBase, detection, IP, body helpers
+@nextrush/stream         # stream/sse/ndjson runners
+@nextrush/testing        # createTestModule
+@nextrush/dev            # CLI: dev/build/generate
+create-nextrush          # project scaffolder
+
+@nextrush/adapter-node | adapter-bun | adapter-deno
+@nextrush/adapter-edge | adapter-serverless | adapter-nextjs
+
+middleware: cors helmet body-parser form-data validation rate-limit
+            compression cookies csrf static template logger timer
+            request-id health openapi
+
+extensions: @nextrush/websocket  @nextrush/events
+```
+
+## Common Gotchas
+
+1. `errorHandler` must be outermost.
+2. `ctx.body` empty without body-parser (or multipart for uploads).
+3. Route order: `/users/list` before `/users/:id`.
+4. `registerControllers({ root })` is cwd-relative.
+5. Functional `createApp` is DI-free by design — class path uses `nextrush/class`.
+6. Serverless: never `createApp()` inside the exported handler.
+7. `ctx.runtime === 'node'` false on Lambda/edge adapters — use `ctx.platform`.
+8. Next.js mount mismatch: routes registered without the `/api` prefix the URL has (or vice versa) → 404 + dev warning from `handle()`.
+9. WebSocket needs both `app.use(wss.upgrade())` **and** `wss.attach(server)`.
+10. `validate()` throws `ValidationError` (422) — needs `errorHandler`.
+11. Do not double-import `reflect-metadata` (class package already loads it).
+12. Edge: no filesystem, no long sockets; prefer SSE over WS.
+
+## When to load references
+
+| Topic | File |
+|-------|------|
+| Functional API surface | `references/functional-api.md` |
+| Class/DI/guards/modules | `references/class-api.md` |
+| Middleware catalog + order | `references/middleware.md` |
+| Context methods | `references/context.md` |
+| Errors | `references/errors.md` |
+| All adapters + decision tree | `references/adapters.md` |
+| Edge + serverless deep dive | `references/serverless-edge.md` |
+| Next.js App Router | `references/nextjs.md` |
+| SSE/NDJSON/stream | `references/streaming.md` |
+| WebSocket + events | `references/websocket-events.md` |
+| Testing | `references/testing.md` |
+| Scaffold + CLI | `references/scaffolding.md` |
+| Architecture lifecycle | `references/architecture.md` |
+| Best practices | `references/best-practices.md` |
