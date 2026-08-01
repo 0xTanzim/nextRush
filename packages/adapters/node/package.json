@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/adapter-node",
-  "version": "4.0.0-beta.2",
+  "version": "4.0.0",
   "description": "Node.js HTTP adapter for NextRush",
   "type": "module",
   "main": "./dist/index.js",

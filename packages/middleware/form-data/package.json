@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/form-data",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0",
   "description": "Streaming multipart/form-data parser and file upload middleware for NextRush",
   "type": "module",
   "main": "./dist/index.js",

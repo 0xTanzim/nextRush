@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/testing",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0",
   "description": "Testing utilities for NextRush - test module builder with DI isolation",
   "type": "module",
   "main": "./dist/index.js",

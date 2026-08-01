@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/adapter-nextjs",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0",
   "description": "Mount a NextRush app in a Next.js App Router route handler (Web-standard, App Router only, Next 14/15/16)",
   "type": "module",
   "main": "./dist/index.js",

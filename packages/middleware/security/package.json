@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/security",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0",
   "description": "Composite secure-by-default preset for NextRush — helmet + strict cookies + CSRF + rate limit in one call",
   "type": "module",
   "main": "./dist/index.js",
