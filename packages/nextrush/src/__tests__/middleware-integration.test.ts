@@ -182,6 +182,7 @@ function createMockContext(options: MockContextOptions = {}): Context & {
     responded: false,
     raw: mockRaw,
     runtime: 'node' as Runtime,
+    platform: undefined,
     bodySource: mockBodySource,
     signal: new AbortController().signal,
     sendStream: async () => {},

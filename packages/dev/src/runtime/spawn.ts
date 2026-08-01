@@ -106,11 +106,11 @@ async function spawnNode(
 /**
  * Bun spawn implementation
  */
-async function spawnBun(
+function spawnBun(
   command: string,
   args: string[],
   options: SpawnOptions
-): Promise<SpawnResult> {
+): SpawnResult {
   const Bun = getBunGlobal();
 
   const proc = Bun.spawn([command, ...args], {
@@ -175,11 +175,11 @@ export function toDenoStdio(stdio: SpawnOptions['stdio']): 'inherit' | 'piped' |
 /**
  * Deno spawn implementation
  */
-async function spawnDeno(
+function spawnDeno(
   command: string,
   args: string[],
   options: SpawnOptions
-): Promise<SpawnResult> {
+): SpawnResult {
   const Deno = getDenoGlobal();
   const stdio = toDenoStdio(options.stdio);
 
