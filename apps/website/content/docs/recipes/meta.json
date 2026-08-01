@@ -1,0 +1,17 @@
+{
+  "title": "Recipes",
+  "description": "Production-ready solutions and copy-paste patterns for common scenarios",
+  "pages": [
+    "index",
+    "authentication",
+    "database",
+    "email",
+    "queue",
+    "storage",
+    "payments",
+    "deployment",
+    "monitoring",
+    "ai"
+  ],
+  "references": ["../guides", "../getting-started", "../examples"]
+}

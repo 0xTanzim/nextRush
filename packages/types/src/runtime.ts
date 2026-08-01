@@ -26,6 +26,40 @@ export type Runtime =
   | 'unknown';
 
 /**
+ * Named serverless/edge deployment platform, orthogonal to {@link Runtime}.
+ *
+ * @remarks
+ * `Runtime` answers "which JS engine" (node/bun/deno/edge); `PlatformId`
+ * answers "which vendor platform" (Lambda, GCF, Azure, Cloudflare Workers,
+ * Vercel Edge, Netlify Edge) — two independent questions that `Runtime`
+ * conflating would make into one. Exposed as `ctx.platform` alongside the
+ * unchanged `ctx.runtime`.
+ *
+ * @see RFC-026
+ */
+export type PlatformId =
+  | 'lambda'
+  | 'gcf'
+  | 'azure'
+  | 'cloudflare-workers'
+  | 'vercel-edge'
+  | 'netlify-edge';
+
+/**
+ * Proxy-trust specification for client-IP resolution (RFC-030, SEC-01).
+ *
+ * @remarks
+ * `false` trusts nothing — the direct socket peer is always `ctx.ip`.
+ * A `number` trusts exactly that many proxy hops, selecting the
+ * corresponding `X-Forwarded-For` entry counting from the right rather than
+ * the client-authored leftmost entry. A `string[]` of CIDR ranges/literal
+ * IPs trusts only a direct peer (and every hop it names) falling inside the
+ * set. `true` and `0` are rejected at boot — see `resolveClientIp` in
+ * `@nextrush/runtime`.
+ */
+export type ProxyTrust = false | number | string[];
+
+/**
  * Runtime feature capabilities
  *
  * @remarks
@@ -53,6 +87,12 @@ export interface RuntimeCapabilities {
 
   /** Supports Web Workers / Worker Threads */
   workers: boolean;
+
+  /** Supports TLS (HTTPS) — the runtime can terminate TLS connections */
+  secureServing: boolean;
+
+  /** Supports HTTP/2 negotiation via ALPN (requires secureServing) */
+  http2: boolean;
 }
 
 /**
@@ -99,12 +139,17 @@ export interface BodySource {
   text(): Promise<string>;
 
   /**
-   * Read the body as a Uint8Array buffer
+   * Read the body as a Uint8Array buffer.
    *
+   * @param limit - Optional per-read byte limit. When provided, it is the value
+   *   enforced for both the Content-Length pre-check and the incremental
+   *   streaming check (taking precedence over the source's construction-time
+   *   limit); when omitted, the construction-time limit governs. See
+   *   docs/RFC/request-data/017-body-source-limit-propagation.md.
    * @returns Promise resolving to the body as Uint8Array
    * @throws Error if body has already been consumed
    */
-  buffer(): Promise<Uint8Array>;
+  buffer(limit?: number): Promise<Uint8Array>;
 
   /**
    * Read the body as JSON

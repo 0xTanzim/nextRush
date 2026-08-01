@@ -1,82 +1,114 @@
 /**
  * @nextrush/body-parser - Buffer Utilities
  *
- * Optimized buffer operations for body parsing.
+ * Runtime-agnostic byte helpers (BP-1). Uses the Web-standard `TextDecoder`
+ * and `Uint8Array` so the package loads and runs on every runtime — Node.js,
+ * Bun, Deno, and true edge runtimes (Cloudflare Workers, Vercel/Netlify Edge).
+ * There is no `node:string_decoder` import and no unconditional `Buffer` use.
  *
  * @packageDocumentation
  */
 
-import { StringDecoder } from 'node:string_decoder';
-import { STRING_DECODER_THRESHOLD } from '../constants.js';
-
 /**
- * Encodings supported by StringDecoder.
- * Module-level constant to avoid per-call allocation.
+ * Map supported charset labels (and their common aliases) to a canonical
+ * `TextDecoder` encoding label. Fixes the alias mismatch (BP-4) that previously
+ * threw a raw `TypeError` for dashed forms like `ucs-2` / `utf-16le`.
  */
-const STRING_DECODER_ENCODINGS = new Set([
-  'utf8',
-  'utf-8',
-  'utf16le',
-  'ucs2',
-  'base64',
-  'latin1',
-  'ascii',
-  'hex',
-]);
+const DECODER_LABELS: Readonly<Record<string, string>> = {
+  'utf-8': 'utf-8',
+  utf8: 'utf-8',
+  'utf-16le': 'utf-16le',
+  utf16le: 'utf-16le',
+  'ucs-2': 'utf-16le',
+  ucs2: 'utf-16le',
+  latin1: 'iso-8859-1',
+  binary: 'iso-8859-1',
+  'iso-8859-1': 'iso-8859-1',
+  ascii: 'ascii',
+};
 
-/**
- * Convert buffer to string with encoding support.
- *
- * Uses StringDecoder for UTF-8 buffers larger than threshold
- * for better performance with large payloads.
- *
- * @param buffer - Buffer to convert
- * @param encoding - Character encoding (default: 'utf8')
- * @returns Decoded string
- */
-export function bufferToString(buffer: Buffer, encoding: BufferEncoding = 'utf8'): string {
-  if (buffer.length === 0) {
-    return '';
+/** Cache decoder instances (stateless for one-shot decode) to avoid per-call allocation. */
+const decoderCache = new Map<string, TextDecoder>();
+
+function decoderFor(charset: string): TextDecoder {
+  const label = DECODER_LABELS[charset.toLowerCase()] ?? 'utf-8';
+  let decoder = decoderCache.get(label);
+  if (decoder === undefined) {
+    decoder = new TextDecoder(label);
+    decoderCache.set(label, decoder);
   }
-
-  // Fast path for small buffers
-  if (buffer.length < STRING_DECODER_THRESHOLD) {
-    return buffer.toString(encoding);
-  }
-
-  // StringDecoder only supports certain encodings
-  if (!STRING_DECODER_ENCODINGS.has(encoding)) {
-    return buffer.toString(encoding);
-  }
-
-  // StringDecoder handles multi-byte sequences correctly
-  // and has better performance for large buffers
-  const decoder = new StringDecoder(encoding);
-  return decoder.write(buffer) + decoder.end();
+  return decoder;
 }
 
 /**
- * Concatenate buffers with optimization for common cases.
+ * Decode bytes to a string using a Web-standard `TextDecoder`.
  *
- * @param chunks - Array of buffer chunks
- * @param totalLength - Pre-calculated total length
- * @returns Concatenated buffer
+ * @param bytes - Bytes to decode
+ * @param charset - Character set (default `'utf-8'`); unknown charsets fall back to UTF-8
+ * @returns Decoded string
  */
-export function concatBuffers(chunks: Buffer[], totalLength: number): Buffer {
+export function bufferToString(bytes: Uint8Array, charset = 'utf-8'): string {
+  if (bytes.length === 0) {
+    return '';
+  }
+  // BP-G: on Node-family runtimes the body bytes are already a `Buffer`, and
+  // `Buffer.toString('utf8')` decodes measurably faster than `TextDecoder` for the
+  // common small-to-mid UTF-8 payload (see the decode micro-bench) with byte-identical
+  // output — including U+FFFD replacement for malformed sequences. The exact-string
+  // charset checks avoid a per-call `toLowerCase()` allocation on the hot path. Falls
+  // back to the cached `TextDecoder` for non-UTF-8 charsets and true edge runtimes
+  // (plain `Uint8Array`, no `Buffer` global).
+  if (
+    (charset === 'utf-8' || charset === 'utf8') &&
+    typeof Buffer !== 'undefined' &&
+    Buffer.isBuffer(bytes)
+  ) {
+    return bytes.toString('utf8');
+  }
+  return decoderFor(charset).decode(bytes);
+}
+
+/**
+ * Concatenate byte chunks into a single `Uint8Array`.
+ *
+ * @param chunks - Array of byte chunks
+ * @param totalLength - Pre-calculated total length
+ * @returns Concatenated bytes
+ */
+export function concatBuffers(chunks: Uint8Array[], totalLength: number): Uint8Array {
   // Empty case
   if (chunks.length === 0) {
-    return Buffer.alloc(0);
+    return new Uint8Array(0);
   }
 
-  // Single chunk optimization - avoid allocation
+  // Single chunk optimization - avoid allocation/copy
   if (chunks.length === 1) {
-    const chunk = chunks[0];
-    if (chunk !== undefined) {
-      return chunk;
-    }
-    return Buffer.alloc(0);
+    return chunks[0] ?? new Uint8Array(0);
   }
 
-  // Multiple chunks - use concat
-  return Buffer.concat(chunks, totalLength);
+  // Multiple chunks - copy into one contiguous buffer
+  const out = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
+}
+
+/**
+ * Present raw bytes to user code as a Node `Buffer` when the runtime provides
+ * one (nicer DX: `ctx.rawBody.toString('utf8')`, `.readUInt32BE`, etc.), and as
+ * the plain `Uint8Array` otherwise. Never imports `node:buffer` — it only reads
+ * the optional `Buffer` global, so edge runtimes simply get the `Uint8Array`.
+ *
+ * @param bytes - Raw body bytes
+ * @returns A `Buffer` on Node/Bun/Deno, or the original `Uint8Array` on edge
+ */
+export function toRawBody(bytes: Uint8Array): Uint8Array {
+  if (typeof Buffer !== 'undefined') {
+    // Zero-copy view over the same memory.
+    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  }
+  return bytes;
 }

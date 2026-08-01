@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- dev CLI selects runtime-specific build/bundling; platform optimization, not a request-path capability decision */
 /**
  * @nextrush/dev - Build Command
  *
@@ -8,61 +9,26 @@
  */
 
 import {
-    detectRuntime,
-    existsSync,
-    exitProcess,
-    getCwd,
-    getRuntimeInfo,
-    initFsSync,
-    joinPath,
-    resolvePath,
+  detectRuntime,
+  existsSync,
+  exitProcess,
+  getCwd,
+  getRuntimeInfo,
+  initFsSync,
+  joinPath,
+  resolvePath,
 } from '../runtime/index.js';
-import { NODE_CHILD_PROCESS, NODE_FS_PROMISES, NODE_PATH } from '../runtime/node-modules.js';
-import { findEntry } from '../utils/config.js';
+import { findEntry, validateDecoratorConfig } from '../utils/config.js';
+import { banner, error, formatDuration, info, log, newline, success, warn } from '../utils/logger.js';
 import {
-    banner,
-    error,
-    formatDuration,
-    formatSize,
-    info,
-    log,
-    newline,
-    success,
-    warn,
-} from '../utils/logger.js';
-
-const VALID_TARGETS = new Set(['es2020', 'es2021', 'es2022', 'esnext']);
-
-function parseBuildTarget(value: string | undefined): BuildOptions['target'] {
-  if (!value || !VALID_TARGETS.has(value)) {
-    error('--target expects one of: es2020, es2021, es2022, esnext');
-    exitProcess(1);
-  }
-
-  return value as BuildOptions['target'];
-}
-
-/**
- * Build options
- */
-export interface BuildOptions {
-  /** Entry file path */
-  entry?: string;
-  /** Output directory */
-  outDir?: string;
-  /** Target ES version */
-  target?: 'es2020' | 'es2021' | 'es2022' | 'esnext';
-  /** Generate sourcemaps */
-  sourcemap?: boolean;
-  /** Minify output */
-  minify?: boolean;
-  /** Emit decorator metadata (required for DI) */
-  decoratorMetadata?: boolean;
-  /** Clean output directory before build */
-  clean?: boolean;
-  /** Verbose output */
-  verbose?: boolean;
-}
+  cleanDirectory,
+  buildWithSwc,
+  buildWithBun,
+  buildWithDeno,
+  parseBuildTarget,
+  resolveBuildOptions,
+  type BuildOptions,
+} from './build/index.js';
 
 /**
  * Build the application with SWC
@@ -81,19 +47,15 @@ export interface BuildOptions {
  * await build('./src/index.ts', { outDir: 'dist', minify: true });
  * ```
  */
+export type { BuildOptions };
 export async function build(entry?: string, options: BuildOptions = {}): Promise<void> {
   // Initialize fs module for sync operations (required in ESM context)
   await initFsSync();
 
   const startTime = Date.now();
   const cwd = getCwd();
-  const resolvedEntry = entry ?? options.entry ?? findEntry();
-  const outDir = options.outDir ?? 'dist';
-  const target = options.target ?? 'es2022';
-  const sourcemap = options.sourcemap ?? true;
-  const minify = options.minify ?? false;
-  const decoratorMetadata = options.decoratorMetadata ?? true;
-  const clean = options.clean ?? true;
+  const entryOrConfig = entry ?? options.entry;
+  const resolvedEntry = entryOrConfig ?? findEntry();
 
   // Get runtime info
   const runtimeInfo = getRuntimeInfo();
@@ -103,11 +65,15 @@ export async function build(entry?: string, options: BuildOptions = {}): Promise
   banner('Build');
   info('Runtime', `${runtimeInfo.runtime} v${runtimeInfo.version}`);
   info('Entry', resolvedEntry);
-  info('Output', outDir);
-  info('Target', target);
-  info('Decorator Metadata', decoratorMetadata ? 'enabled' : 'disabled');
-  info('Sourcemap', sourcemap ? 'enabled' : 'disabled');
-  info('Minify', minify ? 'enabled' : 'disabled');
+
+  // Resolve remaining options after entry is known
+  const resolved = resolveBuildOptions(options);
+
+  info('Output', resolved.outDir);
+  info('Target', resolved.target);
+  info('Decorator Metadata', resolved.decoratorMetadata ? 'enabled' : 'disabled');
+  info('Sourcemap', resolved.sourcemap ? 'enabled' : 'disabled');
+  info('Minify', resolved.minify ? 'enabled' : 'disabled');
   newline();
 
   // Validate entry file exists
@@ -125,451 +91,39 @@ export async function build(entry?: string, options: BuildOptions = {}): Promise
     warn('No tsconfig.json found, using default settings');
   }
 
+  // Fail fast on a decorator-metadata toolchain misconfiguration (mismatched
+  // experimentalDecorators/emitDecoratorMetadata) — a broken build should not
+  // ship silently, unlike `nextrush dev`'s warn-and-continue path.
+  try {
+    validateDecoratorConfig({ throwOnMismatch: true });
+  } catch (err) {
+    for (const line of (err as Error).message.split('\n')) {
+      error(line);
+    }
+    exitProcess(1);
+  }
+
   // Clean output directory if requested
-  if (clean) {
-    const outPath = resolvePath(cwd, outDir);
+  if (resolved.clean) {
+    const outPath = resolvePath(cwd, resolved.outDir);
     if (existsSync(outPath)) {
-      log(`Cleaning ${outDir}...`);
+      log(`Cleaning ${resolved.outDir}...`);
       await cleanDirectory(outPath);
     }
   }
 
   // Build based on runtime
   if (runtime === 'bun') {
-    await buildWithBun(resolvedEntry, outDir, options);
+    await buildWithBun(resolvedEntry, resolved.outDir, resolved);
   } else if (runtime === 'deno') {
-    await buildWithDeno(resolvedEntry, outDir, options);
+    await buildWithDeno(resolvedEntry, resolved.outDir, resolved);
   } else {
-    await buildWithSwc(resolvedEntry, outDir, options);
+    await buildWithSwc(resolvedEntry, resolved.outDir, resolved);
   }
 
   const duration = Date.now() - startTime;
   newline();
   success(`Build completed in ${formatDuration(duration)}`);
-}
-
-/**
- * Build with SWC (Node.js)
- *
- * SWC is used because:
- * 1. It supports emitDecoratorMetadata (unlike esbuild)
- * 2. It's fast (written in Rust)
- * 3. It has full TypeScript support
- */
-async function buildWithSwc(entry: string, outDir: string, options: BuildOptions): Promise<void> {
-  log('Building with SWC...');
-
-  try {
-    // Import SWC dynamically
-    const swc = await import('@swc/core');
-
-    const cwd = getCwd();
-    const target = options.target ?? 'es2022';
-    const sourcemap = options.sourcemap ?? true;
-    const minify = options.minify ?? false;
-    const decoratorMetadata = options.decoratorMetadata ?? true;
-
-    // Find all TypeScript files
-    const files = await findTypeScriptFiles(cwd, entry);
-    log(`Found ${files.length} TypeScript file(s)`);
-
-    // Ensure output directory exists
-    // Use constant variables to prevent bundler from stripping node: prefix
-    const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
-    const path = await import(/* @vite-ignore */ NODE_PATH);
-    const outPath = resolvePath(cwd, outDir);
-    await fs.mkdir(outPath, { recursive: true });
-
-    // Get source directory from entry to strip from output paths
-    const srcDir = path.dirname(resolvePath(cwd, entry));
-
-    // Transform each file
-    for (const file of files) {
-      // Calculate relative path from source dir, not cwd
-      // This ensures output goes to dist/index.js not dist/src/index.js
-      const relativePath = path.relative(srcDir, file);
-      const outFile = path.join(outPath, relativePath).replace(/\.ts$/, '.js');
-
-      // Ensure output directory exists
-      await fs.mkdir(path.dirname(outFile), { recursive: true });
-
-      // Read source
-      const source = await fs.readFile(file, 'utf-8');
-
-      // Transform with SWC
-      const result = await swc.transform(source, {
-        filename: file,
-        jsc: {
-          parser: {
-            syntax: 'typescript',
-            decorators: true,
-          },
-          target: target,
-          transform: {
-            legacyDecorator: true,
-            decoratorMetadata: decoratorMetadata,
-          },
-          keepClassNames: true,
-          minify: minify
-            ? {
-                compress: true,
-                mangle: true,
-              }
-            : undefined,
-        },
-        module: {
-          type: 'es6',
-        },
-        sourceMaps: sourcemap,
-      });
-
-      // Write output
-      await fs.writeFile(outFile, result.code);
-
-      // Write sourcemap
-      if (sourcemap && result.map) {
-        await fs.writeFile(`${outFile}.map`, result.map);
-      }
-
-      if (options.verbose) {
-        const stats = await fs.stat(outFile);
-        log(`  ${relativePath} → ${formatSize(stats.size)}`);
-      }
-    }
-
-    // Generate declaration files with tsc
-    await generateDeclarations(cwd, outDir);
-
-    success(`Built ${files.length} file(s) to ${outDir}/`);
-  } catch (err) {
-    error(`Build failed: ${(err as Error).message}`);
-    throw err;
-  }
-}
-
-/**
- * Build with Bun
- *
- * Bun has native TypeScript and decorator support.
- */
-async function buildWithBun(entry: string, outDir: string, options: BuildOptions): Promise<void> {
-  log('Building with Bun...');
-
-  try {
-    // @ts-expect-error Bun global exists in Bun runtime
-    const Bun = globalThis.Bun;
-
-    const cwd = getCwd();
-    const sourcemap = options.sourcemap ?? true;
-    const minify = options.minify ?? false;
-
-    const result = await Bun.build({
-      entrypoints: [resolvePath(cwd, entry)],
-      outdir: resolvePath(cwd, outDir),
-      target: 'bun',
-      sourcemap: sourcemap ? 'external' : 'none',
-      minify: minify,
-    });
-
-    if (!result.success) {
-      for (const log of result.logs) {
-        error(log.message);
-      }
-      throw new Error('Build failed');
-    }
-
-    success(`Built to ${outDir}/`);
-  } catch (err) {
-    error(`Build failed: ${(err as Error).message}`);
-    throw err;
-  }
-}
-
-/**
- * Build with Deno
- *
- * Deno 2.0+ has native TypeScript support and npm compatibility.
- * Uses @swc/core through npm: specifier for consistent decorator metadata emission.
- */
-async function buildWithDeno(entry: string, outDir: string, options: BuildOptions): Promise<void> {
-  log('Building with Deno + SWC...');
-
-  try {
-    // @ts-expect-error Deno global exists in Deno runtime
-    const Deno = globalThis.Deno;
-
-    const cwd = getCwd();
-    const target = options.target ?? 'es2022';
-    const sourcemap = options.sourcemap ?? true;
-    const minify = options.minify ?? false;
-    const decoratorMetadata = options.decoratorMetadata ?? true;
-
-    // Find all TypeScript files
-    const files = await findTypeScriptFiles(cwd, entry);
-    log(`Found ${files.length} TypeScript file(s)`);
-
-    // Ensure output directory exists
-    const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
-    const path = await import(/* @vite-ignore */ NODE_PATH);
-    const outPath = resolvePath(cwd, outDir);
-    await fs.mkdir(outPath, { recursive: true });
-
-    // Get source directory from entry to strip from output paths
-    const srcDir = path.dirname(resolvePath(cwd, entry));
-
-    // Try to use @swc/core via npm: specifier
-    // This provides consistent decorator metadata emission across all runtimes
-    try {
-      // Import SWC dynamically via npm: specifier
-      // @ts-expect-error npm: specifier is Deno-specific
-      const swc = await import('npm:@swc/core@1.11.1');
-
-      info('Using', '@swc/core via npm: specifier');
-
-      // Transform each file (same logic as Node.js build)
-      for (const file of files) {
-        const relativePath = path.relative(srcDir, file);
-        const outFile = path.join(outPath, relativePath).replace(/\.ts$/, '.js');
-
-        // Ensure output directory exists
-        await fs.mkdir(path.dirname(outFile), { recursive: true });
-
-        // Read source
-        const source = await fs.readFile(file, 'utf-8');
-
-        // Transform with SWC
-        const result = await swc.transform(source, {
-          filename: file,
-          jsc: {
-            parser: {
-              syntax: 'typescript',
-              decorators: true,
-            },
-            target: target,
-            transform: {
-              legacyDecorator: true,
-              decoratorMetadata: decoratorMetadata,
-            },
-            keepClassNames: true,
-            minify: minify
-              ? {
-                  compress: true,
-                  mangle: true,
-                }
-              : undefined,
-          },
-          module: {
-            type: 'es6',
-          },
-          sourceMaps: sourcemap,
-        });
-
-        // Write output
-        await fs.writeFile(outFile, result.code);
-
-        // Write sourcemap
-        if (sourcemap && result.map) {
-          await fs.writeFile(`${outFile}.map`, result.map);
-        }
-
-        if (options.verbose) {
-          const stats = await fs.stat(outFile);
-          log(`  ${relativePath} → ${formatSize(stats.size)}`);
-        }
-      }
-
-      success(`Built ${files.length} file(s) to ${outDir}/`);
-
-      // Generate declaration files
-      await generateDeclarationsWithDeno(cwd, outDir, Deno);
-
-      return;
-    } catch (swcError) {
-      // SWC via npm: failed, fall back to native compilation
-      warn(`SWC import failed: ${(swcError as Error).message}`);
-      warn('Falling back to Deno native compilation...');
-      await buildWithDenoNative(entry, outDir, options);
-    }
-  } catch (err) {
-    error(`Deno build failed: ${(err as Error).message}`);
-    throw err;
-  }
-}
-
-/**
- * Generate TypeScript declarations using Deno
- */
-async function generateDeclarationsWithDeno(
-  cwd: string,
-  outDir: string,
-  Deno: {
-    Command: new (
-      cmd: string,
-      opts: Record<string, unknown>
-    ) => { output: () => Promise<{ code: number }> };
-  }
-): Promise<void> {
-  log('Generating type declarations...');
-
-  try {
-    const command = new Deno.Command('npx', {
-      args: ['tsc', '--declaration', '--emitDeclarationOnly', '--outDir', outDir],
-      cwd,
-      stderr: 'piped',
-      stdout: 'piped',
-    });
-
-    const result = await command.output();
-
-    if (result.code !== 0) {
-      warn('Type declaration generation failed (non-critical)');
-    }
-  } catch {
-    warn('Could not generate type declarations');
-  }
-}
-
-/**
- * Build with Deno native TypeScript compilation
- *
- * Note: This method does NOT emit decorator metadata.
- * Use only when SWC is unavailable or for non-DI projects.
- */
-async function buildWithDenoNative(
-  entry: string,
-  outDir: string,
-  _options: BuildOptions
-): Promise<void> {
-  warn('Deno native build does NOT emit decorator metadata');
-  warn('DI systems may not work correctly. Consider using Node.js or Bun for production builds.');
-
-  try {
-    // @ts-expect-error Deno global exists in Deno runtime
-    const Deno = globalThis.Deno;
-
-    const cwd = getCwd();
-    const entryPath = resolvePath(cwd, entry);
-    const outPath = resolvePath(cwd, outDir);
-
-    // Ensure output directory exists
-    await Deno.mkdir(outPath, { recursive: true });
-
-    // Since Deno runs TypeScript natively, and proper decorator metadata
-    // emission requires SWC/tsc, we have two options:
-    // 1. Copy TS files directly (Deno can run them)
-    // 2. Use esbuild/swc through npm compatibility
-
-    // For now, copy TypeScript files - Deno can run them directly
-    // This is the most reliable approach for Deno 2.x
-    warn('Copying TypeScript source directly (Deno runs TS natively)');
-
-    const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
-    const path = await import(/* @vite-ignore */ NODE_PATH);
-
-    const srcDir = path.dirname(entryPath);
-    const files = await findTypeScriptFiles(cwd, entry);
-
-    for (const file of files) {
-      const relativePath = path.relative(srcDir, file);
-      const outFile = path.join(outPath, relativePath);
-      await fs.mkdir(path.dirname(outFile), { recursive: true });
-      await fs.copyFile(file, outFile);
-    }
-
-    success(`Copied ${files.length} TypeScript file(s) to ${outDir}/`);
-    log('Run with: deno run -A dist/index.ts');
-  } catch (err) {
-    error(`Deno build failed: ${(err as Error).message}`);
-    throw err;
-  }
-}
-
-/**
- * Find all TypeScript files from entry point
- */
-async function findTypeScriptFiles(cwd: string, entry: string): Promise<string[]> {
-  const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
-  const path = await import(/* @vite-ignore */ NODE_PATH);
-
-  const files: string[] = [];
-  const srcDir = path.dirname(resolvePath(cwd, entry));
-
-  async function scanDir(dir: string): Promise<void> {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-
-      if (entry.isDirectory()) {
-        // Skip node_modules and hidden directories
-        if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
-          await scanDir(fullPath);
-        }
-      } else if (
-        entry.isFile() &&
-        entry.name.endsWith('.ts') &&
-        !entry.name.endsWith('.d.ts') &&
-        !entry.name.endsWith('.test.ts') &&
-        !entry.name.endsWith('.spec.ts')
-      ) {
-        files.push(fullPath);
-      }
-    }
-  }
-
-  await scanDir(srcDir);
-  return files;
-}
-
-/**
- * Generate TypeScript declaration files
- */
-async function generateDeclarations(cwd: string, outDir: string): Promise<void> {
-  log('Generating type declarations...');
-
-  try {
-    const { spawn: nodeSpawn } = await import(/* @vite-ignore */ NODE_CHILD_PROCESS);
-
-    await new Promise<void>((resolve) => {
-      const tsc = nodeSpawn(
-        'npx',
-        ['tsc', '--declaration', '--emitDeclarationOnly', '--outDir', outDir],
-        {
-          cwd,
-          stdio: 'pipe',
-        }
-      );
-
-      tsc.on('close', (code: number | null) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          // Don't fail if tsc fails, just warn
-          warn('Type declaration generation failed (non-critical)');
-          resolve();
-        }
-      });
-
-      tsc.on('error', () => {
-        warn('Could not run tsc for declaration generation');
-        resolve();
-      });
-    });
-  } catch {
-    warn('Could not generate type declarations');
-  }
-}
-
-/**
- * Clean a directory
- */
-async function cleanDirectory(dir: string): Promise<void> {
-  try {
-    const fs = await import(/* @vite-ignore */ NODE_FS_PROMISES);
-    await fs.rm(dir, { recursive: true, force: true });
-  } catch (err) {
-    warn(`Could not clean directory ${dir}: ${(err as Error).message}`);
-  }
 }
 
 /**
@@ -612,6 +166,22 @@ export function buildCli(args: string[]): void {
         options.decoratorMetadata = false;
         break;
       }
+      case '--dts': {
+        options.dts = true;
+        break;
+      }
+      case '--no-dts': {
+        options.dts = false;
+        break;
+      }
+      case '--cache': {
+        options.cache = true;
+        break;
+      }
+      case '--no-cache': {
+        options.cache = false;
+        break;
+      }
       case '--no-clean': {
         options.clean = false;
         break;
@@ -621,8 +191,43 @@ export function buildCli(args: string[]): void {
         options.verbose = true;
         break;
       }
+      case '--help':
+      case '-h': {
+        buildHelp();
+        exitProcess(0);
+        break;
+      }
       default: {
-        if (!arg.startsWith('-')) {
+        if (arg.startsWith('--') || arg.startsWith('-')) {
+          // Handle --flag=value syntax
+          if (arg.includes('=')) {
+            const eqIndex = arg.indexOf('=');
+            const flagPart = arg.substring(0, eqIndex);
+            const valuePart = arg.substring(eqIndex + 1);
+            switch (flagPart) {
+              case '--outDir':
+              case '-o': {
+                options.outDir = valuePart;
+                break;
+              }
+              case '--target':
+              case '-t': {
+                options.target = parseBuildTarget(valuePart);
+                break;
+              }
+              default: {
+                error(`Unknown flag: ${arg}`);
+                error('Run "nextrush build --help" for available options.');
+                exitProcess(1);
+              }
+            }
+          } else {
+            // Unknown flag without value
+            error(`Unknown flag: ${arg}`);
+            error('Run "nextrush build --help" for available options.');
+            exitProcess(1);
+          }
+        } else {
           entry = arg;
         }
         break;
@@ -631,8 +236,9 @@ export function buildCli(args: string[]): void {
   }
 
   // Run build
-  build(entry, options).catch((err) => {
-    error(`Build failed: ${err.message}`);
+  build(entry, options).catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    error(`Build failed: ${message}`);
     exitProcess(1);
   });
 }
@@ -653,6 +259,10 @@ Options:
   --no-sourcemap            Disable sourcemaps
   --minify, -m              Minify output
   --no-decorator-metadata   Disable decorator metadata emission
+  --dts                     Generate .d.ts files (default: true)
+  --no-dts                  Disable .d.ts generation
+  --cache                   Use incremental build cache (default: true)
+  --no-cache                Disable build cache
   --no-clean                Don't clean output directory
   --verbose, -v             Verbose output
 
@@ -661,6 +271,8 @@ Examples:
   nextrush build ./src/index.ts
   nextrush build --outDir dist --minify
   nextrush build --target esnext --no-sourcemap
+  nextrush build --no-dts
+  nextrush build --no-cache
 
 Note:
   This command uses SWC to compile TypeScript with decorator metadata

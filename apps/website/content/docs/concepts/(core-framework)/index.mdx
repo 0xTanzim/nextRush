@@ -1,0 +1,300 @@
+---
+title: Core Concepts
+description: The mental models that make NextRush predictable and composable
+keywords: [concepts, core, framework, index, nextrush]
+---
+
+Before you write code, understand how NextRush thinks.
+
+These are the core abstractions that determine how your application processes requests, composes behavior, and handles failure.
+
+## The Four Pillars
+
+NextRush is built on four core abstractions. Everything else builds on top of these.
+
+<Cards>
+  <Card title="Application" href="/docs/concepts/application">
+    Your entry point. Orchestrates middleware, extensions, and error handling.
+  </Card>
+  <Card title="Context" href="/docs/concepts/context">
+    The `ctx` object. Your unified interface to request and response.
+  </Card>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    Functions that process requests. The onion model for composable logic.
+  </Card>
+  <Card title="Routing" href="/docs/concepts/routing">
+    Segment trie routing. O(k) lookup regardless of route count.
+  </Card>
+</Cards>
+
+## How They Work Together
+
+When a request arrives, it flows through a predictable pipeline:
+
+```
+HTTP Request
+    ↓
+┌─────────────────────────────┐
+│  Application                │
+│  ┌───────────────────────┐  │
+│  │  Middleware Pipeline  │  │
+│  │  ┌─────────────────┐  │  │
+│  │  │  cors → auth    │  │  │
+│  │  │      ↓          │  │  │
+│  │  │  body-parser    │  │  │
+│  │  │      ↓          │  │  │
+│  │  │  router         │  │  │
+│  │  └─────────────────┘  │  │
+│  └───────────────────────┘  │
+│           ↓                 │
+│  ┌───────────────────────┐  │
+│  │  Router               │  │
+│  │  Match path → Handler │  │
+│  └───────────────────────┘  │
+└─────────────────────────────┘
+    ↓
+HTTP Response
+```
+
+**The flow is always the same:**
+
+1. Request arrives at the adapter
+2. Adapter creates a fresh **Context** object
+3. **Application** passes context through **Middleware**
+4. **Router** matches the path and extracts params
+5. Handler executes and writes to context
+6. Response flows back through middleware
+7. Adapter sends the HTTP response
+
+<Callout type="info" title="Context is Per-Request">
+  Every request gets a new `ctx` object. There's no shared state between requests unless you
+  explicitly create it.
+</Callout>
+
+## Two Programming Styles
+
+NextRush supports both functional and class-based programming. Choose based on your project's needs.
+
+<Tabs items={['Functional', 'Class-Based']}>
+  <Tab value="Functional">
+    Simple, direct, minimal abstraction. Often fits small services and APIs.
+
+    ```typescript title="Functional API"
+    import { createApp, createRouter } from 'nextrush';
+
+    const app = createApp();
+    const router = createRouter();
+
+    router.get('/users/:id', async (ctx) => {
+      const user = await db.users.findById(ctx.params.id);
+      ctx.json({ user });
+    });
+
+    app.route('/api', router);
+    ```
+
+  </Tab>
+  <Tab value="Class-Based">
+    Structured, with dependency injection. Often fits larger applications and shared codebases.
+
+    ```typescript title="Class-Based with DI"
+    import { createApp } from 'nextrush';
+    import { Controller, Get, Param, Service, registerControllers } from 'nextrush/class';
+
+    @Service()
+    class UserService {
+      async findById(id: string) {
+        return db.users.findById(id);
+      }
+    }
+
+    @Controller('/users')
+    class UserController {
+      constructor(private users: UserService) {}
+
+      @Get('/:id')
+      async getUser(@Param('id') id: string) {
+        return { user: await this.users.findById(id) };
+      }
+    }
+
+    const app = createApp();
+    await registerControllers(app, { root: './src' });
+    ```
+
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="You Can Mix Styles">
+  Both styles work together. Start with functions, add classes when you need structure. There's no
+  forced migration.
+</Callout>
+
+## Extension Points
+
+Beyond the four pillars, NextRush provides three ways to extend functionality — unequal in weight. Reach for middleware first; it covers nearly everything.
+
+### Middleware (the default, ~99%)
+
+Almost every capability — security, parsing, logging, docs — is added with `app.use()`:
+
+```typescript
+import { openapi } from '@nextrush/openapi';
+
+app.use(openapi({ router: app.router!, info: { title: 'API', version: '1.0.0' } }));
+```
+
+### Registrar (~0.9%)
+
+A plain function you call directly to wire up a subsystem, like class-based controllers:
+
+```typescript
+import { registerControllers } from 'nextrush/class';
+
+await registerControllers(app, { root: './src' });
+```
+
+### Extension (~0.1%, rare)
+
+For long-lived, app-scoped services that need a boot phase and a teardown phase — reserved for framework-level infrastructure like the event bus:
+
+```typescript
+import { events } from '@nextrush/events';
+
+app.extend(events());
+await app.ready();
+```
+
+[Learn the full taxonomy →](/docs/concepts/extensions)
+
+### Guards
+
+Control access to routes declaratively:
+
+```typescript
+@UseGuard(AuthGuard)
+@UseGuard(RoleGuard('admin'))
+@Controller('/admin')
+class AdminController {
+  @Get('/dashboard')
+  dashboard() {
+    return { admin: true };
+  }
+}
+```
+
+[Learn about Guards →](/docs/concepts/guards)
+
+## The Class Runtime's Deeper Subsystems
+
+Once an application grows past a handful of controllers, `nextrush/class` provides four more subsystems for structuring larger codebases. Each builds on dependency injection, which itself is worth understanding first.
+
+<Cards>
+  <Card title="Dependency Injection & Scopes" href="/docs/concepts/dependency-injection">
+    Singleton, transient, and request scope — and how request scope bubbles through a dependency graph.
+  </Card>
+  <Card title="Modules" href="/docs/concepts/modules">
+    Group a feature's controllers and providers behind one declaration, and compose features with imports.
+  </Card>
+  <Card title="Interceptors" href="/docs/concepts/interceptors">
+    Wrap a controller method to transform its result, time it, or return a cached value.
+  </Card>
+  <Card title="Exception Filters" href="/docs/concepts/exception-filters">
+    Localize error handling to a specific controller or route.
+  </Card>
+  <Card title="Lifecycle Hooks" href="/docs/concepts/lifecycle">
+    Run initialization and cleanup on a DI-managed service with OnInit and OnShutdown.
+  </Card>
+</Cards>
+
+## What You Should Learn First
+
+<Steps>
+  <Step>
+    ### Context API
+
+    Understand the `ctx` object—it's your primary interface for everything. [Read Context →](/docs/concepts/context)
+
+  </Step>
+  <Step>
+    ### Middleware
+
+    Learn the onion model. It determines execution order and error handling. [Read Middleware →](/docs/concepts/middleware)
+
+  </Step>
+  <Step>
+    ### Routing
+
+    Map URLs to handlers efficiently with segment trie routing. [Read Routing →](/docs/concepts/routing)
+
+  </Step>
+</Steps>
+
+## Mental Model Summary
+
+| Concept         | Responsibility   | Key Insight                                    |
+| --------------- | ---------------- | ---------------------------------------------- |
+| **Application** | Orchestration    | Holds everything together, manages lifecycle   |
+| **Context**     | Request/Response | Fresh per-request, mutable `state` for sharing |
+| **Middleware**  | Transformation   | Onion model—before, `next()`, after            |
+| **Routing**     | URL Matching     | O(k) segment trie, params and wildcards          |
+| **Extending**   | Capability       | Middleware (~99%), Registrar (~0.9%), Extension (~0.1%) |
+| **Guards**      | Access Control   | Boolean gatekeepers for routes                 |
+
+The class runtime's deeper subsystems build on top of these:
+
+| Concept         | Responsibility   | Key Insight                                    |
+| --------------- | ---------------- | ---------------------------------------------- |
+| **DI & Scopes** | Object Lifetime  | Singleton / transient / request, with bubbling |
+| **Modules**     | Composition      | Group controllers + providers, compose via imports |
+| **Interceptors**| Result Shaping   | Onion around a controller method's return value |
+| **Exception Filters** | Error Scoping | Localized catch blocks per controller/route  |
+| **Lifecycle**   | Boot/Shutdown    | OnInit/OnShutdown, duck-typed, no decorator    |
+
+<Callout type="warn" title="Common Misconception">
+  Middleware order matters. Error handlers must come first. Body parsers must run before you access
+  `ctx.body`. If something isn't working, check your registration order.
+</Callout>
+
+## Next Steps
+
+<Cards>
+  <Card title="Application" href="/docs/concepts/application">
+    The entry point that orchestrates everything.
+  </Card>
+  <Card title="Context" href="/docs/concepts/context">
+    Your interface to request and response.
+  </Card>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    The pipeline that processes every request.
+  </Card>
+  <Card title="Routing" href="/docs/concepts/routing">
+    Segment-trie URL matching.
+  </Card>
+  <Card title="Extending NextRush" href="/docs/concepts/extensions">
+    Middleware, Registrar, and Extension — the three ways to add capability.
+  </Card>
+  <Card title="Guards" href="/docs/concepts/guards">
+    Declarative access control.
+  </Card>
+</Cards>
+
+Ready to structure a larger application? Continue into the class runtime's deeper subsystems:
+
+<Cards>
+  <Card title="Dependency Injection & Scopes" href="/docs/concepts/dependency-injection">
+    Singleton, transient, and request scope.
+  </Card>
+  <Card title="Modules" href="/docs/concepts/modules">
+    Group features and compose them with imports.
+  </Card>
+  <Card title="Interceptors" href="/docs/concepts/interceptors">
+    Transform a controller method's result.
+  </Card>
+  <Card title="Exception Filters" href="/docs/concepts/exception-filters">
+    Scope error handling to a controller or route.
+  </Card>
+  <Card title="Lifecycle Hooks" href="/docs/concepts/lifecycle">
+    Boot and shutdown hooks for DI-managed services.
+  </Card>
+</Cards>

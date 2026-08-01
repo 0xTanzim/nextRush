@@ -126,7 +126,7 @@ export function strictCors(
  *
  * @example
  * ```typescript
- * // Basic dev setup (allows localhost:3000-3999)
+ * // Basic dev setup (allows localhost:8080-3999)
  * app.use(devCors());
  *
  * // With additional origins

@@ -6,8 +6,16 @@
  * @packageDocumentation
  */
 
-import type { Application } from '@nextrush/core';
+import type { Application, Logger } from '@nextrush/core';
+import {
+  DEFAULT_SHUTDOWN_TIMEOUT_MS,
+  DEFAULT_TIMEOUT_MS,
+  jsonErrorResponse,
+  normalizeStartupError,
+} from '@nextrush/runtime';
+import type { AdapterContextFactory, HandlerOptions, ProxyTrust, ServerAdapter } from '@nextrush/types';
 import { createBunContext } from './context';
+import type { BunContext } from './context';
 
 /**
  * Server options for Bun adapter
@@ -19,26 +27,25 @@ import { createBunContext } from './context';
 export interface ServeOptions {
   /**
    * Port to listen on
-   * @default 3000
+   * @default 8080
    */
   port?: number;
 
   /**
-   * Hostname to bind to.
+   * Host to bind to (canonical option — audit F-05).
    *
    * @remarks
-   * Defaults to `0.0.0.0` for convenience in development and container
-   * environments. In production, consider binding to a specific interface
-   * (e.g. `'127.0.0.1'`) if the server should not be publicly reachable.
+   * Defaults to `0.0.0.0`. Prefer `host` over `hostname` for portability across
+   * NextRush adapters; when both are given, `host` wins.
    *
    * @default '0.0.0.0'
    */
-  hostname?: string;
+  host?: string;
 
   /**
    * Callback when server starts listening
    */
-  onListen?: (info: { port: number; hostname: string }) => void;
+  onListen?: (info: { port: number; host: string; hostname: string }) => void;
 
   /**
    * Custom error handler for uncaught errors
@@ -88,10 +95,58 @@ export interface ServeOptions {
   /**
    * Grace period in milliseconds to drain in-flight requests during
    * shutdown before force-closing connections.
-   * @default 30000
+   * @default 30000 (30 seconds)
    */
   shutdownTimeout?: number;
+
+  /**
+   * Logger for adapter diagnostics. Defaults to app.logger.
+   */
+  logger?: Logger;
+
+  /**
+   * Opt-in: wire OS termination signals to the server's existing connection-drain
+   * `close()` logic (F-06/ADR-0010). Same shape and semantics as the Node adapter's
+   * `gracefulShutdown` option — when omitted (the default), NO signal handler is
+   * installed and process behavior is unchanged.
+   *
+   * - `true` — install handlers for the default signal set (`SIGTERM`, `SIGINT`),
+   *   using {@link ServeOptions.shutdownTimeout} as the drain timeout.
+   * - `{ signals, timeout }` — override the signal set and/or the drain timeout.
+   *   `timeout` falls back to `shutdownTimeout` when omitted.
+   *
+   * The handler invokes the same `close()` this function already returns and is
+   * removed once that `close()` completes, so repeated `serve()`/`close()` cycles
+   * in one process never accumulate duplicate listeners.
+   *
+   * @default undefined (no signal handler installed)
+   */
+  gracefulShutdown?: boolean | GracefulShutdownOptions;
 }
+
+/**
+ * Explicit override shape for {@link ServeOptions.gracefulShutdown} (F-06).
+ *
+ * @remarks
+ * Identical shape to the Node adapter's `GracefulShutdownOptions` so an operator
+ * configures shutdown the same way regardless of runtime.
+ */
+export interface GracefulShutdownOptions {
+  /**
+   * Signals that trigger the drain-and-exit sequence.
+   * @default ['SIGTERM', 'SIGINT']
+   */
+  signals?: readonly NodeJS.Signals[];
+
+  /**
+   * Drain timeout in milliseconds for the signal-triggered path. Falls back to
+   * {@link ServeOptions.shutdownTimeout} when omitted.
+   */
+  timeout?: number;
+}
+
+/** Default signal set for {@link ServeOptions.gracefulShutdown} when `true`. */
+const DEFAULT_GRACEFUL_SHUTDOWN_SIGNALS: readonly NodeJS.Signals[] = ['SIGTERM', 'SIGINT'];
 
 /**
  * Server instance returned by serve()
@@ -107,24 +162,100 @@ export interface ServerInstance {
   /** Port the server is listening on */
   port: number;
 
-  /** Hostname the server is bound to */
-  hostname: string;
+  /** Host the server is bound to (canonical — audit F-05). */
+  host: string;
 
   /** Close the server */
   close(): Promise<void>;
 
-  /** Address info */
-  address(): { port: number; hostname: string };
+  /** Address info (canonical `{ port, host }`, with `hostname` alias for compat). */
+  address(): { port: number; host: string; hostname: string };
 
   /** Reload server configuration */
   reload(options?: Partial<ServeOptions>): void;
 }
 
 /**
+ * A Bun fetch handler `(request, server) => Promise<Response>`.
+ */
+export type BunFetchHandler = (
+  request: Request,
+  server: ReturnType<typeof Bun.serve>
+) => Promise<Response>;
+
+/**
+ * Build the shared per-request runner for the Bun adapter.
+ *
+ * @remarks
+ * The single source of truth used by both `createHandler` and `serve` (audit
+ * F-07: `serve` previously forked its own `trackedHandler` and the exported
+ * `createHandler` silently lacked the timeout). Owns context creation, the
+ * timeout race with cooperative cancellation (F-08), the header-preserving
+ * finalize path (F-02), and error handling.
+ */
+function createBunRequestRunner(
+  app: Application,
+  options: HandlerOptions
+): BunFetchHandler {
+  const handler = app.callback();
+  const proxy = app.options.proxy ?? false;
+  const logger = options.logger ?? app.logger;
+  const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
+  const TIMEOUT_SENTINEL = Symbol('timeout');
+
+  return async (request: Request, server: ReturnType<typeof Bun.serve>): Promise<Response> => {
+    const clientIp = server.requestIP(request)?.address ?? '';
+    const ctx = createBunContext(request, clientIp, proxy);
+
+    try {
+      if (timeout > 0) {
+        let timerId: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const result = await Promise.race([
+            handler(ctx).then(() => undefined),
+            new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+              timerId = setTimeout(() => {
+                resolve(TIMEOUT_SENTINEL);
+              }, timeout);
+            }),
+          ]);
+
+          if (result === TIMEOUT_SENTINEL) {
+            ctx.triggerTimeout(); // F-08: cancel the still-running handler
+            return jsonErrorResponse(504, 'Gateway Timeout');
+          }
+        } finally {
+          if (timerId !== undefined) clearTimeout(timerId); // F-08: always clear
+        }
+      } else {
+        await handler(ctx);
+      }
+
+      // F-02: finalize through the context so ctx.set() headers survive an
+      // implicit/empty response; the 404 body is written through the same builder.
+      if (!ctx.responded && ctx.status === 404) {
+        ctx.json({ error: 'Not Found' });
+      }
+      return ctx.getResponse();
+    } catch (error) {
+      logger.error('Request error:', error);
+
+      return jsonErrorResponse(500, 'Internal Server Error');
+    }
+  };
+}
+
+/**
  * Create HTTP request handler for Application
  *
  * @param app - NextRush Application instance
+ * @param options - Handler options (`timeout`, `logger`) — audit F-06/F-07
  * @returns Bun-compatible fetch handler
+ *
+ * @remarks
+ * Now honors `timeout` (default 30 s) so `Bun.serve({ fetch: createHandler(app) })`
+ * behaves identically to `serve(app, { timeout })` (audit F-07). Pass
+ * `{ timeout: 0 }` to disable.
  *
  * @example
  * ```typescript
@@ -135,49 +266,111 @@ export interface ServerInstance {
  * const handler = createHandler(app);
  *
  * // Use with Bun.serve
- * Bun.serve({ fetch: handler, port: 3000 });
+ * Bun.serve({ fetch: handler, port: 8080 });
  * ```
  */
-export function createHandler(
-  app: Application
-): (request: Request, server: ReturnType<typeof Bun.serve>) => Promise<Response> {
-  const handler = app.callback();
-  const trustProxy = app.options.proxy ?? false;
+export function createHandler(app: Application, options: HandlerOptions = {}): BunFetchHandler {
+  return createBunRequestRunner(app, options);
+}
 
-  return async (request: Request, server: ReturnType<typeof Bun.serve>): Promise<Response> => {
-    // Get client IP from Bun server.
-    // Returns '' (empty string) when requestIP returns null — this is
-    // intentional. Context.ip is typed as `string`, so undefined would be
-    // a type violation. Consumers should check `ctx.ip !== ''` instead of
-    // a truthy check.
-    const clientIp = server.requestIP(request)?.address ?? '';
+/**
+ * The ONE connection-drain implementation for Bun: stop accepting new
+ * connections, wait for in-flight requests to drain (force-close if they
+ * don't within `shutdownTimeout`), then destroy app extensions. Both the
+ * manually-called `close()` and the signal-triggered path (via
+ * {@link buildCloseWithGracefulShutdown}) invoke this exact function — there
+ * is deliberately no second drain implementation for the signal path (F-06,
+ * mirroring the Node adapter).
+ */
+async function drainAndClose(
+  server: ReturnType<typeof Bun.serve>,
+  app: Application,
+  shutdownTimeout: number,
+  getActiveRequests: () => number,
+  setDrainResolve: (resolve: (() => void) | null) => void
+): Promise<void> {
+  // 1. Stop accepting new connections
+  void server.stop();
 
-    const ctx = createBunContext(request, clientIp, trustProxy);
+  // 2. Wait for in-flight requests to drain (with timeout)
+  if (getActiveRequests() > 0) {
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        setDrainResolve(resolve);
+      }),
+      new Promise<void>((resolve) =>
+        setTimeout(() => {
+          // Force-close remaining connections
+          void server.stop(true);
+          resolve();
+        }, shutdownTimeout)
+      ),
+    ]);
+  }
 
-    try {
-      await handler(ctx);
+  // 3. Tear down extensions. Bound teardown by the same shutdownTimeout budget
+  // so a hung extension destroy() cannot outlast the drain (F-02, D1, RFC-022/ADR-0012).
+  await app.close({ timeout: shutdownTimeout });
+}
 
-      // If not responded, send appropriate response
-      if (!ctx.responded) {
-        if (ctx.status === 404) {
-          return new Response(JSON.stringify({ error: 'Not Found' }), {
-            status: 404,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
-        return new Response(null, { status: ctx.status });
-      }
+/**
+ * Build the `close()` returned by {@link serve}, optionally wiring OS signals to
+ * invoke it per {@link ServeOptions.gracefulShutdown} (F-06, ADR-0010) — the same
+ * contract as the Node adapter's `buildCloseWithGracefulShutdown`.
+ *
+ * When `gracefulShutdown` is omitted/falsy, this is a no-op wrapper: no signal
+ * handler is installed, and `close()` behaves exactly as it did before this
+ * option existed.
+ */
+function buildCloseWithGracefulShutdown(params: {
+  server: ReturnType<typeof Bun.serve>;
+  app: Application;
+  shutdownTimeout: number;
+  gracefulShutdown: ServeOptions['gracefulShutdown'];
+  getActiveRequests: () => number;
+  setDrainResolve: (resolve: (() => void) | null) => void;
+}): () => Promise<void> {
+  const { server, app, shutdownTimeout, gracefulShutdown, getActiveRequests, setDrainResolve } =
+    params;
 
-      return ctx.getResponse();
-    } catch (error) {
-      app.logger.error('Request error:', error);
+  const close = (): Promise<void> =>
+    drainAndClose(server, app, shutdownTimeout, getActiveRequests, setDrainResolve);
 
-      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+  if (!gracefulShutdown) {
+    return close;
+  }
+
+  const config = gracefulShutdown === true ? {} : gracefulShutdown;
+  const signals = config.signals ?? DEFAULT_GRACEFUL_SHUTDOWN_SIGNALS;
+  const effectiveTimeout = config.timeout ?? shutdownTimeout;
+
+  let drainPromise: Promise<void> | undefined;
+  const removeSignalHandlers = (): void => {
+    for (const signal of signals) {
+      process.removeListener(signal, onSignal);
     }
   };
+
+  const onSignal = (): void => {
+    void runClose();
+  };
+
+  const runClose = (): Promise<void> => {
+    drainPromise ??= drainAndClose(
+      server,
+      app,
+      effectiveTimeout,
+      getActiveRequests,
+      setDrainResolve
+    ).finally(removeSignalHandlers);
+    return drainPromise;
+  };
+
+  for (const signal of signals) {
+    process.once(signal, onSignal);
+  }
+
+  return runClose;
 }
 
 /**
@@ -199,88 +392,47 @@ export function createHandler(
  * });
  *
  * const server = serve(app, {
- *   port: 3000,
+ *   port: 8080,
  *   onListen: ({ port }) => console.log(`Server running on port ${port}`)
  * });
  * ```
  */
-export function serve(app: Application, options: ServeOptions = {}): ServerInstance {
+export async function serve(
+  app: Application,
+  options: ServeOptions = {}
+): Promise<ServerInstance> {
   const {
-    port = 3000,
-    hostname = '0.0.0.0',
+    port = 8080,
     onListen,
     onError,
     tls,
     maxRequestBodySize = 1_048_576,
-    timeout = 30_000,
+    timeout = DEFAULT_TIMEOUT_MS,
     development = false,
-    shutdownTimeout = 30_000,
+    shutdownTimeout = DEFAULT_SHUTDOWN_TIMEOUT_MS,
+    gracefulShutdown,
   } = options;
+
+  const host = options.host ?? '0.0.0.0';
+  const logger = options.logger ?? app.logger;
 
   // In-flight request tracking for graceful shutdown
   let activeRequests = 0;
   let drainResolve: (() => void) | null = null;
 
-  const appCallback = app.callback();
-  const trustProxy = app.options.proxy ?? false;
+  // Boot extensions before building the request handler (deferred boot barrier).
+  await app.ready();
 
-  // Wrap handler to track in-flight requests
+  // F-07: serve composes the SAME handler createHandler produces (with timeout),
+  // then wraps it only with in-flight tracking for graceful drain.
+  const baseHandler = createHandler(app, { timeout, logger });
   const trackedHandler = async (
     request: Request,
     bunServer: ReturnType<typeof Bun.serve>
   ): Promise<Response> => {
     activeRequests++;
     try {
-      const clientIp = bunServer.requestIP(request)?.address ?? '';
-      const ctx = createBunContext(request, clientIp, trustProxy);
-
-      try {
-        if (timeout > 0) {
-          // Race handler against timeout — mirrors edge adapter pattern
-          let timerId: ReturnType<typeof setTimeout> | undefined;
-          const TIMEOUT_SENTINEL = Symbol('timeout');
-
-          const result = await Promise.race([
-            appCallback(ctx).then(() => {
-              if (timerId !== undefined) clearTimeout(timerId);
-              return undefined;
-            }),
-            new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-              timerId = setTimeout(() => {
-                resolve(TIMEOUT_SENTINEL);
-              }, timeout);
-            }),
-          ]);
-
-          if (result === TIMEOUT_SENTINEL) {
-            return new Response(JSON.stringify({ error: 'Gateway Timeout' }), {
-              status: 504,
-              headers: { 'Content-Type': 'application/json' },
-            });
-          }
-        } else {
-          await appCallback(ctx);
-        }
-
-        if (!ctx.responded) {
-          if (ctx.status === 404) {
-            return new Response(JSON.stringify({ error: 'Not Found' }), {
-              status: 404,
-              headers: { 'Content-Type': 'application/json' },
-            });
-          }
-          return new Response(null, { status: ctx.status });
-        }
-
-        return ctx.getResponse();
-      } catch (error) {
-        app.logger.error('Request error:', error);
-
-        return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
+      return await baseHandler(request, bunServer);
     } finally {
       activeRequests--;
       if (activeRequests === 0 && drainResolve) {
@@ -292,7 +444,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
   // Build Bun.serve options
   const bunOptions: Parameters<typeof Bun.serve>[0] = {
     port,
-    hostname,
+    hostname: host,
     fetch: trackedHandler,
     development,
   };
@@ -317,10 +469,7 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
       app.logger.error('Server error:', error);
     }
 
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonErrorResponse(500, 'Internal Server Error');
   };
 
   // Start server
@@ -328,57 +477,38 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
   try {
     server = Bun.serve(bunOptions);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    if (msg.includes('EADDRINUSE') || msg.includes('address already in use')) {
-      throw new Error(
-        `Port ${String(options.port ?? 3000)} is already in use. ` +
-          `Kill the process using that port or choose a different one.`,
-        { cause: error }
-      );
-    }
-    throw error;
+    // F-15: normalize bind/startup failures into one shared typed error so
+    // node/bun/deno surface EADDRINUSE (etc.) identically.
+    throw normalizeStartupError(error, { port, host });
   }
 
   // Mark app as running
   app.start();
 
-  // Get actual port and hostname from server
-  const actualPort = server.port ?? options.port ?? 3000;
-  const actualHostname = server.hostname ?? options.hostname ?? 'localhost';
+  // Get actual port and host from server
+  const actualPort = server.port ?? port;
+  const actualHost = server.hostname ?? host;
 
   // Call onListen callback
   if (onListen) {
-    onListen({ port: actualPort, hostname: actualHostname });
+    onListen({ port: actualPort, host: actualHost, hostname: actualHost });
   }
 
   return {
     server,
     port: actualPort,
-    hostname: actualHostname,
-    address: () => ({ port: actualPort, hostname: actualHostname }),
-    close: async () => {
-      // 1. Stop accepting new connections
-      void server.stop();
-
-      // 2. Wait for in-flight requests to drain (with timeout)
-      if (activeRequests > 0) {
-        await Promise.race([
-          new Promise<void>((resolve) => {
-            drainResolve = resolve;
-          }),
-          new Promise<void>((resolve) =>
-            setTimeout(() => {
-              // Force-close remaining connections
-              void server.stop(true);
-              resolve();
-            }, shutdownTimeout)
-          ),
-        ]);
-      }
-
-      // 3. Notify plugins
-      await app.close();
-    },
+    host: actualHost,
+    address: () => ({ port: actualPort, host: actualHost, hostname: actualHost }),
+    close: buildCloseWithGracefulShutdown({
+      server,
+      app,
+      shutdownTimeout,
+      gracefulShutdown,
+      getActiveRequests: () => activeRequests,
+      setDrainResolve: (resolve) => {
+        drainResolve = resolve;
+      },
+    }),
     reload: (newOptions?: Partial<ServeOptions>) => {
       server.reload({
         ...bunOptions,
@@ -401,11 +531,11 @@ export function serve(app: Application, options: ServeOptions = {}): ServerInsta
  * import { listen } from '@nextrush/adapter-bun';
  *
  * const app = createApp();
- * listen(app, 3000);
- * // Output: 🚀 NextRush listening on http://localhost:3000 (Bun)
+ * listen(app, 8080);
+ * // Output: 🚀 NextRush listening on http://localhost:8080 (Bun)
  * ```
  */
-export function listen(app: Application, port = 3000): ServerInstance {
+export async function listen(app: Application, port = 8080): Promise<ServerInstance> {
   return serve(app, {
     port,
     onListen: ({ port: p }) => {
@@ -413,3 +543,16 @@ export function listen(app: Application, port = 3000): ServerInstance {
     },
   });
 }
+
+// F-01: compile-time conformance guard against the shared server-adapter shape.
+const _bunConformance: ServerAdapter<Application, ServeOptions, ServerInstance> = {
+  serve,
+  createHandler,
+};
+void _bunConformance;
+
+// RFC-NEXTRUSH-ADAPTER-CONTRACT: prove the context factory produces an
+// AdapterContext over the shared Context contract.
+const _bunContextFactory: AdapterContextFactory<[Request, string?, ProxyTrust?], BunContext> =
+  createBunContext;
+void _bunContextFactory;

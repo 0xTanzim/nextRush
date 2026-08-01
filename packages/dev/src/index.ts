@@ -68,6 +68,7 @@ export {
 export {
     GENERATOR_TYPES,
     generate,
+    generateAdapter,
     generateCli,
     generateHelp,
     type GeneratorType

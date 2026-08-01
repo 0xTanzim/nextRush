@@ -11,6 +11,7 @@ import type { Middleware } from '@nextrush/types';
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
 import type { BodyParserContext, RawOptions } from '../types.js';
 import { getContentType, matchContentType } from '../utils/content-type.js';
+import { toRawBody } from '../utils/buffer.js';
 import { parseLimit } from '../utils/limit.js';
 import { readBody } from './reader.js';
 
@@ -57,39 +58,44 @@ export function raw(options: RawOptions = {}): Middleware {
   const limitBytes = parseLimit(limit, DEFAULT_LIMITS.RAW);
   const types = Array.isArray(type) ? type : [type];
 
-  return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
-    // Skip methods that don't have bodies
-    if (BODYLESS_METHODS.has(ctx.method)) {
-      if (next) await next();
-      return;
+  return (async (
+    ctx: BodyParserContext,
+    next?: () => Promise<void>,
+    prechecked = false
+  ): Promise<void> => {
+    // Detection skipped when routed by the combined parser (BP-E).
+    if (!prechecked) {
+      if (BODYLESS_METHODS.has(ctx.method)) {
+        if (next) await next();
+        return;
+      }
+      if (ctx.body !== undefined) {
+        if (next) await next();
+        return;
+      }
+      const contentType = getContentType(ctx.headers);
+      if (!matchContentType(contentType, types)) {
+        if (next) await next();
+        return;
+      }
     }
 
-    // Skip if body already parsed by another middleware
-    if (ctx.body !== undefined) {
-      if (next) await next();
-      return;
-    }
-
-    // Check content type
-    const contentType = getContentType(ctx.headers);
-    if (!matchContentType(contentType, types)) {
-      if (next) await next();
-      return;
-    }
-
-    // Read body as raw buffer
+    // Read body as raw bytes
     const buffer = await readBody(ctx, limitBytes);
+
+    // Present as a Node Buffer where available (DX), Uint8Array on edge.
+    const body = toRawBody(buffer);
 
     // Invoke verify callback before setting body
     if (verify) {
-      await verify(ctx, buffer, 'binary');
+      await verify(ctx, body, 'binary');
     }
 
-    // For raw parser, body is always the buffer
-    ctx.body = buffer;
+    // For raw parser, body is always the raw bytes
+    ctx.body = body;
 
     // Also set rawBody for consistency
-    ctx.rawBody = buffer;
+    ctx.rawBody = body;
 
     if (next) await next();
   }) as unknown as Middleware;

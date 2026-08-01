@@ -112,8 +112,9 @@ export function serializeCookie(name: string, value: string, options: CookieOpti
     parts.push('Secure');
   }
 
-  // SameSite
-  if (opts.sameSite) {
+  // SameSite (checked for presence, not truthiness — `sameSite: false` is a
+  // legitimate value meaning "alias for None" and must not be dropped).
+  if (opts.sameSite !== undefined) {
     const sameSiteValue = normalizeSameSite(opts.sameSite);
     parts.push(`SameSite=${sameSiteValue}`);
   }
@@ -185,14 +186,29 @@ export function createDeleteCookie(
   name: string,
   options: Pick<CookieOptions, 'domain' | 'path'> = {}
 ): string {
-  return serializeCookie(name, '', {
+  // Prefixed cookies (__Secure-/__Host-) require Secure — and __Host- also
+  // requires Path=/ and no Domain. A deletion cookie must satisfy the same
+  // prefix rules or serializeCookie would reject it (CK-2). Preserve those
+  // constraints instead of forcing secure:false.
+  const isSecurePrefix = name.startsWith(COOKIE_PREFIXES.SECURE);
+  const isHostPrefix = name.startsWith(COOKIE_PREFIXES.HOST);
+  const requiresSecure = isSecurePrefix || isHostPrefix;
+
+  const deleteOptions: CookieOptions = {
     ...options,
     expires: new Date(0),
     maxAge: 0,
-    httpOnly: false, // Let original settings determine this
-    secure: false,
+    httpOnly: false, // Deletion matches on name/path/domain, not on HttpOnly
+    secure: requiresSecure,
     sameSite: undefined,
-  });
+  };
+
+  if (isHostPrefix) {
+    deleteOptions.path = '/';
+    deleteOptions.domain = undefined;
+  }
+
+  return serializeCookie(name, '', deleteOptions);
 }
 
 // ============================================================================

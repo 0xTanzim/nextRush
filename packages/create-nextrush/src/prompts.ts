@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- scaffolder prompts choose the target runtime for the generated project; not a runtime capability decision */
 import * as p from '@clack/prompts';
 
 import {
@@ -98,7 +99,7 @@ export async function runPrompts(args: ParsedArgs): Promise<ProjectOptions | sym
       },
 
       install: () => {
-        if (args.yes || !args.install) return Promise.resolve(args.install);
+        if (args.yes || args.installExplicit) return Promise.resolve(args.install);
 
         return p.confirm({
           message: 'Install dependencies?',
@@ -107,7 +108,7 @@ export async function runPrompts(args: ParsedArgs): Promise<ProjectOptions | sym
       },
 
       git: () => {
-        if (args.yes || !args.git) return Promise.resolve(args.git);
+        if (args.yes || args.gitExplicit) return Promise.resolve(args.git);
 
         return p.confirm({
           message: 'Initialize a git repository?',
@@ -135,10 +136,10 @@ export async function runPrompts(args: ParsedArgs): Promise<ProjectOptions | sym
   return {
     name,
     directory,
-    style: group.style as Style,
-    runtime: group.runtime as Runtime,
-    middleware: group.middleware as MiddlewarePreset,
-    packageManager: resolvePackageManager(group.runtime as Runtime, args.packageManager),
+    style: group.style,
+    runtime: group.runtime,
+    middleware: group.middleware,
+    packageManager: resolvePackageManager(group.runtime, args.packageManager),
     git: group.git,
     install: group.install,
   };

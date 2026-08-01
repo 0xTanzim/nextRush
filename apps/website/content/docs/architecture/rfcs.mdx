@@ -1,0 +1,92 @@
+---
+title: RFCs & ADRs
+description: The design-decision record behind NextRush — 15 RFCs, grouped and numbered under docs/RFC/, and 7 ADRs under docs/adr/.
+keywords: [adrs, architecture, nextrush, rfcs]
+---
+
+<Callout type="info" title="Reorganized 2026-07-17">
+  RFCs were previously flat files named `RFC-NEXTRUSH-<TOPIC>.md` with no numbering. They are now
+  numbered `001`–`015` in authorship order and grouped into topic subfolders under `docs/RFC/`
+  (`release-process/`, `request-data/`, `class-runtime/`, `runtime-adapters/`). See
+  [`docs/RFC/INDEX.md`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/INDEX.md) for the
+  full index and grouping rationale, and
+  [`docs/adr/INDEX.md`](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/INDEX.md) for ADRs.
+</Callout>
+
+## RFCs (grouped by topic, numbered globally in authorship order)
+
+### `release-process/`
+
+| RFC | Status | Date | Scope |
+| --- | --- | --- | --- |
+| [`001-hybrid-versioning`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/release-process/001-hybrid-versioning.md) | Implemented | 2026-04-09 | Changesets fixed/independent versioning strategy — see [Versioning](/docs/architecture/versioning) |
+
+### `request-data/`
+
+| RFC | Status | Date | Scope |
+| --- | --- | --- | --- |
+| [`002-route-metadata`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/request-data/002-route-metadata.md) | Approved, shipped | 2026-07-06 | `endpoint()` inline metadata + `@nextrush/openapi` |
+| [`003-stream`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/request-data/003-stream.md) | Shipped | 2026-07-06 | `@nextrush/stream`'s writer-callback design |
+| [`004-validation`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/request-data/004-validation.md) | Shipped | 2026-07-06 | `@nextrush/validation`'s Standard Schema design |
+
+### `class-runtime/`
+
+| RFC | Status | Date | Scope |
+| --- | --- | --- | --- |
+| [`005-plugin-system`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/005-plugin-system.md) | Shipped — see ADR-0002 | 2026-07-07 | The Extension/Composition-First model |
+| [`006-di-container-ownership`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/006-di-container-ownership.md) | Shipped (Option A) | 2026-07-08 | Per-app DI container isolation (opt-in) |
+| [`007-class-consolidation`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/007-class-consolidation.md) | Shipped — see ADR-0003, ADR-0004 | 2026-07-08 | Merges `@nextrush/decorators` + `@nextrush/controllers` into `@nextrush/class` |
+| [`008-request-scope`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/008-request-scope.md) | Shipped | 2026-07-08 | Per-request DI scope and bubbling |
+| [`009-lifecycle-hooks`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/009-lifecycle-hooks.md) | Shipped | 2026-07-08 | `OnInit`/`OnShutdown` duck-typed lifecycle hooks |
+| [`010-interceptors`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/010-interceptors.md) | Shipped | 2026-07-08 | `@UseInterceptor` cross-cutting interceptors |
+| [`011-exception-filters`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/011-exception-filters.md) | Shipped | 2026-07-08 | `@Catch`/`@UseFilter` exception filters |
+| [`012-modules`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/012-modules.md) | Shipped | 2026-07-08 | `@Module` + `registerModule` |
+| [`032-session-position`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/032-session-position.md) | Draft — documentation-only, no code | 2026-07-27 | Records the `@nextrush/session` position — see [Session position](/docs/architecture/session-position) |
+
+### `runtime-adapters/`
+
+| RFC | Status | Date | Scope |
+| --- | --- | --- | --- |
+| [`013-adapter-contract`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/runtime-adapters/013-adapter-contract.md) | Shipped — see ADR-0007 | 2026-07-15 | Enforced `ServerAdapter`/`FetchAdapter`/`AdapterContextFactory` contract |
+| [`014-adapter-serverless`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/runtime-adapters/014-adapter-serverless.md) | Shipped — see ADR-0007 | 2026-07-15 | `@nextrush/adapter-serverless` (Lambda/GCF/Azure event mappers) |
+| [`015-router-radix`](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/runtime-adapters/015-router-radix.md) | **Proposed — deferred**, not built | 2026-07-17 | A future, opt-in `@nextrush/router-radix` package — design specified, build gated on a confirmed driver |
+
+`RFC 005 (plugin-system)`'s own status line still reads "Draft / ready for approval" from its last
+revision, even though `docs/adr/ADR-0002-extension-model.md` records the decision as "Accepted ·
+Shipped." That mismatch is real and minor — noted here rather than silently resolved.
+
+## ADRs (all in `docs/adr/`)
+
+| ADR | Decision | Status |
+| --- | --- | --- |
+| [ADR-0001](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0001-decorator-dialect.md) | Commit to the legacy TypeScript decorator dialect (not TC39 Stage 3) | Accepted |
+| [ADR-0002](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0002-extension-model.md) | Extension Model (`Plugin` → `Extension`) | Accepted · Shipped |
+| [ADR-0003](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0003-class-consolidation.md) | Class Runtime Consolidation (`@nextrush/class`) | Accepted · Shipped |
+| [ADR-0004](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0004-application-graph-reflection-boundary.md) | Immutable Application Graph & single reflection boundary | Accepted · Shipped |
+| [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md) | Package tiers, sealed public surface & shim deprecation | Accepted |
+| [ADR-0006](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0006-deferred-1x-features.md) | Features deferred to 1.x (not 1.0 blockers) | Accepted |
+| [ADR-0007](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0007-serverless-adapter-and-enforced-contract.md) | Enforced adapter contract & serverless execution/event-format separation | Accepted |
+
+Each ADR cross-references the RFC(s) it governs (e.g. ADR-0002 cites `005-plugin-system`,
+ADR-0007 cites `013-adapter-contract` + `014-adapter-serverless`) — the two document types are a
+linked pair, not independent artifacts.
+
+## Supporting documents
+
+`docs/audits/` holds the production-readiness and class-based audits referenced by several RFCs
+and ADRs. `docs/migrations/class-consolidation.md` is the migration guide for the
+decorators/controllers → class consolidation (`007-class-consolidation`).
+
+## Where to read the real documents
+
+<Cards>
+  <Card title="Class Consolidation RFC" href="https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/007-class-consolidation.md">
+    The RFC behind `@nextrush/class` — Shipped, Phase 3 landed.
+  </Card>
+  <Card title="Stream RFC" href="https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/request-data/003-stream.md">
+    Five revisions of design history for the writer-callback streaming API.
+  </Card>
+  <Card title="Extension Model ADR" href="https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0002-extension-model.md">
+    Why `Plugin` became `Extension` — Accepted and Shipped.
+  </Card>
+</Cards>

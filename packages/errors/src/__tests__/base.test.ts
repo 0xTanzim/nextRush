@@ -145,9 +145,9 @@ describe('HttpError', () => {
       expect(error.name).toBe('HttpError');
     });
 
-    it('should set default code based on status', () => {
+    it('should set default code from the central registry based on status', () => {
       const error = new HttpError(404, 'Not found');
-      expect(error.code).toBe('HTTP_404');
+      expect(error.code).toBe('NOT_FOUND');
     });
 
     it('should accept custom code', () => {

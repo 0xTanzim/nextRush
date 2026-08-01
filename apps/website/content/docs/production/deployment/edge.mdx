@@ -1,0 +1,195 @@
+---
+title: Edge
+description: Deploy a NextRush app to Cloudflare Workers, Vercel Edge, or Netlify Edge using @nextrush/adapter-edge.
+keywords: [deployment, edge, nextrush, production]
+---
+
+`@nextrush/adapter-edge` connects a NextRush `Application` to any runtime that implements the
+Fetch API standard — Cloudflare Workers, Vercel Edge Functions, and Netlify Edge Functions all
+qualify. Unlike the Node/Bun/Deno adapters, there is no `serve()` call and no long-running
+process: the platform owns the process lifetime and invokes your handler per request.
+
+## Installation
+
+<PackageInstall packages={['@nextrush/core', '@nextrush/adapter-edge']} />
+
+## What's structurally different about edge
+
+The edge adapter's `createFetchHandler` boots the application lazily on the **first request**,
+not at startup — there is no equivalent of `serve()`'s upfront `app.ready()` call, because edge
+runtimes don't expose a "start the server" moment to hook into:
+
+```ts
+// packages/adapters/edge/src/adapter.ts
+let bootPromise: Promise<ReturnType<Application['callback']>> | null = null;
+const ensureBooted = (): Promise<ReturnType<Application['callback']>> => {
+  bootPromise ??= app.ready().then(() => {
+    const handler = app.callback();
+    app.start();
+    return handler;
+  });
+  return bootPromise;
+};
+```
+
+The boot promise is memoized, so every request after the first reuses the same booted handler —
+but the very first request pays the boot cost inline, which matters for cold-start latency.
+
+<Callout type="warn" title="No teardown — ever">
+  `createFetchHandler` never calls `app.close()`. Edge platforms don't give you a shutdown hook
+  to call it from, so extension teardown (timers, connections opened via `app.extend()`) is not
+  guaranteed to run. Don't rely on `Extension.destroy()` firing on edge — design extensions used
+  on edge to hold no state that needs explicit cleanup.
+</Callout>
+
+## Platform constraints
+
+These aren't NextRush limitations — they're what every edge runtime enforces, and
+`@nextrush/adapter-edge`'s design (Fetch-API-only, no Node built-ins) exists specifically to run
+inside them:
+
+- **No filesystem** — `@nextrush/static` and any `node:fs`-based middleware won't work. Serve
+  static assets via the platform's own asset pipeline (Workers Sites/Assets, Vercel's static
+  output) instead.
+- **No long-running process** — there's no background timer, in-memory cache, or connection pool
+  that survives between requests reliably. Each invocation may run in a fresh isolate.
+- **No Node.js-specific APIs** — `net`, `child_process`, and native addons aren't available.
+  Middleware built on Web Standard APIs only (`fetch`, `Request`, `Response`, `crypto.subtle`)
+  works; middleware that imports `node:*` modules internally does not.
+- **CPU time and memory limits are platform-specific** — consult Cloudflare Workers / Vercel
+  Edge / Netlify Edge's current limits directly; they change over time and per pricing tier.
+
+## Minimal deployment — Cloudflare Workers
+
+```ts title="src/index.ts"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { createCloudflareHandler } from '@nextrush/adapter-edge';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+export default createCloudflareHandler(app);
+```
+
+```toml title="wrangler.toml"
+name = "my-nextrush-worker"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+```
+
+```bash
+wrangler deploy
+```
+
+`createCloudflareHandler` returns Cloudflare's expected `{ fetch }` module shape and threads the
+Worker's `env` (KV, D1, R2, secrets bindings) onto `ctx.env`:
+
+```ts
+interface Env { MY_KV: KVNamespace }
+
+export default createCloudflareHandler<Env>(app);
+// inside a handler: ctx.env.MY_KV.get('key')
+```
+
+## Minimal deployment — Vercel Edge Functions
+
+```ts title="api/hello.ts"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { createVercelHandler } from '@nextrush/adapter-edge';
+
+const app = createApp();
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+export const config = { runtime: 'edge' };
+export default createVercelHandler(app);
+```
+
+```bash
+vercel deploy
+```
+
+## Minimal deployment — Netlify Edge Functions
+
+```ts title="netlify/edge-functions/api.ts"
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+import { createNetlifyHandler } from '@nextrush/adapter-edge';
+
+const app = createApp();
+const router = createRouter();
+router.get('/health', (ctx) => ctx.json({ status: 'ok' }));
+app.route('/', router);
+
+export default createNetlifyHandler(app);
+```
+
+```bash
+netlify deploy --prod
+```
+
+## Request timeout
+
+Unlike the long-running adapters, edge platforms enforce their own hard time limits — set
+`timeout` to fail fast with a `504` before the platform kills the isolate outright:
+
+<TypeTable
+  title="FetchHandlerOptions"
+  types={{
+    onError: { type: '(error: Error, ctx: EdgeContext) => Response | Promise<Response>', description: 'Custom handler for uncaught errors.', optional: true },
+    timeout: { type: 'number', description: 'Request timeout in ms. Races the handler and returns 504 on expiry. Defaults to 24000 (DEFAULT_EDGE_TIMEOUT_MS); pass 0 to disable.', optional: true },
+  }}
+/>
+
+```ts
+export default createCloudflareHandler(app, {
+  timeout: 30_000, // Cloudflare Workers: 30s CPU limit
+});
+```
+
+Recommended starting points: 30000 for Cloudflare Workers, 25000 for Vercel Edge — both are
+platform CPU/wall-time limits, not NextRush defaults, so verify against current platform docs.
+
+## Background work with `waitUntil`
+
+```ts
+app.use(async (ctx) => {
+  ctx.waitUntil(
+    fetch('https://analytics.example.com', {
+      method: 'POST',
+      body: JSON.stringify({ path: ctx.path }),
+    })
+  );
+
+  ctx.json({ status: 'ok' });
+});
+```
+
+`ctx.waitUntil()` extends the request's lifetime for fire-and-forget work without blocking the
+response — required on edge because the isolate may otherwise be frozen or recycled the moment
+the response is returned.
+
+## Bundle size
+
+Edge runtimes enforce strict bundle-size limits (Cloudflare Workers: 1 MB compressed on the free
+tier). Import only what you need:
+
+- `@nextrush/core` + `@nextrush/adapter-edge` only for the base case.
+- Avoid `@nextrush/di`/`nextrush/class` unless you need DI — it pulls in `reflect-metadata`.
+- Each middleware is a separate package — only install what you use.
+- Use `@nextrush/router` only if you have dynamic routes.
+
+## Requirements
+
+- Any runtime implementing the Fetch API standard (`Request`/`Response`/`fetch`)
+
+## Related
+
+- [Node.js](/docs/production/deployment/node) — the long-running-process alternative
+- [Reliability](/docs/production/reliability) — health checks and shutdown for long-running adapters (does not apply to edge — see the teardown note above)

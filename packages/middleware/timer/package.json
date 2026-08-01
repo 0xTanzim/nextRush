@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/timer",
-  "version": "3.0.5",
+  "version": "1.0.0",
   "description": "Response time middleware for NextRush - measures request duration",
   "type": "module",
   "main": "./dist/index.js",
@@ -29,8 +29,8 @@
   },
   "devDependencies": {
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "keywords": [
     "nextrush",

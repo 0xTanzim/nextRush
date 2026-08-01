@@ -55,9 +55,18 @@ describe('controllerTemplate', () => {
     expect(output).toContain("@Controller('/user-profile')");
   });
 
-  it('imports from nextrush', () => {
+  it('imports class-based decorators from nextrush/class', () => {
     const output = controllerTemplate('user');
-    expect(output).toContain("import { Controller, Get, Post, Body, Param } from 'nextrush'");
+    expect(output).toContain(
+      "import { Controller, Get, Post, Body, Param } from 'nextrush/class'"
+    );
+  });
+
+  it('does not import class-based decorators from the bare nextrush root', () => {
+    const output = controllerTemplate('user');
+    // Controller/Get/Post/Body/Param live in the 'nextrush/class' subpath,
+    // not the functional root entry — importing from 'nextrush' fails to compile.
+    expect(output).not.toContain("from 'nextrush'");
   });
 
   it('includes CRUD method stubs', () => {
@@ -89,9 +98,15 @@ describe('serviceTemplate', () => {
     expect(output).toContain('@Service()');
   });
 
-  it('imports from nextrush', () => {
+  it('imports Service from nextrush/class', () => {
     const output = serviceTemplate('user');
-    expect(output).toContain("import { Service } from 'nextrush'");
+    expect(output).toContain("import { Service } from 'nextrush/class'");
+  });
+
+  it('does not import Service from the bare nextrush root', () => {
+    const output = serviceTemplate('user');
+    // @Service is a DI decorator re-exported from 'nextrush/class', not the root.
+    expect(output).not.toContain("from 'nextrush'");
   });
 
   it('includes CRUD method stubs', () => {
@@ -139,9 +154,15 @@ describe('guardTemplate', () => {
     expect(output).toContain('export const roleCheckGuard: GuardFn');
   });
 
-  it('imports GuardFn from nextrush', () => {
+  it('imports GuardFn from nextrush/class', () => {
     const output = guardTemplate('auth');
-    expect(output).toContain("import type { GuardFn } from 'nextrush'");
+    expect(output).toContain("import type { GuardFn } from 'nextrush/class'");
+  });
+
+  it('does not import GuardFn from the bare nextrush root', () => {
+    const output = guardTemplate('auth');
+    // GuardFn is a decorator/type re-exported from 'nextrush/class', not the root.
+    expect(output).not.toContain("from 'nextrush'");
   });
 
   it('checks authorization header', () => {

@@ -1,0 +1,119 @@
+---
+title: Why we consolidated into @nextrush/class
+description: >
+  The former decorators/controllers/di split created a three-package tax for one
+  feature. Here's why NextRush merged them into a single class runtime.
+author: NextRush Team
+date: '2026-07-10'
+tags:
+  - architecture
+  - design-decision
+---
+
+If you've used an older NextRush example, you may have seen imports from
+`@nextrush/decorators`, `@nextrush/controllers`, and `@nextrush/di` side by side. That
+split is gone. Today, the class-based API lives in one package: `@nextrush/class`. This
+post explains what changed, why, and what the old packages still do.
+
+## What existed before
+
+Three packages, three responsibilities, one feature:
+
+- **`@nextrush/decorators`** — the metadata layer: `@Controller`, `@Get`, `@Body`, and
+  friends. Decorators only recorded metadata; they didn't register routes or resolve
+  dependencies.
+- **`@nextrush/controllers`** — the registrar: read the metadata `@nextrush/decorators`
+  produced, discovered controller classes, and built the actual route handlers.
+- **`@nextrush/di`** — the dependency injection container: `@Service`, `@Repository`,
+  scopes, resolution.
+
+To build one controller with one injected service, you needed all three packages
+installed and their versions kept in sync, even though from the developer's point of
+view "class-based controller with DI" is a single feature, not three.
+
+## Why that split stopped making sense
+
+The three packages had no independent use case. `@nextrush/decorators` was never useful
+without `@nextrush/controllers` reading its metadata — decorators that don't get
+registered do nothing. `@nextrush/controllers` was never useful without
+`@nextrush/decorators` — a registrar with no metadata to read has nothing to register.
+The dependency graph makes this explicit: `@nextrush/class`'s current `package.json`
+lists `@nextrush/di` as a direct dependency, and `packages/decorators/package.json` (now
+the deprecated shim) depends on `@nextrush/class` itself — the split had become circular
+in spirit even before it was collapsed structurally.
+
+`@nextrush/di` is the one exception with genuine independent value — it's usable without
+any class-based routing at all, wrapping `tsyringe` for services and repositories in
+plain code. That's why the merge **re-exports** `@nextrush/di` from `@nextrush/class`
+rather than absorbing it outright: class-based apps get DI without an extra install, but
+`@nextrush/di` still stands alone for anyone who wants injection without controllers.
+
+## What `@nextrush/class` actually contains
+
+Verified directly against `packages/class/src` and `packages/class/README.md`, the
+consolidated package now organizes into:
+
+- `decorators/` — `@Controller`, route decorators, parameter decorators, response
+  decorators
+- `binding/params.ts` — parameter extraction and transformation
+- `guards/` — `@UseGuard`, `CanActivate`
+- `interceptors/` — `@UseInterceptor`
+- `filters/` — `@Catch`, `@UseFilter`
+- `lifecycle/` — `OnInit`, `OnShutdown`
+- `modules/` — `@Module`, `registerModule`
+- `request/` — per-request scope plumbing
+- `discovery/` — `FilesystemSource`, `MemorySource`
+- `diagnostics/` — `getClassDiagnostics`
+- `registrar/` — `registerControllers`
+
+That's a materially larger surface than the original `@nextrush/decorators` +
+`@nextrush/controllers` combined — modules, guards, interceptors, filters, and lifecycle
+hooks didn't exist in the pre-consolidation split. The merge wasn't just a file move; it
+was the point at which these subsystems were added, and putting them anywhere except a
+single class runtime package would have recreated exactly the fragmentation problem the
+merge was meant to solve.
+
+## One important boundary: re-export, not everything
+
+`@nextrush/class` re-exports a specific, narrow slice of `@nextrush/di`:
+`Service`, `Repository`, `container`, `createContainer`, `inject`, and `Container` —
+confirmed directly against `packages/class/src/index.ts`. Symbols like `@Config`,
+`@Injectable`, `@Optional`, `delay`, and the `DIError` family exist only in
+`@nextrush/di` and are not re-exported. An earlier draft of this documentation rebuild's
+[class reference](/docs/reference/class) briefly showed those DI-only symbols importing
+from `nextrush/class` — a fabricated-import defect caught during validation and
+corrected. If you need those specific symbols, import them from `@nextrush/di` directly.
+
+```ts
+// Re-exported through nextrush/class:
+import { Service, Repository, inject, Container } from 'nextrush/class';
+
+// DI-only — must come from @nextrush/di directly:
+import { Config, Injectable, Optional, delay } from '@nextrush/di';
+```
+
+## What did not change
+
+The old packages are not deleted. `@nextrush/decorators` and `@nextrush/controllers`
+still exist, still publish at `3.1.0`, and still work — they're now thin compatibility
+shims whose own `package.json` descriptions say so explicitly:
+`"DEPRECATED: ... Use @nextrush/class instead."` This gives existing code a working
+upgrade path instead of a breaking removal. New code should import from `nextrush/class`
+directly; see the [migration guidance](/docs/reference/class) for the deprecated-package
+warning callouts.
+
+`@Module` composition also has a disclosed limit worth restating here rather than
+glossing over: **modules group, they do not yet encapsulate.** Every provider in a
+module's dependency graph is visible to every other module through the shared DI
+container today; `exports` is recorded on the `@Module` decorator but not yet enforced.
+True per-module encapsulation is tracked as follow-up work — see
+[Modules](/docs/concepts/modules) for the full detail.
+
+## Where to go next
+
+- [Modules](/docs/concepts/modules) — grouping controllers and providers behind one
+  declaration
+- [`/docs/reference/class`](/docs/reference/class) — the full generated/verified API
+  surface
+- [Dependency injection](/docs/concepts/dependency-injection) — scopes, request-scoped
+  services, and the DI container in isolation

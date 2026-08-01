@@ -1,0 +1,418 @@
+/**
+ * @nextrush/runtime - Web Response Builder
+ *
+ * A composable collaborator that owns the Web (Fetch API) response-building
+ * logic shared by the Bun, Deno, and Edge contexts (audit F-04b). Each
+ * per-runtime context composes one `WebResponseBuilder` instead of copy-pasting
+ * ~200 lines of `json`/`send`/`html`/`redirect`/`set`/`getResponse` logic.
+ *
+ * Behavior is intentionally identical to the previous per-adapter copies — this
+ * is a behavior-preserving extraction. Cross-adapter fixes (e.g. the empty-body
+ * header drop F-02 and the redundant Content-Length encode F-18) land here once
+ * in later stages.
+ *
+ * @packageDocumentation
+ */
+
+import type { NodeStreamLike, ResponseBody } from '@nextrush/types';
+import { HeaderValidationError } from '@nextrush/errors';
+
+/**
+ * Detect a Node-style readable stream (duck-typed on `.pipe`) that is not a Web
+ * `ReadableStream`.
+ *
+ * @remarks
+ * `ResponseBody` permits `NodeStreamLike` (audit F-12). On Web adapters a Node
+ * `Readable` previously fell through to the object branch and was
+ * `JSON.stringify`'d into `{}`. Node `Readable`s are async-iterable, so we can
+ * adapt them to a Web `ReadableStream` without importing `node:stream`.
+ */
+function isNodeReadable(data: unknown): data is NodeStreamLike & AsyncIterable<unknown> {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof (data as NodeStreamLike).pipe === 'function' &&
+    typeof (data as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === 'function'
+  );
+}
+
+/**
+ * Adapt a Node-style async-iterable readable stream into a Web
+ * `ReadableStream<Uint8Array>` using only Web APIs (audit F-12).
+ *
+ * @param stream - A Node `Readable`-like async iterable.
+ * @returns A Web `ReadableStream` that pulls from the Node stream.
+ */
+function nodeStreamToWebStream(
+  stream: AsyncIterable<unknown>
+): ReadableStream<Uint8Array> {
+  // Narrow TReturn to `undefined` so the destructured `value` is `unknown`,
+  // not `any` (IteratorResult defaults TReturn to `any`).
+  const iterator = stream[Symbol.asyncIterator]() as AsyncIterator<unknown, undefined>;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await iterator.next();
+        if (done) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(
+          value instanceof Uint8Array ? value : new Uint8Array(value as ArrayBufferLike)
+        );
+      } catch (err) {
+        controller.error(err);
+      }
+    },
+    async cancel() {
+      if (typeof iterator.return === 'function') {
+        await iterator.return();
+      }
+    },
+  });
+}
+
+/**
+ * Whether the response must not carry a body per HTTP semantics.
+ *
+ * @remarks
+ * HEAD requests, 204 No Content, 304 Not Modified, and 1xx informational
+ * responses never include a body (RFC 7231). Shared by the Web response builder
+ * and the Node context so suppression is defined once.
+ *
+ * @param method - The (upper-cased) request method.
+ * @param status - The response status code.
+ */
+export function isBodylessResponse(method: string, status: number): boolean {
+  return method === 'HEAD' || status === 204 || status === 304 || (status >= 100 && status < 200);
+}
+
+/**
+ * RFC 9110 §5.6.2 `token` grammar for a header field name: one or more
+ * `tchar` — no separators, no whitespace, no control characters.
+ */
+const FIELD_NAME_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+
+/**
+ * RFC 9110 §5.5 field-value grammar (as a validation, not a permissive
+ * transport rule): printable ASCII plus the Latin-1 supplement range, no
+ * control characters (including NUL and DEL), and — checked separately
+ * below — no leading/trailing whitespace and no embedded CR/LF (obs-fold).
+ * `\t` and space are allowed *inside* the value but not at the edges.
+ */
+const FIELD_VALUE_CHARS = /^[\t\x20-\x7E\x80-\xFF]*$/;
+
+/**
+ * Validate one header value string against the RFC 9110 field-value
+ * grammar (SEC-12): no control characters (NUL, DEL, C0 controls), no
+ * leading/trailing whitespace, no embedded CR/LF (which also catches
+ * obs-fold, a CRLF followed by whitespace).
+ */
+function assertValueGrammar(value: string): void {
+  if (value.includes('\r') || value.includes('\n')) {
+    throw new HeaderValidationError('Header value contains invalid characters');
+  }
+  if (value.startsWith(' ') || value.startsWith('\t')) {
+    throw new HeaderValidationError('Header value contains invalid characters');
+  }
+  if (value !== '' && /[ \t]$/.test(value)) {
+    throw new HeaderValidationError('Header value contains invalid characters');
+  }
+  if (!FIELD_VALUE_CHARS.test(value)) {
+    throw new HeaderValidationError('Header value contains invalid characters');
+  }
+}
+
+/**
+ * Guard a header field/value against the full RFC 9110 field grammar
+ * (SEC-12), not only CRLF injection.
+ *
+ * @remarks
+ * Shared by every adapter's `set()` so the guard — and its error messages —
+ * cannot drift. Validates the field name against the `token` grammar
+ * (rejecting separators, whitespace, and control characters, not only
+ * `:`/CR/LF) and each value against the field-value grammar (rejecting
+ * control characters, leading/trailing whitespace, and obs-fold). Numeric
+ * values are always safe. Array values are validated element-wise — a
+ * single invalid element rejects the whole write, per the framework's
+ * fail-closed rule (`security-boundaries` capability).
+ *
+ * @param field - Header field name.
+ * @param value - Header value (string, number, or array of strings).
+ * @throws {HeaderValidationError} If the field or any value violates the
+ *   grammar.
+ */
+export function assertHeaderSafe(field: string, value: string | number | string[]): void {
+  if (!FIELD_NAME_TOKEN.test(field)) {
+    throw new HeaderValidationError('Header field contains invalid characters');
+  }
+  if (typeof value === 'string') {
+    assertValueGrammar(value);
+  } else if (Array.isArray(value)) {
+    for (const v of value) {
+      assertValueGrammar(v);
+    }
+  }
+}
+
+/**
+ * Owns the Web response state and the response-writing methods for the
+ * Fetch-API adapters (Bun/Deno/Edge).
+ *
+ * @remarks
+ * The owning context passes its current `status` into the response methods and
+ * into {@link WebResponseBuilder.getResponse} (as the fallback used when no body
+ * method has committed a specific status, e.g. a redirect).
+ */
+export class WebResponseBuilder {
+  private readonly method: string;
+  private readonly _headers = new Headers();
+  private _status = 200;
+  private _body: BodyInit | null = null;
+  private _responded = false;
+
+  /**
+   * @param method - The (upper-cased) request method, used for body suppression.
+   */
+  constructor(method: string) {
+    this.method = method;
+  }
+
+  /** Whether a response has been committed. */
+  get responded(): boolean {
+    return this._responded;
+  }
+
+  /** Mark the response committed out-of-band (e.g. after wiring a stream). */
+  markResponded(): void {
+    this._responded = true;
+  }
+
+  /** Send a JSON response. */
+  json(data: unknown, status: number): void {
+    if (this._responded) return;
+    this._responded = true;
+
+    // F-18: do not set Content-Length for a string body — `new Response(string)`
+    // derives it from the BodyInit, so encoding it here just to measure length
+    // is a wasted full-body encode + allocation on the hot path.
+    this._status = status;
+    this._headers.set('Content-Type', 'application/json; charset=utf-8');
+    this._body = JSON.stringify(data);
+  }
+
+  /** Send text/binary/stream/object response, auto-detecting the content type. */
+  send(data: ResponseBody, status: number): void {
+    if (this._responded) return;
+    this._responded = true;
+
+    this._status = status;
+
+    if (data === null || data === undefined) {
+      this._body = null;
+      return;
+    }
+
+    if (typeof data === 'string') {
+      if (!this._headers.has('Content-Type')) {
+        this._headers.set('Content-Type', 'text/plain; charset=utf-8');
+      }
+      // F-18: let the runtime derive Content-Length from the string body.
+      this._body = data;
+      return;
+    }
+
+    if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
+      const bytes =
+        data instanceof ArrayBuffer
+          ? new Uint8Array(data)
+          : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+      if (!this._headers.has('Content-Type')) {
+        this._headers.set('Content-Type', 'application/octet-stream');
+      }
+      // Length is free for binary bodies (no encode needed) — keep it explicit.
+      this._headers.set('Content-Length', String(bytes.length));
+      // Uint8Array is a valid BodyInit in Web APIs.
+      this._body = bytes as unknown as BodyInit;
+      return;
+    }
+
+    if (data instanceof ReadableStream) {
+      if (!this._headers.has('Content-Type')) {
+        this._headers.set('Content-Type', 'application/octet-stream');
+      }
+      this._body = data as ReadableStream<Uint8Array>;
+      return;
+    }
+
+    // F-12: Node-style readable stream — adapt to a Web ReadableStream rather
+    // than JSON.stringify'ing it into `{}`.
+    if (isNodeReadable(data)) {
+      if (!this._headers.has('Content-Type')) {
+        this._headers.set('Content-Type', 'application/octet-stream');
+      }
+      this._body = nodeStreamToWebStream(data);
+      return;
+    }
+
+    // Object — serialize as JSON.
+    if (typeof data === 'object') {
+      this._headers.set('Content-Type', 'application/json; charset=utf-8');
+      // F-18: let the runtime derive Content-Length from the string body.
+      this._body = JSON.stringify(data);
+      return;
+    }
+
+    // Default: coerce to string.
+    this._headers.set('Content-Type', 'text/plain; charset=utf-8');
+    this._body = String(data);
+  }
+
+  /** Send an HTML response. */
+  html(content: string, status: number): void {
+    if (this._responded) return;
+    this._responded = true;
+
+    this._status = status;
+    this._headers.set('Content-Type', 'text/html; charset=utf-8');
+    // F-18: let the runtime derive Content-Length from the string body.
+    this._body = content;
+  }
+
+  /** Send a redirect. Body is `text/plain` to avoid HTML injection via URLs. */
+  redirect(url: string, status: number): void {
+    if (this._responded) return;
+    this._responded = true;
+
+    this._status = status;
+    this._headers.set('Location', url);
+    this._headers.set('Content-Type', 'text/plain; charset=utf-8');
+    this._body = `Redirecting to ${url}`;
+  }
+
+  /** Wire a byte stream as the response body (drained by the runtime). */
+  sendStream(source: ReadableStream<Uint8Array>, status: number): void {
+    if (this._responded) return;
+    this._responded = true;
+    this._status = status;
+    this._body = source;
+  }
+
+  /** Set a response header, guarding CRLF injection and accumulating cookies. */
+  set(field: string, value: string | number | string[]): void {
+    assertHeaderSafe(field, value);
+
+    if (Array.isArray(value)) {
+      this._headers.delete(field);
+      for (const v of value) {
+        this._headers.append(field, v);
+      }
+      return;
+    }
+
+    const stringValue = typeof value === 'string' ? value : String(value);
+    // HP-15-web: gate the set-cookie detection behind a constant-time pre-check
+    // (length + case-insensitive first char) so a non-cookie header never
+    // allocates a lowercased string. 'set-cookie' is 10 chars starting with 's'
+    // (0x73); only a field passing both cheap checks falls back to toLowerCase.
+    const isSetCookie =
+      field.length === 10 &&
+      (field.charCodeAt(0) | 0x20) === 0x73 &&
+      field.toLowerCase() === 'set-cookie';
+    if (isSetCookie) {
+      this._headers.append(field, stringValue);
+    } else {
+      this._headers.set(field, stringValue);
+    }
+  }
+
+  /**
+   * Materialize the accumulated `Response`.
+   *
+   * @param fallbackStatus - The context status to use when no body method has
+   *   committed a specific status yet.
+   */
+  getResponse(fallbackStatus: number): Response {
+    if (!this._responded) {
+      this._status = fallbackStatus;
+    }
+
+    const status = this._status;
+
+    // A 1xx informational status is not a valid final response status — the Web
+    // `Response` constructor only accepts 200–599 and would otherwise throw an
+    // opaque `RangeError`. Fail with an actionable message instead (audit R-6).
+    if (status < 200) {
+      throw new RangeError(
+        `Cannot build a Response with informational (1xx) status ${String(status)}; ` +
+          `1xx responses are not valid final responses.`
+      );
+    }
+
+    const suppressBody = isBodylessResponse(this.method, status);
+
+    // F-03: a HEAD response SHALL carry the `Content-Length` the equivalent GET
+    // would (RFC 7231 §4.3.2). The body is suppressed, but the length is set from
+    // the would-be body when it is measurable (string / byte body; a stream has
+    // no known length). 204 and 304 legitimately omit it and are excluded, and an
+    // already-set Content-Length (binary bodies set it explicitly) is preserved.
+    if (
+      suppressBody &&
+      this.method === 'HEAD' &&
+      status !== 204 &&
+      status !== 304 &&
+      !this._headers.has('Content-Length')
+    ) {
+      const len = measureBodyLength(this._body);
+      if (len !== undefined) {
+        this._headers.set('Content-Length', String(len));
+      }
+    }
+
+    return new Response(suppressBody ? null : this._body, {
+      status,
+      headers: this._headers,
+    });
+  }
+}
+
+/** UTF-8 encoder reused for measuring string body lengths on the HEAD path. */
+const HEAD_LENGTH_ENCODER = new TextEncoder();
+
+/**
+ * The byte length of a materialized response body, or `undefined` when it cannot
+ * be measured (a `ReadableStream` has no known length, and `null` has none).
+ *
+ * @remarks
+ * Used only on the HEAD/bodyless path (F-03) to emit a `Content-Length` equal to
+ * what the equivalent GET would carry.
+ */
+function measureBodyLength(body: BodyInit | null): number | undefined {
+  if (body === null) return undefined;
+  if (typeof body === 'string') return HEAD_LENGTH_ENCODER.encode(body).length;
+  if (body instanceof Uint8Array) return body.byteLength;
+  if (body instanceof ArrayBuffer) return body.byteLength;
+  return undefined;
+}
+
+/**
+ * Build a framework-generated JSON error response with a Content-Type that is
+ * uniform across every adapter (F-05).
+ *
+ * @remarks
+ * The Web adapters (Bun/Deno/Edge) and the serverless engine construct their
+ * `404`/`500`/`504` responses through this single helper so the charset cannot
+ * drift per adapter (Edge and Bun's server-level error path previously emitted a
+ * bare `application/json`). The body shape is `{ error: <message> }`, matching
+ * the adapters' existing error payloads.
+ *
+ * @param status - The HTTP status code.
+ * @param message - The human-readable error message placed under `error`.
+ * @returns A Web `Response` with `Content-Type: application/json; charset=utf-8`.
+ */
+export function jsonErrorResponse(status: number, message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  });
+}

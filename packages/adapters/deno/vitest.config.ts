@@ -4,6 +4,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     passWithNoTests: true,
+    pool: 'threads',
+    minWorkers: 1,
+    maxWorkers: 2,
     include: ['src/**/*.test.ts'],
     coverage: {
       provider: 'v8',

@@ -10,7 +10,7 @@
 
 // Adapter
 export { createHandler, listen, serve } from './adapter';
-export type { ServeOptions, ServerInstance } from './adapter';
+export type { GracefulShutdownOptions, ServeOptions, ServerInstance } from './adapter';
 
 // Context
 export { HttpError } from '@nextrush/errors';
@@ -19,9 +19,15 @@ export type { NodeContextOptions } from './context';
 
 // Body Source
 export { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
-export { createEmptyBodySource, createNodeBodySource, NodeBodySource } from './body-source';
+export {
+  createEmptyBodySource,
+  createNodeBodySource,
+  EmptyBodySource,
+  NodeBodySource,
+} from './body-source';
 
 // Utilities
+// eslint-disable-next-line @typescript-eslint/no-deprecated -- F-09: intentional compat re-export, not a usage site
 export { getContentLength, getContentType, parseQueryString } from './utils';
 
 // Re-export types

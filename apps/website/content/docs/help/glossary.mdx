@@ -1,0 +1,167 @@
+---
+title: Glossary
+description: NextRush terminology, defined consistently.
+keywords: [glossary, help, nextrush]
+---
+
+Definitions for terms used throughout the NextRush documentation. Canonical terms and
+capitalization follow the project's documentation standards — if a page uses different wording
+for the same concept, this page is the tie-breaker.
+
+## Application (app)
+
+The entry point created by `createApp()`. Owns middleware registration, extension/plugin wiring,
+and the request lifecycle. One `Application` instance typically serves one process.
+
+```typescript
+import { createApp } from 'nextrush';
+const app = createApp();
+```
+
+See [Application](/docs/concepts/application).
+
+## Context (`ctx`)
+
+The per-request object passed through every middleware and handler. Wraps the request and
+response into one object with a DX-first API (`ctx.json()`, `ctx.params`, `ctx.query`,
+`ctx.status`, `ctx.next()`). Always referred to as **Context** in prose, `ctx` in code — never
+raw `req`/`res`.
+
+See [Context](/docs/concepts/context).
+
+## Middleware
+
+A function that runs on every matching request, in registration order, and can call
+`ctx.next()` to continue the chain (or return early to short-circuit it). This is how ~99% of
+NextRush capability is added — CORS, body parsing, auth, logging, rate limiting are all
+middleware. Composed via `compose()`.
+
+```typescript
+const logger: Middleware = async (ctx) => {
+  const start = Date.now();
+  await ctx.next();
+  console.log(`${ctx.method} ${ctx.path} - ${Date.now() - start}ms`);
+};
+```
+
+See [Middleware](/docs/concepts/middleware).
+
+## Registrar
+
+A plain function you call once, at startup, to wire a subsystem — not middleware, and not
+long-lived. `registerControllers()` and `registerModule()` (both from `nextrush/class`) are
+registrars: they build routes and register them on the app in a single call. Registrars account
+for roughly 0.9% of how capability is added to a NextRush app.
+
+## Extension (Plugin)
+
+A rare (~0.1%) long-lived, app-scoped service with its own boot/teardown lifecycle — for
+capabilities that must attach shared state to the app itself, not merely process a request. Wired
+with `app.extend(...)` and started with `await app.ready()`. The event bus
+(`@nextrush/events`) is the canonical example. "Extension" and "Plugin" refer to the same
+mechanism in NextRush's docs.
+
+```typescript
+const app = createApp().extend(events());
+await app.ready();
+```
+
+See [Extensions](/docs/concepts/extensions).
+
+## Handler
+
+A request handler — the function that ultimately produces a response for a matched route
+(`(ctx) => ctx.json(...)`, or a decorated controller method). Distinct from middleware: a
+handler is the destination of the chain, not a link in it.
+
+## Route
+
+A URL pattern mapped to an HTTP method and a handler, registered on a `Router` via
+`router.get()`, `router.post()`, etc., or declared with `@Get()`/`@Post()` decorators on a
+class-based controller method.
+
+## Router
+
+The object returned by `createRouter()` that owns route registration and dispatch for a given
+mount point. Mounted onto an `Application` with `app.route(prefix, router)`.
+
+## Segment trie
+
+The data structure NextRush's router (`@nextrush/router`) uses internally for route matching —
+each path segment (the parts between `/`) is a node in a trie, giving O(k) lookup where `k` is
+the number of path segments, regardless of how many routes are registered. This is **not** a
+radix tree; older documentation and steering files that say "radix tree" are describing a
+previous implementation and are stale.
+
+See [Routing](/docs/concepts/routing) and [Internals: Router](/docs/architecture) for the design.
+
+## Dependency Injection (DI)
+
+The pattern where a class declares its dependencies as constructor parameters and a container
+(`@nextrush/di`, wrapping `tsyringe`) supplies them at resolution time, instead of the class
+constructing its own dependencies. NextRush's DI supports three lifecycle **scopes**:
+
+- **singleton** (default) — one shared instance for the app's lifetime.
+- **transient** — a fresh instance every time it's resolved.
+- **request** — one instance per HTTP request, shared within that request, backed by a
+  per-request child container.
+
+See [Dependency Injection](/docs/concepts/dependency-injection).
+
+## Class runtime (`nextrush/class`)
+
+The consolidated decorator/controller/DI-facing API, importable from the `nextrush/class`
+subpath. Merges the former separate `@nextrush/decorators` and `@nextrush/controllers`
+packages (both since removed) and re-exports a subset of `@nextrush/di`
+(`Service`, `Repository`, `container`, `createContainer`, `inject`, `Container` — nothing else).
+
+See [Reference: Class](/docs/reference/class) for the full re-export surface.
+
+## Module (`@Module`)
+
+A declaration that groups a feature's controllers and providers, and can compose other modules
+via `imports`. Registered with `registerModule()`. Modules currently **group** related code —
+they do not yet **encapsulate** it (every provider remains visible to the whole DI container;
+`exports` is recorded but not enforced).
+
+See [Modules](/docs/concepts/modules).
+
+## Guard
+
+A function or `CanActivate` class attached to a route or controller with `@UseGuard()` that
+runs before the handler and returns a boolean — `true` to allow the request through, `false` (or
+a thrown error) to reject it. Used for authorization checks.
+
+## Interceptor
+
+A cross-cutting function attached with `@UseInterceptor()` that wraps around handler execution
+— it can run logic both before and after the handler runs (and around its return value), unlike
+a guard, which only gates entry.
+
+See [Interceptors](/docs/concepts/interceptors).
+
+## Exception filter
+
+A declarative error handler attached with `@Catch()` / `@UseFilter()` that intercepts specific
+error types thrown from a controller and converts them into a response, instead of letting them
+fall through to a generic error handler.
+
+See [Exception Filters](/docs/concepts/exception-filters).
+
+## Adapter
+
+The platform-specific layer that translates a runtime's native HTTP primitives (Node.js
+`http.Server`, Bun's `Bun.serve`, Deno's `Deno.serve`, or a Fetch-API edge runtime) into calls
+against the framework-agnostic `Application`. One package per runtime:
+`@nextrush/adapter-node`, `@nextrush/adapter-bun`, `@nextrush/adapter-deno`,
+`@nextrush/adapter-edge`.
+
+## HttpError
+
+The base class (from `@nextrush/errors`) for typed, status-coded errors — `NotFoundError`,
+`BadRequestError`, `ValidationError`, and the rest of the hierarchy. Throwing an `HttpError`
+subclass from a handler or middleware produces a structured JSON error response with the
+correct status code, instead of an unhandled exception.
+
+See [Troubleshooting](/docs/help/troubleshooting) for real error messages and fixes, and
+[Error Handling](/docs/guides/api-development/error-handling) for usage.

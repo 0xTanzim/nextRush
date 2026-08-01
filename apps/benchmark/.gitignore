@@ -1,2 +1,9 @@
-results/
+# Generated benchmark runs are not committed. A single pinned `baseline/` may be
+# committed so `pnpm bench:check` has something to compare against in CI.
+/results/*
+!/results/baseline/
+/wrk/.generated/
 node_modules/
+
+# Stray profiler output from manual `scripts/profile.js` invocations.
+/scripts/results/

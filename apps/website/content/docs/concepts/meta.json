@@ -1,0 +1,5 @@
+{
+  "title": "Concepts",
+  "description": "Core architectural concepts behind NextRush — application, context, middleware, routing, and the class runtime's deeper subsystems.",
+  "pages": ["(core-framework)", "(extension-system)", "(class-runtime)", "(runtime-streaming)"]
+}

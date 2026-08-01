@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/errors",
-  "version": "3.0.7",
+  "version": "4.0.0",
   "description": "Standardized error handling for NextRush",
   "type": "module",
   "main": "./dist/index.js",
@@ -30,8 +30,8 @@
   },
   "devDependencies": {
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "keywords": [
     "nextrush",

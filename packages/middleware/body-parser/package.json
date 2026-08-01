@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/body-parser",
-  "version": "3.0.5",
+  "version": "4.0.0",
   "description": "Body parsing middleware for NextRush",
   "type": "module",
   "main": "./dist/index.js",
@@ -29,9 +29,10 @@
     "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
+    "fast-check": "3.23.2",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "keywords": [
     "nextrush",

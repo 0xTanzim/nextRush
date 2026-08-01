@@ -1,0 +1,70 @@
+---
+title: Session position
+description: 'NextRush ships no session/authentication/JWT package today. This page states the framework''s committed position — what applications own now, what the framework will own, and why the gap is documented rather than silently closed.'
+keywords: [architecture, nextrush, position, session]
+---
+
+<Callout type="warning" title="Not yet implemented">
+  This page describes a **decision**, not a shipped feature. `@nextrush/session` does not exist.
+  Reading this page tells you the gap is known and committed-to — it does not close it.
+</Callout>
+
+## What exists today
+
+`packages/middleware/*` and `packages/extensions/*` contain no session, authentication, or JWT
+package. The nearest primitive is [`@nextrush/cookies`](/docs/reference/cookies)'
+[signed cookies](/docs/reference/cookies#signed-cookies), which are name-bound and can carry an
+embedded expiry, but have no server-side record, no store, no revocation, and no
+rotation-on-privilege-change semantics. A signed cookie is a signed *value*; a session is a
+server-side-tracked, revocable authentication state — the two are not the same primitive, and
+NextRush currently ships only the former.
+
+## Why this matters
+
+Session fixation, missing rotation on login, and absent revocation are among the most common
+real-world authentication defects. Every NextRush application today reinvents this surface from
+scratch, on top of a primitive (`signedCookies`) that was never designed to be a session
+abstraction. The security review that produced `harden-security-boundaries` looked for this
+surface explicitly and found nothing to audit — an absence, not a fixable finding.
+
+## The framework's position
+
+NextRush will own a session primitive, per [AGENTS.md §4](https://github.com/0xTanzim/nextRush/blob/main/AGENTS.md)'s
+"the framework owns complexity" principle — session management is exactly the kind of
+high-CVE-density, easy-to-get-wrong surface an application developer should not have to build
+themselves. It does not exist yet, and its design is deliberately **not** decided inside this
+document or inside the `harden-security-boundaries` change that produced it.
+
+| What | Owner today | Owner once `@nextrush/session` ships |
+| --- | --- | --- |
+| Signed cookie values (name-bound, optionally time-boxed) | `@nextrush/cookies` (shipped) | Unchanged — `@nextrush/session` will likely build on this, not replace it |
+| Server-side session record, revocation, rotation-on-privilege-change | Your application, by hand | `@nextrush/session` |
+| A JWT recommendation (framework-owned package vs. a documented vetted library) | Undecided | Decided by the future implementation RFC |
+
+## Why implementation isn't bundled into this change
+
+A new package's design, implementation, and review deserve their own dedicated RFC cycle — not
+a subsection of a change that already spans six workstreams and four other RFCs. Bundling it in
+would make the whole change unreviewable, and `@nextrush/session`'s API, storage adapters, and
+rotation semantics need the same rigor every other RFC-gated addition gets.
+
+## What happens next
+
+Implementation is gated behind a separate, future, RFC-gated change — not this one. That RFC
+will decide the open questions this position deliberately leaves open: cookie-backed sessions
+only, or also header/token-backed (bearer) sessions under one abstraction; and whether the
+framework ships `@nextrush/jwt` or documents a recommended external library instead.
+
+## Read the full RFC
+
+<Cards>
+  <Card title="RFC-032: @nextrush/session position" href="https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/class-runtime/032-session-position.md">
+    The full decision record — problem, drivers, alternatives considered, and the phased plan.
+  </Card>
+  <Card title="ADR-0020: Session position" href="https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0020-session-position.md">
+    The terse, final decision record.
+  </Card>
+  <Card title="Cookies reference" href="/docs/reference/cookies">
+    The nearest existing primitive — signed cookies, name-bound and optionally time-boxed.
+  </Card>
+</Cards>

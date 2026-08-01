@@ -1,0 +1,257 @@
+---
+title: 'Modules'
+description: '@Module decorator and registerModule() — signatures, options, and provider config.'
+keywords: [class, modules, nextrush, reference]
+---
+
+`@Module` and `registerModule()` API reference — signatures, options, and provider
+configuration shapes. For the problem modules solve, the mental model, and how the import
+graph is walked, see [Modules concepts](/docs/concepts/modules).
+
+---
+
+## Installation
+
+<PackageInstall packages={['nextrush']} />
+
+Or install `@nextrush/class` directly:
+
+<PackageInstall packages={['@nextrush/class']} />
+
+---
+
+## `@Module(options)`
+
+Class decorator. Declares a module's imports, controllers, providers, and exports.
+
+**Signature:**
+
+```ts
+function Module(options?: ModuleOptions): ClassDecorator;
+```
+
+<TypeTable
+  title="ModuleOptions"
+  types={{
+    imports: {
+      type: 'Function[]',
+      description: 'Other @Module classes this module composes',
+      optional: true,
+    },
+    controllers: {
+      type: 'Function[]',
+      description: '@Controller classes owned by this module',
+      optional: true,
+    },
+    providers: {
+      type: 'ModuleProvider[]',
+      description: 'Services/values/factories this module registers',
+      optional: true,
+    },
+    exports: {
+      type: 'Function[]',
+      description: 'Providers this module makes visible to importers. Recorded on metadata, not enforced yet.',
+      optional: true,
+    },
+  }}
+/>
+
+```typescript
+import { Module, Controller, Get, Service } from 'nextrush/class';
+
+@Service()
+class UserService {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+  @Get() findAll() { return this.users.findAll(); }
+}
+
+@Module({
+  controllers: [UserController],
+  providers: [UserService],
+})
+class UserModule {}
+```
+
+### `ModuleProvider`
+
+A provider is either a bare class constructor, or a `ModuleProviderConfig` binding a token.
+
+```ts
+type ModuleProvider = Function | ModuleProviderConfig;
+```
+
+<TypeTable
+  title="ModuleProviderConfig"
+  types={{
+    provide: { type: 'Token', description: 'Token the provider is registered under (class, string, or symbol)' },
+    useClass: { type: 'Constructor', description: 'Construct this class to satisfy the token', optional: true },
+    useValue: { type: 'unknown', description: 'Bind this constant value to the token (scope is ignored)', optional: true },
+    useFactory: { type: '(...args: unknown[]) => unknown', description: 'Call this factory to produce the value', optional: true },
+    inject: { type: 'Token[]', description: 'Tokens resolved and passed (in order) as arguments to useFactory', optional: true },
+    scope: { type: "'singleton' | 'transient' | 'request'", description: 'Lifecycle scope', default: "'singleton'" },
+  }}
+/>
+
+Exactly one of `useClass` / `useValue` / `useFactory` should be set per config provider.
+
+```typescript
+@Module({
+  providers: [
+    // Bare class — uses its own @Service scope, or singleton if undecorated
+    UserService,
+
+    // Value provider
+    { provide: 'CONFIG', useValue: { port: 8080 } },
+
+    // Factory provider
+    {
+      provide: 'DB',
+      useFactory: (config: Config) => createConnection(config),
+      inject: ['CONFIG'],
+    },
+  ],
+})
+class AppModule {}
+```
+
+### `getModuleMetadata(target)`
+
+Read the normalized `ModuleMetadata` off a `@Module`-decorated class. Returns `undefined` if
+the class has no module metadata.
+
+```ts
+function getModuleMetadata(target: Function): ModuleMetadata | undefined;
+```
+
+<TypeTable
+  title="ModuleMetadata"
+  types={{
+    imports: { type: 'Function[]', description: 'Always present, defaults to []' },
+    controllers: { type: 'Function[]', description: 'Always present, defaults to []' },
+    providers: { type: 'ModuleProvider[]', description: 'Always present, defaults to []' },
+    exports: { type: 'Function[]', description: 'Always present, defaults to []' },
+  }}
+/>
+
+### `isModule(target)`
+
+```ts
+function isModule(target: Function): boolean;
+```
+
+Returns `true` if `target` carries `@Module` metadata.
+
+---
+
+## `registerModule(app, rootModule, options?)`
+
+Wires a whole `@Module` graph in one call: walks `imports`, registers every module's providers
+into a DI container, then hands the flattened controller list to the same
+[`registerControllers`](/docs/reference/class/controllers) pipeline.
+
+**Signature:**
+
+```ts
+function registerModule(
+  app: Application,
+  rootModule: Function,
+  options?: ModuleRegistrationOptions
+): Promise<void>;
+```
+
+<TypeTable
+  title="Parameters"
+  types={{
+    app: { type: 'Application', description: 'The app instance. Must have a router.' },
+    rootModule: { type: 'Function', description: 'The root @Module class' },
+    options: { type: 'ModuleRegistrationOptions', description: 'Registration options', optional: true },
+  }}
+/>
+
+<TypeTable
+  title="ModuleRegistrationOptions"
+  types={{
+    prefix: { type: 'string', description: 'Route prefix applied to all controllers', optional: true },
+    middleware: { type: 'Middleware[]', description: 'Global middleware applied to all routes', optional: true },
+    container: { type: 'Container', description: 'Explicit container — wins over isolate and app.container', optional: true },
+    isolate: { type: 'boolean', description: 'Use a fresh, isolated container instead of app.container/global', optional: true },
+    validate: { type: 'boolean', description: 'Eagerly validate the DI graph before serving requests', optional: true },
+    debug: { type: 'boolean', description: 'Enable debug logging for discovery and registration', optional: true },
+  }}
+/>
+
+**Returns:** `Promise<void>` — resolves once every module's providers are registered and every
+controller across the graph has its routes registered on `app.router`.
+
+**Throws:** `NotAModuleError` if `rootModule` or any class in an `imports` array lacks
+`@Module` metadata.
+
+```typescript
+import { createApp, listen } from 'nextrush';
+import { Module, registerModule } from 'nextrush/class';
+
+@Module({ imports: [UserModule, BillingModule] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule, { prefix: '/api' });
+await listen(app, 8080);
+```
+
+### Container selection order
+
+1. `options.container`, if provided.
+2. A fresh isolated container, if `options.isolate` is `true`.
+3. `app.container`, if set.
+4. The global container.
+
+### Graph utilities
+
+Lower-level building blocks used internally by `registerModule`:
+
+```typescript
+import { collectModuleGraph, collectModuleControllers } from 'nextrush/class';
+```
+
+- `collectModuleGraph(rootModule)` — walks `imports` in post-order, returning every module in
+  the graph exactly once (diamond imports deduplicated, cycles skipped rather than recursed).
+- `collectModuleControllers(modules)` — flattens and deduplicates every `controllers` entry
+  across a list of modules.
+
+---
+
+## TypeScript Exports
+
+<details>
+<summary>Complete import reference</summary>
+
+```ts
+import { Module, getModuleMetadata, isModule, registerModule } from 'nextrush/class';
+import { collectModuleControllers, collectModuleGraph } from 'nextrush/class';
+
+import type {
+  ModuleMetadata,
+  ModuleOptions,
+  ModuleProvider,
+  ModuleProviderConfig,
+  ModuleRegistrationOptions,
+} from 'nextrush/class';
+```
+
+</details>
+
+---
+
+## Related
+
+- [Modules concepts](/docs/concepts/modules) — Mental model, import-graph walk, trade-offs
+- [Controllers](/docs/reference/class/controllers) — The registrar `registerModule` delegates to
+- [Dependency Injection](/docs/reference/class/di) — Provider scopes and the container
+- [@nextrush/class overview](/docs/reference/class) — How the class runtime fits together

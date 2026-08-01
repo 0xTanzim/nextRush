@@ -67,29 +67,10 @@ export function error(message: string): void {
 }
 
 /**
- * Log a debug message (only in verbose mode)
- */
-export function debug(message: string, verbose = false): void {
-  if (!verbose) return;
-
-  const time = getTimestamp();
-  console.log(
-    `${colors.gray}[${time}] [debug]${colors.reset} ${colors.dim}${message}${colors.reset}`
-  );
-}
-
-/**
  * Print the NextRush banner
  */
 export function banner(title: string): void {
   console.log(`\n${colors.cyan}⚡ NextRush ${title}${colors.reset}\n`);
-}
-
-/**
- * Print a section header
- */
-export function section(title: string): void {
-  console.log(`\n${colors.bold}${title}${colors.reset}\n`);
 }
 
 /**
@@ -143,7 +124,7 @@ export function spinner(message: string): {
 
   const interval = setInterval(() => {
     if (!running) return;
-    writeStdout(`\r${colors.cyan}${frames[frameIndex]}${colors.reset} ${current}`);
+    writeStdout(`\r${colors.cyan}${frames[frameIndex] ?? ''}${colors.reset} ${current}`);
     frameIndex = (frameIndex + 1) % frames.length;
   }, 80);
 
@@ -160,18 +141,18 @@ export function spinner(message: string): {
 }
 
 /**
- * Format file size for display
- */
-export function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-/**
  * Format duration for display
  */
 export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
+  if (ms < 1000) return `${String(ms)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
+}
+
+/**
+ * Format file size for display
+ */
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${String(bytes)}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
 }

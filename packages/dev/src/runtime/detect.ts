@@ -1,3 +1,4 @@
+/* eslint-disable nextrush/no-runtime-identity-capability -- the dev CLI's own runtime detection helper; runtime identity is the subject here, not a capability gate */
 /**
  * @nextrush/dev - Runtime Detection
  *
@@ -6,6 +7,8 @@
  *
  * @packageDocumentation
  */
+
+import { getDenoGlobal, getBunGlobal } from './runtime-globals.js';
 
 /**
  * Supported runtime environments
@@ -77,7 +80,7 @@ export function getRuntimeInfo(): RuntimeInfo {
         runtime: 'node',
         version: getNodeVersion(),
         supportsTypeScript: false, // Node.js needs transpilation
-        supportsWatch: true, // Node.js 18+ has --watch
+        supportsWatch: true, // Node.js 22+ has --watch
         needsSwc: true, // Need SWC for decorator metadata
       };
   }
@@ -132,8 +135,7 @@ function getNodeVersion(): string {
 
 function getBunVersion(): string {
   try {
-    // @ts-expect-error Bun global exists in Bun runtime
-    return globalThis.Bun?.version ?? 'unknown';
+    return getBunGlobal().version;
   } catch {
     return 'unknown';
   }
@@ -141,8 +143,7 @@ function getBunVersion(): string {
 
 function getDenoVersion(): string {
   try {
-    // @ts-expect-error Deno global exists in Deno runtime
-    return globalThis.Deno?.version?.deno ?? 'unknown';
+    return getDenoGlobal().version.deno;
   } catch {
     return 'unknown';
   }
@@ -155,8 +156,7 @@ export function exitProcess(code: number): never {
   const runtime = detectRuntime();
 
   if (runtime === 'deno') {
-    // @ts-expect-error Deno global exists in Deno runtime
-    (globalThis.Deno as { exit: (code: number) => never }).exit(code);
+    getDenoGlobal().exit(code);
   }
 
   process.exit(code);
@@ -170,8 +170,7 @@ export function getEnv(name: string): string | undefined {
 
   if (runtime === 'deno') {
     try {
-      // @ts-expect-error Deno global exists in Deno runtime
-      return globalThis.Deno.env.get(name) as string | undefined;
+      return getDenoGlobal().env.get(name);
     } catch {
       return undefined;
     }
@@ -187,8 +186,7 @@ export function onSignal(signal: string, handler: () => void): void {
   const runtime = detectRuntime();
 
   if (runtime === 'deno') {
-    // @ts-expect-error Deno global exists in Deno runtime
-    globalThis.Deno.addSignalListener(signal, handler);
+    getDenoGlobal().addSignalListener(signal, handler);
     return;
   }
 

@@ -6,12 +6,9 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  target: 'node20',
-  tsconfig: 'tsconfig.build.json',
-  external: [
-    // Node.js built-ins - keep node: prefix for Deno compatibility
-    'node:string_decoder',
-    'node:stream',
-    'node:buffer',
-  ],
+  // Runtime-agnostic bundle (BP-1): no Node built-ins are imported, so build for
+  // a neutral platform. This surfaces any accidental node: dependency at build
+  // time and keeps the package loadable on edge runtimes.
+  platform: 'neutral',
+  target: 'es2022',
 });

@@ -1,0 +1,130 @@
+---
+title: Observability
+description: Structured logging, request correlation, and response timing for production NextRush apps.
+keywords: [index, nextrush, observability, production]
+---
+
+A production incident with no logs, no request IDs, and no timing data is a guess, not a
+diagnosis. NextRush ships three focused middleware packages for this — [`@nextrush/logger`](/docs/reference/logger),
+[`@nextrush/request-id`](/docs/reference/request-id), and [`@nextrush/timer`](/docs/reference/timer)
+— and this page shows how they compose so every log line for a request carries the same
+correlation ID.
+
+<Callout type="info" title="Scope of this page">
+  This page covers usage and composition. Full option tables and every export live in the
+  reference pages linked above — this page does not repeat them.
+</Callout>
+
+## The three packages, in one sentence each
+
+| Package | What it does | Where |
+| --- | --- | --- |
+| `@nextrush/logger` | Structured request logging, attaches `ctx.log`, owns correlation IDs by default | [Logging](/docs/production/observability/logging) |
+| `@nextrush/request-id` | Generates/validates a distinct request ID, independent of logging | [Request tracking & tracing](/docs/production/observability/request-tracing) |
+| `@nextrush/timer` | Measures request duration with `performance.now()` precision | [Request tracking & tracing](/docs/production/observability/request-tracing) |
+
+## Correlating every log line for a request
+
+`logger()` is the package that owns correlation in NextRush: it reads `x-request-id` from the
+**incoming** request header if a client or upstream service already sent one, otherwise it
+generates a UUID with `crypto.randomUUID()`. Either way, it binds that ID to a request-scoped
+logger via `@nextrush/log`'s `withCorrelationId()` and attaches it to `ctx.log` — every call to
+`ctx.log.info()`, `.warn()`, `.error()`, etc. for that request then carries the same ID, and the
+ID is mirrored onto the `x-request-id` response header.
+
+Verified against `packages/middleware/logger/src/index.ts`:
+
+```ts
+const requestLogger = correlationId
+  ? baseLogger.withCorrelationId(correlationId)
+  : baseLogger;
+
+(ctx as LoggerContext).log = requestLogger;
+
+if (correlationId) {
+  ctx.set(correlationIdHeader, correlationId);
+}
+```
+
+<Callout type="warn" title="Middleware order changes what a middleware can see">
+  NextRush runs middleware in the onion model: a middleware registered earlier wraps everything
+  registered after it, so its post-`next()` code runs last. Register `timer()` before `logger()`
+  so its duration measurement covers the logger and the route handler — see
+  [Request tracking & tracing](/docs/production/observability/request-tracing) for the full
+  explanation and a broken-order example.
+</Callout>
+
+```ts
+import { createApp } from 'nextrush';
+import { listen } from '@nextrush/adapter-node';
+import { logger } from '@nextrush/logger';
+import { timer } from '@nextrush/timer';
+
+const app = createApp();
+
+app.use(timer({ stateKey: 'responseTime' }));
+app.use(logger());
+
+app.get('/hello', (ctx) => {
+  // ctx.log already carries this request's correlation ID.
+  ctx.log.info('Handling /hello');
+  ctx.json({ correlationId: ctx.log.getCorrelationId() });
+});
+
+await listen(app, 8080);
+```
+
+### Verified output — two real requests, two distinct correlation IDs
+
+This example was run for real with `tsx` against the built workspace packages (not written from
+memory). Two requests to `/hello`, ANSI color codes stripped for readability:
+
+```txt title="Request 1 — x-request-id: dee76be4-5cbd-4e3f-be5e-512c2a862a80"
+2026-07-10 06:29:42.606 🐛 [DEBUG] [nextrush] (dee76be4-5cbd-4e3f-be5e-512c2a862a80) Request started
+  method: "GET"
+  path: "/hello"
+  query: undefined
+  ip: "127.0.0.1"
+2026-07-10 06:29:42.606 ℹ️  [INFO ] [nextrush] (dee76be4-5cbd-4e3f-be5e-512c2a862a80) Handling /hello
+2026-07-10 06:29:42.606 ℹ️  [INFO ] [nextrush] (dee76be4-5cbd-4e3f-be5e-512c2a862a80) GET /hello
+  method: "GET"
+  path: "/hello"
+  status: 200
+  duration: 1
+```
+
+```txt title="Request 2 — x-request-id: 07a45b2b-25af-451d-b8ea-f35436229790"
+2026-07-10 06:29:42.916 🐛 [DEBUG] [nextrush] (07a45b2b-25af-451d-b8ea-f35436229790) Request started
+  method: "GET"
+  path: "/hello"
+  query: undefined
+  ip: "127.0.0.1"
+2026-07-10 06:29:42.916 ℹ️  [INFO ] [nextrush] (07a45b2b-25af-451d-b8ea-f35436229790) Handling /hello
+2026-07-10 06:29:42.916 ℹ️  [INFO ] [nextrush] (07a45b2b-25af-451d-b8ea-f35436229790) GET /hello
+  method: "GET"
+  path: "/hello"
+  status: 200
+  duration: 0
+```
+
+Every line within a request shares the bracketed correlation ID, and it matches the response
+body and the `x-request-id` response header for that same request:
+
+```txt
+# Request 1
+HTTP/1.1 200 OK
+x-request-id: dee76be4-5cbd-4e3f-be5e-512c2a862a80
+{"correlationId":"dee76be4-5cbd-4e3f-be5e-512c2a862a80"}
+
+# Request 2
+HTTP/1.1 200 OK
+x-request-id: 07a45b2b-25af-451d-b8ea-f35436229790
+{"correlationId":"07a45b2b-25af-451d-b8ea-f35436229790"}
+```
+
+No two requests share an ID, and no request's log lines mix IDs from another request.
+
+## Next steps
+
+- [Logging](/docs/production/observability/logging) — `@nextrush/logger` in depth: levels, `ctx.log`, production vs. development defaults
+- [Request tracking & tracing](/docs/production/observability/request-tracing) — `@nextrush/request-id`, `@nextrush/timer`, middleware ordering, and a bring-your-own OpenTelemetry integration pattern

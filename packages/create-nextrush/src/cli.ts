@@ -29,13 +29,17 @@ export function parseArgs(argv: string[]): ParsedArgs {
     middleware?: MiddlewarePreset;
     packageManager?: PackageManager;
     install: boolean;
+    installExplicit: boolean;
     git: boolean;
+    gitExplicit: boolean;
     yes: boolean;
     help: boolean;
     version: boolean;
   } = {
     install: true,
+    installExplicit: false,
     git: true,
+    gitExplicit: false,
     yes: false,
     help: false,
     version: false,
@@ -66,19 +70,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
       case '--no-install':
         parsed.install = false;
+        parsed.installExplicit = true;
         break;
 
       case '-i':
       case '--install':
         parsed.install = true;
+        parsed.installExplicit = true;
         break;
 
       case '--no-git':
         parsed.git = false;
+        parsed.gitExplicit = true;
         break;
 
       case '--git':
         parsed.git = true;
+        parsed.gitExplicit = true;
         break;
 
       case '-s':
@@ -143,6 +151,11 @@ function isValidMiddleware(value: string): value is MiddlewarePreset {
   return (MIDDLEWARE_PRESETS as readonly string[]).includes(value);
 }
 
+// 'bun' here is one of the four PACKAGE MANAGER names (npm/pnpm/yarn/bun)
+// this scaffolder supports, not a NextRush JS-runtime capability decision —
+// collides with a runtime name in RUNTIME_NAMES, but never branches on the
+// executing runtime.
 function isValidPm(value: string): value is PackageManager {
+  // capability-exempt: package-manager name check, see function doc above
   return ['npm', 'pnpm', 'yarn', 'bun'].includes(value);
 }

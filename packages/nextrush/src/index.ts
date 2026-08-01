@@ -38,7 +38,7 @@
  * });
  *
  * app.route('/', router);
- * listen(app, 3000);
+ * listen(app, 8080);
  * ```
  *
  * @example With Middleware (install separately)
@@ -51,13 +51,13 @@
  * app.use(cors());
  * app.use(json());
  *
- * listen(app, 3000);
+ * listen(app, 8080);
  * ```
  *
  * @example Class-Based (import from nextrush/class)
  * ```typescript
  * import { createApp, listen } from 'nextrush';
- * import { Controller, Get, Service, controllersPlugin } from 'nextrush/class';
+ * import { Controller, Get, Service, registerControllers } from 'nextrush/class';
  *
  * @Service()
  * class UserService {
@@ -73,21 +73,53 @@
  * }
  *
  * const app = createApp();
- * app.plugin(controllersPlugin({ root: './src' }));
- * listen(app, 3000);
+ * await registerControllers(app, { root: './src' });
+ * await listen(app, 8080);
  * ```
  */
 
 // ============================================
 // CORE: Application & Middleware Composition
 // ============================================
-export { Application, compose, createApp } from '@nextrush/core';
+import {
+  Application,
+  compose,
+  createApp as createBareApp,
+  type ApplicationOptions,
+} from '@nextrush/core';
+import { createRouter as createDefaultRouter } from '@nextrush/router';
+
+/**
+ * Create an application with a default router wired in, so `app.get`/`app.post`
+ * work out of the box.
+ *
+ * The functional `nextrush` entry is deliberately DI-free: it does NOT import or
+ * attach a `@nextrush/di` container. Doing so would transitively load
+ * `reflect-metadata` + tsyringe, making functional users pay a cost that belongs
+ * only to the class-based paradigm (see NEW-1 in
+ * docs/audits/class-based-master-audit.md).
+ *
+ * The container is bring-your-own: pass `options.container` to attach one. Class
+ * users are unaffected — they import from `nextrush/class`, and
+ * `registerControllers` supplies the global `@nextrush/di` container fallback
+ * itself (`options.container ?? app.container ?? globalContainer`). See
+ * docs/RFC/class-runtime/006-di-container-ownership.md.
+ *
+ * Import `createApp` from `@nextrush/core` for a minimal engine where the router
+ * is also bring-your-own.
+ */
+export function createApp(options?: ApplicationOptions): Application {
+  const router = options?.router ?? createDefaultRouter();
+  return createBareApp({ ...options, router });
+}
+
+export { Application, compose };
 export type { ApplicationOptions, ComposedMiddleware } from '@nextrush/core';
 
 // ============================================
-// ROUTER: Radix Tree Routing
+// ROUTER: Segment Trie Routing + Route Metadata
 // ============================================
-export { Router, createRouter } from '@nextrush/router';
+export { Router, createRouter, endpoint } from '@nextrush/router';
 export type { RouterOptions } from '@nextrush/router';
 
 // ============================================
@@ -113,14 +145,18 @@ export {
     ServiceUnavailableError,
     TooManyRequestsError,
     UnauthorizedError,
-    UnprocessableEntityError, catchAsync,
+    UnprocessableEntityError,
     // Factory functions
     createError,
     // Error handling middleware
-    errorHandler, isHttpError, notFoundHandler
+    errorHandler, isHttpError, notFoundHandler,
+    // Central error-code registry + validation (audit N-4)
+    ERROR_CODES,
+    codeForStatus,
+    ValidationError
 } from '@nextrush/errors';
 
-export type { ErrorHandlerOptions, HttpErrorOptions } from '@nextrush/errors';
+export type { ErrorHandlerOptions, HttpErrorOptions, ValidationIssue } from '@nextrush/errors';
 
 // ============================================
 // TYPES: Essential TypeScript Types
@@ -128,13 +164,18 @@ export type { ErrorHandlerOptions, HttpErrorOptions } from '@nextrush/errors';
 export type {
     // Core types
     Context,
+    // Extension model
+    Extension,
+    ExtensionContext,
     // HTTP types
     HttpMethod,
     HttpStatusCode,
     Middleware,
     Next,
-    Plugin,
     RouteHandler,
+    // Route metadata (author with endpoint(); read by @nextrush/openapi)
+    RouteDefinition,
+    RouteMetadata,
     // Runtime
     Runtime
 } from '@nextrush/types';

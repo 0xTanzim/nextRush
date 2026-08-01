@@ -8,10 +8,10 @@
 
 import type { Middleware } from '@nextrush/types';
 
-import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
+import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_JSON_MAX_DEPTH, DEFAULT_LIMITS } from '../constants.js';
 import { Errors } from '../errors.js';
 import type { BodyParserContext, JsonOptions } from '../types.js';
-import { bufferToString } from '../utils/buffer.js';
+import { bufferToString, toRawBody } from '../utils/buffer.js';
 import { getContentType, isJsonContentType, matchContentType } from '../utils/content-type.js';
 import { parseLimit } from '../utils/limit.js';
 import { readBody } from './reader.js';
@@ -95,7 +95,7 @@ export function json(options: JsonOptions = {}): Middleware {
     rawBody = false,
     strict = true,
     verify,
-    maxDepth,
+    maxDepth = DEFAULT_JSON_MAX_DEPTH,
   } = options;
 
   // Pre-compute configuration
@@ -105,36 +105,38 @@ export function json(options: JsonOptions = {}): Middleware {
   // Optimize for default case (single 'application/json' type)
   const useSimpleCheck = types.length === 1 && types[0] === 'application/json';
 
-  return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
-    // Skip methods that don't have bodies
-    if (BODYLESS_METHODS.has(ctx.method)) {
-      if (next) await next();
-      return;
-    }
-
-    // Skip if body already parsed by another middleware
-    if (ctx.body !== undefined) {
-      if (next) await next();
-      return;
-    }
-
-    // Check content type
-    const contentType = getContentType(ctx.headers);
-    const isMatch = useSimpleCheck
-      ? isJsonContentType(contentType)
-      : matchContentType(contentType, types);
-
-    if (!isMatch) {
-      if (next) await next();
-      return;
+  return (async (
+    ctx: BodyParserContext,
+    next?: () => Promise<void>,
+    prechecked = false
+  ): Promise<void> => {
+    // Detection (method / already-parsed / content-type) is skipped when the combined
+    // parser has already routed to us (BP-E — single detection per request).
+    if (!prechecked) {
+      if (BODYLESS_METHODS.has(ctx.method)) {
+        if (next) await next();
+        return;
+      }
+      if (ctx.body !== undefined) {
+        if (next) await next();
+        return;
+      }
+      const contentType = getContentType(ctx.headers);
+      const isMatch = useSimpleCheck
+        ? isJsonContentType(contentType)
+        : matchContentType(contentType, types);
+      if (!isMatch) {
+        if (next) await next();
+        return;
+      }
     }
 
     // Read body
     const buffer = await readBody(ctx, limitBytes);
 
-    // Store raw body if requested
+    // Store raw body if requested (Buffer on Node, Uint8Array on edge)
     if (rawBody) {
-      ctx.rawBody = buffer;
+      ctx.rawBody = toRawBody(buffer);
     }
 
     // Handle empty body
@@ -145,7 +147,7 @@ export function json(options: JsonOptions = {}): Middleware {
 
     // Invoke verify callback before parsing
     if (verify) {
-      await verify(ctx, buffer, 'utf-8');
+      await verify(ctx, toRawBody(buffer), 'utf-8');
     }
 
     // Parse JSON
@@ -161,8 +163,19 @@ export function json(options: JsonOptions = {}): Middleware {
         }
       }
 
-      // Check nesting depth
-      if (maxDepth !== undefined && typeof parsed === 'object' && parsed !== null) {
+      // Check nesting depth — but skip the traversal for payloads too small to
+      // possibly exceed maxDepth (BP-D). Representing nesting depth d requires at
+      // least 2d structural bytes (d opening + d closing brackets); keys/values only
+      // add bytes. So a body under 2*(maxDepth+1) bytes cannot reach depth maxDepth+1,
+      // and the walk (plus its two working arrays) cannot change the outcome. When
+      // maxDepth is Infinity the threshold is Infinity, so the walk is always skipped —
+      // matching "depth checking disabled".
+      if (
+        maxDepth !== undefined &&
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        buffer.length >= 2 * (maxDepth + 1)
+      ) {
         checkJsonDepth(parsed, maxDepth);
       }
 

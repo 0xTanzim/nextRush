@@ -9,6 +9,11 @@ export { parseQueryString } from '@nextrush/runtime';
 
 /**
  * Get content length from headers
+ *
+ * @deprecated F-09: unused internally (superseded by `@nextrush/body-parser`'s
+ * own content-length handling). Kept for backward compatibility per the
+ * public-API contract (deprecate-before-remove); will be removed in a future
+ * major.
  */
 export function getContentLength(headers: Record<string, unknown>): number | undefined {
   const length = headers['content-length'];
@@ -21,6 +26,10 @@ export function getContentLength(headers: Record<string, unknown>): number | und
 
 /**
  * Get content type from headers
+ *
+ * @deprecated F-09: unused internally (superseded by `@nextrush/body-parser`'s
+ * own content-type parsing). Kept for backward compatibility per the public-API
+ * contract (deprecate-before-remove); will be removed in a future major.
  */
 export function getContentType(headers: Record<string, unknown>): string | undefined {
   const type = headers['content-type'];

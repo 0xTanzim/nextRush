@@ -1,0 +1,6 @@
+{
+  "title": "Responses & Views",
+  "icon": "LayoutTemplate",
+  "defaultOpen": false,
+  "pages": ["static", "template"]
+}

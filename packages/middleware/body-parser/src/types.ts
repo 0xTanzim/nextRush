@@ -7,14 +7,15 @@
  */
 
 /**
- * HTTP methods that typically do not have request bodies
+ * HTTP methods that do not carry a request body (aligned with the runtime
+ * `METHODS_WITHOUT_BODY` policy — DELETE excluded, TRACE included; see BP-H).
  */
-export type BodylessMethod = 'GET' | 'HEAD' | 'DELETE' | 'OPTIONS';
+export type BodylessMethod = 'GET' | 'HEAD' | 'OPTIONS' | 'TRACE';
 
 /**
- * HTTP methods that may have request bodies
+ * HTTP methods that may carry a request body (DELETE may per RFC 7231 §4.3.5).
  */
-export type BodyMethod = 'POST' | 'PUT' | 'PATCH';
+export type BodyMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 /**
  * Supported buffer encodings for text parsing
@@ -43,8 +44,13 @@ export interface BodyParserBodySource {
   /** Read the body as a UTF-8 string */
   text(): Promise<string>;
 
-  /** Read the body as a Uint8Array buffer */
-  buffer(): Promise<Uint8Array>;
+  /**
+   * Read the body as a Uint8Array buffer.
+   *
+   * @param limit - Optional per-read byte limit enforced incrementally by the
+   *   adapter (RFC 017). When omitted, the source's construction-time limit governs.
+   */
+  buffer(limit?: number): Promise<Uint8Array>;
 
   /** Read the body as JSON */
   json<T = unknown>(): Promise<T>;
@@ -60,25 +66,6 @@ export interface BodyParserBodySource {
 }
 
 /**
- * Node.js request stream interface (minimal) - DEPRECATED
- *
- * @deprecated Use BodyParserBodySource instead. This is kept for backward compatibility.
- */
-export interface RequestStream {
-  on(event: 'data', listener: (chunk: Buffer) => void): this;
-  on(event: 'end', listener: () => void): this;
-  on(event: 'error', listener: (err: Error) => void): this;
-  on(event: 'close', listener: () => void): this;
-  on(event: 'aborted', listener: () => void): this;
-  off(event: 'data', listener: (chunk: Buffer) => void): this;
-  off(event: 'end', listener: () => void): this;
-  off(event: 'error', listener: (err: Error) => void): this;
-  off(event: 'close', listener: () => void): this;
-  off(event: 'aborted', listener: () => void): this;
-  readonly destroyed?: boolean;
-}
-
-/**
  * Minimal context interface for body-parser middleware
  *
  * This interface defines the minimum requirements for a context object
@@ -86,11 +73,8 @@ export interface RequestStream {
  * with NextRush Context while remaining decoupled from core.
  *
  * @remarks
- * The body-parser supports two modes:
- * 1. **Modern (cross-runtime)**: Uses `ctx.bodySource` for Node, Bun, Deno, Edge
- * 2. **Legacy (Node.js only)**: Uses `ctx.raw.req` stream events
- *
- * If both are available, `bodySource` takes priority for better performance.
+ * Requires `ctx.bodySource` for cross-runtime body reading (Node, Bun, Deno,
+ * Edge adapters all provide this).
  */
 export interface BodyParserContext {
   /** HTTP method (GET, POST, etc.) */
@@ -107,18 +91,8 @@ export interface BodyParserContext {
    *
    * @remarks
    * Modern adapters (Node, Bun, Deno, Edge) provide this for unified body reading.
-   * This is the preferred way to read request bodies.
    */
   readonly bodySource?: BodyParserBodySource;
-
-  /**
-   * Raw platform-specific request/response objects
-   *
-   * @deprecated For body reading, prefer `bodySource` for cross-runtime compatibility.
-   */
-  readonly raw?: {
-    readonly req?: RequestStream;
-  };
 
   /** Parsed request body (set by body-parser) */
   body?: unknown;
@@ -126,17 +100,6 @@ export interface BodyParserContext {
   /** Raw request body buffer (optional, when rawBody option is true) */
   rawBody?: Buffer | Uint8Array;
 }
-
-/**
- * Body parser middleware function signature
- *
- * @deprecated Use `Middleware` from `@nextrush/types` instead.
- * All body parser functions now return the standard `Middleware` type.
- */
-export type BodyParserMiddleware = (
-  ctx: BodyParserContext,
-  next?: () => Promise<void>
-) => void | Promise<void>;
 
 /**
  * JSON reviver function for custom parsing
@@ -149,12 +112,14 @@ export type JsonReviver = (key: string, value: unknown) => unknown;
  * Throw an error to reject the request body.
  *
  * @param ctx - Request context
- * @param body - Raw body buffer
- * @param encoding - Content encoding
+ * @param body - Raw body bytes. A Node `Buffer` when the runtime provides one
+ *   (so `.toString('hex')`, HMAC `.update(body)`, etc. work), otherwise a plain
+ *   `Uint8Array` on edge runtimes.
+ * @param encoding - Content encoding / charset
  */
 export type VerifyCallback = (
   ctx: BodyParserContext,
-  body: Buffer,
+  body: Uint8Array,
   encoding: string
 ) => void | Promise<void>;
 
@@ -208,8 +173,8 @@ export interface JsonOptions extends BaseParserOptions {
   /**
    * Maximum JSON nesting depth.
    * Rejects payloads deeper than this limit after parsing.
-   * Set to `undefined` to disable depth checking.
-   * @default undefined
+   * Set to `Infinity` to disable depth checking.
+   * @default 64
    */
   readonly maxDepth?: number;
 }
@@ -310,8 +275,8 @@ export type BodyParserErrorCode =
  * Result of reading a request body
  */
 export interface ReadBodyResult {
-  /** The body buffer */
-  readonly buffer: Buffer;
+  /** The body bytes */
+  readonly buffer: Uint8Array;
 
   /** Number of bytes received */
   readonly length: number;

@@ -28,7 +28,7 @@ export default defineConfig({
   minify: false,
   target: 'node20',
   outDir: 'dist',
-  external: ['@nextrush/types', '@nextrush/core'],
+  external: ['@nextrush/types', '@nextrush/core', '@nextrush/errors', '@nextrush/runtime', '@nextrush/stream'],
   async onSuccess() {
     await addNodePrefix();
   },

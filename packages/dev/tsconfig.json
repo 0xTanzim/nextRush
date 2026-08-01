@@ -5,6 +5,7 @@
     "declaration": true,
     "declarationMap": true,
     "ignoreDeprecations": "6.0",
+    "allowJs": true,
     "types": [
       "node"
     ]

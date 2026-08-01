@@ -1,9 +1,10 @@
 {
   "name": "@nextrush/adapter-node",
-  "version": "3.0.7",
+  "version": "4.0.0",
   "description": "Node.js HTTP adapter for NextRush",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -29,11 +30,12 @@
     "@nextrush/core": "workspace:*",
     "@nextrush/errors": "workspace:*",
     "@nextrush/runtime": "workspace:*",
+    "@nextrush/stream": "workspace:*",
     "@nextrush/types": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   },
   "keywords": [
     "nextrush",

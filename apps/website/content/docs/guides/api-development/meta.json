@@ -1,0 +1,7 @@
+{
+  "title": "API Development",
+  "description": "Building REST APIs, class-based controllers, error handling, and route organization.",
+  "pages": ["rest-api", "class-based", "custom-middleware", "mounting-and-grouping-routes", "error-handling", "validation", "https-http2", "dev-tools", "generators"],
+  "learningPath": ["rest-api", "error-handling", "validation", "custom-middleware", "mounting-and-grouping-routes"],
+  "references": ["../authentication", "../data", "../security", "../../recipes/authentication"]
+}

@@ -1,0 +1,66 @@
+---
+title: Production
+description: Configuration, deployment, reliability, observability, security, caching, scaling, and performance tuning.
+keywords: [index, nextrush, production]
+---
+
+Everything you need to take a NextRush application from `localhost` to a running production
+service — grounded in real package APIs, not aspirational features.
+
+<Cards>
+  <Card
+    title="Configuration"
+    description="Environment-based config, secrets, and the @Config decorator."
+    href="/docs/production/configuration"
+  />
+  <Card
+    title="Reliability"
+    description="Graceful shutdown, health checks, and timeouts — built from real primitives."
+    href="/docs/production/reliability"
+  />
+  <Card
+    title="Deployment"
+    description="Node.js, Bun, Deno, Edge, and a real, build-tested Dockerfile."
+    href="/docs/production/deployment"
+  />
+  <Card
+    title="Observability"
+    description="Structured logging, request IDs, correlation, and response timing."
+    href="/docs/production/observability"
+  />
+  <Card
+    title="Security"
+    description="A production-readiness checklist — headers, CORS, CSRF, rate limiting."
+    href="/docs/production/security"
+  />
+  <Card
+    title="Caching"
+    description="Cache-Control headers and cache-layer patterns (not a built-in feature)."
+    href="/docs/production/caching"
+  />
+  <Card
+    title="Scaling"
+    description="Statelessness, clustering, and load-balancer health-check integration."
+    href="/docs/production/scaling"
+  />
+  <Card
+    title="Performance tuning"
+    description="Runtime flags, hot-path guidance, and the router's real complexity."
+    href="/docs/production/performance-tuning"
+  />
+  <Card
+    title="Benchmarking"
+    description="The benchmark suite's methodology — pointer to the canonical Performance section."
+        href="/docs/getting-started/benchmarking"
+  />
+</Cards>
+
+<Callout type="warn" title="NextRush is honest about what it doesn't ship">
+  Graceful shutdown, health checks, caching, and metrics/tracing are documented here as
+  **patterns built from real primitives** (`app.close()`, `OnShutdown`, middleware composition)
+  — NextRush does not ship a built-in `gracefulShutdown()` helper, health-check endpoint, or
+  caching layer. Each page is explicit about what's a real export versus a recommended pattern.
+</Callout>
+
+See also the [Benchmarks](/docs/performance) page for current performance characteristics and
+methodology, and the [Deployment guide](/docs/production/deployment) for a task-oriented walkthrough.

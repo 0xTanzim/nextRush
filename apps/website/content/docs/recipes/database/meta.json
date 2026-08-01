@@ -1,0 +1,7 @@
+{
+  "title": "Database",
+  "description": "PostgreSQL, SQLite, MongoDB, pagination, and other database recipes for NextRush.",
+  "pages": ["postgres-service", "pagination"],
+  "learningPath": ["postgres-service", "pagination"],
+  "references": ["../../guides/data"]
+}

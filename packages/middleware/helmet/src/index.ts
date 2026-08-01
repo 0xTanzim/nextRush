@@ -31,7 +31,6 @@ export {
   // Individual header middleware
   contentSecurityPolicy,
   devHelmet,
-  frameguard,
   hidePoweredBy,
   hsts,
   logoutHelmet,
@@ -147,6 +146,4 @@ export type {
   ReferrerPolicyValue,
   // HSTS
   StrictTransportSecurityOptions,
-  // Frame Options
-  XFrameOptionsValue,
 } from './types.js';

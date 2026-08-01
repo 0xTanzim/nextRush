@@ -17,11 +17,10 @@ import type { FileMap, ProjectOptions } from './types.js';
 export function generateProject(options: ProjectOptions): FileMap {
   const files: FileMap = new Map();
 
-  // Shared files
+  // Shared files that don't depend on the emitted source tree.
   const needsDecorators = options.style === 'class-based' || options.style === 'full';
   files.set('tsconfig.json', generateTsconfig(needsDecorators));
   files.set('package.json', generatePackageJson(options));
-  files.set('README.md', generateReadme(options));
   files.set('src/env.d.ts', generateEnvDts());
   files.set('.gitignore', generateGitignore());
 
@@ -30,6 +29,11 @@ export function generateProject(options: ProjectOptions): FileMap {
   for (const [path, content] of styleFiles) {
     files.set(path, content);
   }
+
+  // README's "Project Structure" section is derived from the FileMap above, so it can never
+  // drift from what was actually emitted (fixes F-10) — generated last, once the source tree
+  // is known.
+  files.set('README.md', generateReadme(options, files));
 
   return files;
 }

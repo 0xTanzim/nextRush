@@ -1,0 +1,232 @@
+---
+title: Configuration
+description: Environment-based configuration, secrets handling, and multi-environment setup for NextRush apps.
+keywords: [configuration, nextrush, production]
+---
+
+Every NextRush app needs values that change between environments — a port, a
+database URL, an API key. NextRush does not ship a configuration file format or
+a config-loading service. You read `process.env` directly, or centralize those
+reads behind a `@Config` class if you use the class runtime.
+
+This page covers three things: reading environment variables safely, the
+`@Config` decorator, and a pattern for keeping dev/staging/production settings
+apart without duplicating code.
+
+## Environment variables
+
+`process.env` values are always strings (or `undefined`). Read each one once,
+convert its type, and provide a default — don't scatter `process.env.X` calls
+across route handlers.
+
+```ts
+// config.ts
+export const config = {
+  port: Number(process.env.PORT ?? 8080),
+  host: process.env.HOST ?? '0.0.0.0',
+  nodeEnv: process.env.NODE_ENV ?? 'development',
+  databaseUrl: process.env.DATABASE_URL,
+};
+
+if (!config.databaseUrl) {
+  throw new Error('DATABASE_URL is required');
+}
+```
+
+<Callout type="warn" title="Fail fast on missing required values">
+  A missing required variable should crash the process at startup, not
+  produce `undefined` deep in a request handler. Validate once, at the top of
+  your entry file, before `listen()` is called.
+</Callout>
+
+Use `createApp`'s `env` option to tell NextRush which mode it's running in.
+`Application.isProduction` is derived from it and controls default error
+verbosity (stack traces are hidden in production — see
+[Reliability](/docs/production/reliability) and
+[Error Handling](/docs/reference/errors)).
+
+```ts
+import { createApp, listen } from 'nextrush';
+
+const app = createApp({
+  env: (process.env.NODE_ENV as 'development' | 'production' | 'test') ?? 'development',
+});
+
+listen(app, config.port);
+```
+
+`env` and the other `ApplicationOptions` fields are defined in
+`packages/core/src/application.ts`:
+
+```ts
+export interface ApplicationOptions {
+  env?: 'development' | 'production' | 'test';
+  proxy?: boolean;
+  logger?: Logger;
+  router?: Router;
+  container?: Container;
+}
+```
+
+## Secrets
+
+Secrets — database passwords, API tokens, signing keys — follow the same
+rule as any other config value, with one addition: **never hardcode them, and
+never commit them.**
+
+- Keep secrets in environment variables, injected by your process manager,
+  container orchestrator, or a secrets manager (AWS Secrets Manager, Vault,
+  Doppler). NextRush has no built-in secrets store — this is infrastructure,
+  not framework, concern.
+- Add `.env` to `.gitignore` if you use a local `.env` file for development
+  (via a loader like `dotenv`) — NextRush does not read `.env` files itself.
+- Never log a secret. If you log the resolved config object for debugging,
+  redact secret fields first.
+
+```ts
+// ❌ Never
+const apiKey = 'sk_live_51H8...';
+
+// ✅ Read from the environment, validate presence
+const apiKey = process.env.STRIPE_SECRET_KEY;
+if (!apiKey) {
+  throw new Error('STRIPE_SECRET_KEY is required');
+}
+```
+
+This mirrors the framework's own zero-hardcoded-secrets rule
+(`.kiro/steering/global-rules.instructions.md`) — it applies to your
+application code the same way it applies to the framework's source.
+
+## The `@Config` decorator
+
+If you use the class runtime, `@nextrush/di` provides `@Config` — a decorator
+for centralizing configuration reads into an injectable singleton, so services
+depend on a typed config object instead of reading `process.env` directly.
+
+<Callout type="warn" title="Import from @nextrush/di, not nextrush/class">
+  `@Config` is exported by `@nextrush/di` only. `nextrush/class` re-exports
+  only `Service`, `Repository`, `container`, `createContainer`, `inject`, and
+  `Container` from `@nextrush/di` — verified against
+  `packages/class/src/index.ts`. Importing `Config` from `nextrush/class`
+  will fail to resolve.
+</Callout>
+
+Verified signature, from `packages/di/src/service-decorators.ts`:
+
+```ts
+function Config(options?: { prefix?: string }): ClassDecorator;
+```
+
+`@Config` classes are always singletons. The `prefix` option is
+documentation-only in the current implementation — it's recorded as metadata
+but does not filter or namespace `process.env` reads for you; you still read
+`process.env.DB_HOST` explicitly inside the class.
+
+```ts
+import { Config, Service } from '@nextrush/di';
+
+@Config({ prefix: 'DB' })
+class DatabaseConfig {
+  readonly host = process.env.DB_HOST ?? 'localhost';
+  readonly port = Number(process.env.DB_PORT ?? 5432);
+  readonly name = process.env.DB_NAME ?? 'mydb';
+}
+
+@Service()
+class UserRepository {
+  constructor(private config: DatabaseConfig) {}
+
+  connectionString(): string {
+    return `postgres://${this.config.host}:${this.config.port}/${this.config.name}`;
+  }
+}
+```
+
+<TypeTable
+  title="ConfigOptions"
+  types={{
+    prefix: {
+      type: 'string',
+      description: 'Recorded as metadata for documentation/introspection purposes; does not automatically scope environment variable reads.',
+      optional: true,
+    },
+  }}
+/>
+
+## Multi-environment pattern
+
+A realistic app has different values for local development, staging, and
+production — a local Postgres instance vs. a managed one, verbose logging vs.
+structured JSON, relaxed CORS vs. locked-down origins. NextRush doesn't
+prescribe a config-file format; the common pattern is one typed config module
+gated on `NODE_ENV`, loaded once at startup.
+
+```ts
+// config.ts
+type Env = 'development' | 'staging' | 'production';
+
+interface AppConfig {
+  env: Env;
+  port: number;
+  logLevel: 'debug' | 'info' | 'warn' | 'error';
+  corsOrigins: string[];
+}
+
+const env = (process.env.NODE_ENV as Env) ?? 'development';
+
+const byEnv: Record<Env, Omit<AppConfig, 'env'>> = {
+  development: {
+    port: 8080,
+    logLevel: 'debug',
+    corsOrigins: ['http://localhost:3000'],
+  },
+  staging: {
+    port: Number(process.env.PORT ?? 8080),
+    logLevel: 'info',
+    corsOrigins: ['https://staging.example.com'],
+  },
+  production: {
+    port: Number(process.env.PORT ?? 8080),
+    logLevel: 'warn',
+    corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean),
+  },
+};
+
+export const config: AppConfig = { env, ...byEnv[env] };
+```
+
+```ts
+// index.ts
+import { createApp, listen } from 'nextrush';
+import { cors } from '@nextrush/cors';
+import { config } from './config';
+
+const app = createApp({ env: config.env === 'staging' ? 'production' : config.env });
+
+app.use(cors({ origin: config.corsOrigins }));
+
+listen(app, config.port);
+```
+
+Notice `staging` maps to `Application`'s `env: 'production'` — NextRush's
+`ApplicationOptions.env` only recognizes `'development' | 'production' |
+'test'` (verified against `packages/core/src/application.ts`); staging should
+behave like production for error-verbosity purposes even though your own
+`AppConfig.env` tracks it as a distinct third value for logging/CORS.
+
+<Callout type="info" title="Zero-config default">
+  With no `env` option, `createApp()` defaults to `'development'` — stack
+  traces are included in error responses. Always set `env: 'production'`
+  explicitly when deploying; see
+  [Error Handling](/docs/reference/errors) for what changes.
+</Callout>
+
+## Next steps
+
+- [Reliability](/docs/production/reliability) — graceful shutdown, health
+  checks, and timeouts that read from this same config.
+- [Deployment](/docs/production/deployment) — how these environment variables
+  reach the process in Docker and other runtimes.
+- [Error Handling](/docs/reference/errors) — how `env` affects error
+  responses.

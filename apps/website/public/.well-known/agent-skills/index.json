@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "nextrush",
+      "type": "skill-md",
+      "description": "Build backend applications with NextRush framework. Use when developing routes, middleware, server actions, or working with NextRush APIs.",
+      "url": "/.well-known/agent-skills/nextrush/SKILL.md",
+      "digest": "sha256:70cadc70d323e7dec27e973465e1872f95db199d134b850210cdd761cfd2eabe"
+    }
+  ]
+}

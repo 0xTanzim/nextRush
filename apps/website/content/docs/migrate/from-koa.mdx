@@ -1,0 +1,118 @@
+---
+title: From Koa
+description: Koa's ctx/next model is the closest existing mental model to NextRush's — what carries over directly, and what's actually different.
+keywords: [from, koa, migrate, nextrush]
+---
+
+NextRush's middleware pipeline is explicitly Koa-style — see
+[Middleware](/docs/concepts/middleware) for how NextRush itself describes it. If you already
+know Koa's `ctx`/`next()` onion model, you already know most of NextRush's request pipeline.
+This guide covers what's identical and what's genuinely different, rather than re-teaching the
+onion model from scratch.
+
+## What's the same
+
+<TypeTable
+  title="Shared model"
+  types={{
+    'ctx object': { type: 'Context', description: 'Both frameworks unify request/response into one object passed through the chain.' },
+    'onion-model middleware': { type: 'async (ctx, next) => { ...; await next(); ...; }', description: 'Before-and-after logic in one function, same execution order.' },
+    'async/await native': { type: 'Promise-based', description: 'No callback-style middleware in either framework.' },
+  }}
+/>
+
+```ts
+// This middleware is valid Koa AND valid NextRush, unchanged:
+async function timing(ctx, next) {
+  const start = Date.now();
+  await next();
+  console.log(`${ctx.method} ${ctx.path} ${Date.now() - start}ms`);
+}
+```
+
+The `Middleware` type in NextRush is `(ctx: Context, next: Next) => void | Promise<void>` — the
+same shape Koa middleware has always had (`packages/types/src/context.ts`).
+
+## What's different
+
+<TypeTable
+  title="Real differences"
+  types={{
+    'Routing': { type: 'app.use(router.routes()) [Koa] vs app.route(prefix, router) [NextRush]', description: 'Koa needs koa-router as a separate package; NextRush ships routing in @nextrush/router, composed onto the app directly.' },
+    'ctx.next()': { type: 'not in Koa', description: "NextRush middleware can call ctx.next() instead of a next parameter — both forms work; Koa only has the next parameter." },
+    'Error handling': { type: 'ctx.throw() / try-catch [Koa] vs typed error classes [NextRush]', description: 'NextRush ships an HttpError hierarchy (NotFoundError, BadRequestError, ...) instead of ctx.throw(status, message).' },
+    'Body parsing': { type: 'koa-bodyparser [Koa] vs @nextrush/body-parser [NextRush]', description: 'Both are separate installs, not automatic — same pattern, different package name.' },
+    'Extensibility': { type: 'app.context mutation [Koa] vs Extension contract [NextRush]', description: "Long-lived app-scoped state uses NextRush's Extension contract (app.extend() + app.ready()), not direct prototype mutation." },
+  }}
+/>
+
+## Before / After
+
+<Tabs items={['Koa', 'NextRush']}>
+  <Tab value="Koa">
+    ```ts
+    import Koa from 'koa';
+    import Router from '@koa/router';
+    import bodyParser from 'koa-bodyparser';
+
+    const app = new Koa();
+    const router = new Router();
+
+    app.use(bodyParser());
+
+    router.get('/users/:id', (ctx) => {
+      const user = findUser(ctx.params.id);
+      if (!user) {
+        ctx.throw(404, 'Not found');
+      }
+      ctx.body = user;
+    });
+
+    app.use(router.routes());
+    app.listen(8080);
+    ```
+  </Tab>
+  <Tab value="NextRush">
+    ```ts
+    import { createApp, createRouter, listen, NotFoundError } from 'nextrush';
+    import { bodyParser } from '@nextrush/body-parser';
+
+    const app = createApp();
+    app.use(bodyParser());
+
+    const users = createRouter();
+    users.get('/:id', (ctx) => {
+      const user = findUser(ctx.params.id);
+      if (!user) throw new NotFoundError('Not found');
+      ctx.json(user);
+    });
+
+    app.route('/users', users);
+    listen(app, 8080);
+    ```
+  </Tab>
+</Tabs>
+
+The route handler body is almost line-for-line the same shape — the router is a separate object
+mounted with `app.route(prefix, router)` instead of `.routes()`, and errors are thrown as typed
+classes instead of `ctx.throw(status, message)`.
+
+## Response helpers
+
+Koa sets `ctx.body` directly and infers `Content-Type`. NextRush uses explicit methods
+(`ctx.json()`, `ctx.send()`, `ctx.html()`) so the response format is never inferred from the
+value's shape:
+
+```ts
+// Koa
+ctx.body = { ok: true }; // Content-Type inferred as JSON
+
+// NextRush
+ctx.json({ ok: true }); // Content-Type set explicitly
+```
+
+## Next steps
+
+- [Middleware](/docs/concepts/middleware) — the onion model NextRush shares with Koa, in depth.
+- [Context](/docs/concepts/context) — the full `ctx` API surface.
+- [Error Handling](/docs/reference) — the `HttpError` hierarchy.

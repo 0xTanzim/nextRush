@@ -1,0 +1,7 @@
+{
+  "title": "Data",
+  "description": "Database integration, file uploads, and data validation patterns.",
+  "pages": ["database", "file-upload"],
+  "learningPath": ["database", "file-upload"],
+  "references": ["../api-development", "../../recipes/database"]
+}

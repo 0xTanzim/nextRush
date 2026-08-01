@@ -9,6 +9,15 @@
 export { generate, generateCli, generateHelp } from './generate.js';
 
 export {
+  adapterCiSnippetTemplate,
+  adapterConformanceTestTemplate,
+  adapterFiles,
+  adapterFixtureTemplate,
+  adapterReadmeTemplate,
+  adapterSourceTemplate,
+} from './adapter-templates.js';
+
+export {
   GENERATORS,
   GENERATOR_ALIASES,
   GENERATOR_TYPES,
@@ -22,4 +31,4 @@ export {
   type GeneratorType,
 } from './templates.js';
 
-export { buildFilePath, resolveGeneratorType, validateName } from './generate.js';
+export { buildFilePath, generateAdapter, resolveGeneratorType, validateName } from './generate.js';

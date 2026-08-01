@@ -1,31 +1,76 @@
 #!/usr/bin/env node
 
 /**
- * NextRush Professional Benchmark Orchestrator
+ * NextRush benchmark orchestrator.
  *
  * Usage:
- *   node scripts/run.js                          # Quick benchmark, NextRush only, wrk
- *   node scripts/run.js --profile standard       # Standard profile
- *   node scripts/run.js --compare                # All frameworks
- *   node scripts/run.js --tool autocannon        # Use autocannon instead of wrk
- *   node scripts/run.js --framework fastify      # Specific framework
- *   node scripts/run.js --scenario hello-world   # Specific scenario
- *   node scripts/run.js --connections 256         # Override connections
+ *   node scripts/run.js                          # quick, NextRush only, wrk
+ *   node scripts/run.js --compare                # all frameworks
+ *   node scripts/run.js --profile full           # publishable profile
+ *   node scripts/run.js --tool wrk|autocannon        # explicit tool (validated)
+ *   node scripts/run.js --tools autocannon           # alias for --tool
+ *   node scripts/run.js --framework fastify      # specific framework
+ *   node scripts/run.js --frameworks nextrush-v3,nextrush-v3-class  # explicit set (targeted comparison / CI gate)
+ *   node scripts/run.js --scenario hello-world   # specific scenario
+ *
+ *   # --connections works with EVERY profile (quick, standard, full, stress) —
+ *   # replaces just that profile's connection ladder, everything else (duration,
+ *   # runs, threads) stays as the profile declares it.
+ *   node scripts/run.js --connections 256              # one custom level, e.g. dev checking 256c
+ *   node scripts/run.js --connections 512              # or 512c — any positive integer
+ *   node scripts/run.js --profile standard --connections 256   # standard profile, only 256c
+ *   node scripts/run.js --compare --connections 64,256,512     # comma list, several custom levels
+ *
+ *   # --duration and --time are the same flag; --time is the more discoverable
+ *   # alias. Combine with --runs for a fast but still multi-run measurement.
+ *   node scripts/run.js --time 5 --runs 3        # 5s per run, 3 runs — fast checkup
+ *   node scripts/run.js --duration 3 --runs 3    # equivalent, --duration spelling
+ *
+ *   node scripts/run.js --pin 0-3                # pin servers to CPU cores (taskset)
+ *   node scripts/run.js --pin 2-7 --client-pin 0-1  # ALSO pin the wrk client to a
+ *                                                  # disjoint core set — isolates server
+ *                                                  # CPU from client/loopback contention
+ *                                                  # on one machine (router-highload-
+ *                                                  # harness-fixes, performance-gate)
+ *   node scripts/run.js --no-validate            # skip the parity pre-flight (not advised)
+ *   node scripts/run.js --rotate                 # force position-bias counterbalancing (on by
+ *                                                 # default for publishable, multi-run, multi-
+ *                                                 # framework comparisons — see fix-benchmark-
+ *                                                 # position-bias). Restarts every framework's
+ *                                                 # server once per repeat, rotating who goes
+ *                                                 # first, so no framework's mean absorbs the
+ *                                                 # whole first-measured-in-the-invocation penalty.
+ *   node scripts/run.js --stress --diagnostic-saturation  # explicit opt-in for adversarial-load
+ *                                                  # runs — forces publishable:false regardless
+ *                                                  # of run size, never masquerades as a comparison
+ *
+ * Quick dev/AI-agent checkup (seconds, not the full multi-hour suite):
+ *   node scripts/run.js --compare --connections 256 --time 5 --runs 1
+ *   node scripts/generate-report.js --stdout     # inspect the resulting report immediately
  */
 
 import { execSync } from 'node:child_process';
 import { cpSync, existsSync, rmSync } from 'node:fs';
-import os from 'node:os';
 import { join } from 'node:path';
 
+import { PORT } from '../config/constants.js';
 import { DEFAULT_FRAMEWORKS, FRAMEWORKS } from '../config/frameworks.js';
 import { DEFAULT_PROFILE, PROFILES } from '../config/profiles.js';
 import { QUICK_SCENARIOS, SCENARIOS } from '../config/scenarios.js';
+import { benchmarkFramework } from './bench-exec-single.js';
+import { runRotatedComparison } from './bench-rotation.js';
+import { generateArtifacts, printSummaryTable } from './report-md.js';
+import { readInstalledFrameworkVersions as readFrameworkVersions } from './lib/installed-versions.js';
+import { derivePublishable } from './lib/publishable.js';
+import { captureGitProvenance, captureNextRushEffectiveOptions } from './lib/provenance.js';
+import { checkRunIdCollision } from './lib/run-collision.js';
+import { runParityCheck } from './validate-parity.js';
+import { selectFrameworkIds } from './lib/framework-selection.js';
 import {
-  analyzeGcEvents,
-  analyzeMemorySamples,
-  computeStats,
   ensureDir,
+  getSystemInfo,
+  getToolVersion,
+  hostLoadAverage,
   log,
   logError,
   logHeader,
@@ -33,20 +78,21 @@ import {
   logStep,
   logWarn,
   parseArgs,
-  parseDuration,
   RESULTS_DIR,
-  runAutocannon,
-  runWrk,
+  resolveClientThreads,
   saveReport,
   saveResults,
   sleep,
-  startMetricsSampling,
-  startServer,
-  stopServer,
   timestamp,
 } from './utils.js';
 
-// ─── Parse CLI Arguments ───
+import {
+  getRequestedTool,
+  parseConnectionsOverride,
+  parseDurationOverride,
+  parseRunsOverride,
+  resolveToolName,
+} from './lib/run-options.js';
 
 const args = parseArgs();
 
@@ -66,37 +112,81 @@ function detectWrk() {
   }
 }
 
-const toolName = args.tool || detectWrk();
-const isCompare = args.compare === true;
-const specificFramework = args.framework;
-const specificScenario = args.scenario;
-const connectionsOverride = args.connections ? [parseInt(args.connections, 10)] : null;
-const enableTraceGc = args['trace-gc'] === true;
-
-// Determine frameworks to test
-let frameworkIds;
-if (specificFramework) {
-  if (!FRAMEWORKS[specificFramework]) {
-    logError(
-      `Unknown framework: ${specificFramework}. Available: ${Object.keys(FRAMEWORKS).join(', ')}`
-    );
-    process.exit(1);
-  }
-  frameworkIds = [specificFramework];
-} else if (isCompare) {
-  frameworkIds = [...DEFAULT_FRAMEWORKS];
-} else {
-  frameworkIds = ['nextrush-v3'];
+const requestedTool = getRequestedTool(args);
+let toolName;
+try {
+  toolName = resolveToolName(requestedTool, detectWrk);
+} catch (error) {
+  logError(`${error.message}.`);
+  process.exit(1);
 }
 
-// Determine scenarios to test
+const pinCores = typeof args.pin === 'string' ? args.pin : null;
+const clientPinCores = typeof args['client-pin'] === 'string' ? args['client-pin'] : null;
+const skipValidate = args['no-validate'] === true;
+const enableTraceGc = args['trace-gc'] === true;
+
+let connectionsOverride;
+try {
+  connectionsOverride = parseConnectionsOverride(args.connections);
+} catch (error) {
+  logError(`${error.message}.`);
+  process.exit(1);
+}
+
+const durationOverride = (() => {
+  try {
+    return parseDurationOverride(args);
+  } catch (error) {
+    logError(`${error.message}.`);
+    process.exit(1);
+  }
+})();
+
+const runsOverride = (() => {
+  try {
+    return parseRunsOverride(args.runs);
+  } catch (error) {
+    logError(`${error.message}.`);
+    process.exit(1);
+  }
+})();
+
+let frameworkIds;
+try {
+  frameworkIds = selectFrameworkIds({
+    args,
+    profileName,
+    frameworks: FRAMEWORKS,
+    defaultFrameworks: DEFAULT_FRAMEWORKS,
+  });
+} catch (error) {
+  logError(`${error.message}.`);
+  process.exit(1);
+}
+
+// F-L06 / fix-benchmark-position-bias: `--shuffle` randomizes the STARTING
+// rotation offset once per invocation — it varies which absolute position
+// each framework begins in across separate runs, but does NOT by itself
+// counterbalance position within one reported comparison (a direct A/B
+// showed the framework measured first in an invocation scores materially
+// lower than the same framework measured later). `useRotation` below is what
+// actually counterbalances; `--rotate` forces it, and it defaults on for any
+// publishable, multi-run, multi-framework comparison.
+const shuffleOrder = args.shuffle === true;
+const diagnosticSaturation = args['diagnostic-saturation'] === true;
+if (shuffleOrder && frameworkIds.length > 1) {
+  for (let i = frameworkIds.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [frameworkIds[i], frameworkIds[j]] = [frameworkIds[j], frameworkIds[i]];
+  }
+}
+
 let scenarios;
-if (specificScenario) {
-  const found = SCENARIOS.find((s) => s.id === specificScenario);
+if (args.scenario) {
+  const found = SCENARIOS.find((s) => s.id === args.scenario);
   if (!found) {
-    logError(
-      `Unknown scenario: ${specificScenario}. Available: ${SCENARIOS.map((s) => s.id).join(', ')}`
-    );
+    logError(`Unknown scenario: ${args.scenario}. Available: ${SCENARIOS.map((s) => s.id).join(', ')}`);
     process.exit(1);
   }
   scenarios = [found];
@@ -107,471 +197,235 @@ if (specificScenario) {
 }
 
 const connections = connectionsOverride || profile.connections;
-const runs = profile.runs;
-const duration = profile.duration;
-const threads = profile.threads;
 
-// ─── Main Execution ───
+function resolveTool() {
+  if (toolName !== 'wrk') return toolName;
+  try {
+    execSync('command -v wrk', { stdio: 'ignore' });
+    return 'wrk';
+  } catch {
+    if (requestedTool === 'wrk') {
+      throw new Error('requested tool "wrk" is not installed; install wrk or use --tool autocannon');
+    }
+    logWarn('wrk is not installed. Falling back to autocannon...');
+    return 'autocannon';
+  }
+}
 
 async function main() {
   const runId = timestamp();
   const resultsDir = join(RESULTS_DIR, runId);
   ensureDir(resultsDir);
 
-  // Verify wrk availability — fall back to autocannon if missing
-  let activeTool = toolName;
-  if (activeTool === 'wrk') {
-    try {
-      execSync('command -v wrk', { stdio: 'ignore' });
-    } catch {
-      logWarn('wrk is not installed. Install it: sudo apt install wrk  OR  brew install wrk');
-      logWarn('Falling back to autocannon...');
-      activeTool = 'autocannon';
-    }
-  }
+  const activeTool = resolveTool();
 
   logHeader('NextRush Professional Benchmark');
   log(`Profile:      ${profileName} — ${profile.description}`);
+  log(`Publishable:  ${profile.publishable ? 'yes, if this run stays compliant' : 'NO (dev/stress profile)'}`);
   log(`Tool:         ${activeTool}`);
-  log(`Duration:     ${duration} per test`);
+  log(`Duration:     ${durationOverride || profile.duration} per test`);
   log(`Connections:  ${connections.join(', ')}`);
-  log(`Runs:         ${runs} per configuration`);
+  log(`Runs:         ${runsOverride || profile.runs} per configuration`);
   log(`Scenarios:    ${scenarios.length}`);
   log(`Frameworks:   ${frameworkIds.map((id) => FRAMEWORKS[id].name).join(', ')}`);
+  log(`CPU pinning:  ${pinCores ? `cores ${pinCores}` : 'off'}`);
+  log(`Client pin:   ${clientPinCores ? `cores ${clientPinCores}` : 'off'}`);
   log(`Run ID:       ${runId}`);
 
-  // System info
+  if (!profile.publishable) {
+    logWarn('This profile is NOT publishable — use --profile full for numbers that leave the repo.');
+  }
+
+  // Fairness integrity gate: servers must return identical bodies/statuses first.
+  let parityOutcome;
+  if (skipValidate) {
+    parityOutcome = { validated: false, skippedReason: '--no-validate was passed', failures: [], backlog: null };
+  } else if (frameworkIds.length <= 1) {
+    parityOutcome = {
+      validated: false,
+      skippedReason: 'single-framework run — cross-server parity does not apply',
+      failures: [],
+      backlog: null,
+    };
+  } else {
+    const { ok, failures, backlog } = await runParityCheck(frameworkIds);
+    if (!ok) {
+      logError('Parity validation failed — servers are not doing identical work. Aborting.');
+      logError('Fix the mismatches (or re-run with --no-validate to bypass, not advised).');
+      process.exit(1);
+    }
+    parityOutcome = { validated: true, skippedReason: null, failures: [], backlog };
+  }
+
   logHeader('System Information');
   const sysInfo = {
-    platform: process.platform,
-    arch: process.arch,
-    nodeVersion: process.version,
-    cpuModel: os.cpus()[0]?.model || 'unknown',
-    cpuCores: os.cpus().length,
-    totalMemory: `${(os.totalmem() / 1073741824).toFixed(1)} GB`,
-    freeMemory: `${(os.freemem() / 1073741824).toFixed(1)} GB`,
+    ...getSystemInfo(),
     toolVersion: getToolVersion(activeTool),
+    cpuPinning: pinCores ? `cores ${pinCores}` : 'off',
   };
+  for (const [key, val] of Object.entries(sysInfo)) logResult(key, val);
 
-  for (const [key, val] of Object.entries(sysInfo)) {
-    logResult(key, val);
+  const runs = runsOverride || profile.runs;
+
+  // F-25: thread count is a profile setting and client pinning is a CLI flag, so
+  // they were chosen independently and a `standard` run put wrk's 4 threads on 2
+  // pinned CPUs. Oversubscribing the measuring instrument adds variance to every
+  // cell — measured: 1 thread on 1 core beat 4 threads on 2.
+  const { threads: clientThreads, capped: threadsCapped, pinnedCpus } = resolveClientThreads(
+    profile.threads,
+    clientPinCores
+  );
+  if (threadsCapped) {
+    logWarn(
+      `Load-generator threads reduced ${profile.threads} → ${clientThreads} to match the ` +
+        `${pinnedCpus} CPU(s) in --client-pin ${clientPinCores} (oversubscribing the client adds ` +
+        'measurement noise).'
+    );
   }
+
+  // `fix-benchmark-position-bias`: a direct A/B showed the framework measured
+  // FIRST in an invocation scores materially lower than the same framework
+  // measured later, reversible by swapping which one goes first. A fixed
+  // order therefore cannot back a cross-framework ranking. Rotation
+  // counterbalances it by restarting every framework once per repeat and
+  // rotating who goes first — the correct default whenever a result might be
+  // read as a ranking (more than one framework, more than one repeat).
+  const rotationRequested = args.rotate === true;
+  const useRotation = frameworkIds.length > 1 && runs > 1 && (rotationRequested || profile.publishable);
+  log(
+    `Position control: ${useRotation ? 'rotated (counterbalanced across repeats)' : shuffleOrder ? 'shuffled (one-shot, not counterbalanced)' : 'fixed — NOT publishable as a ranking'}`
+  );
 
   const allResults = {};
+  const passOpts = {
+    port: PORT,
+    scenarios,
+    connections,
+    duration: durationOverride || profile.duration,
+    threads: clientThreads,
+    profile,
+    pinCores,
+    clientPinCores,
+    traceGc: enableTraceGc,
+    runId,
+  };
 
-  // ─── Benchmark Each Framework ───
-
-  for (const frameworkId of frameworkIds) {
-    const fw = FRAMEWORKS[frameworkId];
-    logHeader(`Benchmarking: ${fw.name}`);
-
-    const frameworkResults = {
-      framework: fw.name,
-      frameworkId,
-      scenarios: {},
-    };
-
-    let serverHandle;
-    try {
-      logStep(`Starting ${fw.name} server...`);
-      serverHandle = await startServer(fw.file, 3000, { traceGc: enableTraceGc });
-      logStep(`Server started (PID: ${serverHandle.child.pid})`);
-
-      // Warmup phase
-      logStep(`Warming up (${profile.warmupDuration})...`);
-      await warmup(activeTool, profile.warmupDuration, threads);
-
-      // Start metrics sampling
-      const metrics = startMetricsSampling(serverHandle.child.pid, 500);
-
-      // Run each scenario
-      for (const scenario of scenarios) {
-        logStep(`Scenario: ${scenario.name} (${scenario.description})`);
-
-        const scenarioResults = {
-          scenario: scenario.name,
-          scenarioId: scenario.id,
-          concurrencyResults: {},
-        };
-
-        for (const conn of connections) {
-          log(`  Connections: ${conn}`);
-
-          const runResults = [];
-          for (let run = 0; run < runs; run++) {
-            log(`    Run ${run + 1}/${runs}...`, 'dim');
-
-            const result = await runBenchmark(activeTool, {
-              url: buildUrl(scenario, 3000),
-              connections: conn,
-              threads,
-              duration,
-              scenario,
-            });
-
-            runResults.push(result);
-            logResult('    RPS', Math.round(result.rps).toLocaleString());
-            logResult('    Latency p50', result.latency.p50 || 'N/A');
-            logResult('    Latency p99', result.latency.p99 || 'N/A');
-
-            if (runs > 1 && run < runs - 1) {
-              await sleep(profile.pauseBetweenTestsMs);
-            }
-          }
-
-          // Compute statistics across runs
-          const rpsValues = runResults.map((r) => r.rps);
-          const stats = computeStats(rpsValues);
-
-          scenarioResults.concurrencyResults[conn] = {
-            connections: conn,
-            runs: runResults,
-            stats,
-            summary: {
-              rpsMean: stats.mean,
-              rpsStddev: stats.stddev,
-              rpsMin: stats.min,
-              rpsMax: stats.max,
-              cv: stats.cv,
-            },
-          };
-
-          if (runs > 1) {
-            logResult(
-              '    Mean RPS',
-              `${Math.round(stats.mean).toLocaleString()} ± ${Math.round(stats.stddev).toLocaleString()}`,
-              `(CV: ${stats.cv}%)`
-            );
-          }
-        }
-
-        frameworkResults.scenarios[scenario.id] = scenarioResults;
-
-        // Pause between scenarios
-        await sleep(profile.pauseBetweenTestsMs);
-      }
-
-      // Stop metrics sampling
-      const memorySamples = metrics.stop();
-      frameworkResults.memory = analyzeMemorySamples(memorySamples);
-      frameworkResults.gc = analyzeGcEvents(serverHandle.gcEvents);
-    } catch (err) {
-      logError(`Failed benchmarking ${fw.name}: ${err.message}`);
-      frameworkResults.error = err.message;
-    } finally {
-      if (serverHandle) {
-        logStep(`Stopping ${fw.name} server...`);
-        await stopServer(serverHandle);
-      }
+  let positionLog = null;
+  if (useRotation) {
+    const frameworksById = Object.fromEntries(frameworkIds.map((id) => [id, FRAMEWORKS[id]]));
+    const { resultsByFramework, positionLog: log_ } = await runRotatedComparison(
+      activeTool,
+      frameworksById,
+      frameworkIds,
+      { ...passOpts, runs }
+    );
+    positionLog = log_;
+    for (const frameworkId of frameworkIds) {
+      allResults[frameworkId] = resultsByFramework[frameworkId];
+      saveResults(resultsDir, `${frameworkId}.json`, resultsByFramework[frameworkId]);
     }
+  } else {
+    for (const frameworkId of frameworkIds) {
+      logHeader(`Benchmarking: ${FRAMEWORKS[frameworkId].name}`);
+      const frameworkResults = await benchmarkFramework(activeTool, FRAMEWORKS[frameworkId], {
+        ...passOpts,
+        frameworkId,
+        runs,
+      });
 
-    allResults[frameworkId] = frameworkResults;
+      allResults[frameworkId] = frameworkResults;
+      saveResults(resultsDir, `${frameworkId}.json`, frameworkResults);
 
-    // Save per-framework results
-    saveResults(resultsDir, `${frameworkId}.json`, frameworkResults);
-
-    // Cooldown between frameworks
-    if (frameworkIds.indexOf(frameworkId) < frameworkIds.length - 1) {
-      logStep(`Cooling down ${profile.cooldownMs / 1000}s...`);
-      await sleep(profile.cooldownMs);
+      if (frameworkIds.indexOf(frameworkId) < frameworkIds.length - 1) {
+        logStep(`Cooling down ${profile.cooldownMs / 1000}s...`);
+        await sleep(profile.cooldownMs);
+      }
     }
   }
 
-  // ─── Generate Report ───
-
   logHeader('Generating Report');
+  const runConfiguration = {
+    duration: durationOverride || profile.duration,
+    connections,
+    runs,
+    threads: clientThreads,
+    threadsRequested: profile.threads,
+    clientPinnedCpus: pinnedCpus,
+    // Recorded so `derivePublishable` can refuse a comparison measured on a busy
+    // host, and so a reader can judge the run's conditions (audit F-20).
+    hostLoadAvgAtStart: hostLoadAverage(),
+    warmupDuration: profile.warmupDuration,
+    scenarioWarmupDuration: profile.scenarioWarmupDuration,
+    cooldownMs: profile.cooldownMs,
+    pauseBetweenTestsMs: profile.pauseBetweenTestsMs,
+    pinCores,
+    clientPinCores,
+    traceGc: enableTraceGc,
+    positionControl: useRotation ? 'rotated' : shuffleOrder ? 'shuffled' : 'fixed',
+    positionLog,
+    order: shuffleOrder ? 'shuffled' : 'fixed',
+    parity: parityOutcome,
+    scenarios: scenarios.map((s) => s.id),
+    // A scenario measured below the declared ladder (see maxConnections) must say
+    // so in the artifact — otherwise a missing cell reads as a failed measurement.
+    scenarioConnectionCaps: Object.fromEntries(
+      scenarios.filter((s) => typeof s.maxConnections === 'number').map((s) => [s.id, s.maxConnections])
+    ),
+    frameworkVersions: readFrameworkVersions(),
+    nextrushEffectiveOptions: captureNextRushEffectiveOptions({}),
+  };
+  const publishableOutcome = derivePublishable(runConfiguration, allResults, { diagnosticSaturation });
+  if (!publishableOutcome.publishable) {
+    logWarn(`Not publishable: ${publishableOutcome.reason}`);
+  }
 
   const report = {
     runId,
     timestamp: new Date().toISOString(),
     profile: profileName,
+    publishable: publishableOutcome.publishable,
+    publishableReason: publishableOutcome.reason,
+    git: captureGitProvenance(),
     tool: activeTool,
     system: sysInfo,
-    configuration: {
-      duration,
-      connections,
-      runs,
-      threads,
-      scenarios: scenarios.map((s) => s.id),
-    },
+    configuration: runConfiguration,
     results: allResults,
   };
 
-  saveResults(resultsDir, 'results.json', report);
-
-  // Generate markdown report
-  const markdown = generateMarkdownReport(report);
-  saveReport(resultsDir, 'REPORT.md', markdown);
-
-  // Copy to latest
-  const latestDir = join(RESULTS_DIR, 'latest');
-  if (existsSync(latestDir)) {
-    rmSync(latestDir, { recursive: true });
+  const collision = checkRunIdCollision(RESULTS_DIR, runId, report);
+  if (collision.collision && !collision.identical) {
+    logError(
+      `Run ID "${runId}" collides with existing directory "${collision.existingDir}" (different content). ` +
+        'Refusing to overwrite or duplicate — this is the exact defect that produced ' +
+        '2026-07-27T15-42-22/15-42-50 as two directories embedding the same run_id.'
+    );
+    process.exit(1);
   }
+  if (collision.collision && collision.identical) {
+    logWarn(`Run ID "${runId}" already exists as "${collision.existingDir}" with identical content — not duplicating.`);
+    rmSync(resultsDir, { recursive: true, force: true });
+    process.exit(0);
+  }
+
+  saveResults(resultsDir, 'results.json', report);
+  for (const [filename, contents] of Object.entries(
+    generateArtifacts(report, {
+      frameworkVersions: report.configuration.frameworkVersions,
+      versionSource: 'recorded at run time',
+    })
+  )) {
+    saveReport(resultsDir, filename, contents);
+  }
+
+  const latestDir = join(RESULTS_DIR, 'latest');
+  if (existsSync(latestDir)) rmSync(latestDir, { recursive: true });
   cpSync(resultsDir, latestDir, { recursive: true });
 
   logHeader('Benchmark Complete');
   log(`Results: ${resultsDir}`);
   log(`Report:  ${join(resultsDir, 'REPORT.md')}`);
-
-  // Print summary table
-  printSummaryTable(allResults, scenarios);
+  printSummaryTable(allResults);
 }
-
-// ─── Benchmark Execution ───
-
-async function runBenchmark(tool, opts) {
-  if (tool === 'wrk') {
-    const wrkOpts = {
-      url: opts.url,
-      connections: opts.connections,
-      threads: opts.threads,
-      duration: opts.duration,
-      latency: true,
-    };
-
-    // Use Lua script for POST
-    if (opts.scenario.method === 'POST') {
-      wrkOpts.script = 'post-json.lua';
-    }
-
-    return runWrk(wrkOpts);
-  }
-
-  // autocannon fallback
-  return runAutocannon({
-    url: opts.url,
-    connections: opts.connections,
-    duration: opts.duration,
-    pipelining: 1, // No pipelining by default for fair comparison
-    method: opts.scenario.method,
-    body: opts.scenario.body,
-    headers: opts.scenario.headers,
-  });
-}
-
-async function warmup(tool, warmupDuration, threads) {
-  const warmupDurationSec = parseDuration(warmupDuration);
-  try {
-    if (tool === 'wrk') {
-      execSync(`wrk -c 10 -t 2 -d ${warmupDurationSec}s http://localhost:3000/`, {
-        stdio: 'ignore',
-        timeout: (warmupDurationSec + 10) * 1000,
-      });
-    } else {
-      const { default: autocannon } = await import('autocannon');
-      await new Promise((resolve) => {
-        autocannon(
-          {
-            url: 'http://localhost:3000/',
-            connections: 10,
-            duration: warmupDurationSec,
-          },
-          resolve
-        );
-      });
-    }
-  } catch {
-    logWarn('Warmup phase encountered an error (non-fatal)');
-  }
-}
-
-function buildUrl(scenario, port) {
-  return `http://localhost:${port}${scenario.path}`;
-}
-
-function getToolVersion(tool) {
-  try {
-    if (tool === 'wrk') {
-      // wrk --version exits with code 1 but prints version to stdout/stderr.
-      // Handle non-zero exit by capturing output via shell redirection.
-      const output = execSync('wrk --version 2>&1; exit 0', {
-        encoding: 'utf-8',
-        timeout: 3000,
-      });
-      const match = output.match(/wrk\s+([\d.]+[\w.-]*)/);
-      return match ? `wrk ${match[1]}` : 'wrk (version unknown)';
-    }
-    return 'autocannon 8.x (Node.js-based)';
-  } catch {
-    return `${tool} (version unknown)`;
-  }
-}
-
-// ─── Report Generation ───
-
-function generateMarkdownReport(report) {
-  const lines = [];
-
-  lines.push('# NextRush Benchmark Report');
-  lines.push('');
-  lines.push(`**Run ID:** ${report.runId}`);
-  lines.push(`**Date:** ${report.timestamp}`);
-  lines.push(`**Profile:** ${report.profile}`);
-  lines.push(`**Tool:** ${report.tool}`);
-  lines.push('');
-
-  // System info
-  lines.push('## System Information');
-  lines.push('');
-  lines.push('| Property | Value |');
-  lines.push('|----------|-------|');
-  for (const [key, val] of Object.entries(report.system)) {
-    lines.push(`| ${key} | ${val} |`);
-  }
-  lines.push('');
-
-  // Configuration
-  lines.push('## Configuration');
-  lines.push('');
-  lines.push(`- **Duration:** ${report.configuration.duration}`);
-  lines.push(`- **Connections:** ${report.configuration.connections.join(', ')}`);
-  lines.push(`- **Runs per config:** ${report.configuration.runs}`);
-  lines.push(`- **Threads:** ${report.configuration.threads}`);
-  lines.push(`- **Pipelining:** 1 (no pipelining — realistic)`);
-  lines.push('');
-
-  // Results per framework
-  for (const [fwId, fwResult] of Object.entries(report.results)) {
-    if (fwResult.error) {
-      lines.push(`## ${fwResult.framework} — ERROR`);
-      lines.push('');
-      lines.push(`Error: ${fwResult.error}`);
-      lines.push('');
-      continue;
-    }
-
-    lines.push(`## ${fwResult.framework}`);
-    lines.push('');
-
-    // Memory info
-    if (fwResult.memory && fwResult.memory.samples > 0) {
-      lines.push('### Memory');
-      lines.push('');
-      lines.push(`- **RSS Peak:** ${fwResult.memory.rssPeak}`);
-      lines.push(`- **RSS Avg:** ${fwResult.memory.rssAvg}`);
-      lines.push(`- **Samples:** ${fwResult.memory.samples}`);
-      lines.push('');
-    }
-
-    // Results table
-    for (const [scenarioId, scenarioResult] of Object.entries(fwResult.scenarios)) {
-      lines.push(`### ${scenarioResult.scenario}`);
-      lines.push('');
-      lines.push('| Connections | RPS (mean ± stddev) | CV% | Latency p50 | Latency p99 |');
-      lines.push('|-------------|---------------------|-----|-------------|-------------|');
-
-      for (const [conn, connResult] of Object.entries(scenarioResult.concurrencyResults)) {
-        const { summary, runs } = connResult;
-        const latencyP50 = runs[0]?.latency?.p50 || 'N/A';
-        const latencyP99 = runs[0]?.latency?.p99 || 'N/A';
-        const rpsStr =
-          report.configuration.runs > 1
-            ? `${Math.round(summary.rpsMean).toLocaleString()} ± ${Math.round(summary.rpsStddev).toLocaleString()}`
-            : Math.round(summary.rpsMean).toLocaleString();
-        lines.push(`| ${conn} | ${rpsStr} | ${summary.cv}% | ${latencyP50} | ${latencyP99} |`);
-      }
-      lines.push('');
-    }
-  }
-
-  // Comparison summary (if multiple frameworks)
-  const fwIds = Object.keys(report.results).filter((id) => !report.results[id].error);
-  if (fwIds.length > 1) {
-    lines.push('## Framework Comparison (Hello World, first concurrency level)');
-    lines.push('');
-    lines.push('| Rank | Framework | RPS | Latency p50 | Latency p99 |');
-    lines.push('|------|-----------|-----|-------------|-------------|');
-
-    const firstConn = report.configuration.connections[0];
-    const ranked = fwIds
-      .map((id) => {
-        const hw = report.results[id].scenarios['hello-world'];
-        if (!hw) return null;
-        const connResult = hw.concurrencyResults[firstConn];
-        if (!connResult) return null;
-        return {
-          id,
-          name: report.results[id].framework,
-          rps: connResult.stats.mean,
-          p50: connResult.runs[0]?.latency?.p50 || 'N/A',
-          p99: connResult.runs[0]?.latency?.p99 || 'N/A',
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.rps - a.rps);
-
-    const medals = ['🥇', '🥈', '🥉'];
-    ranked.forEach((fw, i) => {
-      const rank = medals[i] || `${i + 1}`;
-      lines.push(
-        `| ${rank} | ${fw.name} | ${Math.round(fw.rps).toLocaleString()} | ${fw.p50} | ${fw.p99} |`
-      );
-    });
-    lines.push('');
-
-    // Framework overhead vs raw Node
-    const rawNode = ranked.find((f) => f.id === 'raw-node');
-    if (rawNode) {
-      lines.push('### Framework Overhead (vs Raw Node.js)');
-      lines.push('');
-      lines.push('| Framework | RPS | Overhead |');
-      lines.push('|-----------|-----|----------|');
-      for (const fw of ranked) {
-        const overhead =
-          rawNode.rps > 0 ? `${((1 - fw.rps / rawNode.rps) * 100).toFixed(1)}%` : 'N/A';
-        lines.push(
-          `| ${fw.name} | ${Math.round(fw.rps).toLocaleString()} | ${fw.id === 'raw-node' ? 'baseline' : overhead} |`
-        );
-      }
-      lines.push('');
-    }
-  }
-
-  // Methodology note
-  lines.push('---');
-  lines.push('');
-  lines.push('## Methodology');
-  lines.push('');
-  lines.push(
-    `- **Tool:** ${report.tool} (${report.tool === 'wrk' ? 'C-based, does not share Node.js runtime' : 'Node.js-based, shares runtime'})`
-  );
-  lines.push('- **Pipelining:** Disabled (pipelining=1) for realistic client simulation');
-  lines.push(
-    `- **Statistical rigor:** ${report.configuration.runs} run(s) per configuration, mean ± stddev reported`
-  );
-  lines.push('- **Warmup:** Actual HTTP traffic warmup before measurement');
-  lines.push('- **Memory:** RSS sampled via /proc during benchmark');
-  lines.push(
-    '- **Fairness:** All servers implement identical endpoints with equivalent per-request work'
-  );
-  lines.push('');
-
-  return lines.join('\n');
-}
-
-function printSummaryTable(allResults, scenarios) {
-  logHeader('Summary');
-
-  const fwIds = Object.keys(allResults).filter((id) => !allResults[id].error);
-
-  // Find hello-world RPS for quick summary
-  for (const fwId of fwIds) {
-    const fw = allResults[fwId];
-    const hw = fw.scenarios['hello-world'] || fw.scenarios[Object.keys(fw.scenarios)[0]];
-    if (!hw) continue;
-
-    const firstConn = Object.keys(hw.concurrencyResults)[0];
-    const result = hw.concurrencyResults[firstConn];
-    if (!result) continue;
-
-    const rps = Math.round(result.stats.mean).toLocaleString();
-    const memory = fw.memory?.rssPeak || 'N/A';
-    log(`  ${fw.framework.padEnd(20)} ${rps.padStart(10)} RPS    Memory: ${memory}`);
-  }
-}
-
-// ─── Execute ───
 
 main().catch((err) => {
   logError(`Benchmark failed: ${err.message}`);

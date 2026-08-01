@@ -1,0 +1,185 @@
+---
+title: Security Hardening Checklist
+description: Production-readiness posture for security — what to verify before shipping.
+keywords: [checklist, hardening, nextrush, production, security]
+---
+
+This page is a **checklist**, not a tutorial. It tells you what to verify before an
+application ships, not how to wire each piece. For the how-to — middleware order,
+configuration examples, JWT auth — see the [Security guide](/docs/guides/security/security).
+
+Each item below links to the guide section or reference page that shows the
+implementation. Work through the checklist before a production release; re-run it
+after any change to middleware order, CORS origins, or secret handling.
+
+---
+
+## Security headers
+
+- [ ] `@nextrush/helmet` is registered, and registered early in the middleware chain
+      (before routing).
+- [ ] `contentSecurityPolicy` is not disabled. The default (`{ useDefaults: true }`)
+      is starting-point only — a real deployment defines its own `directives` for the
+      scripts, styles, and origins it actually serves.
+- [ ] HSTS (`hsts`) is enabled with `includeSubDomains` for any domain served entirely
+      over HTTPS. `preload` is opt-in and cannot be safely reversed quickly — verify
+      the domain is HTTPS-only everywhere before enabling it.
+- [ ] Cross-origin isolation headers (`crossOriginEmbedderPolicy`,
+      `crossOriginOpenerPolicy`, `crossOriginResourcePolicy`) match what the app
+      actually needs to embed or be embedded by — the defaults are restrictive
+      (`require-corp` / `same-origin` / `same-origin`) and can break legitimate
+      cross-origin asset loading if left unexamined.
+
+Reference: [`@nextrush/helmet`](/docs/reference/helmet) ·
+How-to: [Security guide — Security Headers](/docs/guides/security/security#security-headers-helmet)
+
+---
+
+## CORS
+
+- [ ] `origin` is an explicit list of allowed origins, or a validation function —
+      **never** a wildcard (`'*'`) in production. `@nextrush/cors` will not combine
+      wildcard origin with `credentials: true`; per
+      [`global-rules.instructions.md`](https://github.com/0xTanzim/nextRush) this
+      combination is never acceptable even outside that guard.
+- [ ] `credentials: true` is set only for routes that actually use cookies or
+      `Authorization` headers cross-origin — enabling it broadly widens the attack
+      surface for no benefit.
+- [ ] `methods` and `allowedHeaders` are scoped to what the API actually accepts, not
+      left at defaults that allow every method.
+- [ ] Preflight `maxAge` is set to reduce OPTIONS request volume, but is not so long
+      that a CORS policy change takes days to propagate to cached browsers.
+
+Reference: [`@nextrush/cors`](/docs/reference/cors) ·
+How-to: [Security guide — CORS](/docs/guides/security/security#cors)
+
+---
+
+## CSRF protection
+
+- [ ] If any route authenticates with cookies, `@nextrush/csrf` is registered and its
+      `secret` is at least 32 characters, sourced from an environment variable.
+- [ ] Bearer-token-only APIs (no cookie-based session) have confirmed CSRF does not
+      apply — a browser cannot attach an `Authorization` header on a cross-site
+      request, so token-only auth is not vulnerable to CSRF by construction. Do not
+      add CSRF middleware to a route that has no cookie-based auth; it adds cost with
+      no security benefit there.
+- [ ] The CSRF secret is rotated on the same schedule as other application secrets,
+      not left as a one-time setup value.
+
+Reference: [`@nextrush/csrf`](/docs/reference/csrf) ·
+How-to: [Security guide — CSRF Protection](/docs/guides/security/security#csrf-protection)
+
+---
+
+## Rate limiting
+
+- [ ] Every publicly reachable endpoint has a rate limit — `@nextrush/rate-limit`
+      applied globally at minimum.
+- [ ] Authentication endpoints (login, register, password reset) have a stricter,
+      route-level limit than the global default — credential-guessing endpoints are
+      the highest-value target for abuse.
+- [ ] If the app runs behind a reverse proxy or load balancer, `trustProxy` is
+      explicitly configured. Without it, every request appears to originate from the
+      proxy's IP and the rate limiter throttles all users together instead of
+      per-client.
+- [ ] The rate-limit store matches the deployment topology: the default in-memory
+      store is per-process state — see [Scaling](/docs/production/scaling) for why
+      that matters once you run more than one instance.
+
+Reference: [`@nextrush/rate-limit`](/docs/reference/rate-limit) ·
+How-to: [Security guide — Rate Limiting](/docs/guides/security/security#rate-limiting)
+
+---
+
+## Secrets management
+
+- [ ] No secret, API key, or credential is hardcoded in source — this is a
+      zero-tolerance rule, not a style preference (see
+      [`global-rules.instructions.md`](https://github.com/0xTanzim/nextRush) §2).
+- [ ] All secrets (CSRF secret, JWT signing key, database credentials, third-party API
+      keys) are read from environment variables at startup, and startup fails loudly
+      if a required secret is missing — not silently falling back to an insecure
+      default.
+- [ ] `.env` files are excluded from version control and from any error response or
+      log line.
+- [ ] Secrets are rotated on a defined schedule, and immediately on any suspected
+      compromise.
+
+For how environment variables are loaded and validated at startup, see
+[Configuration](/docs/production/configuration).
+
+---
+
+## Error handling
+
+- [ ] The global error handler never serializes `error.stack`, `error.cause`, file
+      paths, or raw query/database errors into a client-facing response.
+- [ ] 5xx responses return a generic message; 4xx client errors may surface
+      `error.message` since that content is meant for the caller.
+- [ ] Errors are still logged in full detail server-side — hiding detail from the
+      client is not the same as losing observability. See
+      [Observability](/docs/production/observability) for structured error logging.
+
+How-to: [Security guide — Error Handling Security](/docs/guides/security/security#error-handling-security)
+
+---
+
+## Dependency auditing
+
+- [ ] `pnpm audit` (or the equivalent for your package manager) runs in CI, not only
+      locally before a release.
+- [ ] Dependencies are pinned to exact or narrowly-ranged versions — open ranges
+      (`^`, `*`, `latest`) are avoided so an audit result is reproducible.
+- [ ] New dependencies are vetted for maintenance status and typosquatting risk before
+      being added, per the project's own dependency-management standard.
+
+---
+
+## Request size limits
+
+- [ ] `@nextrush/body-parser`'s `limit` option is set explicitly — an unbounded body
+      size is a denial-of-service vector.
+- [ ] File-upload routes using `@nextrush/form-data` set a limit appropriate to the
+      upload type, rather than reusing the global JSON body limit.
+
+---
+
+## Health endpoints
+
+- [ ] `/readyz` (from `@nextrush/health`) is not exposed through a public-facing
+      load balancer or gateway if its check-name breakdown (which dependencies
+      exist and their pass/fail state) should not be visible outside your cluster.
+- [ ] `livezPath`/`readyzPath` are exempted from `@nextrush/rate-limit` (or mounted
+      before it), so a legitimate high-frequency orchestrator probe is never
+      throttled as abusive traffic.
+
+Reference: [`@nextrush/health`](/docs/reference/health)
+
+---
+
+## Response-timing headers
+
+- [ ] `@nextrush/timer`'s `X-Response-Time`/`Server-Timing` headers are disabled or
+      stripped on routes where response latency itself is sensitive (e.g.
+      authentication endpoints) — precise timing can let an attacker distinguish
+      code paths (a valid vs. invalid username, a cache hit vs. miss) by latency
+      alone, independent of the response body or status code.
+
+Reference: [`@nextrush/timer`](/docs/reference/timer)
+
+---
+
+## Next steps
+
+<Cards>
+  <Card title="Security guide" href="/docs/guides/security/security">
+    The how-to: middleware order, full configuration examples, JWT authentication.
+  </Card>
+  <Card title="Scaling" href="/docs/production/scaling">
+    Why per-instance rate-limit state and in-memory sessions break under horizontal scale.
+  </Card>
+  <Card title="Observability" href="/docs/production/observability">
+    Logging auth failures and suspicious request patterns without leaking secrets.
+  </Card>
+</Cards>

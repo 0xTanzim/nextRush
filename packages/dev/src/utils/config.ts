@@ -66,6 +66,25 @@ export function findEntry(): string {
 }
 
 /**
+ * Deno-specific configuration for `nextrush dev`/`nextrush build`.
+ */
+export interface DenoConfig {
+  /**
+   * Extra Deno permission flags (e.g. `"--allow-write"`, `"--allow-read=./data"`,
+   * `"--allow-ffi"`) to grant in addition to the CLI's default set
+   * (`--allow-net --allow-read --allow-env`).
+   *
+   * These are merged into the defaults, deduplicated — they never replace them (see
+   * the `dev-deno-permissions` spec, D1). Each value must begin with `--allow-` or
+   * `--deny-`; an invalid value fails the command before Deno is spawned.
+   *
+   * Adding permissions (especially `--allow-all`) weakens Deno's sandbox — only add
+   * what the application actually needs.
+   */
+  permissions?: string[];
+}
+
+/**
  * Load nextrush.config.ts if it exists
  */
 export interface NextRushConfig {
@@ -74,6 +93,7 @@ export interface NextRushConfig {
     port?: number;
     watch?: string[];
     env?: Record<string, string>;
+    deno?: DenoConfig;
   };
   build?: {
     entry?: string;
@@ -82,6 +102,7 @@ export interface NextRushConfig {
     sourcemap?: boolean;
     minify?: boolean;
     decoratorMetadata?: boolean;
+    deno?: DenoConfig;
   };
 }
 
@@ -95,8 +116,10 @@ export async function loadConfig(): Promise<NextRushConfig> {
   // Try nextrush.config.ts
   if (existsSync(configPath)) {
     try {
-      // Dynamic import for config file
-      const config = await import(configPath);
+      // Dynamic import for config file — its shape is genuinely unknowable at compile time
+      // (an arbitrary user-authored file), so `unknown` + a narrow default-export check is
+      // the correct type, not `any`.
+      const config = (await import(configPath)) as { default?: unknown } & Record<string, unknown>;
       return config.default ?? config;
     } catch {
       // Ignore import errors, use defaults
@@ -124,14 +147,34 @@ function isTruthyCompilerFlag(value: unknown): boolean {
 }
 
 /**
+ * Options controlling {@link validateDecoratorConfig}'s failure mode.
+ */
+export interface ValidateDecoratorConfigOptions {
+  /**
+   * When `true`, throw an `Error` (instead of returning warnings) as soon as
+   * a decorator-metadata mismatch is detected. Callers that need a fail-fast
+   * preflight (e.g. `nextrush build`) opt in explicitly; the default (`false`)
+   * preserves the existing warn-and-return-warnings behavior relied on by
+   * `nextrush dev`'s warn-and-continue UX.
+   */
+  throwOnMismatch?: boolean;
+}
+
+/**
  * Validate tsconfig.json when decorators or decorator metadata are in use.
  * Returns warnings for inconsistent or incomplete settings that would break DI.
  *
  * When both `experimentalDecorators` and `emitDecoratorMetadata` are omitted or not `true`,
  * returns no warnings — that matches create-nextrush "functional" projects. If either flag is
  * `true`, the other must also be `true` or we report what is missing.
+ *
+ * @param options - See {@link ValidateDecoratorConfigOptions}. Omitted/default behavior is
+ *   unchanged from before this option existed.
+ * @throws {Error} When `options.throwOnMismatch` is `true` and a mismatch is detected. The
+ *   error message is the same remediation text this function otherwise returns as warnings.
  */
-export function validateDecoratorConfig(): string[] {
+export function validateDecoratorConfig(options: ValidateDecoratorConfigOptions = {}): string[] {
+  const { throwOnMismatch = false } = options;
   const cwd = getCwd();
   const warnings: string[] = [];
 
@@ -150,7 +193,7 @@ export function validateDecoratorConfig(): string[] {
     const raw = readFileSync(tsconfigPath);
     // Strip single-line comments for JSON parsing
     const stripped = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-    const tsconfig = JSON.parse(stripped);
+    const tsconfig = JSON.parse(stripped) as { compilerOptions?: Record<string, unknown> };
     const co = tsconfig.compilerOptions ?? {};
 
     const hasExperimental = isTruthyCompilerFlag(co.experimentalDecorators);
@@ -176,6 +219,10 @@ export function validateDecoratorConfig(): string[] {
     }
   } catch {
     // tsconfig exists but couldn't be parsed; SWC reads it natively via typescript API
+  }
+
+  if (throwOnMismatch && warnings.length > 0) {
+    throw new Error(warnings.join('\n'));
   }
 
   return warnings;

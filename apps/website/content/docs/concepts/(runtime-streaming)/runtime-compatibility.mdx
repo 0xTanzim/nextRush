@@ -1,0 +1,204 @@
+---
+title: Runtime Compatibility
+description: Why NextRush treats the Web Platform as the foundation and every runtime as an adapter, so the same application code runs on Node.js, Bun, Deno, and the edge with no branching.
+keywords: [compatibility, concepts, nextrush, runtime, streaming]
+---
+
+A route handler that reads a file works on a server with a disk and throws on a platform that has none. Write that check as `if (runtime === 'node')` and the code now has an opinion about where it runs — an opinion that breaks the moment someone deploys the same handler to a platform nobody tested it against.
+
+## What you'll learn
+
+- **Understand** why NextRush treats the Web Platform, not Node.js, as the baseline
+- **Recognize** the difference between checking a runtime's name and checking what it can do
+- **Understand** how `getRuntimeCapabilities()` answers "can I do this here?" without an `if (runtime === ...)` anywhere in the call site
+- **Choose** when application code needs a capability check at all
+
+## The problem
+
+Five different platforms can run a NextRush application, and each one offers a different subset of I/O primitives: Node.js has `fs` and Node streams, Deno Deploy has neither, and Cloudflare Workers has no file system and a different worker model than Node's `worker_threads`. Code that wants to serve a file needs to know, at some point, whether that's possible here.
+
+The direct-looking fix reads the runtime's name and branches on it:
+
+```ts
+// Reads "here" as a name, not a capability — breaks the moment platform #6 shows up.
+import { getRuntime } from '@nextrush/runtime';
+
+function readConfigFile(path: string) {
+  const runtime = getRuntime();
+  if (runtime === 'node' || runtime === 'bun') {
+    return readFileSync(path, 'utf-8');
+  }
+  throw new Error('File reading not supported');
+}
+```
+
+This compiles and works — until a sixth runtime that also has a file system arrives (a new edge platform, a future Deno target) and the `if` still says no, because the check only ever knew about the runtimes that existed when it was written.
+
+## Why this matters
+
+An `if (runtime === 'node')` branch encodes an assumption that outlives the code around it: every future runtime is guilty (unsupported) until a maintainer edits that literal comparison to add it. Multiply that across every middleware and adapter that touches a runtime-specific feature, and supporting a new platform stops being a matter of writing one adapter — it becomes a search-and-fix across every capability check in the codebase. NextRush's cross-adapter parity promise (§7 of the architecture rules) only holds if capability decisions are asked as questions about behavior, not answered by name.
+
+## The solution
+
+NextRush inverts the usual assumption: the Web Platform's `Request`, `Response`, `ReadableStream`, `AbortSignal`, `URL`, and `crypto.subtle` are the baseline every adapter is expected to support, and Node.js is the runtime with *extra* capabilities (a file system, `node:*` streams) layered on top — not the reference implementation everything else is measured against. Every runtime NextRush supports plugs in through an adapter that speaks this shared `Context` contract, and code that needs to know what's available asks `getRuntimeCapabilities()` a yes/no question instead of comparing a runtime name.
+
+## Core idea
+
+Think of the Web Platform as the floor every adapter stands on, not the ceiling Node.js happens to reach. **Capabilities are negotiated, never assumed by name** — a capability check answers "can I read a file here?", and the runtime that made that true or false is an implementation detail the call site never needs to see.
+
+## Mental model
+
+<Mermaid
+  chart='
+flowchart TB
+    subgraph platform["Web Platform Foundation"]
+        direction LR
+        NODE["adapter-node"]
+        BUN["adapter-bun"]
+        DENO["adapter-deno"]
+        EDGE["adapter-edge"]
+        SERVERLESS["adapter-serverless"]
+    end
+    RUNTIME["core + runtime"]
+    NODE --> RUNTIME
+    BUN --> RUNTIME
+    DENO --> RUNTIME
+    EDGE --> RUNTIME
+    SERVERLESS --> RUNTIME
+'
+/>
+
+All five adapters sit on the same foundation and hand requests down to the same runtime-agnostic core — notice there's no adapter drawn "above" the others. Node having a file system doesn't make it the trunk the other four branch off; it makes Node the adapter with one more capability turned on.
+
+## Quick example
+
+The same handler runs unmodified on every adapter, because it never asks which runtime it's on:
+
+```ts title="app.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => ctx.json({ status: 'ok', runtime: ctx.runtime }));
+
+app.route('/', router);
+listen(app, 8080);
+```
+
+`ctx.runtime` reports which adapter is serving the request purely for observability (logging, metrics) — the handler's behavior doesn't change based on reading it. Swap `listen()` for `@nextrush/adapter-bun`'s `serve()` and this file is unchanged.
+
+## How it works
+
+**Example** — a middleware that degrades a feature instead of assuming it exists:
+
+```ts title="capability-check.ts"
+import { getRuntimeCapabilities } from '@nextrush/runtime';
+import type { Middleware } from 'nextrush';
+
+export function readLocalConfig(): Middleware {
+  return async (ctx) => {
+    const caps = getRuntimeCapabilities();
+
+    if (!caps.fileSystem) {
+      ctx.status = 501;
+      ctx.json({ error: 'File system not available on this runtime' });
+      return;
+    }
+
+    // Safe to use fs here — this branch only runs where fileSystem is true.
+    await ctx.next();
+  };
+}
+```
+
+**Observation** — the same middleware returns 501 on Cloudflare Workers and reads the file on Node.js, with no `runtime ===` comparison anywhere in it. Add a sixth runtime tomorrow with a real file system, and this middleware works there immediately — nothing about it names a runtime, so nothing about it needs editing.
+
+**Explanation** — `getRuntimeCapabilities()` (`@nextrush/runtime`) answers with a `RuntimeCapabilities` object (`nodeStreams`, `webStreams`, `fileSystem`, `webSocket`, `fetch`, `cryptoSubtle`, `workers`), derived from `getRuntime()`'s cached detection result. Detection itself runs once per process — `detectRuntime()` checks for the `Bun` global, then `Deno`, then Cloudflare's `navigator.userAgent` marker, then `process.versions.node`, then `VERCEL_REGION`, then generic `Request`/`Response` globals, in that specific order (more specific runtimes checked first, since Bun also sets `process.versions.node`). An unrecognized environment doesn't guess — it reports `'unknown'` and probes the live globals (`fetch`, `ReadableStream`, `WebSocket`, `crypto.subtle`) directly, rather than returning an all-false matrix that would disable a genuinely capable platform. This rule is enforced at the source level inside the framework itself, not only described here: a dedicated ESLint rule (`no-runtime-identity-capability`) rejects an `if (runtime === 'node')` written for a capability decision, so the guarantee is checked in the same repository that ships the adapters.
+
+## Typical use cases
+
+- A middleware or extension that touches a platform-specific I/O primitive (file system, native compression, worker threads) and needs to degrade cleanly where that primitive is missing.
+- Deciding whether to log a warning about a feature that silently no-ops on the current platform, rather than letting the gap surface as a confusing runtime error later.
+- Writing an adapter for a new platform — the conformance suite in `packages/adapters/conformance` defines the exact behaviors that adapter must reproduce to be a drop-in fifth (or sixth) option.
+
+## Configuration
+
+Runtime detection takes no options — `getRuntime()` and `getRuntimeCapabilities()` always read the live environment and cannot be forced to report a different runtime in application code. The one adapter-level configuration surface that changes cross-runtime behavior is on the application itself:
+
+```ts
+const app = createApp({ proxy: true }); // trust X-Forwarded-For — same option, every adapter
+```
+
+`@nextrush/runtime` exposes `resetRuntimeCache()` for tests that need to re-run detection under mocked globals; it's a test utility, not something application code calls at request time.
+
+## Performance
+
+- **Complexity** — `getRuntime()` caches its result in a module-level variable after the first call; every later call in the process returns the cached value, so checking the runtime in a hot path costs nothing beyond a variable read.
+- **Memory** — `getRuntimeCapabilities()` rebuilds a small object on each call rather than caching the object itself, but the underlying `getRuntime()` lookup it depends on is cached — the cost is one object literal, not repeated detection.
+- **Scaling** — capability checks belong in setup code or the first branch of a request, not recomputed per byte of a response; the conformance suite runs once per adapter in CI, not per request in production, so parity verification adds no runtime cost. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before optimizing further.
+
+## Security
+
+- **Untrusted `ctx.raw` access.** *Threat:* code that reaches into `ctx.raw` for a runtime-specific object (Node's raw socket, a Worker's raw event) and assumes properties that only exist on one platform. *Why:* `ctx.raw`'s shape differs per adapter by design — it's the documented escape hatch, not a stable cross-runtime type. *Safe default:* check `ctx.runtime` before touching `ctx.raw`, and prefer a capability check over `ctx.raw` whenever the Context API already exposes what's needed. *Avoid:* destructuring `ctx.raw` properties without a runtime guard — the missing property fails differently (undefined vs. thrown) depending on the platform.
+- **Feature detection that fails open.** *Threat:* a capability check that treats an unrecognized runtime as "supports everything" instead of "supports nothing until proven." *Why:* `capabilitiesFor()` answers `'unknown'` with live feature probing rather than a blanket allow, precisely so an unrecognized platform doesn't get handed capabilities (like file system access) it never actually has. *Safe default:* trust `getRuntimeCapabilities()`'s answer rather than re-deriving your own "probably has fetch" assumption. *Avoid:* wrapping a capability check in a broad `try`/`catch` that silently proceeds on failure — a thrown probe should read as "capability absent," not "capability present, error unrelated."
+
+<Callout type="warn">
+  `ctx.raw` ties code to one adapter's internals. Reach for a capability check or a Context method first — `ctx.raw` exists for the cases neither one covers yet.
+</Callout>
+
+## Trade-offs
+
+**Why capability negotiation over runtime branching** — it optimizes for "a new platform works without a framework change," at the cost of an extra abstraction layer between application code and the platform primitive it eventually calls.
+
+- **Benefits** — application and middleware code never encodes a closed list of known runtimes; a platform NextRush has never seen (a future edge provider, a new sandboxed runtime) gets a correct answer from `probeCapabilities()` on day one; the cross-adapter conformance suite has one contract to verify instead of five bespoke ones.
+- **Costs** — a capability object to learn (`nodeStreams`, `webStreams`, `fileSystem`, `webSocket`, `fetch`, `cryptoSubtle`, `workers`) instead of a familiar `process.platform`-style string; code that wants a Node-only feature still has to route through `ctx.raw` or a Node-specific package, because capability negotiation intentionally doesn't expose every platform-specific API through one union type.
+- **Alternatives** — branching directly on `getRuntime()`'s string result is simpler to write once, at the cost of every future runtime needing that literal comparison edited in; a single "lowest common denominator" API surface (Web-only, nothing Node-specific) avoids the negotiation step entirely but throws away the extra capabilities Node.js, Bun, and Deno genuinely offer.
+- **Why NextRush chose this** — the framework's promise is that Node, Bun, Deno, and the edge behave identically for the same application code (see the [adapter contract](/docs/architecture/adapters) for how that's verified); a capability object is what lets that promise extend to a runtime that doesn't exist yet, where a hardcoded name list cannot.
+
+## Decision guide
+
+**Use a capability check (`getRuntimeCapabilities()`) when:**
+
+- ✓ The code path touches something genuinely platform-dependent — a file, a native worker, a specific stream type
+- ✓ You want the same code to degrade gracefully rather than throw on a platform that lacks the feature
+
+**Use `ctx.runtime` (read-only, for observability) when:**
+
+- ✓ You're logging or reporting which adapter served a request — never deciding behavior from it
+
+**Skip both when:**
+
+- ✓ The Context API (`ctx.json()`, `ctx.bodySource`, `ctx.set()`) already covers what you need — that's the whole point of the abstraction
+
+## Common mistakes
+
+- **Branching on `getRuntime() === 'node'` for a capability decision.** *Why it happens:* the runtime name is right there and feels like the obvious check. *Correct approach:* ask `getRuntimeCapabilities()` for the specific capability (`fileSystem`, `webSocket`, …) instead of the runtime's identity. *If ignored:* the code silently excludes every future runtime that happens to share the same capability — and the `no-runtime-identity-capability` ESLint rule rejects this exact pattern inside the framework's own packages.
+- **Assuming Node.js capabilities as the default and treating other runtimes as the exception.** *Why it happens:* Node is usually the first runtime a project runs locally, so its feature set feels like "normal." *Correct approach:* write against the Web Platform primitives (`Request`, `Response`, `ReadableStream`, `fetch`) first, and treat `nodeStreams`/`fileSystem` as capabilities Node happens to add — not the baseline everything else falls short of.
+- **Reaching for `ctx.raw` before checking whether the Context API already covers the need.** *Why it happens:* `ctx.raw` looks like a shortcut to "the real request object." *Correct approach:* check the Context API and `getRuntimeCapabilities()` first; drop to `ctx.raw` only for what neither one exposes. *If ignored:* the handler works on whichever adapter you tested against and fails, differently, on every other one.
+
+## Key takeaways
+
+- The Web Platform (`Request`/`Response`/`ReadableStream`/`AbortSignal`/`URL`/`crypto.subtle`) is the foundation every adapter sits on — Node.js is the runtime with extra capabilities, not the baseline the others are measured against.
+- `getRuntimeCapabilities()` answers a yes/no question about behavior; it never requires comparing a runtime's name in application code.
+- Detection runs once per process and is cached — `getRuntime()` is cheap to call in a hot path.
+- An unrecognized runtime is answered by live feature probing, not an all-false or all-true guess.
+- A dedicated ESLint rule (`no-runtime-identity-capability`) enforces capability-based decisions inside NextRush's own source — the guarantee is checked in CI, not only described on this page.
+- `ctx.raw` is the deliberate escape hatch for what the Context API and capability checks don't cover — using it ties code to one adapter.
+
+## Continue learning
+
+<Cards>
+  <Card title="Application" href="/docs/concepts/application">
+    How createApp() and the adapter's listen()/serve() drive the same ready()/start()/close() lifecycle on every runtime.
+  </Card>
+  <Card title="Adapter contract" href="/docs/architecture/adapters">
+    The exact behaviors the conformance suite enforces identically across every adapter.
+  </Card>
+  <Card title="Compatibility matrix" href="/docs/help/compatibility-matrix">
+    Current per-package versions and the Node.js baseline every adapter builds on.
+  </Card>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    The composition model every adapter feeds requests into identically.
+  </Card>
+</Cards>

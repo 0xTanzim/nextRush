@@ -29,7 +29,7 @@ import { createRouter } from '@nextrush/router';
 import { bodyParser, json, raw, text, urlencoded } from '@nextrush/body-parser';
 import { compression, deflate, gzip } from '@nextrush/compression';
 import { cors, devCors, strictCors } from '@nextrush/cors';
-import { catchAsync, errorHandler, notFoundHandler } from '@nextrush/errors';
+import { errorHandler, notFoundHandler } from '@nextrush/errors';
 import { devHelmet, helmet, strictHelmet } from '@nextrush/helmet';
 
 // ============================================================================
@@ -182,7 +182,13 @@ function createMockContext(options: MockContextOptions = {}): Context & {
     responded: false,
     raw: mockRaw,
     runtime: 'node' as Runtime,
+    platform: undefined,
     bodySource: mockBodySource,
+    signal: new AbortController().signal,
+    sendStream: async () => {},
+    stream: async () => {},
+    sse: async () => {},
+    ndjson: async () => {},
 
     _setNextFn: (fn: () => Promise<void>) => {
       nextFn = fn;
@@ -496,20 +502,6 @@ describe('Error Handler Middleware Integration', () => {
     });
   });
 
-  describe('catchAsync', () => {
-    it('should wrap async route handlers', async () => {
-      const asyncHandler = catchAsync(async (ctx) => {
-        await new Promise((resolve) => setTimeout(resolve, 1));
-        ctx.json({ success: true });
-      });
-
-      const ctx = createMockContext();
-
-      await asyncHandler(ctx, async () => {});
-
-      expect(ctx.json).toHaveBeenCalledWith({ success: true });
-    });
-  });
 });
 
 // ============================================================================
@@ -674,7 +666,7 @@ describe('Full Middleware Stack Integration', () => {
     });
 
     // Error handler
-    app.onError((_error, ctx) => {
+    app.setErrorHandler((_error, ctx) => {
       cleanupOrder.push('error-handler');
       ctx.status = 500;
       ctx.json({ error: 'Internal Error' });

@@ -62,38 +62,38 @@ describe('HTTP Response Splitting Prevention', () => {
 describe('Cookie Tampering Prevention', () => {
   it('should detect tampered signatures', async () => {
     const secret = 'super-secret-key-123';
-    const signed = await signCookie('user:admin', secret);
+    const signed = await signCookie('session', 'user:admin', secret);
 
     // Tamper with the signature
     const tampered = signed.slice(0, -1) + 'X';
-    const result = await unsignCookie(tampered, secret);
+    const result = await unsignCookie('session', tampered, secret);
 
     expect(result).toBeUndefined();
   });
 
   it('should detect modified values', async () => {
     const secret = 'super-secret-key-123';
-    const signed = await signCookie('user:admin', secret);
+    const signed = await signCookie('session', 'user:admin', secret);
 
-    // Modify the value but keep signature
+    // Modify the value but keep signature (wire: value.issuedAt.signature)
     const parts = signed.split('.');
     parts[0] = 'user:hacker';
     const tampered = parts.join('.');
-    const result = await unsignCookie(tampered, secret);
+    const result = await unsignCookie('session', tampered, secret);
 
     expect(result).toBeUndefined();
   });
 
   it('should reject unsigned cookies as signed', async () => {
     const secret = 'super-secret-key-123';
-    const result = await unsignCookie('just-a-value', secret);
+    const result = await unsignCookie('session', 'just-a-value', secret);
 
     expect(result).toBeUndefined();
   });
 
   it('should reject cookies signed with different secret', async () => {
-    const signed = await signCookie('data', 'secret-1');
-    const result = await unsignCookie(signed, 'secret-2');
+    const signed = await signCookie('session', 'data', 'secret-1');
+    const result = await unsignCookie('session', signed, 'secret-2');
 
     expect(result).toBeUndefined();
   });

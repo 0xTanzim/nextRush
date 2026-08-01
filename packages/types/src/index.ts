@@ -59,19 +59,69 @@ export {
 } from './context';
 
 // ============================================================================
-// Plugin Types
+// Adapter Context Contracts (F-13) — additive supersets of Context
 // ============================================================================
 
 export {
-  // Application interface for plugins
-  type ApplicationLike,
-  // Plugin interface
-  type Plugin,
-  // Plugin utilities
-  type PluginFactory,
-  type PluginMeta,
-  type PluginWithHooks,
-} from './plugin';
+  // Lifecycle primitive exposed by every adapter
+  type AdapterContext,
+  // Shared context-factory shape (adapters build Context via a factory)
+  type AdapterContextFactory,
+  // Web/fetch adapter surface (getResponse/waitUntil/env)
+  type FetchContext,
+} from './adapter-context';
+
+// ============================================================================
+// Adapter Conformance Contract (F-01) — light `satisfies` shapes
+// ============================================================================
+
+export {
+  type FetchAdapter,
+  type FetchHandler,
+  type FetchHandlerOptions,
+  type HandlerOptions,
+  // Adapter shapes
+  type ServerAdapter,
+  // Canonical address + handle
+  type ServerAddress,
+  type ServerHandle,
+} from './adapter';
+
+// ============================================================================
+// Extension Types (see docs/RFC/class-runtime/005-plugin-system.md)
+// ============================================================================
+
+export {
+  // Extension contract
+  type Extension,
+  // The setup() argument
+  type ExtensionContext,
+  // Structural app surface available to extensions
+  type ExtensionHost,
+} from './extension';
+
+// ============================================================================
+// Logger Contract
+// ============================================================================
+
+export { type Logger } from './logger';
+
+// ============================================================================
+// Dependency Injection Contract
+// ============================================================================
+
+export {
+  type ClassProvider,
+  type Constructor,
+  type Container,
+  type FactoryProvider,
+  type Provider,
+  type RegisterOptions,
+  type Scope,
+  type ServiceOptions,
+  type Token,
+  type ValueProvider,
+} from './container';
 
 // ============================================================================
 // Router Types
@@ -99,7 +149,67 @@ export {
   type BodySource,
   type BodySourceOptions,
   // Runtime detection
+  type PlatformId,
+  type ProxyTrust,
   type Runtime,
   type RuntimeCapabilities,
   type RuntimeInfo,
 } from './runtime';
+
+// ============================================================================
+// Response Streaming Contracts
+// ============================================================================
+
+export {
+  // Writer contracts
+  type BaseStreamWriter,
+  type NDJSONStreamWriter,
+  // Event shape
+  type SSEEvent,
+  type SSEStreamWriter,
+  // Source + callback shapes
+  type StreamRun,
+  type StreamSource,
+  type TextStreamWriter,
+} from './stream';
+
+// ============================================================================
+// Standard Schema Contract (shared by validation, route metadata, openapi)
+// ============================================================================
+
+export {
+  type InferOutput,
+  type StandardSchemaIssue,
+  type StandardSchemaPathSegment,
+  type StandardSchemaProps,
+  type StandardSchemaResult,
+  type StandardSchemaV1,
+} from './standard-schema';
+
+// ============================================================================
+// Route Metadata Contracts (source of truth for OpenAPI & future renderers)
+// ============================================================================
+
+export {
+  // Contribution protocol symbol (value export)
+  ROUTE_METADATA,
+  type MetadataContribution,
+  // The canonical endpoint descriptor
+  type RouteDefinition,
+  type RouteEntry,
+  type RouteMetadata,
+  type RouteMetaMarker,
+} from './route-metadata';
+
+// ============================================================================
+// Security Audit Contribution Contract (`security-boundaries` capability)
+// ============================================================================
+
+export {
+  // Contribution protocol symbol (value export)
+  SECURITY_AUDIT,
+  type AuditableMiddleware,
+  type SecurityAuditCheck,
+  type SecurityAudited,
+  type SecurityAuditVerdict,
+} from './security-audit';

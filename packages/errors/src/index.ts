@@ -9,6 +9,12 @@
 // Base classes
 export { HttpError, NextRushError, getHttpStatusMessage } from './base';
 
+// Header validation
+export { HeaderValidationError } from './header-validation';
+
+// Central error-code registry
+export { ERROR_CODES, GENERIC_ERROR_CODE, VALIDATION_ERROR_CODE, codeForStatus } from './codes';
+
 // HTTP errors - 4xx
 export {
   BadRequestError,
@@ -91,11 +97,4 @@ export {
 } from './factory';
 
 // Middleware
-export {
-  catchAsync,
-  errorHandler,
-  notFoundHandler,
-  type ErrorContext,
-  type ErrorHandlerOptions,
-  type ErrorMiddleware,
-} from './middleware';
+export { errorHandler, notFoundHandler, type ErrorHandlerOptions } from './middleware';

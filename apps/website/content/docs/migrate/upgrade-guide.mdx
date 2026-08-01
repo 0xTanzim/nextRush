@@ -1,0 +1,120 @@
+---
+title: Upgrade Guide
+description: What a version bump actually means today — NextRush is pre-1.0 for some packages and mostly at 3.1.0 for the core line.
+keywords: [guide, migrate, nextrush, upgrade]
+---
+
+NextRush's packages do not share one version number. Core packages (`@nextrush/core`,
+`@nextrush/router`, `@nextrush/class`, `@nextrush/di`, and the older middleware like `cors`,
+`helmet`, `body-parser`, `compression`) are at **`3.1.0`**. Newer packages — the adapters for
+Bun/Deno/Edge, and most of the newer middleware (`csrf`, `rate-limit`, `multipart`, `cookies`,
+`validation`, `request-id`, `timer`, `static`, `template`, `logger`, `openapi`), the extensions
+(`events`, `websocket`), and the tooling (`dev`, `create-nextrush`, `testing`) — are at
+**`1.0.0`**. Both facts are read directly from each package's `package.json`, not assumed.
+
+<Callout type="info" title="Check the compatibility matrix before mixing versions">
+  See the [compatibility matrix](/docs/help/compatibility-matrix) for the full current
+  version table across all 35 packages before upgrading a subset of them.
+</Callout>
+
+## How to actually check what changed
+
+Every package ships its own `CHANGELOG.md` (via [Changesets](https://github.com/changesets/changesets)),
+at `packages/<name>/CHANGELOG.md`. Before bumping any package, read that file — not this guide —
+for the exact list of changes. This guide explains how to *read* a changelog entry, using a real
+past change as the example.
+
+## A real example: the 3.1.0 Extension Model change
+
+`@nextrush/core`'s `3.1.0` entry is a documented **major** change
+(RFC-NEXTRUSH-PLUGIN-SYSTEM) that replaced the plugin system with the current Extension model.
+It's a useful template for what a breaking NextRush change looks like in practice:
+
+```md title="packages/core/CHANGELOG.md (excerpt)"
+## 3.1.0
+
+### Major Changes
+
+- d7eb075: Extension Model — replace the plugin system with Composition-First
+  (RFC-NEXTRUSH-PLUGIN-SYSTEM).
+
+  **Breaking changes**
+  - Removed the plugin system. `Plugin`, `PluginWithHooks`, `PluginMeta`, `PluginFactory`,
+    `ApplicationLike`, `app.plugin()`, `app.pluginAsync()`, `app.getPlugin()`, `app.hasPlugin()`,
+    and the deprecated `app.onError()` setter are gone.
+  - New `Extension` contract, registered via `app.extend()` and booted at `app.ready()`.
+  - App-owned router via `Application({ router })`.
+  - Per-app DI container (`app.container`).
+  - Package reclassification: `@nextrush/events` → an Extension, `@nextrush/openapi` → middleware,
+    `@nextrush/controllers` → a registrar (`registerControllers`).
+```
+
+Note what the entry gives you: the exact symbols removed, the exact replacement API, and which
+packages were reclassified as a result. A Changesets-generated entry like this is the actual
+migration guide for that release — this page's job is to point you at it, not duplicate it.
+
+<Callout type="warn" title="This example is historical, not upcoming">
+  The Extension Model change already shipped in the `3.1.0` releases you'd be installing today.
+  It's shown here as a template for reading a changelog entry, not as a pending migration.
+</Callout>
+
+## Checking dependent packages after a bump
+
+Changesets also records which dependent packages got a patch bump because something they depend
+on changed — visible in the same file:
+
+```md title="packages/router/CHANGELOG.md (excerpt)"
+## 3.1.0
+
+### Patch Changes
+
+- Updated dependencies [d7eb075]
+- Updated dependencies [32a0db6]
+  - @nextrush/types@3.1.0
+  - @nextrush/core@3.1.0
+```
+
+If you bump `@nextrush/core`, check whether `@nextrush/router`, `@nextrush/class`, or any
+middleware you use lists a matching "Updated dependencies" entry for the same release — that's
+Changesets telling you those packages moved in lockstep and are safe (or required) to bump
+together.
+
+## A second example: the backward-compat alias removal
+
+A later change removed a batch of dead compatibility aliases across several packages — each
+alias had been superseded for at least one release and carried zero remaining internal use. This
+is the kind of change that touches several packages at once but is still one coherent removal:
+
+| Package | Removed | Use instead |
+| --- | --- | --- |
+| `@nextrush/adapter-bun`, `-deno`, `-node` | `ServeOptions.hostname` / `ServerInstance.hostname` | `host` |
+| `@nextrush/adapter-bun`, `-deno`, `-edge` | `{Bun,Deno,Edge}BodySource`, `create{Bun,Deno,Edge}BodySource` | `WebBodySource`, `createWebBodySource` (`@nextrush/runtime`) |
+| `@nextrush/core` | `createHttpError` | `createError` |
+| `@nextrush/errors` | `ErrorContext`, `ErrorMiddleware`, `catchAsync()` | `Context`/`Middleware` (`@nextrush/types`); nothing — `catchAsync()` was a no-op |
+| `@nextrush/body-parser` | `ctx.raw`, `RequestStream`, `BodyParserMiddleware` | `ctx.bodySource` (every adapter provides it); `Middleware` |
+| `@nextrush/helmet` | `frameguard()`, `XFrameOptionsValue`, the `frameguard` option | CSP `frame-ancestors` directive |
+| `@nextrush/cors` | `CorsMiddleware` | `Middleware` (`@nextrush/types`) |
+
+None of these had a replacement that changes call-site shape beyond a rename or an import-path
+swap — `frameguard('DENY')` becomes a `frame-ancestors` CSP directive, everything else is a
+straight type/name substitution. See each package's own `CHANGELOG.md` for the exact changeset
+entry.
+
+## What to do before any version bump
+
+1. Read the target package's `CHANGELOG.md` for every version between what you have and what
+   you're moving to, not only the latest entry.
+2. Grep your codebase for anything the changelog lists as removed (`Plugin`, `app.plugin()`,
+   `ControllersPlugin`, etc. for the 3.1.0 example above; `hostname`, `frameguard`,
+   `catchAsync`, `createHttpError`, `*BodySource` for the alias-removal example above).
+3. If you're still importing from `@nextrush/decorators` or `@nextrush/controllers`, see
+   [Deprecations](/docs/migrate/deprecations) — both packages have been removed; the page has
+   the exact old-import → new-import map and an automated codemod.
+4. Run your test suite. NextRush's own steering requires every bug fix to ship a regression
+   test and every breaking change to ship a migration path — the changelog entry is that path.
+
+## Next steps
+
+- [Deprecations](/docs/migrate/deprecations) — the canonical old-import → new-import map.
+- [Compatibility matrix](/docs/help/compatibility-matrix) — current versions across all packages.
+- [Changelog](/docs/community/changelog) — the full changelog index.

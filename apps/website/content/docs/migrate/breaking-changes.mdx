@@ -1,0 +1,238 @@
+---
+title: Breaking Changes
+description: 'Real v4 API breaks: retired shims, backward-compat alias removals, and renamed internals — every item verified against source and commit history.'
+keywords: [breaking, changes, migrate, nextrush]
+---
+
+Every item below is a real, shipped change — verified against `packages/*/src`, `CHANGELOG.md`,
+and the commit that made it, not inferred from another framework's conventions. If you're
+upgrading from an older NextRush install, read this before [Upgrade guide](/docs/migrate/upgrade-guide).
+
+<Callout type="info" title="Not the same as the docs-site reorg">
+  This page covers changes to the **framework's API and packages**. If you're looking for where
+  a documentation page moved, see [v3 → v4 docs map](/docs/migrate/v3-to-v4-docs) instead.
+</Callout>
+
+## `@nextrush/decorators` and `@nextrush/controllers` were removed
+
+Both packages were pure re-export shims over `@nextrush/class` — confirmed by reading each
+package's `src/index.ts` before removal, neither contained logic of its own. They no longer
+exist in this repository and no longer publish new versions.
+
+```diff
+- import { Controller, Get, UseGuard } from '@nextrush/decorators';
+- import { registerControllers } from '@nextrush/controllers';
++ import { Controller, Get, UseGuard, registerControllers } from 'nextrush/class';
+```
+
+Every symbol either package re-exported still exists under `nextrush/class` — see
+[Deprecations](/docs/migrate/deprecations) for the exact symbol-by-symbol map, or run the
+automated codemod:
+
+```bash
+nextrush codemod consolidate-imports "src/**/*.ts"
+```
+
+Their last-published npm versions (`3.1.0`) keep working as-is in an existing lockfile; this is
+a removal from the repository going forward, not a retroactive break.
+
+## A batch of dead backward-compatibility aliases was removed
+
+Confirmed superseded with zero remaining internal use before removal. If your code references
+any of these, switch to the replacement:
+
+| Package | Removed | Use instead |
+| --- | --- | --- |
+| `@nextrush/adapter-{bun,deno,edge}` | `{Bun,Deno,Edge}BodySource` type/value aliases, `create{Bun,Deno,Edge}BodySource` | `WebBodySource` / `createWebBodySource` from `@nextrush/runtime` |
+| `@nextrush/core` | `createHttpError` alias | `createError` |
+| `@nextrush/errors` | `ErrorContext`, `ErrorMiddleware` | `Context` / `Middleware` from `@nextrush/types` |
+| `@nextrush/errors` | `catchAsync()` | Remove the call — it was a no-op wrapper |
+| `@nextrush/body-parser` | Node-stream fallback path: `BodyParserContext.raw`, `RequestStream`, `BodyParserMiddleware` | `Middleware` from `@nextrush/types`; requires `ctx.bodySource`, which every current adapter provides |
+| `@nextrush/helmet` | `frameguard()`, the `frameguard` option, `XFrameOptionsValue` | The CSP `frame-ancestors` directive, honored by every modern browser |
+| `@nextrush/cors` | `CorsMiddleware` alias | `Middleware` from `@nextrush/types` |
+
+## Router internals renamed: radix tree → segment trie
+
+`@nextrush/router`'s internal data structure and its public-facing name both changed from
+"radix tree" to "segment trie" — `RadixNode` is now `TrieNode`, and `radix-tree.ts` is now
+`segment-trie.ts`. `RadixNode` was never part of the public runtime export surface (confirmed
+against the package's own `public-surface.test.ts`), so this is a naming/documentation
+correction, not an API removal. If you see "radix tree" anywhere in older NextRush
+documentation or steering files, it's describing a previous implementation and is stale — the
+router has always been, and remains, a **segment trie**: O(k) lookup per path segment,
+independent of route count.
+
+## `reference/` URL structure flattened
+
+Reference documentation URLs lost a redundant middle segment:
+
+```diff
+- /docs/reference/core/router
++ /docs/reference/router
+- /docs/reference/middleware/cors
++ /docs/reference/cors
+- /docs/reference/plugins/events
++ /docs/reference/events
+- /docs/reference/adapters/node
++ /docs/reference/platforms/node
+```
+
+Old links redirect automatically — see [v3 → v4 docs map](/docs/migrate/v3-to-v4-docs) for the
+full table. This is a documentation-site URL change; it does not affect the packages'
+JavaScript/TypeScript import paths.
+
+## `internals/` renamed to `architecture/`
+
+The docs section documenting NextRush's own internal design moved from `/docs/internals` to
+`/docs/architecture` (a documentation URL rename, not a package or import change). Its
+`contributing.mdx` page was merged into `/docs/community/contributing`.
+
+## "Plugin" renamed to "Extension"
+
+The concept previously called a "Plugin" — a long-lived, app-scoped service wired with
+`app.extend()` and booted with `app.ready()` — is now called an **Extension** throughout the
+documentation and steering. This is a terminology and documentation change: `app.extend()` and
+`app.ready()` are unchanged; only the noun used to describe what you're registering changed
+from "Plugin" to "Extension." `@nextrush/class`'s `ClassRef` and internal helpers
+(`deepFreeze`, `bootstrapPipeline`) were also sealed off the package's public surface around
+the same time (see [ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md))
+— if you were importing any of those from `@nextrush/class`, they were never part of the
+supported contract and were never re-exported by the removed shims either.
+
+## Not a breaking change: mixed-version monorepo
+
+Packages that shipped with the original v3 release version together at `3.1.0`; packages added
+afterward (`@nextrush/cookies`, `@nextrush/csrf`, `@nextrush/form-data`, and others) start their
+own semver line at `1.0.0` and version independently. A `1.0.0` package is not less mature than
+a `3.1.0` one — it started its own line later. See the
+[Compatibility Matrix](/docs/help/compatibility-matrix) for the current, real version of every
+package.
+
+## `harden-security-boundaries`: six related breaking changes
+
+The `harden-security-boundaries` change closed eleven security findings across the router,
+proxy trust, CSRF, cookies, and response/CORS boundaries. Six of its fixes are breaking API
+changes — each is verified against the current source in `packages/*/src`, not inferred:
+
+### `ctx.path` is now the canonical, case-folded path; `ctx.originalPath` is new
+
+`ctx.path` previously published the raw request target. It now publishes the router's
+canonical path (case-folded, slash-collapsed, dot-segments rejected before your middleware
+ever runs) — the same value the router matched against, so a path-prefix check on `ctx.path`
+can no longer be bypassed by a differently-cased or double-slashed request (the SEC-02
+authorization bypass this change closes). The raw, un-normalized request target is now
+available separately as `ctx.originalPath`.
+
+```diff
+  app.use(async (ctx, next) => {
+-   if (ctx.path.startsWith('/admin')) { /* case-sensitive, bypassable */ }
++   if (ctx.path.startsWith('/admin')) { /* now case-folded and dot-segment-safe */ }
+    await next();
+  });
+
++ // If you need the exact bytes the client sent (e.g. for logging):
++ logger.info(`raw target: ${ctx.originalPath}`);
+```
+
+A request whose target contains a dot segment (`/api/../admin`) now receives `400` before any
+middleware runs, rather than being resolved and dispatched.
+
+### `proxy: true` no longer exists — `proxy` is `false | number | string[]`
+
+`createApp({ proxy: true })` trusted every `X-Forwarded-For` entry unconditionally — the SEC-01
+finding that let a client forge its own IP address for rate-limit and allow/deny-list purposes.
+`proxy` is now `false` (trust nothing — the default), a `number` (trust exactly that many
+reverse-proxy hops), or a `string[]` of trusted peer CIDRs/IPs. Both `proxy: true` and
+`proxy: 0` throw at construction, naming the replacement.
+
+```diff
+- createApp({ proxy: true })
++ createApp({ proxy: 1 })              // one reverse proxy (e.g. a single nginx/ALB hop)
++ createApp({ proxy: ['10.0.0.0/8'] }) // only these peers are trusted
+```
+
+Edge/Workers adapters additionally refuse a peer-CIDR list at boot when the platform has no
+direct peer address to compare against — see [Deprecations](/docs/migrate/deprecations) for the
+per-adapter detail.
+
+### Signed cookies use a new, context-bound signature format
+
+`@nextrush/cookies`' signed cookies previously signed the value alone, so a signature valid for
+one cookie name verified successfully when replayed under a different name (SEC-07). Signatures
+now cover a length-prefixed `name|value|issuedAt` tuple. A cookie signed under the previous
+value-only format fails verification by default. Set `acceptLegacySignatures: true` to accept
+the old format during a rotation window — this compatibility path is deprecated from the moment
+it ships and is intended to be temporary, not a permanent option.
+
+```diff
+  signedCookies({
+    secret,
++   acceptLegacySignatures: true, // only while migrating existing signed cookies
+  })
+```
+
+Remove `acceptLegacySignatures` once every previously-issued signed cookie has expired or been
+reissued.
+
+### `csrf()` now requires an explicit session-binding decision and an origin allowlist
+
+Two omissions that previously fell back to a weaker default now throw at construction instead:
+
+```diff
+  csrf({
+    secret,
++   getSessionIdentifier: (ctx) => ctx.state.sessionId,
++   // — or, to explicitly opt into the weaker unbound double-submit mode:
++   // sessionBinding: 'none',
++   allowedOrigins: ['https://app.example.com'],
+  })
+```
+
+- **Session binding is no longer implicit.** `csrf()` throws unless you provide either
+  `getSessionIdentifier` or an explicit `sessionBinding: 'none'` acknowledgement (SEC-05) — a
+  token minted for one session can no longer be silently accepted under a different one.
+- **`originCheck` defaults to `true` and requires `allowedOrigins`.** Origin validation now
+  compares the `Origin` header against your configured allowlist only — never against the
+  attacker-controlled `Host` header (SEC-04). `csrf()` throws at construction if `originCheck`
+  is left at its new default with no `allowedOrigins` configured, since there would be nothing
+  safe left to compare against.
+
+The default token extractor also no longer reads `?_csrf=` from the query string (tokens no
+longer reach access logs or `Referer` headers by default); supply a custom
+`getTokenFromRequest` if you relied on the query-string fallback.
+
+### CORS no longer echoes `Access-Control-Request-Headers` — it intersects a fixed allowlist
+
+A preflight requesting any header previously received that exact header back in
+`Access-Control-Allow-Headers` (SEC-10) — an attacker-controlled request header choosing what
+the response allows. `@nextrush/cors` now ships a conservative default allowlist
+(`Content-Type`, `Accept`, `X-Requested-With`) and responds with the **intersection** of the
+requested headers and that allowlist; `Authorization` is included only when `credentials: true`.
+A preflight requesting a header outside the allowlist no longer sees it echoed back.
+
+```diff
+  app.use(cors({
+    origin: 'https://app.example.com',
++   allowedHeaders: ['Content-Type', 'Accept', 'X-Requested-With', 'X-My-Custom-Header'],
+  }))
+```
+
+If your client sends a custom header not in the new default set, add it explicitly via
+`allowedHeaders` — the previous echo-back behavior is not configurable back on, by design.
+
+### Not flipped in this change: `caseSensitive`
+
+`@nextrush/router`'s `caseSensitive` option default was evaluated for a flip (from `false` to
+`true`) as part of this same hardening pass, since case-folding is exactly what makes `ctx.path`
+canonicalization possible. It was **deferred**, not shipped — flipping a router-wide default is
+a separate, major-version-gated decision from the P0–P2 fixes above, and is tracked
+independently (RFC-029 §15) rather than bundled into this change. If you see a reference to a
+`caseSensitive` default flip in an RFC or design document for this change, treat the deferral
+above — not the RFC's original proposal — as the shipped behavior.
+
+## Next steps
+
+- [Deprecations](/docs/migrate/deprecations) — the exact old-import → new-import map for the
+  removed shims.
+- [Upgrade guide](/docs/migrate/upgrade-guide) — what a version bump means today.
+- [v3 → v4 docs map](/docs/migrate/v3-to-v4-docs) — where a bookmarked documentation URL moved.

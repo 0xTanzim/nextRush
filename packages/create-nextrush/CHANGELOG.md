@@ -1,5 +1,82 @@
 # create-nextrush
 
+## 1.0.0
+
+### Patch Changes
+
+- [`d4cb1f7`](https://github.com/0xTanzim/nextRush/commit/d4cb1f7982a3ff6f2f8ec8b0bc4000e109a49fd9) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Consolidated patch release across all NextRush public packages.
+
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- Consolidated patch release across all NextRush public packages.
+
+## 1.0.0-beta.0
+
+### Minor Changes
+
+- 4231f6e: **BREAKING**: `nextrush`'s functional install no longer carries the class/DI stack, and
+  `@nextrush/class`'s `RouteMetadata` type is renamed to `ControllerRouteMetadata`.
+
+  **`nextrush`** (meta package): `@nextrush/class`, `@nextrush/di`, and `reflect-metadata` moved
+  from `dependencies` to **optional `peerDependencies`**. A functional-only `pnpm add nextrush`
+  no longer resolves the class runtime, the DI container, `tsyringe`, or `reflect-metadata` —
+  closing the gap between the framework's "install only what you need" promise and what it
+  actually shipped (see `report/framework/framework-composition-review.md`, F-01).
+
+  **Migration:** if your project uses `nextrush/class` (decorators, DI, controllers), add the
+  peer explicitly:
+
+  ```bash
+  pnpm add @nextrush/class reflect-metadata
+  ```
+
+  If you never install it, importing `nextrush/class` now fails with an actionable message
+  naming the exact install command rather than an opaque module-resolution error. Projects
+  scaffolded by `create-nextrush`'s **class-based** or **full** templates already add
+  `@nextrush/class` for you — no action needed there.
+
+  **`@nextrush/class`**: the decorator-storage interface `RouteMetadata` is renamed to
+  `ControllerRouteMetadata`, reserving the name `RouteMetadata` for the single, unrelated,
+  renderer-facing contract in `@nextrush/types` (re-exported via `nextrush`'s `.` entry). The two
+  types had collided under one name with structurally incompatible shapes (F-02).
+
+  **Migration:**
+
+  ```ts
+  // Before
+  import type { RouteMetadata } from 'nextrush/class';
+
+  // After
+  import type { ControllerRouteMetadata } from 'nextrush/class';
+  ```
+
+  A `@deprecated` `RouteMetadata` alias for `ControllerRouteMetadata` ships in `nextrush/class`
+  for this release only — it will be removed in the next major.
+
+  **`create-nextrush`** (minor): the class-based and full templates now add `@nextrush/class`
+  explicitly to the generated `package.json` (previously relied on it being a free transitive
+  dependency of `nextrush`, which is no longer true after the change above).
+
+  See `docs/guides/migration-framework-composition.md` for the full before/after guide and
+  `docs/RFC/framework-composition/020-framework-composition-integrity.md` for the rationale.
+
+## 3.1.0
+
+### Major Changes
+
+- d7eb075: Extension Model — replace the plugin system with Composition-First (RFC-NEXTRUSH-PLUGIN-SYSTEM).
+
+  **Breaking changes**
+  - **Removed the plugin system.** `Plugin`, `PluginWithHooks`, `PluginMeta`, `PluginFactory`, `ApplicationLike`, `app.plugin()`, `app.pluginAsync()`, `app.getPlugin()`, `app.hasPlugin()`, and the deprecated `app.onError()` setter are gone.
+  - **New `Extension` contract** (`@nextrush/types`): `{ name, needs?, setup(ctx), destroy? }`, registered via `app.extend()` and booted at `app.ready()` (a deferred boot barrier that adapters call automatically before serving — eliminating the un-awaited-async-plugin race). Extensions decorate the app via the extension-only `ctx.decorate()`; `app.hasDecorator()` is the public read side. Error handling: use `app.setErrorHandler()`.
+  - **App-owned router.** `Application` accepts `{ router }`; `app.get/post/put/patch/delete/head/all` delegate to it and it mounts last at `ready()`. `nextrush`'s `createApp()` injects a default router (batteries-included); `@nextrush/core`'s `createApp()` is bring-your-own-router. (No `app.options()` verb — it collides with the config property; use `app.all()`/CORS for OPTIONS.)
+  - **Per-app DI container.** The container contract moved to `@nextrush/types` (`Container`); `@nextrush/di` re-exports it (the previous `ContainerInterface` alias has been removed — use `Container` directly). Each app owns its container (`app.container`, `createApp({ container })`), exposed to extensions via `ExtensionContext.container`.
+  - **Package reclassification:** `@nextrush/events` → an Extension (`events()`); `@nextrush/openapi` → middleware (`app.use(openapi({ router }))`); `@nextrush/template` → middleware only (`templatePlugin()` removed); `@nextrush/controllers` → `registerControllers(app, options)` registrar (`ControllersPlugin`/`controllersPlugin` removed, `ControllersPluginOptions` → `ControllersOptions`). Adapter `serve()`/`listen()` are now async on Bun and Deno.
+
+  See `docs/guides/migration-extension-model.md` for a full before/after guide.
+
 ## 3.0.9
 
 ### Patch Changes

@@ -11,11 +11,12 @@ import {
     RUNTIMES,
     STYLES,
 } from '../constants.js';
-import { setVersions } from '../version-store.js';
+import { seedAllPackageVersions } from './test-helpers.js';
+import { setPackageVersion } from '../version-store.js';
 
 describe('constants', () => {
   beforeEach(() => {
-    setVersions('^3.0.5', '^3.0.5');
+    seedAllPackageVersions('^3.0.5');
   });
 
   it('has a valid semver version', () => {
@@ -68,8 +69,8 @@ describe('constants', () => {
       expect(packages).toHaveLength(6);
     });
 
-    it('uses versions from version store', () => {
-      setVersions('^4.0.0', '^5.0.0');
+    it('resolves each package independently from the version store', () => {
+      setPackageVersion('@nextrush/cors', '^5.0.0');
       const pkgs = getMiddlewarePackages();
       expect(pkgs.api['@nextrush/cors']).toBe('^5.0.0');
     });
@@ -124,8 +125,8 @@ describe('constants', () => {
       expect(getAdapterPackages().deno).toHaveProperty('@nextrush/adapter-deno');
     });
 
-    it('uses versions from version store', () => {
-      setVersions('^4.0.0', '^5.0.0');
+    it('resolves adapter packages independently from the version store', () => {
+      setPackageVersion('@nextrush/adapter-bun', '^5.0.0');
       const pkgs = getAdapterPackages();
       expect(pkgs.bun['@nextrush/adapter-bun']).toBe('^5.0.0');
     });

@@ -15,13 +15,51 @@ import type { Context, Middleware, Next } from '@nextrush/types';
 export type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
 
 /**
+ * Rejection message shared by BOTH the general path and the single-middleware
+ * fast path (design D4). Downstream code/tests assert on this exact string, so
+ * it is defined once to prevent the two paths from drifting.
+ */
+const MULTIPLE_NEXT_MESSAGE = 'next() called multiple times';
+
+/**
+ * Shared already-resolved promise, returned wherever this module would
+ * otherwise construct a fresh one. Mirrors the router's existing `RESOLVED` /
+ * `NOOP_NEXT` sentinels.
+ *
+ * @see openspec/changes/elide-resolved-promise-allocation/design.md
+ */
+const RESOLVED: Promise<void> = Promise.resolve();
+
+/**
+ * Emit the double-response warning for the middleware at `index`.
+ *
+ * Shared by the general path and the fast path so the text (including the
+ * index reference) cannot diverge between them (design D4). Fires only when
+ * `warnDoubleResponse` is enabled AND the context has already committed a
+ * response — the caller supplies both conditions.
+ */
+function emitDoubleResponseWarning(index: number): void {
+  console.warn(
+    `[nextrush] Middleware at index ${String(index)} called next() after the response was already committed. ` +
+      'Downstream middleware may attempt to write to an already-finished response. ' +
+      'Either await next() to delegate downstream, or send a response without calling next().'
+  );
+}
+
+/**
  * Options for middleware composition
  */
 export interface ComposeOptions {
   /**
    * Warn when a middleware sends a response AND calls next().
-   * Enabled by default in non-production environments.
-   * @default process.env.NODE_ENV !== 'production'
+   *
+   * @remarks
+   * Opt-in and defaults to `false` — `@nextrush/core` is a runtime-agnostic
+   * package and must not read `process.env` (global-rules §2, audit C-4). The
+   * `Application` enables this in non-production by passing the flag from its
+   * own `env` option.
+   *
+   * @default false
    */
   warnDoubleResponse?: boolean;
 }
@@ -70,7 +108,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
     }
   }
 
-  const warnDoubleResponse = options?.warnDoubleResponse ?? process.env.NODE_ENV !== 'production';
+  const warnDoubleResponse = options?.warnDoubleResponse ?? false;
 
   // Snapshot middleware array at compose time
   const stack = [...middleware];
@@ -79,8 +117,52 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
   // FAST PATH: No middleware — just call next()
   if (len === 0) {
     return function composedMiddleware(_ctx: Context, next?: Next): Promise<void> {
-      return next ? next() : Promise.resolve();
+      return next ? next() : RESOLVED;
     };
+  }
+
+  // FAST PATH: Exactly one middleware — the overwhelmingly common application
+  // shape (a single mounted router). Avoids allocating the recursive `dispatch`
+  // closure and the per-call index comparison of the general path while
+  // preserving every observable semantic (design D2/D3/D7):
+  //   - a PER-INVOCATION guard (`called`) declared inside the returned function,
+  //     never hoisted, so concurrent requests cannot corrupt each other;
+  //   - the SAME guarded thunk is passed as the `next` argument AND wired to
+  //     `ctx.setNext`, so a double-call is caught across either surface;
+  //   - a synchronous throw becomes a rejected promise and non-`Error` throws
+  //     are wrapped, identical to the general path.
+  if (len === 1) {
+    const only = stack[0];
+    if (only) {
+      return function composedSingle(ctx: Context, next?: Next): Promise<void> {
+        let called = false; // PER-INVOCATION — must never be hoisted out of here
+        const nextFn = (): Promise<void> => {
+          if (called) {
+            return Promise.reject(new Error(MULTIPLE_NEXT_MESSAGE));
+          }
+          called = true;
+          if (warnDoubleResponse && ctx.responded) {
+            emitDoubleResponseWarning(0);
+          }
+          return next ? next() : RESOLVED;
+        };
+
+        // Wire ctx.next() to the SAME thunk passed as the argument (design D3).
+        if (ctx.setNext) {
+          ctx.setNext(nextFn);
+        }
+
+        try {
+          // Only `undefined` short-circuits to the sentinel. A thenable MUST
+          // stay on the `Promise.resolve` path so its work is adopted, and a
+          // falsy-but-defined value must keep its own resolved value.
+          const result = only(ctx, nextFn);
+          return result === undefined ? RESOLVED : Promise.resolve(result);
+        } catch (err: unknown) {
+          return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+        }
+      };
+    }
   }
 
   /**
@@ -94,7 +176,7 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
 
     function dispatch(i: number): Promise<void> {
       if (i <= index) {
-        return Promise.reject(new Error('next() called multiple times'));
+        return Promise.reject(new Error(MULTIPLE_NEXT_MESSAGE));
       }
 
       index = i;
@@ -107,16 +189,12 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
       }
 
       if (!fn) {
-        return Promise.resolve();
+        return RESOLVED;
       }
 
       const nextFn = (): Promise<void> => {
         if (warnDoubleResponse && ctx.responded) {
-          console.warn(
-            `[nextrush] Middleware at index ${String(i)} called next() after the response was already committed. ` +
-              'Downstream middleware may attempt to write to an already-finished response. ' +
-              'Either await next() to delegate downstream, or send a response without calling next().'
-          );
+          emitDoubleResponseWarning(i);
         }
         return dispatch(i + 1);
       };
@@ -127,7 +205,9 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
       }
 
       try {
-        return Promise.resolve(fn(ctx, nextFn));
+        // See the fast path's note: `undefined` only, so thenables are adopted.
+        const result = fn(ctx, nextFn);
+        return result === undefined ? RESOLVED : Promise.resolve(result);
       } catch (err: unknown) {
         return Promise.reject(err instanceof Error ? err : new Error(String(err)));
       }

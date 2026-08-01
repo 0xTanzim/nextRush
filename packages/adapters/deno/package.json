@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/adapter-deno",
-  "version": "3.0.5",
+  "version": "1.0.0",
   "description": "Deno HTTP adapter for NextRush",
   "type": "module",
   "main": "./dist/index.js",
@@ -29,12 +29,13 @@
     "@nextrush/core": "workspace:^",
     "@nextrush/errors": "workspace:^",
     "@nextrush/runtime": "workspace:^",
+    "@nextrush/stream": "workspace:^",
     "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "keywords": [
     "nextrush",

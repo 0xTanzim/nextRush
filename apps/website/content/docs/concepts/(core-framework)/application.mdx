@@ -1,0 +1,237 @@
+---
+title: Application
+description: How createApp() gives every NextRush server one composition root — the object that owns middleware, routes, extensions, and the boot/shutdown lifecycle.
+keywords: [application, concepts, core, framework, nextrush]
+---
+
+A server needs somewhere to register middleware, mount routes, wire long-lived services, and decide what happens when any of that fails. Scatter those decisions across a handful of ad-hoc scripts and a project I-know-what-to-check-first becomes a project nobody can answer that question about with confidence.
+
+## What you'll learn
+
+- **Understand** why a server needs one composition root instead of scattered setup code
+- **Recognize** the three things an `Application` owns: middleware, routes, and extensions
+- **Understand** how `app.ready()` boots extensions and freezes configuration before traffic arrives
+- **Choose** when to reach for `app.extend()` instead of plain middleware
+
+## The problem
+
+A request handler needs a body parser, a router, an error boundary, and maybe a database connection that has to close cleanly on shutdown. Wire that by hand and each project answers "what runs first, and in what order?" a little differently:
+
+```ts
+// No shared owner — each concern sets itself up, in whatever order the file happens to run.
+import { createServer } from 'node:http';
+
+declare function connectToDatabase(): Promise<{ close(): Promise<void> }>;
+declare function buildRouter(): { handle(req: unknown, res: unknown): Promise<void> };
+
+const db = await connectToDatabase();          // boots whenever this line executes
+const router = buildRouter();
+
+const server = createServer(async (req, res) => {
+  try {
+    await router.handle(req, res);              // where did auth run? where did logging run?
+  } catch (err) {
+    res.statusCode = 500;                        // is this the only place errors are caught?
+    res.end('error');
+  }
+});
+
+server.listen(8080);
+process.on('SIGTERM', () => db.close());          // does this run before or after server.close()?
+```
+
+Nothing here is wrong on its own. The trouble is that boot order, error handling, and shutdown are each an independent decision made once per project, with no shared place to answer "is this set up correctly?"
+
+## Why this matters
+
+Every request in a running server passes through whatever this setup produced, so a boot-order mistake or a missed shutdown hook does not surface as a single failing test — it surfaces as connections that leak on redeploy, or a health check that returns 200 before the database is reachable. The fix is cheap once: give a server one object that owns configuration, decides the boot order, and enforces that nothing can register after traffic starts. Getting that root right once removes an entire category of "which file sets this up?" questions for every route added afterward.
+
+## The solution
+
+NextRush centers every server on one `Application` instance, created with `createApp()`. It holds the middleware stack, the app-owned router, and any registered extensions; it composes them into a single request handler through `callback()`; and it exposes a `ready()` / `start()` / `close()` lifecycle so boot and shutdown happen in a defined order instead of an improvised one. You configure the application once, at startup, and it produces the handler your runtime adapter serves.
+
+## Core idea
+
+Think of `Application` as the **composition root** — the one place a server declares everything it depends on, before it accepts a single request. Middleware, routes, and extensions are all registered onto this one object; nothing configures itself independently. Once the root has booted, configuration locks, so nothing downstream can register a use-after-boot surprise.
+
+## Mental model
+
+<Mermaid
+  chart="
+stateDiagram-v2
+    [*] --> Configuring: createApp()
+    Configuring --> Configuring: use() / route() / extend()
+    Configuring --> Booting: ready()
+    Booting --> Ready: extensions booted, router mounted
+    Ready --> Listening: start()
+    Listening --> ShuttingDown: close()
+    ShuttingDown --> [*]: extensions destroyed
+"
+/>
+
+Configuration only moves forward — `use()`, `route()`, and `extend()` work in the **Configuring** state and throw everywhere else. Notice there is no arrow back from **Ready** to **Configuring**: once `ready()` has run, the application answers every "what's registered?" question the same way for the rest of its life.
+
+## Quick example
+
+The smallest application registers a router and starts listening, with no middleware or extensions in the way:
+
+```ts title="app.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+
+const router = createRouter();
+router.get('/', (ctx) => ctx.json({ status: 'ok' }));
+
+app.route('/', router);
+listen(app, 8080);
+```
+
+`createApp()` from `nextrush` gives you an application with a router already attached, so `app.get()`, `app.post()`, and the other verb methods work right away — this is the version most application code should import. `@nextrush/core`'s own `createApp()` is the lower-level engine with no router unless you pass one explicitly (`createApp({ router: createRouter() })`); the meta-package wraps it so the common path needs no extra step.
+
+## How it works
+
+**Example** — register middleware, mount a router, then start the server:
+
+```ts title="composition.ts"
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp({ env: 'production' });
+
+app.use(async (ctx) => {
+  console.log(`${ctx.method} ${ctx.path}`);
+  await ctx.next();
+});
+
+const users = createRouter();
+users.get('/', (ctx) => ctx.json([]));
+app.route('/users', users);
+
+listen(app, 8080); // calls app.ready() then app.start() for you
+```
+
+**Observation** — every request that matches `/users` is logged, because the logging middleware was registered before the router. Swap the two `app.use`/`app.route` calls and the log line would run after the router already answered — middleware registered later never wraps a route mounted earlier.
+
+**Explanation** — three methods build the pipeline, and one freezes it:
+
+- **`use(...middleware)`** pushes one or more middleware onto the stack, in call order. Passing anything that is not a function throws a `TypeError`.
+- **`route(path, router)`** mounts a router at a path prefix by calling the router's own `routes()` and pushing the result onto the same middleware stack — a mounted router is middleware from the application's point of view. Mounting at `/` skips prefix handling entirely.
+- **`get`/`post`/`put`/`patch`/`delete`/`head`/`all`** delegate straight to the app-owned router (`app.router`). Calling one without a router configured throws, which is why `createApp()` from `nextrush` attaches a default router for you.
+- **`ready()`** is where the pipeline stops changing. It runs every registered extension's `setup()` once, in registration order; mounts the app-owned router *last*, so routes run after every middleware; and then flips an internal flag that makes `use()`, `route()`, and `extend()` throw from that point on. `listen()` (from `nextrush`'s adapter) calls `ready()` for you before it starts accepting connections — see [runtime compatibility](/docs/concepts/runtime-compatibility) for how that adapter differs per runtime.
+- **`callback()`** takes a snapshot of the middleware stack at the moment it's called and returns the actual request handler function. Middleware registered after `callback()` has run has no effect on the handler already produced — this is why `ready()` always runs first.
+
+The composed dispatch itself — how the stack folds into one function and preserves the onion order — belongs to [middleware](/docs/concepts/middleware); `Application` is the object that assembles the stack, not the mechanism that walks it.
+
+## Typical use cases
+
+Reach for the application's own methods, rather than a one-off script, whenever a concern needs to run before the first request or needs to be town down on shutdown:
+
+```ts title="lifecycle.ts"
+import { createApp, listen } from 'nextrush';
+import { events } from '@nextrush/events';
+
+const app = createApp().extend(events()); // queued now, booted at ready()
+
+app.use(async (ctx) => {
+  await ctx.next();
+});
+
+await listen(app, 8080); // ready() runs extensions' setup(), then start() marks it running
+
+app.events.emit('server:started', {});
+
+process.on('SIGTERM', async () => {
+  const errors = await app.close(); // destroys extensions in reverse order
+  if (errors.length) console.error('Shutdown errors:', errors);
+  process.exit(0);
+});
+```
+
+Registering a database connection, an event bus, or a metrics client through `app.extend()` — instead of a top-level `await` in your entry file — is what gives shutdown a defined order: extensions are destroyed in the reverse of how they were registered, so a service that depends on another one set up earlier is always torn down before it. The full extension lifecycle, including the `needs` dependency ordering, lives in [Extensions](/docs/concepts/extensions).
+
+## Configuration
+
+```ts title="options.ts"
+import { createApp } from 'nextrush';
+
+const app = createApp({
+  env: 'production',
+  proxy: true,
+});
+```
+
+`env` decides what `app.isProduction` reports, which in turn decides whether the default error handler logs and how it treats error messages — see [errors](/docs/concepts/errors) for what changes at each value. `proxy` decides whether `ctx.ip` trusts `X-Forwarded-For`/`X-Real-IP`; leave it `false` unless a proxy you control sets those headers. The full option list, including `logger`, `router`, and `container`, is in the [`@nextrush/core` reference](/docs/reference) — this page covers only what each one changes in the application's behavior.
+
+## Performance
+
+- **Complexity** — `callback()` composes the middleware stack once, not per request; a request pays for the number of middleware it passes through, nothing tied to how many routes exist elsewhere in the application.
+- **Memory** — the middleware stack is a flat array with no per-request allocation for the pipeline itself; extension state set up in `setup()` lives for the application's lifetime, not per request.
+- **Scaling** — extension `setup()` runs once, at `ready()`, never on the request path, so an application with many extensions pays that cost once at boot, not on every request. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before optimizing.
+
+## Security
+
+- **Registration order.** *Threat:* a route mounted before its guard middleware serves requests with no protection. *Why:* middleware only wraps what runs after it in the onion, and route mounting is itself a middleware push. *Safe default:* register authentication, CORS, and rate limiting before any `app.route()` or route-method call they need to protect. *Avoid:* mounting business routes and adding the guard afterward — the guard never sees requests the router already answered.
+- **Post-boot mutation.** *Threat:* code that assumes it can register a route or extension after the server has taken traffic. *Why:* `ready()` freezes configuration on purpose — `use()`, `route()`, and `extend()` all throw afterward. *Safe default:* finish all registration before calling `listen()` (which calls `ready()` for you), or await `app.ready()` directly if you manage the adapter yourself. *Avoid:* deferring route registration to a background task that might run after boot.
+- **Error exposure.** *Threat:* a custom error handler that returns `error.message` or `error.stack` to the client. *Why:* internal messages can leak file paths or implementation detail. *Safe default:* let the default handler's `expose` rule apply, or replicate it — 5xx errors never expose their message, in any environment. *Avoid:* logging and responding with the same unfiltered error object.
+
+<Callout type="warn">
+Registration order is a security boundary, not a style choice. A guard middleware registered after the route it should protect has no effect on that route at all.
+</Callout>
+
+## Trade-offs
+
+**Why one composition root** — it optimizes for a single, predictable answer to "what's configured, and in what order?" across every application, instead of letting each project invent its own boot script.
+
+- **Benefits** — one lifecycle (`ready()` → `start()` → `close()`) that every adapter drives the same way; configuration that locks once traffic starts, so a use-after-boot mutation fails loudly instead of silently; extensions torn down in a deterministic, reversed order.
+- **Costs** — an extra layer between "I wrote a function" and "it's serving requests" — you register onto `app`, rather than calling `createServer()` directly; extensions add a `setup()`/`destroy()` contract to learn, even though most capability needs only `app.use()`.
+- **Alternatives** — wiring `node:http` (or a runtime's native server) directly skips the abstraction, at the cost of re-deriving boot order, error handling, and shutdown per project; a framework that lets middleware register itself at import time avoids an explicit root but makes "what's registered, in what order?" depend on module load order instead of an explicit call sequence.
+- **Why NextRush chose this** — the same application has to boot identically whether the adapter is Node, Bun, Deno, or edge — a single object with an explicit `ready()`/`start()`/`close()` lifecycle is what lets every adapter drive that sequence the same way, instead of each adapter reinventing boot order.
+
+## Decision guide
+
+**Use `app.use()` / `app.route()` for a concern when:**
+
+- ✓ It runs per request and doesn't need a teardown step — logging, auth, body parsing, routing
+- ✓ It has no state that must be closed cleanly on shutdown
+
+**Use `app.extend()` for a concern when:**
+
+- ✓ It's long-lived and app-scoped — a database pool, an event bus, a metrics client
+- ✓ It needs a `setup()` that runs once before traffic, or a `destroy()` that must run on shutdown
+- ✗ Avoid it for anything that only needs to run on the request path — that's what middleware is for
+
+**Skip the application entirely when:**
+
+- ✓ You need a standalone router with no middleware or lifecycle — `createRouter()` on its own covers that
+
+## Common mistakes
+
+- **Registering middleware or routes after `await app.ready()`.** *Why it happens:* the throw only appears once the code path runs, so a conditional registration can go untested. *Correct approach:* finish all `use()`/`route()`/`extend()` calls before `ready()` runs — `listen()` calls it for you, so register everything before calling `listen()`. *If ignored:* the call throws `Cannot call <method>() after the app has booted`.
+- **Mounting a router before its guard middleware.** *Why it happens:* routes and guards are often written in separate files and assembled without checking call order. *Correct approach:* register security middleware with `app.use()` before the `app.route()` calls it must protect. *If ignored:* the guard has no effect on requests the router already matched — a silent security gap, not an error.
+- **Calling `app.close()` without awaiting it.** *Why it happens:* `close()` looks like a fire-and-forget cleanup call. *Correct approach:* `await app.close()` before exiting the process. *If ignored:* the process can exit before extensions finish their `destroy()`, leaving connections or file handles open.
+
+## Key takeaways
+
+- `Application`, created with `createApp()`, is the one composition root a server registers middleware, routes, and extensions onto.
+- `use()` and `route()` both push onto the same middleware stack, in call order — a mounted router is middleware from the application's point of view.
+- `ready()` boots every extension's `setup()`, mounts the app-owned router last, and then freezes configuration; `use()`/`route()`/`extend()` throw afterward.
+- `callback()` snapshots the middleware stack at call time — always run `ready()` first, which `listen()` does automatically.
+- `close()` destroys extensions in the reverse of their registration order, so dependencies are torn down after whatever depended on them.
+- Registration order is a security boundary: a guard only protects what's registered after it.
+
+## Continue learning
+
+<Cards>
+  <Card title="Middleware" href="/docs/concepts/middleware">
+    How the onion model dispatches the stack Application assembles.
+  </Card>
+  <Card title="Application lifecycle" href="/docs/concepts/lifecycle">
+    The full boot and shutdown sequence, including extension dependency ordering.
+  </Card>
+  <Card title="@nextrush/core reference" href="/docs/reference">
+    The full Application API — every method, option, and property.
+  </Card>
+  <Card title="Runtime compatibility" href="/docs/concepts/runtime-compatibility">
+    How adapters call ready()/start()/close() identically across Node, Bun, Deno, and edge.
+  </Card>
+</Cards>

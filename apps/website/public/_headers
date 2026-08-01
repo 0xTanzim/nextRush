@@ -1,0 +1,53 @@
+/*
+  Link: </llms.txt>; rel="describedby"; title="LLM-friendly documentation index"
+  Link: </llms-full.txt>; rel="describedby"; title="Full LLM-friendly documentation"
+  Link: </skills.json>; rel="skills"; title="Installable agent skills"
+  Link: </mcp.json>; rel="service-meta"; title="MCP server discovery"
+  Link: </agent-spec.json>; rel="describedby"; title="Agent specification"
+  Link: </sitemap.xml>; rel="sitemap"; title="Sitemap"
+  Link: </.well-known/api-catalog>; rel="api-catalog"; title="API Catalog (RFC 9727)"
+
+/.well-known/api-catalog
+  Content-Type: application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"
+
+/.well-known/agent-skills/index.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD
+
+/.well-known/agent-skills/*.md
+  Content-Type: text/markdown; charset=utf-8
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD
+
+/.well-known/oauth-protected-resource
+  Content-Type: application/oauth-protected-resource-v1+json
+
+/.well-known/oauth-authorization-server
+  Content-Type: application/json
+
+/.well-known/mcp/server-card.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+
+/.well-known/agent-card.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
+
+/auth.md
+  Content-Type: text/markdown; charset=utf-8
+
+/.well-known/auth.md
+  Content-Type: text/markdown; charset=utf-8
+
+/api/mdx/*
+  Content-Type: text/markdown
+  X-Markdown-Tokens: full
+
+/api/blog/*.md
+  Content-Type: text/markdown
+  X-Markdown-Tokens: full
+
+/api/skills/*.md
+  Content-Type: text/markdown
+  X-Markdown-Tokens: full

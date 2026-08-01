@@ -1,9 +1,11 @@
 packages:
   - packages/*
   - packages/middleware/*
-  - packages/plugins/*
+  - packages/extensions/*
   - packages/adapters/*
+  - packages/adapters/conformance/deploy-verification/*
   - apps/*
+  - examples/*
 
 ignoredBuiltDependencies:
   - '@swc/core'

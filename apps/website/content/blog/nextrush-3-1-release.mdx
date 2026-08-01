@@ -1,0 +1,129 @@
+---
+title: NextRush 3.1 — a unified class runtime, 35 packages, one core
+description: >
+  Where NextRush stands today: core packages at 3.1.0, a consolidated class-based
+  runtime, and a modular package tree you install piece by piece.
+author: NextRush Team
+date: '2026-07-10'
+tags:
+  - release
+  - architecture
+---
+
+NextRush's core packages — `@nextrush/core`, `@nextrush/router`, `@nextrush/types`,
+`@nextrush/errors`, `@nextrush/di`, `@nextrush/class` — are all at **`3.1.0`** (verified
+against each package's `package.json` `version` field). Some newer middleware packages
+ship independently at `1.0.0`; see the [compatibility matrix](/docs/help/compatibility-matrix) for the
+full breakdown. This post is a snapshot of what that version line actually contains, with
+every claim traceable to source.
+
+## A minimal core, installed piece by piece
+
+The framework's stated design goal — "under 3,000 lines of code" in the core, zero
+runtime dependencies outside a short, documented exception list — comes straight from
+the [project README](https://github.com/0xTanzim/nextRush#readme). You install
+`nextrush` for the functional API, then add only what a given service needs:
+
+```bash
+pnpm add nextrush
+```
+
+```ts
+import { createApp, createRouter, listen } from 'nextrush';
+
+const app = createApp();
+const router = createRouter();
+
+router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush!' }));
+app.route('/', router);
+
+listen(app, 8080);
+```
+
+`createApp` and `listen` come from the `nextrush` meta package; `createRouter` is
+re-exported from `@nextrush/router` through that same meta package — it is **not**
+exported from `@nextrush/core` directly. That distinction mattered enough to be a
+verified defect fix earlier in this documentation rebuild (see the
+[package hierarchy reference](/docs/architecture/package-hierarchy)), so it's worth stating
+plainly here too.
+
+## 35 packages, one dependency order
+
+The monorepo currently ships **35 publishable packages**, tracked in a single package
+registry that the [`/packages` directory](/packages) renders directly — so the count
+you see there can't drift from what actually exists in `packages/*/package.json`. They
+follow one hierarchy, lower packages never importing from higher ones:
+
+```
+types → errors → core → router → di → class → adapters → middleware
+```
+
+That's the same ordering documented in
+[`concepts/index`](/docs/concepts) and enforced by this rebuild's verification harness.
+Middleware, extensions (events, websocket), and adapters (Node.js, Bun, Deno, Edge) sit on
+top; the class-based runtime sits between `di` and the adapters.
+
+## The `@nextrush/class` consolidation
+
+The biggest structural change reflected in 3.1 is `@nextrush/class`: a single package
+that now contains what used to be two separate packages — `@nextrush/decorators` and
+`@nextrush/controllers` — plus a re-export of `@nextrush/di`. Both predecessor packages
+still exist on npm (also at `3.1.0`), but their own `package.json` descriptions now read
+literally as `"DEPRECATED: ... Use @nextrush/class instead."` — verified directly from
+`packages/decorators/package.json` and `packages/controllers/package.json`.
+
+```ts
+import { Controller, Get, Service, registerControllers } from 'nextrush/class';
+
+@Service()
+class UserService {
+  findAll() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+@Controller('/users')
+class UserController {
+  constructor(private users: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.users.findAll();
+  }
+}
+```
+
+We go deeper on why this consolidation happened, and what it does and doesn't merge, in
+the companion post:
+[Why we consolidated into @nextrush/class](/blog/why-nextrush-class-consolidation).
+
+## What's new since the decorators/controllers split
+
+`@nextrush/class`'s own README (`packages/class/README.md`) lists the full current
+surface: route decorators (`@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`, `@Head`,
+`@Options`, `@All`), parameter decorators (`@Body`, `@Param`, `@Query`, `@Header`,
+`@Ctx`, `@Req`, `@Res`), guards (`@UseGuard`), exception filters (`@Catch`,
+`@UseFilter`), interceptors (`@UseInterceptor`), response decorators (`@HttpCode`,
+`@Redirect`, `@SetHeader`), and `@Module` for grouping controllers and providers behind
+one declaration via `registerModule`. DI scopes are singleton (default), `transient`,
+and `request` — a per-request child container that bubbles through a controller's
+dependency graph.
+
+None of this is aspirational — every symbol named above is verified against
+`packages/class/src` and documented with working examples in
+[`/docs/concepts`](/docs/concepts) and [`/docs/reference/class`](/docs/reference/class).
+
+## Where to go next
+
+- New to NextRush: start with [Quick Start](/docs/getting-started/quick-start)
+- Building structured APIs: [Modules](/docs/concepts/modules) and the
+  [class reference](/docs/reference/class)
+- Browsing the ecosystem: the [Packages directory](/packages)
+
+## A note on performance claims
+
+This post makes no throughput claims. NextRush's own README currently states that
+published benchmark numbers are being re-measured on a clean, CPU-pinned environment and
+have been **withdrawn pending re-measurement** — we're not going to contradict that
+withdrawal in a release post. If you want current numbers, the benchmark suite
+(`apps/benchmark`) is designed to be run on your own hardware.

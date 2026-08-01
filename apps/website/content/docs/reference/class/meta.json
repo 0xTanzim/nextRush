@@ -1,0 +1,7 @@
+{
+  "title": "Class Runtime",
+  "icon": "Blocks",
+  "defaultOpen": false,
+  "description": "Decorators, dependency injection, modules, guards, interceptors, filters, and lifecycle hooks for nextrush/class.",
+  "pages": ["index", "decorators", "controllers", "modules", "di", "di-container", "di-errors"]
+}

@@ -7,55 +7,7 @@ import {
   IPV4_MAPPED_PREFIX,
   IPV4_MAX_OCTET,
   IPV4_OCTET_COUNT,
-  PROXY_HEADERS,
 } from '../constants';
-
-/**
- * Extract client IP from context
- * Handles proxies and load balancers
- *
- * @security When `trustProxy` is `true`, ALL proxy headers are trusted.
- * Only enable this behind a trusted reverse proxy (nginx, cloudflare, etc.).
- * Untrusted clients can spoof their IP via headers like X-Forwarded-For.
- * For production, consider using a custom `keyGenerator` that validates
- * proxy source IPs against a known allowlist.
- */
-export function extractClientIp(ctx: Context, trustProxy: boolean): string {
-  if (trustProxy) {
-    for (const header of PROXY_HEADERS) {
-      const value = ctx.get(header);
-      if (value) {
-        const ip = parseProxyHeader(value, header);
-        if (ip && isValidIp(ip)) {
-          return normalizeIp(ip);
-        }
-      }
-    }
-  }
-
-  return normalizeIp(ctx.ip || '127.0.0.1');
-}
-
-/**
- * Parse proxy header value to extract first IP
- */
-function parseProxyHeader(value: string, header: string): string | null {
-  if (header === 'forwarded') {
-    const match = value.match(/for=["']?([^"',;\s]+)/i);
-    return match?.[1] ?? null;
-  }
-
-  const firstIp = value.split(',')[0]?.trim();
-  return firstIp || null;
-}
-
-/**
- * Validate IP address format
- */
-function isValidIp(ip: string): boolean {
-  const cleanIp = ip.replace(/^\[|\]$/g, '');
-  return isValidIpv4(cleanIp) || isValidIpv6(cleanIp);
-}
 
 /**
  * Check if string is valid IPv4
@@ -154,9 +106,16 @@ export function normalizeIp(ip: string): string {
 
 /**
  * Default key generator using IP address
+ *
+ * @remarks
+ * Reads `ctx.ip` only — the app-level `proxy` option (RFC-030) already
+ * resolves the client IP behind any configured proxy trust before the
+ * request reaches middleware, so rate-limiting no longer scans its own
+ * copy of proxy headers (the SEC-01 bypass: an unauthenticated header
+ * scan independent of `ctx.ip`'s own trust decision).
  */
-export function defaultKeyGenerator(ctx: Context, trustProxy: boolean): string {
-  return `${DEFAULT_KEY_PREFIX}${extractClientIp(ctx, trustProxy)}`;
+export function defaultKeyGenerator(ctx: Context): string {
+  return `${DEFAULT_KEY_PREFIX}${normalizeIp(ctx.ip || '127.0.0.1')}`;
 }
 
 /**
