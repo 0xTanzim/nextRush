@@ -1,5 +1,13 @@
 # create-nextrush
 
+## 1.1.0
+
+### Minor Changes
+
+- [#47](https://github.com/0xTanzim/nextRush/pull/47) [`8b456d2`](https://github.com/0xTanzim/nextRush/commit/8b456d2f19f36aa99acd0daebb55dd7687ee41b7) Thanks [@0xTanzim](https://github.com/0xTanzim)! - feat(class-based): proper feature-module scaffold — root `AppModule` composes feature modules via `@Module({ imports })` under `src/modules/<feature>/`; health + todos features demonstrate constructor DI, full CRUD decorators (`@Param`/`@Body`/`@Query`/`@HttpCode`), `@Repository`, and `HttpError` paths.
+
+  feat(functional): todos CRUD feature — `src/routes/todos.ts` handlers using `ctx.params`/`ctx.query`/`ctx.body`/`ctx.status`/`ctx.throw`, backed by a pure `createTodoStore()` factory (`src/routes/todos-data.ts`) with unit tests.
+
 ## 1.0.1
 
 ### Patch Changes
