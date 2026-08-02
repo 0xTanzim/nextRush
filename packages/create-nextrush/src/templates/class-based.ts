@@ -115,7 +115,7 @@ export class HealthService {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
+      uptime: Math.round(performance.now() / 1000),
     };
   }
 }
