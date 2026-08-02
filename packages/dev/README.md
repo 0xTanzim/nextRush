@@ -136,7 +136,7 @@ nextrush build --target es2020
 
 ### `nextrush generate` - Code Generator
 
-Generate controllers, services, middleware, guards, and routes.
+Generate modules, controllers, services, middleware, guards, and routes.
 
 ```bash
 # Generate a controller class
@@ -146,43 +146,52 @@ nextrush generate controller user
 nextrush g controller user
 
 # Generate all types
-nextrush g s user-profile        # Service
-nextrush g mw logger             # Middleware
-nextrush g guard auth            # Guard
-nextrush g r products            # Route
+nextrush g m todos              # Module
+nextrush g s user-profile       # Service
+nextrush g mw logger            # Middleware
+nextrush g guard auth           # Guard
+nextrush g r products           # Route
 ```
 
 **Types:**
 
-| Type         | Alias | Output Path                            | Style       |
-| ------------ | ----- | -------------------------------------- | ----------- |
-| `controller` | `c`   | `src/controllers/<name>.controller.ts` | Class-based |
-| `service`    | `s`   | `src/services/<name>.service.ts`       | Class-based |
-| `middleware` | `mw`  | `src/middleware/<name>.ts`             | Functional  |
-| `guard`      | `g`   | `src/guards/<name>.guard.ts`           | Functional  |
-| `route`      | `r`   | `src/routes/<name>.ts`                 | Functional  |
+| Type         | Alias | Default Output Path                        | Module project (`src/modules/` exists) | Style       |
+| ------------ | ----- | ------------------------------------------ | -------------------------------------- | ----------- |
+| `module`     | `m`   | `src/modules/<name>/<name>.module.ts`      | `src/modules/<name>/<name>.module.ts`  | Class-based |
+| `controller` | `c`   | `src/controllers/<name>.controller.ts`     | `src/modules/<name>/<name>.controller.ts` | Class-based |
+| `service`    | `s`   | `src/services/<name>.service.ts`           | `src/modules/<name>/<name>.service.ts` | Class-based |
+| `middleware` | `mw`  | `src/middleware/<name>.ts`                 | `src/middleware/<name>.ts`             | Functional  |
+| `guard`      | `g`   | `src/guards/<name>.guard.ts`               | `src/guards/<name>.guard.ts`           | Functional  |
+| `route`      | `r`   | `src/routes/<name>.ts`                     | `src/routes/<name>.ts`                 | Functional  |
+
+Controllers and services co-locate into a feature module (`src/modules/<name>/`) when the
+project has a `src/modules/` directory (the layout `create-nextrush`'s class-based template
+emits); module-less projects keep the flat directories.
 
 **Generated Controller Example:**
 
 ```typescript
-// nextrush g controller user -> src/controllers/user.controller.ts
-import { Controller, Get, Post, Body, Param } from 'nextrush/class';
+// nextrush g controller user -> src/modules/user/user.controller.ts (module project)
+import { Body, Controller, Get, Param, Post } from 'nextrush/class';
+import { UserService } from './user.service.js';
 
 @Controller('/user')
 export class UserController {
+  constructor(private readonly userService: UserService) {}
+
   @Get()
-  async findAll() {
-    return [];
+  findAll() {
+    return this.userService.findAll();
   }
 
   @Get('/:id')
-  async findOne(@Param('id') id: string) {
-    return { id };
+  findOne(@Param('id') id: string) {
+    return this.userService.findOne(id);
   }
 
   @Post()
-  async create(@Body() data: unknown) {
-    return data;
+  create(@Body() data: unknown) {
+    return this.userService.create(data);
   }
 }
 ```
@@ -190,20 +199,23 @@ export class UserController {
 **Generated Service Example:**
 
 ```typescript
-// nextrush g s order -> src/services/order.service.ts
+// nextrush g s order -> src/modules/order/order.service.ts (module project)
+import { HttpError } from 'nextrush';
 import { Service } from 'nextrush/class';
 
 @Service()
 export class OrderService {
-  async findAll() {
+  findAll() {
     return [];
   }
 
-  async findOne(id: string) {
+  findOne(id: string) {
+    if (!id) throw new HttpError(404, 'Not found');
     return { id };
   }
 
-  async create(data: unknown) {
+  create(data: unknown) {
+    if (!data || typeof data !== 'object') throw new HttpError(400, 'Invalid input');
     return data;
   }
 }
