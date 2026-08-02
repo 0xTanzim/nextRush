@@ -37,6 +37,8 @@ const DEFAULT_CONCURRENCY = 2;
 /** Files that can never change a turbo build/lint/typecheck/test task hash. */
 const SKIP_HEAVY_CHECK = /\.(md|mdx)$|(^|\/)\.changeset\/|(^|\/)\.github\/|(^|\/)\.kiro\//;
 
+const ZERO_OID = '0000000000000000000000000000000000000000';
+
 interface PushedRef {
   readonly localRef: string;
   readonly localOid: string;
@@ -61,11 +63,10 @@ async function getPushedRefs(): Promise<PushedRef[]> {
   });
 }
 
-const ZERO_OID = '0000000000000000000000000000000000000000';
-
 async function getChangedFiles(push: PushedRef): Promise<string[]> {
   // All-zeros remote oid means the branch does not exist remotely yet (first
-  // push) — the whole branch is new, so verification always runs.
+  // push) — no remote base to diff against; verification runs unconditionally
+  // (see shouldVerify).
   if (push.remoteOid === ZERO_OID) return [];
   // All-zeros local oid means the ref was deleted — nothing to verify.
   if (push.localOid === ZERO_OID) return [];
@@ -76,6 +77,12 @@ async function getChangedFiles(push: PushedRef): Promise<string[]> {
     push.localOid,
   ]);
   return stdout.split('\n').filter(Boolean);
+}
+
+function shouldVerify(pushed: readonly PushedRef[], changed: readonly string[]): boolean {
+  // A new branch has no remote base to diff against — verify the whole branch.
+  if (pushed.some((p) => p.remoteOid === ZERO_OID)) return true;
+  return changed.some((file) => !SKIP_HEAVY_CHECK.test(file));
 }
 
 function touchesTurboInputs(changed: readonly string[]): boolean {
@@ -145,7 +152,7 @@ async function main(): Promise<void> {
   if (pushed.length === 0) return;
 
   const changed = (await Promise.all(pushed.map(getChangedFiles))).flat();
-  if (!touchesTurboInputs(changed)) {
+  if (!shouldVerify(pushed, changed)) {
     // eslint-disable-next-line no-console
     console.log(
       'ℹ pre-push: push only touches docs/markdown — skipping local build/test/typecheck/lint.'
