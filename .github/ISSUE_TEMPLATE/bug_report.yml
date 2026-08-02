@@ -1,0 +1,156 @@
+name: 🐛 Bug Report
+description: Report a reproducible bug in NextRush.
+title: "[Bug]: "
+labels:
+  - bug
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug!
+
+        Before submitting:
+        - Search existing issues.
+        - Update to the latest NextRush version if possible.
+        - Provide a minimal reproduction when you can.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues before opening this report.
+          required: true
+        - label: I am using the latest stable version of NextRush (or have confirmed the issue still exists).
+          required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: NextRush Version
+      description: Which version of NextRush are you using?
+      placeholder: 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node.js Version
+      placeholder: v24.x
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options:
+        - Node.js
+        - Bun
+        - Deno
+        - Other
+
+  - type: dropdown
+    id: package_manager
+    attributes:
+      label: Package Manager
+      options:
+        - pnpm
+        - npm
+        - yarn
+        - bun
+
+  - type: dropdown
+    id: operating_system
+    attributes:
+      label: Operating System
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+
+  - type: textarea
+    id: extensions
+    attributes:
+      label: Extensions Used (Optional)
+      description: List any NextRush Extensions related to the issue.
+      placeholder: |
+        @nextrush/cors
+        @nextrush/static
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clearly describe the problem.
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      placeholder: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      placeholder: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Please provide clear reproduction steps.
+      placeholder: |
+        1. Create a NextRush app
+        2. Register the extension
+        3. Start the server
+        4. Send a request
+        5. Observe the issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Minimal Reproduction Code (Optional)
+      description: Paste the smallest possible example that reproduces the issue.
+      render: typescript
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or Stack Trace (Optional)
+      description: Paste any relevant logs or stack traces.
+      render: text
+
+  - type: input
+    id: reproduction
+    attributes:
+      label: Reproduction Repository (Optional)
+      description: Link to a minimal GitHub repository.
+      placeholder: https://github.com/username/reproduction
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment (Optional)
+      description: Any additional environment details.
+      placeholder: |
+        Ubuntu 24.04
+        Docker
+        Railway
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context (Optional)
+      description: Add anything else that might help us investigate.

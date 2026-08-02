@@ -1,0 +1,60 @@
+name: 📚 Documentation
+description: Report documentation issues or suggest improvements.
+title: "[Docs]: "
+labels:
+  - documentation
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the NextRush documentation!
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before You Submit
+      options:
+        - label: I searched existing issues before opening this report.
+          required: true
+
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Documentation Issue Type
+      options:
+        - Missing documentation
+        - Incorrect documentation
+        - Outdated documentation
+        - Typo or grammar
+        - Broken link
+        - Code example
+        - API reference
+        - Other
+
+  - type: input
+    id: page
+    attributes:
+      label: Documentation Page (Optional)
+      placeholder: https://nextrush.dev/docs/...
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Issue
+      description: What's wrong or what should be improved?
+      placeholder: Explain the documentation issue...
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement (Optional)
+      placeholder: How would you improve it?
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context (Optional)
+      placeholder: Screenshots, links, examples, references, etc.

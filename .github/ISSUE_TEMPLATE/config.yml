@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 🙋 Ask a Question
+    about: Ask questions about using NextRush in GitHub Discussions.
+    url: https://github.com/0xTanzim/nextrush/discussions/categories/q-a
+
+  - name: 💡 Share an Idea
+    about: Discuss ideas and improvements before opening a feature request.
+    url: https://github.com/0xTanzim/nextrush/discussions/categories/ideas
+
+  - name: 💬 General Discussion
+    about: Start a general discussion with the NextRush community.
+    url: https://github.com/0xTanzim/nextrush/discussions/categories/general
