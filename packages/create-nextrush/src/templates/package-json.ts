@@ -60,9 +60,17 @@ export function getDependencies(options: ProjectOptions): DependencySet {
     '@nextrush/dev': getPackageRange('@nextrush/dev'),
     '@nextrush/types': getPackageRange('@nextrush/types'),
     typescript: getToolchainRange('typescript'),
-    '@types/node': getToolchainRange('@types/node'),
     vitest: getVitestRange(),
   };
+
+  // @types/node is Node-specific — Deno ships its own global types (via `deno.json` lib +
+  // its native type system), and installing `@types/node` would inject Node's `process` /
+  // `Buffer` globals into a Deno project and conflict with Deno's own globals.
+  // capability-exempt: scaffolding tool emits runtime-specific project files from user choice,
+  // not the executing runtime. `options.runtime` is a scaffold-time decision.
+  if (options.runtime !== 'deno') {
+    devDependencies['@types/node'] = getToolchainRange('@types/node');
+  }
 
   return { dependencies, devDependencies };
 }

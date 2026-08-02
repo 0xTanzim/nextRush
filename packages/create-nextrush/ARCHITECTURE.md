@@ -249,21 +249,35 @@ export interface ProjectOptions {
 ```text
 src/
 ├── index.ts
-└── routes/
-    ├── health.ts
-    ├── health-status.ts
-    ├── todos.ts
-    ├── todos-data.ts
-    └── __tests__/
-        ├── health-status.test.ts
-        └── todos-data.test.ts
+├── config/
+│   └── index.ts
+├── lib/
+│   └── types.ts
+├── middleware/
+│   └── logger.ts
+├── routes/
+│   ├── health.routes.ts
+│   └── todos.routes.ts
+├── services/
+│   ├── health.service.ts
+│   ├── todos.service.ts
+│   └── __tests__/
+│       ├── health.service.test.ts
+│       └── todos.service.test.ts
+├── repositories/
+│   ├── todos.repository.ts
+│   └── __tests__/
+│       └── todos.repository.test.ts
 ```
 
-Two features teach the functional idiom: a minimal health check (route +
-pure payload builder) and a todos CRUD feature (route handlers using
-`ctx.params`/`ctx.query`/`ctx.body`, `ctx.status`, `ctx.throw`, backed by a
-pure `createTodoStore()` factory — state stays per-instance, no global
-mutable state, fully unit-testable without an HTTP server).
+A professional, production-grade layered API: routes → services → repositories,
+with centralized config (`config/index.ts`), shared domain types (`lib/types.ts`),
+and custom middleware (`middleware/logger.ts`). No classes, decorators, or DI —
+pure factory functions throughout. The entrypoint uses the framework's built-in
+`errorHandler` from `nextrush` (first in the middleware chain). Services throw
+`NotFoundError`/`BadRequestError` from `nextrush`; routes stay free of try/catch.
+Two features teach the idioms: a minimal health check and a full todos CRUD
+backed by a pure, unit-testable in-memory repository.
 
 **`class-based`** (`templates/class-based.ts`):
 
