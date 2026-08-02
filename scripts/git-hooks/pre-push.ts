@@ -18,6 +18,9 @@
  *
  * Escapes:
  * - `SKIP_SIMPLE_GIT_HOOKS=1` bypasses this hook entirely (simple-git-hooks).
+ * - `CI=true` (GitHub Actions) bypasses the whole hook — CI runs its own
+ *   verification, and the release workflow's version-commit push must not be
+ *   gated by a dev-machine check.
  * - `NEXTRUSH_PRE_PUSH_CONCURRENCY=N` overrides the turbo concurrency cap
  *   (default 2 — enough to keep pushes snappy without pegging all cores).
  *
@@ -146,6 +149,16 @@ async function runLocalVerification(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // CI machines (GitHub Actions sets CI=true) never run the dev-machine hook:
+  // the `ci` job runs the full verify itself, and the `release` job pushes the
+  // version commit through changesets/action — running build/test/typecheck/lint
+  // again there would double the work and can fail on the version-bumped state.
+  if (process.env.CI) {
+    // eslint-disable-next-line no-console
+    console.log('ℹ pre-push: CI detected — skipping hook (CI runs its own verification).');
+    return;
+  }
+
   await runReleaseStateGuard();
 
   const pushed = await getPushedRefs();
