@@ -1,5 +1,16 @@
 # create-nextrush
 
+## 1.0.1
+
+### Patch Changes
+
+- [#45](https://github.com/0xTanzim/nextRush/pull/45) [`c3604bc`](https://github.com/0xTanzim/nextRush/commit/c3604bca67b29c2fa292d2d23a2cf55794c4f819) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Scaffolded projects now pin `compilerOptions.types: ["node"]` in the generated
+  tsconfig.json. TypeScript >= 6 no longer auto-includes `@types/*` when `types` is
+  omitted, so a generated project failed `tsc --noEmit` with TS2591 ("Cannot find
+  name 'process'") out of the box even though `@types/node` is installed as a
+  devDependency (issue [#40](https://github.com/0xTanzim/nextrush/issues/40)). The explicit pin restores the type-checking a scaffolded
+  app expects, matching the `@types/node` devDependency the scaffolder always installs.
+
 ## 1.0.0
 
 ### Patch Changes

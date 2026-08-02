@@ -1,5 +1,13 @@
 # @nextrush/validation
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @nextrush/types@4.0.1
+  - @nextrush/errors@4.0.1
+
 ## 1.0.0
 
 ### Patch Changes
