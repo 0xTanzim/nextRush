@@ -13,9 +13,10 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,6 +55,48 @@ describe.skipIf(!hasDeno)('nextrush build (Deno) — non-empty mapped output (ta
       // garbage file at this path rather than a real transformed module.
       expect(content.length).toBeGreaterThan(0);
       expect(content).toContain('createApp');
+    },
+    BUILD_TIMEOUT_MS + 5_000
+  );
+
+  it(
+    'never emits .d.ts or .js for test/spec files (declaration pass matches SWC exclusion)',
+    () => {
+      const projectDir = join(
+        tmpdir(),
+        `nextrush-deno-leak-${String(Date.now())}-${String(Math.random()).slice(2)}`
+      );
+      mkdirSync(join(projectDir, 'src', 'routes', '__tests__'), { recursive: true });
+      writeFileSync(
+        join(projectDir, 'tsconfig.json'),
+        JSON.stringify({ compilerOptions: { strict: true, target: 'es2022' } })
+      );
+      writeFileSync(
+        join(projectDir, 'src', 'index.ts'),
+        'export const createApp = () => "app";\n'
+      );
+      writeFileSync(
+        join(projectDir, 'src', 'routes', '__tests__', 'health-status.test.ts'),
+        'export const suite = () => "test";\n'
+      );
+
+      try {
+        const result = spawnSync(
+          'deno',
+          ['run', '-A', DEV_BIN, 'build', '--outDir', 'dist'],
+          { cwd: projectDir, encoding: 'utf-8', timeout: BUILD_TIMEOUT_MS }
+        );
+
+        expect(result.status, `Deno build failed; stderr:\n${result.stderr}`).toBe(0);
+        // .d.ts must not leak from the declaration pass
+        expect(existsSync(join(projectDir, 'dist', 'routes', '__tests__', 'health-status.test.d.ts'))).toBe(false);
+        // .js must not leak from the SWC transform (already excluded, regression guard)
+        expect(existsSync(join(projectDir, 'dist', 'routes', '__tests__', 'health-status.test.js'))).toBe(false);
+        // the real source still gets declarations
+        expect(existsSync(join(projectDir, 'dist', 'index.d.ts'))).toBe(true);
+      } finally {
+        rmSync(projectDir, { recursive: true, force: true });
+      }
     },
     BUILD_TIMEOUT_MS + 5_000
   );
