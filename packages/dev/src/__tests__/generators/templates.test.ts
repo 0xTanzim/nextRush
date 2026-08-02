@@ -6,6 +6,7 @@ import {
   GENERATORS,
   guardTemplate,
   middlewareTemplate,
+  moduleTemplate,
   routeTemplate,
   serviceTemplate,
   toCamelCase,
@@ -58,7 +59,7 @@ describe('controllerTemplate', () => {
   it('imports class-based decorators from nextrush/class', () => {
     const output = controllerTemplate('user');
     expect(output).toContain(
-      "import { Controller, Get, Post, Body, Param } from 'nextrush/class'"
+      "import { Body, Controller, Get, Param, Post } from 'nextrush/class'"
     );
   });
 
@@ -79,9 +80,19 @@ describe('controllerTemplate', () => {
     expect(output).toContain('create');
   });
 
+  it('injects the matching service via constructor DI', () => {
+    const output = controllerTemplate('user');
+    expect(output).toContain("constructor(private readonly userService: UserService)");
+    expect(output).toContain("import { UserService } from './user.service.js'");
+    expect(output).toContain('this.userService.findAll()');
+    expect(output).toContain('this.userService.findOne(id)');
+    expect(output).toContain('this.userService.create(data)');
+  });
+
   it('uses PascalCase for multi-word names', () => {
     const output = controllerTemplate('order-item');
     expect(output).toContain('export class OrderItemController');
+    expect(output).toContain("constructor(private readonly orderItemService: OrderItemService)");
   });
 });
 
@@ -106,7 +117,8 @@ describe('serviceTemplate', () => {
   it('does not import Service from the bare nextrush root', () => {
     const output = serviceTemplate('user');
     // @Service is a DI decorator re-exported from 'nextrush/class', not the root.
-    expect(output).not.toContain("from 'nextrush'");
+    expect(output).not.toContain("Service } from 'nextrush'");
+    expect(output).toContain("import { Service } from 'nextrush/class'");
   });
 
   it('includes CRUD method stubs', () => {
@@ -114,6 +126,40 @@ describe('serviceTemplate', () => {
     expect(output).toContain('findAll');
     expect(output).toContain('findOne');
     expect(output).toContain('create');
+  });
+
+  it('uses HttpError for 404 and 400 paths (from the nextrush root)', () => {
+    const output = serviceTemplate('user');
+    expect(output).toContain("import { HttpError } from 'nextrush';");
+    expect(output).toContain("throw new HttpError(404, 'Not found')");
+    expect(output).toContain("throw new HttpError(400, 'Invalid input')");
+  });
+});
+
+// ─── Module Template ─────────────────────────────────────────────────────
+
+describe('moduleTemplate', () => {
+  it('generates a class with correct name', () => {
+    const output = moduleTemplate('todos');
+    expect(output).toContain('export class TodosModule');
+  });
+
+  it('uses @Module() decorator with controllers and providers', () => {
+    const output = moduleTemplate('todos');
+    expect(output).toContain('@Module({');
+    expect(output).toContain('controllers: [TodosController]');
+    expect(output).toContain('providers: [TodosService]');
+  });
+
+  it('imports the co-located controller and service', () => {
+    const output = moduleTemplate('todos');
+    expect(output).toContain("import { TodosController } from './todos.controller.js';");
+    expect(output).toContain("import { TodosService } from './todos.service.js';");
+  });
+
+  it('imports Module from nextrush/class', () => {
+    const output = moduleTemplate('todos');
+    expect(output).toContain("import { Module } from 'nextrush/class'");
   });
 });
 
@@ -179,17 +225,25 @@ describe('routeTemplate', () => {
     expect(output).toContain("import { createRouter } from 'nextrush'");
   });
 
-  it('creates a router and exports it as default', () => {
+  it('creates a named-export router (matches the functional template idiom)', () => {
     const output = routeTemplate('products');
-    expect(output).toContain('const router = createRouter()');
-    expect(output).toContain('export default router');
+    expect(output).toContain('export const productsRouter = createRouter()');
+    expect(output).not.toContain('export default');
   });
 
-  it('includes GET and POST routes', () => {
+  it('uses camelCase router name for multi-word names', () => {
+    const output = routeTemplate('order-item');
+    expect(output).toContain('export const orderItemRouter = createRouter()');
+  });
+
+  it('includes GET and POST routes with params, body, and status codes', () => {
     const output = routeTemplate('products');
-    expect(output).toContain("router.get('/'");
-    expect(output).toContain("router.get('/:id'");
-    expect(output).toContain("router.post('/'");
+    expect(output).toContain("productsRouter.get('/'");
+    expect(output).toContain("productsRouter.get('/:id'");
+    expect(output).toContain("productsRouter.post('/'");
+    expect(output).toContain('ctx.params.id');
+    expect(output).toContain('ctx.body');
+    expect(output).toContain('ctx.status = 201');
   });
 
   it('does not use class-based decorators', () => {
@@ -202,8 +256,15 @@ describe('routeTemplate', () => {
 // ─── Registry ────────────────────────────────────────────────────────────
 
 describe('GENERATOR_TYPES', () => {
-  it('contains all 5 types', () => {
-    expect(GENERATOR_TYPES).toEqual(['controller', 'service', 'middleware', 'guard', 'route']);
+  it('contains all 6 types', () => {
+    expect(GENERATOR_TYPES).toEqual([
+      'controller',
+      'service',
+      'middleware',
+      'guard',
+      'route',
+      'module',
+    ]);
   });
 });
 
@@ -211,6 +272,7 @@ describe('GENERATOR_ALIASES', () => {
   it('maps short aliases to types', () => {
     expect(GENERATOR_ALIASES['c']).toBe('controller');
     expect(GENERATOR_ALIASES['s']).toBe('service');
+    expect(GENERATOR_ALIASES['m']).toBe('module');
     expect(GENERATOR_ALIASES['mw']).toBe('middleware');
     expect(GENERATOR_ALIASES['g']).toBe('guard');
     expect(GENERATOR_ALIASES['r']).toBe('route');
@@ -251,5 +313,10 @@ describe('GENERATORS', () => {
   it('route writes to src/routes with .ts suffix', () => {
     expect(GENERATORS.route.directory).toBe('src/routes');
     expect(GENERATORS.route.suffix).toBe('.ts');
+  });
+
+  it('module writes to src/modules with .module.ts suffix', () => {
+    expect(GENERATORS.module.directory).toBe('src/modules');
+    expect(GENERATORS.module.suffix).toBe('.module.ts');
   });
 });

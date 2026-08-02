@@ -1,10 +1,10 @@
 ---
 title: Code Generators
-description: Scaffold controllers, services, middleware, guards, and routes from the command line
+description: Scaffold modules, controllers, services, middleware, guards, and routes from the command line
 keywords: [api, code, development, generators, guides, nextrush]
 ---
 
-The `nextrush generate` command (alias `nextrush g`) creates new files from templates with the correct structure, imports, and naming conventions.
+The `nextrush generate` command (alias `nextrush g`) creates new files from templates with the correct structure, imports, and naming conventions — matching the layouts the `create-nextrush` scaffolds emit.
 
 ## Usage
 
@@ -18,13 +18,17 @@ nextrush g <type> <name>
 <TypeTable
   title="Available generators"
   types={{
+    'module (m)': {
+      type: 'string',
+      description: 'Class-based feature module with @Module, controllers, and providers',
+    },
     'controller (c)': {
       type: 'string',
-      description: 'Class-based controller with @Controller, @Get, @Post, @Param, @Body decorators',
+      description: 'Class-based controller with @Controller, @Get, @Post, @Param, @Body, constructor DI',
     },
     'service (s)': {
       type: 'string',
-      description: 'Injectable service class with @Service decorator and CRUD stubs',
+      description: 'Injectable service class with @Service decorator and HttpError paths',
     },
     'middleware (mw)': {
       type: 'string',
@@ -36,12 +40,44 @@ nextrush g <type> <name>
     },
     'route (r)': {
       type: 'string',
-      description: 'Functional router with GET, GET/:id, and POST routes',
+      description: 'Functional router (named export) with GET, GET/:id, and POST routes',
     },
   }}
 />
 
 ## Examples
+
+### Generate a Module
+
+```bash
+nextrush g module todos
+```
+
+Creates `src/modules/todos/todos.module.ts`:
+
+```typescript title="src/modules/todos/todos.module.ts"
+import { Module } from 'nextrush/class';
+
+import { TodosController } from './todos.controller.js';
+import { TodosService } from './todos.service.js';
+
+@Module({
+  controllers: [TodosController],
+  providers: [TodosService],
+})
+export class TodosModule {}
+```
+
+A feature module composes its controller and service. Generate all three for a complete
+feature:
+
+```bash
+nextrush g m todos
+nextrush g controller todos
+nextrush g service todos
+```
+
+Then register the module in your root module's `imports`.
 
 ### Generate a Controller
 
@@ -49,26 +85,31 @@ nextrush g <type> <name>
 nextrush g controller user
 ```
 
-Creates `src/controllers/user.controller.ts`:
+In a class-based project (one with a `src/modules/` directory) the controller is placed
+inside its feature module: `src/modules/user/user.controller.ts`. In a module-less project
+it lands at `src/controllers/user.controller.ts`.
 
-```typescript title="src/controllers/user.controller.ts"
-import { Controller, Get, Post, Body, Param } from 'nextrush/class';
+```typescript title="src/modules/user/user.controller.ts"
+import { Body, Controller, Get, Param, Post } from 'nextrush/class';
+import { UserService } from './user.service.js';
 
 @Controller('/user')
 export class UserController {
+  constructor(private readonly userService: UserService) {}
+
   @Get()
-  async findAll() {
-    return [];
+  findAll() {
+    return this.userService.findAll();
   }
 
   @Get('/:id')
-  async findOne(@Param('id') id: string) {
-    return { id };
+  findOne(@Param('id') id: string) {
+    return this.userService.findOne(id);
   }
 
   @Post()
-  async create(@Body() data: unknown) {
-    return data;
+  create(@Body() data: unknown) {
+    return this.userService.create(data);
   }
 }
 ```
@@ -79,22 +120,26 @@ export class UserController {
 nextrush g service user
 ```
 
-Creates `src/services/user.service.ts`:
+Creates `src/modules/user/user.service.ts` in a module project, or
+`src/services/user.service.ts` otherwise:
 
-```typescript title="src/services/user.service.ts"
+```typescript title="src/modules/user/user.service.ts"
+import { HttpError } from 'nextrush';
 import { Service } from 'nextrush/class';
 
 @Service()
 export class UserService {
-  async findAll() {
+  findAll() {
     return [];
   }
 
-  async findOne(id: string) {
+  findOne(id: string) {
+    if (!id) throw new HttpError(404, 'Not found');
     return { id };
   }
 
-  async create(data: unknown) {
+  create(data: unknown) {
+    if (!data || typeof data !== 'object') throw new HttpError(400, 'Invalid input');
     return data;
   }
 }
@@ -144,38 +189,43 @@ export const authGuard: GuardFn = async (ctx) => {
 nextrush g route product
 ```
 
-Creates `src/routes/product.ts`:
+Creates `src/routes/product.ts` — a named-export router, matching the functional
+template's mounting idiom (`import { productRouter } from './routes/product.js'` +
+`app.route('/product', productRouter)`):
 
 ```typescript title="src/routes/product.ts"
 import { createRouter } from 'nextrush';
 
-const router = createRouter();
+export const productRouter = createRouter();
 
-router.get('/', (ctx) => {
+productRouter.get('/', (ctx) => {
   ctx.json([]);
 });
 
-router.get('/:id', (ctx) => {
+productRouter.get('/:id', (ctx) => {
   ctx.json({ id: ctx.params.id });
 });
 
-router.post('/', (ctx) => {
+productRouter.post('/', (ctx) => {
+  ctx.status = 201;
   ctx.json(ctx.body);
 });
-
-export default router;
 ```
 
 ## Output Directories
 
-| Type       | Output Directory   | File Suffix      |
-| ---------- | ------------------ | ---------------- |
-| controller | `src/controllers/` | `.controller.ts` |
-| service    | `src/services/`    | `.service.ts`    |
-| middleware | `src/middleware/`  | `.ts`            |
-| guard      | `src/guards/`      | `.guard.ts`      |
-| route      | `src/routes/`      | `.ts`            |
+| Type       | Default Directory      | Module project (`src/modules/` exists) | File Suffix      |
+| ---------- | ---------------------- | -------------------------------------- | ---------------- |
+| module     | `src/modules/<name>/`  | `src/modules/<name>/`                  | `.module.ts`     |
+| controller | `src/controllers/`     | `src/modules/<name>/`                  | `.controller.ts` |
+| service    | `src/services/`        | `src/modules/<name>/`                  | `.service.ts`    |
+| middleware | `src/middleware/`      | `src/middleware/`                      | `.ts`            |
+| guard      | `src/guards/`          | `src/guards/`                          | `.guard.ts`      |
+| route      | `src/routes/`          | `src/routes/`                          | `.ts`            |
 
+In a class-based project (one with a `src/modules/` directory), controllers and services
+co-locate inside their feature module so the module, controller, service, and tests live
+together. In module-less (functional/full) projects they use the flat directories above.
 Directories are created automatically if they don't exist.
 
 ## Naming Convention
@@ -187,6 +237,12 @@ Names must be lowercase with optional hyphens. The generator converts them to Pa
 | `user`         | `UserController`        | `user`        |
 | `user-profile` | `UserProfileController` | `userProfile` |
 | `auth`         | `AuthController`        | `authGuard`   |
+
+<Callout type="info" title="Wiring generated files">
+  Generators create files; they do not edit existing source. Add generated modules to
+  your root module's `imports`, mount generated routes with `app.route(...)`, and register
+  guards/middleware where they apply.
+</Callout>
 
 <Callout type="warn" title="Existing Files">
   The generator will not overwrite existing files. If the target file already exists, the command
