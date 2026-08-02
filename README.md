@@ -155,7 +155,7 @@ Mean of 6 runs · **wrk** · CPU-pinned. **Bold** = fastest in row.
 Send Object 90% · POST 75% (body-parser safety work differs per framework).
 
 > **Full interactive dashboard** (heatmap, scenario explorer, scaling charts, methodology):
-> **[Benchmarks on the docs site](https://0xtanzim.github.io/nextRush/docs/production/benchmarking)** ·
+> **[Benchmarks on the docs site](https://0xtanzim.github.io/nextRush/docs/getting-started/benchmarking)** ·
 > [suite source](./apps/benchmark) · [latest report](./apps/benchmark/results/latest/REPORT.md)
 
 <details>
