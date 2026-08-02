@@ -25,6 +25,7 @@ import { writeFileAtomic } from './atomic-write.js';
 import { loadCache, saveCache, createEmptyCache, isCached, updateCacheEntry, hashSourceAndOptions, hashString } from './cache.js';
 import { runConcurrent } from './concurrency.js';
 import { buildSwcTransformOptions } from './swc-transform-options.js';
+import { resolveDeclarationTypePackage } from './tsc-type-args.js';
 
 /** Hard cap on parallel transforms — high enough to use a dev box, low enough to bound memory. */
 const MAX_BUILD_CONCURRENCY = 8;
@@ -235,16 +236,29 @@ export async function generateDeclarations(cwd: string, outDir: string, srcDir: 
     // Run tsc via node:child_process
     const { spawn: nodeSpawn } = await getNodeChildProcess();
 
+    // TS >= 6 no longer auto-includes @types/* when tsconfig omits `types`
+    // (issue #40): inject the runtime's ambient type package so declaration emit
+    // still resolves `process` etc. without the project pinning its own list.
+    const declarationArgs = [
+      tscPath,
+      '--declaration',
+      '--emitDeclarationOnly',
+      '--rootDir',
+      srcDir,
+      '--outDir',
+      outDir,
+    ];
+    const typePackage = await resolveDeclarationTypePackage(cwd);
+    if (typePackage !== undefined) {
+      declarationArgs.push('--types', typePackage);
+    }
+
     await new Promise<void>((resolve, reject) => {
       // Run via process.execPath (node binary) to avoid relying on PATH
-      const tsc = nodeSpawn(
-        process.execPath,
-        [tscPath, '--declaration', '--emitDeclarationOnly', '--rootDir', srcDir, '--outDir', outDir],
-        {
-          cwd,
-          stdio: 'pipe',
-        }
-      );
+      const tsc = nodeSpawn(process.execPath, declarationArgs, {
+        cwd,
+        stdio: 'pipe',
+      });
 
       let stdout = '';
       let stderr = '';

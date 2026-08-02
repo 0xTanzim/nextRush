@@ -17,7 +17,13 @@ import { pathToFileURL } from 'node:url';
 
 /** The `@nextrush/dev` CLI surface this launcher depends on. `cli()` reads `process.argv` itself. */
 export interface DevCliModule {
-  readonly cli: (argv?: string[]) => void;
+  /**
+   * Completion-aware CLI entry: the returned promise settles once the routed
+   * command's async work (dev server spawn, build, d.ts emit) is done, so the
+   * launcher never exits over unfinished work (issue #40). `void` is tolerated
+   * for older published CLI builds whose `cli()` predates the async contract.
+   */
+  readonly cli: (argv?: string[]) => Promise<void> | void;
 }
 
 /** Package managers whose install command the launcher can name precisely; `null` = inconclusive. */
@@ -151,9 +157,9 @@ function defaultWriteError(message: string): void {
  * Resolve `@nextrush/dev`'s CLI and delegate; on the specific "toolkit not installed" case, print
  * an actionable message and return a non-zero exit code. Any other error propagates unchanged.
  *
- * On the success path the underlying `cli()` reads `process.argv` and self-exits with its own code,
- * so the launcher does not need to re-propagate it; the returned `0` is reached only when `cli()`
- * returns without exiting (e.g. `--help`).
+ * On the success path the launcher AWAITS the delegated `cli()` — the returned promise settles only
+ * once the command's async work is complete (dev server exited, build finished). The launcher's own
+ * `0` therefore never races the bin's `process.exit(0)` against in-flight work (issue #40).
  *
  * @param argv - The CLI arguments (`process.argv.slice(2)`), passed through to the delegate.
  * @param deps - Injectable seams for testing; defaults use the real loader and environment.
@@ -176,6 +182,6 @@ export async function runDevCliLauncher(argv: string[], deps: DevCliLauncherDeps
     throw err;
   }
 
-  devCli.cli(argv);
+  await devCli.cli(argv);
   return 0;
 }

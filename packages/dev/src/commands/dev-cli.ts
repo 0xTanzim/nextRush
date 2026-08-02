@@ -6,15 +6,50 @@
  * @packageDocumentation
  */
 
-import { exitProcess } from '../runtime/index.js';
+import { exitProcess, type SpawnResult } from '../runtime/index.js';
 import { error, log } from '../utils/logger.js';
 import { dev, type DevOptions } from './dev.js';
 import { parsePositiveInteger } from './dev-helpers.js';
 
 /**
+ * Resolve once the dev server child has exited, then exit this process with its
+ * code. `dev()` resolves as soon as the child is spawned — without waiting, the
+ * `nextrush` launcher's `process.exit(0)` would kill the process before the
+ * server starts, and a child that exits 0 on its own would leave the parent
+ * hanging (issue #40).
+ *
+ * Non-zero exits are mostly handled by `dev()`'s own onExit (crash → exit with
+ * the child's code; the guarded `--watch-path` fallback → respawn). This handler
+ * only decides for clean exits, and deliberately defers to the respawn path.
+ */
+function waitForChildExit(child: SpawnResult): Promise<void> {
+  const launchTime = Date.now();
+  let fallbackSeen = false;
+
+  return new Promise<void>((resolve) => {
+    child.onExit((code) => {
+      const diedFast = Date.now() - launchTime < 3000;
+      if (!fallbackSeen && diedFast && code !== 0 && code !== null) {
+        // A fast non-zero death may be `dev()`'s guarded `--watch-path` fallback
+        // respawn (F-05) — dev() itself decides and keeps the process alive while
+        // it respawns. Stay pending so the launcher path does not process.exit(0)
+        // over the replacement server.
+        fallbackSeen = true;
+        return;
+      }
+
+      if (code === 0 || code === null) {
+        exitProcess(code ?? 0);
+      }
+      resolve();
+    });
+  });
+}
+
+/**
  * CLI entry point for dev command
  */
-export function devCli(args: string[]): void {
+export async function devCli(args: string[]): Promise<void> {
   const options: DevOptions = {};
   let entry: string | undefined;
 
@@ -106,12 +141,16 @@ export function devCli(args: string[]): void {
     }
   }
 
-  // Run dev server
-  dev(entry, options).catch((err: unknown) => {
+  // Run dev server, then stay alive until the child exits — the awaited promise
+  // makes the CLI completion-aware (issue #40).
+  try {
+    const child = await dev(entry, options);
+    await waitForChildExit(child);
+  } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     error(`Failed to start dev server: ${message}`);
     exitProcess(1);
-  });
+  }
 }
 
 /**
