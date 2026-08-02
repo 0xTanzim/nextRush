@@ -16,7 +16,9 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as runtime from '../runtime/index.js';
 import { initFsSync } from '../runtime/index.js';
-import { buildWithSwc, generateDeclarations } from '../commands/build/swc-builder.js';
+import { buildWithSwc } from '../commands/build/swc-builder.js';
+import { generateDeclarations } from '../commands/build/declaration-builder.js';
+import { findTypeScriptFiles } from '../commands/build/file-scanner.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../../..');
@@ -76,7 +78,7 @@ describe('buildWithSwc (in-process, real fixture)', () => {
   });
 
   it('reports the file as cached/skipped on the second of two consecutive builds (task 3.3, F-02)', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
     await buildWithSwc(FIXTURE_ENTRY, outDir, { cache: true, dts: false });
     await buildWithSwc(FIXTURE_ENTRY, outDir, { cache: true, dts: false });
@@ -134,6 +136,27 @@ describe('buildWithSwc (in-process, real fixture)', () => {
     expect(existsSync(join(outDir, 'index.js'))).toBe(true);
     expect(existsSync(join(outDir, 'index.d.ts'))).toBe(true);
   }, 30_000);
+
+  it('never emits .d.ts for test/spec files (declaration pass matches SWC exclusion)', async () => {
+    // The issue-2 repro: a test file under the source root must not leak a declaration
+    // into the build output. SWC already skips it; the bare-tsc declaration pass used to
+    // compile it anyway and emit an empty `export {}` module.
+    const fs = await import('node:fs');
+    const testsDir = join(FIXTURE_DIR, 'src', 'routes', '__tests__');
+    const testFile = join(testsDir, 'health-status.test.ts');
+    fs.mkdirSync(testsDir, { recursive: true });
+    fs.writeFileSync(testFile, "import { describe, expect, it } from 'vitest';\n\ndescribe('health-status', () => {\n  it('works', () => {\n    expect(1).toBe(1);\n  });\n});\n");
+
+    try {
+      await buildWithSwc(FIXTURE_ENTRY, outDir, { cache: false, dts: true });
+
+      expect(existsSync(join(outDir, 'index.d.ts'))).toBe(true);
+      expect(existsSync(join(outDir, 'routes', '__tests__', 'health-status.test.d.ts'))).toBe(false);
+      expect(existsSync(join(outDir, 'routes', '__tests__', 'health-status.test.js'))).toBe(false);
+    } finally {
+      fs.rmSync(join(FIXTURE_DIR, 'src', 'routes'), { recursive: true, force: true });
+    }
+  }, 30_000);
 });
 
 describe('generateDeclarations (in-process, real tsc)', () => {
@@ -151,7 +174,10 @@ describe('generateDeclarations (in-process, real tsc)', () => {
     'emits .d.ts mirroring the source directory layout via --rootDir',
     async () => {
       const srcDir = join(FIXTURE_DIR, 'src');
-      await generateDeclarations(FIXTURE_DIR, outDir, srcDir);
+      // Same test-filtered source set the SWC transform feeds in — generateDeclarations
+      // no longer globs the tree itself (issue2: test files must not leak as .d.ts).
+      const files = await findTypeScriptFiles(FIXTURE_DIR, FIXTURE_ENTRY);
+      await generateDeclarations(FIXTURE_DIR, outDir, srcDir, files);
 
       expect(existsSync(join(outDir, 'index.d.ts'))).toBe(true);
     },
