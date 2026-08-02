@@ -261,13 +261,25 @@ src/
 ```text
 src/
 ├── index.ts
-├── controllers/
-│   └── health.controller.ts
-└── services/
-    ├── app.service.ts
-    └── __tests__/
-        └── app.service.test.ts
+├── app.module.ts
+└── modules/
+    ├── health/
+    │   ├── health.module.ts
+    │   ├── health.controller.ts
+    │   └── health.service.ts
+    └── todos/
+        ├── todos.module.ts
+        ├── todos.controller.ts
+        ├── todos.service.ts
+        ├── todos.repository.ts
+        └── __tests__/
+            ├── todos.service.test.ts
+            └── todos.controller.test.ts
 ```
+
+Feature modules live under `src/modules/<feature>/`, co-locating each module's
+controller, service, repository, and tests. The root `AppModule` composes them via
+`@Module({ imports: [...] })`; `registerModule` resolves the whole graph at boot.
 
 **`full`** (`templates/full.ts`):
 
@@ -290,7 +302,7 @@ All three styles additionally get `tsconfig.json`, `package.json`, `src/env.d.ts
 `.gitignore`, and `README.md` from `generator.ts`'s shared step. No style emits a
 `not-found.ts` or any other 404-handler file — there is no such generator function in
 `templates/`. The health payload built by `functional`'s `health-status.ts` and
-`class-based`'s `app.service.ts` both include a real `uptime: process.uptime()` field
+`class-based`'s `health.service.ts` both include a real `uptime: process.uptime()` field
 alongside `status` and `timestamp` — confirmed directly in `templates/functional.ts` and
 `templates/class-based.ts`.
 
