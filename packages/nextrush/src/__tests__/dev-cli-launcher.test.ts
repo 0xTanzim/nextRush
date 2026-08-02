@@ -26,6 +26,43 @@ describe('runDevCliLauncher — delegation (toolkit installed)', () => {
   });
 });
 
+describe('runDevCliLauncher — completion-aware delegation (issue #40)', () => {
+  it('does not resolve until the delegated cli has finished its async work', async () => {
+    const { runDevCliLauncher } = await import('../dev-cli-launcher.js');
+    let asyncWorkDone = false;
+    const cli = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          setTimeout(() => {
+            asyncWorkDone = true;
+            resolve();
+          }, 10);
+        })
+    );
+
+    await runDevCliLauncher(['build'], {
+      importDevCli: () => Promise.resolve({ cli }),
+    });
+
+    expect(cli).toHaveBeenCalledOnce();
+    // The launcher resolves only AFTER the delegated cli's promise settles — otherwise a
+    // fire-and-forget cli() lets the bin's `process.exit(0)` kill the CLI before its async
+    // work (dev server spawn, build, d.ts emit) has run, which is issue #40's silent-exit bug.
+    expect(asyncWorkDone).toBe(true);
+  });
+
+  it('surfaces a rejection from the delegated cli instead of returning 0', async () => {
+    const { runDevCliLauncher } = await import('../dev-cli-launcher.js');
+    const cli = vi.fn(() => Promise.reject(new Error('cli blew up')));
+
+    await expect(
+      runDevCliLauncher(['build'], {
+        importDevCli: () => Promise.resolve({ cli }),
+      })
+    ).rejects.toThrow('cli blew up');
+  });
+});
+
 describe('runDevCliLauncher — actionable message (toolkit absent)', () => {
   function missingError(): NodeJS.ErrnoException {
     const err: NodeJS.ErrnoException = new Error(

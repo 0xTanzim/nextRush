@@ -35,8 +35,12 @@ function getCliArgs(): string[] {
 
 /**
  * Main CLI entry point
+ *
+ * Async: the returned promise settles once the routed command's async work has
+ * completed (dev server exited, build/generate/codemod finished), so the bin
+ * wrapper and the `nextrush` launcher never exit over in-flight work (issue #40).
  */
-export function cli(): void {
+export async function cli(): Promise<void> {
   const args = getCliArgs();
   const command = args[0];
 
@@ -59,7 +63,7 @@ export function cli(): void {
       if (commandArgs.includes('--help') || commandArgs.includes('-h')) {
         devHelp();
       } else {
-        devCli(commandArgs);
+        await devCli(commandArgs);
       }
       break;
 
@@ -67,7 +71,7 @@ export function cli(): void {
       if (commandArgs.includes('--help') || commandArgs.includes('-h')) {
         buildHelp();
       } else {
-        buildCli(commandArgs);
+        await buildCli(commandArgs);
       }
       break;
 
@@ -76,7 +80,7 @@ export function cli(): void {
       if (commandArgs.includes('--help') || commandArgs.includes('-h')) {
         generateHelp();
       } else {
-        void generateCli(commandArgs);
+        await generateCli(commandArgs);
       }
       break;
 
@@ -84,7 +88,7 @@ export function cli(): void {
       if (commandArgs.includes('--help') || commandArgs.includes('-h')) {
         codemodHelp();
       } else {
-        void codemodCli(commandArgs);
+        await codemodCli(commandArgs);
       }
       break;
 
