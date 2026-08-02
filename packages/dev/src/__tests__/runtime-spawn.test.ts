@@ -96,6 +96,8 @@ describe('Process Spawning', () => {
       expect(result.args).toContain('run');
       expect(result.args).toContain('--watch');
       expect(result.args).toContain('--allow-net');
+      // Resolve `.js` → `.ts` relative ESM specifiers, matching the framework's conformance runner
+      expect(result.args).toContain('--unstable-sloppy-imports');
       expect(result.args).toContain('src/index.ts');
     });
 

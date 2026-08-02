@@ -226,34 +226,55 @@ test, not a placeholder.
 <Tabs items={['Functional', 'Class-based', 'Full']}>
   <Tab value="Functional">
 
-**Best for:** Small APIs, microservices, minimal surface area.
+**Best for:** Small to mid-size APIs, microservices, minimal surface area — without sacrificing a professional layered structure.
 
 <FileTree
   root="my-api"
   files={[
     'src/index.ts',
-    'src/routes/health.ts',
-    'src/routes/health-status.ts',
-    'src/routes/__tests__/health-status.test.ts',
+    'src/config/index.ts',
+    'src/lib/types.ts',
+    'src/middleware/logger.ts',
+    'src/routes/health.routes.ts',
+    'src/routes/todos.routes.ts',
+    'src/services/health.service.ts',
+    'src/services/todos.service.ts',
+    'src/services/__tests__/health.service.test.ts',
+    'src/services/__tests__/todos.service.test.ts',
+    'src/repositories/todos.repository.ts',
+    'src/repositories/__tests__/todos.repository.test.ts',
     'package.json',
     'tsconfig.json',
     '.gitignore',
   ]}
-  highlight={['index.ts', 'health-status.ts']}
+  highlight={['index.ts', 'config/index.ts', 'todos.service.ts']}
 />
 
-`health-status.ts` holds a pure function the route calls — testable without spinning up HTTP.
+A production-grade layered API: **routes → services → repositories**, with centralized
+config, shared domain types, and custom middleware. No classes, decorators, or DI — pure
+factory functions throughout.
+
+The entrypoint uses the framework's built-in `errorHandler` from `nextrush` (first in the
+middleware chain). Services throw `NotFoundError`/`BadRequestError` from `nextrush`; routes
+stay free of `try/catch`:
 
 ```ts title="src/index.ts (generated, api middleware)"
-import { createApp, createRouter, listen } from 'nextrush';
+import { createApp, createRouter, errorHandler, listen } from 'nextrush';
 import { cors } from '@nextrush/cors';
 import { json } from '@nextrush/body-parser';
 import { helmet } from '@nextrush/helmet';
-import { healthRouter } from './routes/health.js';
+import { config } from './config/index.js';
+import { logger } from './middleware/logger.js';
+import { healthRouter } from './routes/health.routes.js';
 
 const router = createRouter();
 const app = createApp({ router });
-const PORT = Number(process.env.PORT) || 8080;
+
+// Error handling (first middleware — catches all downstream errors)
+app.use(errorHandler({ includeStack: config.nodeEnv !== 'production' }));
+
+// Request logging
+app.use(logger());
 
 // Middleware
 app.use(cors());
@@ -267,11 +288,27 @@ router.get('/', (ctx) => {
 
 app.route('/health', healthRouter);
 
-await listen(app, PORT);
+await listen(app, config.port);
 ```
 
-Health lives at `GET /health`. On Bun or Deno, `listen` comes from `@nextrush/adapter-bun` or
-`@nextrush/adapter-deno` instead. Deno reads `Deno.env.get('PORT')` for the port line.
+```ts title="src/services/todos.service.ts (generated)"
+import { BadRequestError, NotFoundError } from 'nextrush';
+import type { TodoRepository } from '../repositories/todos.repository.js';
+
+export function createTodoService(repository: TodoRepository) {
+  return {
+    get(id: string) {
+      const todo = repository.findById(id);
+      if (!todo) throw new NotFoundError('Todo not found');
+      return todo;
+    },
+    // ...create, list, remove
+  };
+}
+```
+
+Health lives at `GET /health`. On Bun or Deno, `listen` comes from `@nextrush/adapter-bun`
+or `@nextrush/adapter-deno` instead. Deno reads `Deno.env.get('PORT')` in `config/index.ts`.
 
   </Tab>
   <Tab value="Class-based">
@@ -282,52 +319,57 @@ Health lives at `GET /health`. On Bun or Deno, `listen` comes from `@nextrush/ad
   root="my-api"
   files={[
     'src/index.ts',
-    'src/controllers/health.controller.ts',
-    'src/services/app.service.ts',
-    'src/services/__tests__/app.service.test.ts',
+    'src/app.module.ts',
+    'src/modules/health/health.module.ts',
+    'src/modules/health/health.controller.ts',
+    'src/modules/health/health.service.ts',
+    'src/modules/todos/todos.module.ts',
+    'src/modules/todos/todos.controller.ts',
+    'src/modules/todos/todos.service.ts',
+    'src/modules/todos/todos.repository.ts',
+    'src/modules/todos/__tests__/todos.service.test.ts',
+    'src/modules/todos/__tests__/todos.controller.test.ts',
     'package.json',
     'tsconfig.json',
     '.gitignore',
   ]}
-  highlight={['index.ts', 'health.controller.ts', 'app.service.test.ts']}
+  highlight={['index.ts', 'app.module.ts', 'todos.controller.ts']}
 />
 
-Controllers are **auto-discovered** — no manual mount list:
+The root `AppModule` composes feature modules via `@Module({ imports })`, and the entry file wires
+the whole graph in one call:
 
 ```ts title="src/index.ts (generated excerpt)"
 import { createApp, createRouter, listen } from 'nextrush';
-import { registerControllers } from 'nextrush/class';
+import { registerModule } from 'nextrush/class';
+import { AppModule } from './app.module.js';
 
 const router = createRouter();
 const app = createApp({ router });
 
-await registerControllers(app, {
-  root: CONTROLLERS_ROOT,
-  include: CONTROLLERS_INCLUDE,
-  prefix: '/api',
-  strict: true,
-});
+// Wire the root module — registers the whole module graph in one call
+await registerModule(app, AppModule, { prefix: '/api' });
 
 await listen(app, PORT);
 ```
 
-```ts title="src/controllers/health.controller.ts (generated)"
+```ts title="src/modules/health/health.controller.ts (generated)"
 import { Controller, Get } from 'nextrush/class';
-import { AppService } from '../services/app.service.js';
+import { HealthService } from './health.service.js';
 
 @Controller('/health')
 export class HealthController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly health: HealthService) {}
 
   @Get()
   check() {
-    return this.appService.getHealth();
+    return this.health.getHealth();
   }
 }
 ```
 
-Health lives at **`GET /api/health`** — the `/api` prefix comes from `registerControllers`, not
-the controller decorator alone.
+Health lives at **`GET /api/health`** — the `/api` prefix comes from `registerModule`, not the
+controller decorator alone.
 
 Choosing `class-based` enables `experimentalDecorators` and `emitDecoratorMetadata` in
 `tsconfig.json`, and adds `reflect-metadata` plus `@nextrush/class` as explicit dependencies — same
@@ -342,10 +384,12 @@ requirement as [Installation's TypeScript step](/docs/getting-started/installati
   root="my-api"
   files={[
     'src/index.ts',
+    'src/app.module.ts',
+    'src/modules/hello/hello.module.ts',
+    'src/modules/hello/hello.controller.ts',
+    'src/modules/hello/hello.service.ts',
+    'src/modules/hello/__tests__/hello.service.test.ts',
     'src/routes/health.ts',
-    'src/controllers/hello.controller.ts',
-    'src/services/hello.service.ts',
-    'src/services/__tests__/hello.service.test.ts',
     'src/middleware/error-handler.ts',
     'package.json',
     'tsconfig.json',
@@ -354,9 +398,10 @@ requirement as [Installation's TypeScript step](/docs/getting-started/installati
   highlight={['index.ts', 'error-handler.ts', 'hello.service.test.ts']}
 />
 
-`full` combines a functional `/health` route, class-based `/api/hello` controllers, and
-`error-handler.ts` registered **first** in the middleware chain. The entry file uses `serve()`
-instead of `listen()` so startup can log the bound port.
+`full` combines a functional `/health` route with a class-based module graph (`@Module`/`AppModule`
+via `registerModule`, the same standard as the class-based style) and `error-handler.ts` registered
+**first** in the middleware chain. Controllers mount under the `/api` prefix through the root
+module.
 
 Useful as a reference when you want both routing styles in one service — not the smallest starting
 point.

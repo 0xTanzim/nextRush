@@ -105,26 +105,35 @@ describe('generateProject', () => {
     it('generates entry point and health route', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       expect(files.has('src/index.ts')).toBe(true);
-      expect(files.has('src/routes/health.ts')).toBe(true);
+      expect(files.has('src/routes/health.routes.ts')).toBe(true);
     });
 
-    it('generates a todos CRUD feature with a pure data store', () => {
+    it('generates config, lib, and middleware folders', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
-      expect(files.has('src/routes/todos.ts')).toBe(true);
-      expect(files.has('src/routes/todos-data.ts')).toBe(true);
-      expect(files.has('src/routes/__tests__/todos-data.test.ts')).toBe(true);
+      expect(files.has('src/config/index.ts')).toBe(true);
+      expect(files.has('src/lib/types.ts')).toBe(true);
+      expect(files.has('src/middleware/logger.ts')).toBe(true);
+    });
+
+    it('generates a layered todos feature (routes, services, repositories)', () => {
+      const files = generateProject(createOptions({ style: 'functional' }));
+      expect(files.has('src/routes/todos.routes.ts')).toBe(true);
+      expect(files.has('src/services/todos.service.ts')).toBe(true);
+      expect(files.has('src/repositories/todos.repository.ts')).toBe(true);
+      expect(files.has('src/services/__tests__/todos.service.test.ts')).toBe(true);
+      expect(files.has('src/repositories/__tests__/todos.repository.test.ts')).toBe(true);
     });
 
     it('mounts the todos router in the entrypoint', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain("import { todosRouter } from './routes/todos.js';");
+      expect(entry).toContain("import { todosRouter } from './routes/todos.routes.js';");
       expect(entry).toContain("app.route('/todos', todosRouter);");
     });
 
-    it('uses route params, query, body, and response codes in the todos feature', () => {
+    it('uses route params, query, body, and response codes in the todos route', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
-      const todos = files.get('src/routes/todos.ts')!;
+      const todos = files.get('src/routes/todos.routes.ts')!;
       expect(todos).toContain("todosRouter.get('/',");
       expect(todos).toContain("todosRouter.get('/:id',");
       expect(todos).toContain("todosRouter.post('/',");
@@ -134,16 +143,29 @@ describe('generateProject', () => {
       expect(todos).toContain('ctx.body');
       expect(todos).toContain('ctx.status = 201');
       expect(todos).toContain('ctx.status = 204');
-      expect(todos).toContain('ctx.throw(404');
-      expect(todos).toContain('ctx.throw(400');
     });
 
-    it('keeps todos state behind a pure store factory (no global mutable state)', () => {
+    it('uses framework HTTP errors (NotFoundError, BadRequestError) in the service', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
-      const data = files.get('src/routes/todos-data.ts')!;
-      expect(data).toContain('export function createTodoStore()');
-      expect(data).not.toContain('export const todos');
-      expect(data).not.toContain('class TodoStore');
+      const service = files.get('src/services/todos.service.ts')!;
+      expect(service).toContain("import { BadRequestError, NotFoundError } from 'nextrush';");
+      expect(service).toContain('throw new NotFoundError(');
+      expect(service).toContain('throw new BadRequestError(');
+    });
+
+    it('uses the built-in errorHandler middleware from nextrush', () => {
+      const files = generateProject(createOptions({ style: 'functional' }));
+      const entry = files.get('src/index.ts')!;
+      expect(entry).toContain('errorHandler');
+      expect(entry).toContain('app.use(errorHandler');
+    });
+
+    it('keeps todos state behind a pure repository factory (no global mutable state)', () => {
+      const files = generateProject(createOptions({ style: 'functional' }));
+      const repo = files.get('src/repositories/todos.repository.ts')!;
+      expect(repo).toContain('export function createTodoRepository()');
+      expect(repo).not.toContain('export const todos');
+      expect(repo).not.toContain('class TodoStore');
     });
 
     it('uses createApp, createRouter, listen imports', () => {
@@ -153,6 +175,14 @@ describe('generateProject', () => {
       expect(entry).toContain('createRouter');
       expect(entry).toContain('listen');
       expect(entry).toContain("from 'nextrush'");
+    });
+
+    it('uses config for the port (no inline process.env in the entrypoint)', () => {
+      const files = generateProject(createOptions({ style: 'functional' }));
+      const entry = files.get('src/index.ts')!;
+      expect(entry).toContain("import { config } from './config/index.js';");
+      expect(entry).toContain('await listen(app, config.port);');
+      expect(entry).not.toContain('const PORT =');
     });
 
     it('does not import reflect-metadata', () => {
@@ -191,7 +221,7 @@ describe('generateProject', () => {
 
     it('generates a health route wired to a testable pure status function', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
-      const health = files.get('src/routes/health.ts')!;
+      const health = files.get('src/routes/health.routes.ts')!;
       expect(health).toContain('healthRouter');
       expect(health).toContain('getHealthStatus');
     });
@@ -202,18 +232,20 @@ describe('generateProject', () => {
       expect(entry).toContain("import { listen } from '@nextrush/adapter-bun'");
     });
 
-    it('uses simple PORT declaration in entrypoint', () => {
+    it('reads the port from config, not an inline constant', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
-      expect(entry).toContain('await listen(app, PORT);');
+      expect(entry).toContain('await listen(app, config.port);');
+      const configFile = files.get('src/config/index.ts')!;
+      expect(configFile).toContain('Number(process.env.PORT ?? 8080)');
     });
 
-    it('uses process.uptime() in the health-status pure function', () => {
+    it('uses a cross-runtime uptime in the health service pure function', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
-      const status = files.get('src/routes/health-status.ts')!;
-      expect(status).toContain('process.uptime()');
+      const status = files.get('src/services/health.service.ts')!;
+      expect(status).toContain('performance.now()');
       expect(status).not.toContain('getUptimeSeconds');
+      expect(status).not.toContain('process.uptime');
     });
   });
 
@@ -278,11 +310,12 @@ describe('generateProject', () => {
       expect(service).toContain('@Service');
     });
 
-    it('uses process.uptime() in health service', () => {
+    it('uses a cross-runtime uptime in health service', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const service = files.get('src/modules/health/health.service.ts')!;
-      expect(service).toContain('process.uptime()');
+      expect(service).toContain('performance.now()');
       expect(service).not.toContain('getUptimeSeconds');
+      expect(service).not.toContain('process.uptime');
     });
 
     it('uses full CRUD decorator surface in the todos feature', () => {
@@ -335,17 +368,20 @@ describe('generateProject', () => {
     it('generates all expected files', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       expect(files.has('src/index.ts')).toBe(true);
+      expect(files.has('src/app.module.ts')).toBe(true);
+      expect(files.has('src/modules/hello/hello.module.ts')).toBe(true);
+      expect(files.has('src/modules/hello/hello.controller.ts')).toBe(true);
+      expect(files.has('src/modules/hello/hello.service.ts')).toBe(true);
       expect(files.has('src/routes/health.ts')).toBe(true);
-      expect(files.has('src/controllers/hello.controller.ts')).toBe(true);
-      expect(files.has('src/services/hello.service.ts')).toBe(true);
       expect(files.has('src/middleware/error-handler.ts')).toBe(true);
     });
 
-    it('uses serve instead of listen', () => {
+    it('uses listen instead of serve', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('serve');
-      expect(entry).toContain('onListen');
+      expect(entry).toContain('await listen(app, PORT)');
+      expect(entry).not.toContain('serve(');
+      expect(entry).not.toContain('onListen');
     });
 
     it('imports the error handler', () => {
@@ -356,7 +392,7 @@ describe('generateProject', () => {
 
     it('uses @Post and @Body decorators', () => {
       const files = generateProject(createOptions({ style: 'full' }));
-      const controller = files.get('src/controllers/hello.controller.ts')!;
+      const controller = files.get('src/modules/hello/hello.controller.ts')!;
       expect(controller).toContain('@Post');
       expect(controller).toContain('@Body');
     });
@@ -393,13 +429,24 @@ describe('generateProject', () => {
       expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
     });
 
-    it('uses awaited registerControllers with runtime-safe discovery config in full template', () => {
+    it('wires the root module with registerModule instead of filesystem discovery', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('await registerControllers(');
-      expect(entry).toContain('root: CONTROLLERS_ROOT');
-      expect(entry).toContain('include: CONTROLLERS_INCLUDE');
-      expect(entry).toContain('strict: true');
+      expect(entry).toContain("import { registerModule } from 'nextrush/class';");
+      expect(entry).toContain("import { AppModule } from './app.module.js';");
+      expect(entry).toContain('await registerModule(app, AppModule');
+      expect(entry).not.toContain('registerControllers');
+      expect(entry).not.toContain('CONTROLLERS_ROOT');
+      expect(entry).not.toContain('IS_DIST_RUNTIME');
+    });
+
+    it('declares the feature module in the root AppModule via imports', () => {
+      const files = generateProject(createOptions({ style: 'full' }));
+      const appModule = files.get('src/app.module.ts')!;
+      expect(appModule).toContain('@Module({');
+      expect(appModule).toContain('imports: [HelloModule]');
+      expect(appModule).toContain("import { HelloModule } from './modules/hello/hello.module.js';");
+      expect(appModule).toContain('export class AppModule');
     });
   });
 
@@ -474,13 +521,67 @@ describe('generateProject', () => {
     });
   });
 
+  describe('deno runtime is Deno-first (not a Node clone)', () => {
+    it('generates a deno.json with Deno types and no Node typings', () => {
+      const files = generateProject(createOptions({ style: 'functional', runtime: 'deno' }));
+      const denoJson = JSON.parse(files.get('deno.json')!) as {
+        compilerOptions: { lib?: unknown; experimentalDecorators?: unknown };
+      };
+      expect(files.has('deno.json')).toBe(true);
+      expect(denoJson.compilerOptions.lib).toContain('deno.window');
+      expect(denoJson.compilerOptions.experimentalDecorators).toBeUndefined();
+    });
+
+    it('does not install @types/node for a deno project', () => {
+      const files = generateProject(createOptions({ style: 'functional', runtime: 'deno' }));
+      const pkg = JSON.parse(files.get('package.json')!) as {
+        devDependencies: Record<string, unknown>;
+      };
+      expect(pkg.devDependencies['@types/node']).toBeUndefined();
+    });
+
+    it('does not force types node in the deno tsconfig', () => {
+      const files = generateProject(createOptions({ style: 'functional', runtime: 'deno' }));
+      const tsconfig = JSON.parse(files.get('tsconfig.json')!) as {
+        compilerOptions: { types?: unknown };
+      };
+      expect(tsconfig.compilerOptions.types).toBeUndefined();
+    });
+
+    it('adds decorator flags to deno.json for class-based/full projects', () => {
+      const files = generateProject(createOptions({ style: 'class-based', runtime: 'deno' }));
+      const denoJson = JSON.parse(files.get('deno.json')!) as {
+        compilerOptions: { experimentalDecorators?: unknown; emitDecoratorMetadata?: unknown };
+      };
+      expect(denoJson.compilerOptions.experimentalDecorators).toBe(true);
+      expect(denoJson.compilerOptions.emitDecoratorMetadata).toBe(true);
+    });
+
+    it('does not emit a deno.json for node/bun projects', () => {
+      const nodeFiles = generateProject(createOptions({ runtime: 'node' }));
+      expect(nodeFiles.has('deno.json')).toBe(false);
+      const bunFiles = generateProject(createOptions({ runtime: 'bun' }));
+      expect(bunFiles.has('deno.json')).toBe(false);
+    });
+
+    it('reads the port from Deno.env in a deno project config', () => {
+      const files = generateProject(createOptions({ style: 'functional', runtime: 'deno' }));
+      const config = files.get('src/config/index.ts')!;
+      expect(config).toContain("Deno.env.get('PORT')");
+      expect(config).not.toContain('process.env');
+    });
+  });
+
   describe('file counts', () => {
     it('functional minimal generates correct number of files', () => {
       const files = generateProject(createOptions({ style: 'functional', middleware: 'minimal' }));
       // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts,
-      // routes/health.ts, routes/health-status.ts, routes/todos.ts, routes/todos-data.ts,
-      // routes/__tests__/health-status.test.ts, routes/__tests__/todos-data.test.ts
-      expect(files.size).toBe(12);
+      // config/index.ts, lib/types.ts, middleware/logger.ts,
+      // routes/health.routes.ts, routes/todos.routes.ts,
+      // services/health.service.ts, services/todos.service.ts,
+      // services/__tests__/health.service.test.ts, services/__tests__/todos.service.test.ts,
+      // repositories/todos.repository.ts, repositories/__tests__/todos.repository.test.ts
+      expect(files.size).toBe(17);
     });
 
     it('class-based generates correct number of files', () => {
@@ -494,10 +595,11 @@ describe('generateProject', () => {
 
     it('full generates correct number of files', () => {
       const files = generateProject(createOptions({ style: 'full', middleware: 'minimal' }));
-      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts,
-      // routes/health.ts, controllers/hello.controller.ts, services/hello.service.ts,
-      // services/__tests__/hello.service.test.ts, middleware/error-handler.ts
-      expect(files.size).toBe(11);
+      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts, src/app.module.ts,
+      // modules/hello/hello.module.ts, modules/hello/hello.controller.ts,
+      // modules/hello/hello.service.ts, modules/hello/__tests__/hello.service.test.ts,
+      // routes/health.ts, middleware/error-handler.ts
+      expect(files.size).toBe(13);
     });
 
     it('git flag does not affect file count', () => {

@@ -49,9 +49,10 @@ describe('integration: file writing', () => {
     expect(existsSync(join(testDir, 'README.md'))).toBe(true);
     expect(existsSync(join(testDir, '.gitignore'))).toBe(true);
     expect(existsSync(join(testDir, 'src/index.ts'))).toBe(true);
-    expect(existsSync(join(testDir, 'src/routes/health.ts'))).toBe(true);
-    expect(existsSync(join(testDir, 'src/routes/todos.ts'))).toBe(true);
-    expect(existsSync(join(testDir, 'src/routes/todos-data.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/config/index.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/routes/health.routes.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/routes/todos.routes.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/repositories/todos.repository.ts'))).toBe(true);
     expect(existsSync(join(testDir, 'src/env.d.ts'))).toBe(true);
   });
 
@@ -95,9 +96,11 @@ describe('integration: file writing', () => {
 
     writeFiles(testDir, files);
 
+    expect(existsSync(join(testDir, 'src/app.module.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/modules/hello/hello.module.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/modules/hello/hello.controller.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/modules/hello/hello.service.ts'))).toBe(true);
     expect(existsSync(join(testDir, 'src/routes/health.ts'))).toBe(true);
-    expect(existsSync(join(testDir, 'src/controllers/hello.controller.ts'))).toBe(true);
-    expect(existsSync(join(testDir, 'src/services/hello.service.ts'))).toBe(true);
     expect(existsSync(join(testDir, 'src/middleware/error-handler.ts'))).toBe(true);
   });
 
