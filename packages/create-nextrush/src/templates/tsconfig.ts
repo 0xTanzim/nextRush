@@ -57,6 +57,16 @@ export function generateTsconfig(options: ProjectOptions): string {
  * Deno reads this config for its own type-checking and editor integration. The `lib`
  * entries expose Deno's global types (`Deno`, `Deno.env`, ...) without any Node
  * typings, so a Deno project is genuinely Deno-first rather than a Node clone.
+ *
+ * `unstable: ['sloppy-imports']` is the config equivalent of the
+ * `--unstable-sloppy-imports` flag the generated `dev`/`build` scripts and
+ * `@nextrush/dev`'s Deno spawn pass — without it, `deno check` / `deno test` / the
+ * Deno LSP fail to resolve the `.js`-specifier relative imports every generated file
+ * uses (same convention as the framework's own conformance runner).
+ *
+ * `nodeModulesDir: 'auto'` (Deno 2 default) makes Deno resolve the bare
+ * `@nextrush/*` / `nextrush` specifiers from the project's node_modules when
+ * present, instead of requiring an import map.
  */
 export function generateDenoJson(options: ProjectOptions): string {
   const needsDecorators = options.style === 'class-based' || options.style === 'full';
@@ -72,7 +82,11 @@ export function generateDenoJson(options: ProjectOptions): string {
         }
       : {}),
   };
-  const config: Record<string, unknown> = { compilerOptions };
+  const config: Record<string, unknown> = {
+    compilerOptions,
+    unstable: ['sloppy-imports'],
+    nodeModulesDir: 'auto',
+  };
   return JSON.stringify(config, null, 2) + '\n';
 }
 
