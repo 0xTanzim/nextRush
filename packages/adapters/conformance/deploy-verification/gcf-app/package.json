@@ -2,7 +2,7 @@
   "name": "nextrush-deploy-verification-gcf",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Throwaway Google Cloud Functions app for scheduled real-cloud deploy verification (openspec/changes/close-runtime-compatibility-gaps, task group 5). Not published.",
   "main": "index.mjs",
   "dependencies": {
