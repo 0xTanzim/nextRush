@@ -174,7 +174,11 @@ export async function buildWithDenoNative(
     }
 
     success(`Copied ${String(files.length)} TypeScript file(s) to ${outDir}/`);
-    log('Run with: deno run -A dist/index.ts');
+    // The copied `.ts` sources keep their `.js` specifiers, so the run hint must
+    // carry sloppy-imports (same as the generated dev/build scripts and the CLI's
+    // own Deno spawn) — and scoped permissions instead of blanket `-A`, consistent
+    // with the scaffold's no-`-A` policy (generated-script-flags.test.ts).
+    log('Run with: deno run --allow-net --allow-read --allow-env --unstable-sloppy-imports dist/index.ts');
   } catch (err) {
     error(`Deno build failed: ${(err as Error).message}`);
     throw err;
@@ -202,7 +206,11 @@ export async function generateDeclarationsWithDeno(
 
     const args = [
       'run',
-      '-A',
+      // tsc needs only the project tree: read sources + tsconfig, write declarations to
+      // outDir. Scoped instead of blanket `-A`, consistent with the scaffold's no-`-A`
+      // policy (generated-script-flags.test.ts) and the dev-spawn permission defaults.
+      '--allow-read',
+      '--allow-write',
       tscPath,
       '--declaration',
       '--emitDeclarationOnly',
@@ -218,8 +226,9 @@ export async function generateDeclarationsWithDeno(
       args.push(...sourceFiles.map((file) => file.path));
     }
 
-    // The Deno binary is guaranteed present (we ARE running under it); `deno run -A`
-    // executes the locally resolved tsc directly — no npx, no node_modules requirement.
+    // The Deno binary is guaranteed present (we ARE running under it); `deno run
+    // --allow-read --allow-write` executes the locally resolved tsc directly — no npx, no
+    // node_modules requirement, and only the project tree is exposed to it.
     const command = new Deno.Command('deno', { args, cwd, stderr: 'piped', stdout: 'piped' });
 
     const result = await command.output();

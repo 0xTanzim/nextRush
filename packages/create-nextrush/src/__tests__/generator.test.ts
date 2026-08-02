@@ -526,10 +526,17 @@ describe('generateProject', () => {
       const files = generateProject(createOptions({ style: 'functional', runtime: 'deno' }));
       const denoJson = JSON.parse(files.get('deno.json')!) as {
         compilerOptions: { lib?: unknown; experimentalDecorators?: unknown };
+        unstable?: unknown;
+        nodeModulesDir?: unknown;
       };
       expect(files.has('deno.json')).toBe(true);
       expect(denoJson.compilerOptions.lib).toContain('deno.window');
       expect(denoJson.compilerOptions.experimentalDecorators).toBeUndefined();
+      // Native Deno tooling (deno check/test/LSP) must resolve the `.js`-specifier
+      // relative imports and bare `@nextrush/*` specifiers — config, not just the
+      // hand-written npm scripts (Deno-first fix).
+      expect(denoJson.unstable).toEqual(['sloppy-imports']);
+      expect(denoJson.nodeModulesDir).toBe('auto');
     });
 
     it('does not install @types/node for a deno project', () => {
@@ -569,6 +576,12 @@ describe('generateProject', () => {
       const config = files.get('src/config/index.ts')!;
       expect(config).toContain("Deno.env.get('PORT')");
       expect(config).not.toContain('process.env');
+    });
+
+    it('omits engines.node from a deno project package.json (the app is not Node-dependent)', () => {
+      const files = generateProject(createOptions({ style: 'functional', runtime: 'deno' }));
+      const pkg = JSON.parse(files.get('package.json')!) as { engines?: unknown };
+      expect(pkg.engines).toBeUndefined();
     });
   });
 

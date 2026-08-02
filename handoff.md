@@ -56,6 +56,16 @@ Continuation session (this one) completed:
 - [x] Restored accidentally deleted `.changeset/pre.json` (repo is in beta prerelease mode — file is required for the release flow)
 - [x] Confirmed `controller-discovery-scope.test.ts` deletion is intentional (it asserted the removed `registerControllers` auto-discovery API; `generator.test.ts` now asserts that API is absent)
 
+Deno hardening session (this one, follow-up) completed:
+- [x] Generated `deno.json` now carries `unstable: ['sloppy-imports']` + `nodeModulesDir: 'auto'` — native Deno tooling (deno check/test/LSP) resolves `.js`-specifier imports and bare `@nextrush/*` specifiers; previously only the npm scripts passed the flag
+- [x] `src/env.d.ts` omitted for Deno projects (unresolvable `@nextrush/types` triple-slash ref under deno check)
+- [x] `engines.node` omitted from Deno project package.json (app is not Node-dependent)
+- [x] `@nextrush/dev` deno-builder: native-fallback run hint now includes `--unstable-sloppy-imports` + scoped perms (was `-A`); declaration tsc spawn scoped to `--allow-read --allow-write` (was `-A`)
+- [x] New real-Deno test suite `deno-check-real.test.ts` — generates functional/class-based/full Deno projects, runs real `deno check` (hermetic import-map stubs), plus a boot test that runs the app and hits `/health` (all green on Deno 2.9)
+- [x] Conformance deno-runner import map gained missing `@nextrush/adapter-nextjs` entry — full shared suite now runs under Deno (31/31 green)
+- [x] Verified adapter-deno `process.once` signal handling works on real Deno 2.9 (no change needed)
+- [x] Full suite re-run: create-nextrush 27 files / 250 tests, @nextrush/dev 33 files / 289 tests, lint + typecheck clean
+
 Next session should:
 - Commit the changes (if approved)
 
@@ -72,7 +82,29 @@ The current objective is complete when:
 - [x] Tests pass (functional, class-based, full, Deno-specific)
 - [x] Lint passes
 - [x] Typecheck passes
-- [x] Full test suite run confirmed (26 files / 240 tests in create-nextrush, 33 files / 289 tests in @nextrush/dev)
+- [x] Full test suite run confirmed (create-nextrush 27 files / 250 tests, @nextrush/dev 33 files / 289 tests, Deno conformance 31/31)
+
+---
+
+# 1b. Deno Hardening (follow-up objective)
+
+## Current Objective
+
+Make every Deno surface genuinely Deno-first and verified under real Deno: the scaffold's
+deno.json config, the generated source, `@nextrush/dev`'s Deno build path, and the
+adapter conformance runner.
+
+## Success Criteria
+
+- [x] Generated deno.json resolves `.js`-specifier imports via `unstable: ['sloppy-imports']`
+- [x] Generated deno.json resolves bare `@nextrush/*` specifiers via `nodeModulesDir: 'auto'`
+- [x] No `@nextrush/types` triple-slash reference in Deno projects (env.d.ts omitted)
+- [x] No misleading `engines.node` in Deno project package.json
+- [x] @nextrush/dev Deno build paths use scoped permissions + sloppy-imports (no `-A`)
+- [x] Generated functional/class-based/full Deno projects pass real `deno check`
+- [x] Generated functional Deno app boots under real Deno and answers `/health`
+- [x] Deno conformance suite runs and passes on real Deno (31/31)
+- [x] Full create-nextrush + @nextrush/dev suites, lint, typecheck all green
 
 ---
 
@@ -98,10 +130,13 @@ The current objective is complete when:
 - Cross-runtime uptime API (`performance.now()`)
 - Runtime-aware `@types/node` and `types: ['node']` handling
 - Linter compliance (`// capability-exempt` comments for scaffold-time runtime decisions)
+- Deno-first scaffold hardening (deno.json sloppy-imports/nodeModulesDir, env.d.ts, engines)
+- Real-Deno verification suite (deno check + boot on generated projects)
+- Deno conformance runner import-map fix + 31/31 green on real Deno
 
 ## Currently Working On
 
-- Ready to commit — all work verified green, changesets reviewed, working tree clean of accidental deletions
+- Ready to commit — all Deno hardening verified green under real Deno 2.9
 
 ## Remaining
 
