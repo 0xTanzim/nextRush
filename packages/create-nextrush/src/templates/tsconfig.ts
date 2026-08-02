@@ -18,6 +18,10 @@ export function generateTsconfig(needsDecorators: boolean): string {
       // type-check time, matching the framework's own standard (typescript.instructions.md).
       isolatedModules: true,
       verbatimModuleSyntax: true,
+      // TS >= 6 no longer auto-includes `@types/*` when `types` is omitted, so a
+      // scaffolded app would lose `process` et al. even though `@types/node` is a
+      // generated devDependency. Pin it explicitly (issue #40).
+      types: ['node'],
       sourceMap: true,
       outDir: './dist',
       rootDir: './src',
