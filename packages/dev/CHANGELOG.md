@@ -1,5 +1,33 @@
 # @nextrush/dev
 
+## 1.0.2
+
+### Patch Changes
+
+- [#45](https://github.com/0xTanzim/nextRush/pull/45) [`6e9e28b`](https://github.com/0xTanzim/nextRush/commit/6e9e28b8a2d5e4a97e6b79f866a937d7c12d6508) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Make the `dev` and `build` CLI commands completion-aware (issue [#40](https://github.com/0xTanzim/nextrush/issues/40)): `cli()` now
+  resolves only after the routed command's work has finished, the dev server child is
+  awaited before the process exits, and the bin entry points surface an unexpected
+  rejection as a non-zero exit instead of exiting 0 silently.
+
+  Fix `.d.ts` declaration generation for projects whose tsconfig omits
+  `compilerOptions.types` (issue [#40](https://github.com/0xTanzim/nextrush/issues/40)). TypeScript >= 6 no longer auto-includes
+  `@types/*` when `types` is absent, so the local declaration pass now injects
+  `--types node` (or `bun-types`) for the detected runtime when the project does not
+  pin its own `types` list — resolving TS2591 ("Cannot find name 'process'") on
+  scaffolded projects.
+
+- [#45](https://github.com/0xTanzim/nextRush/pull/45) [`10e2887`](https://github.com/0xTanzim/nextRush/commit/10e28873efadb6a5547ee425c0e09f60d08c7dfe) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Fix `nextrush build` leaking test/spec files into `dist/` as empty `export {}`
+  modules (issue2). The declaration pass ran bare `tsc` with no file list, so
+  tsconfig `include` globs pulled `*.test.ts`/`*.spec.ts` into the declaration emit —
+  and a test file with any unused import failed the entire build with TS6133.
+
+  Both build paths (Node/SWC and Deno) now run `tsc` through a generated temp
+  tsconfig that extends the project config and pins `files` to the same
+  test-filtered, srcDir-scoped source set the SWC transform compiled, so the two
+  steps can never disagree on "what is project source". The Deno path no longer
+  depends on `npx tsc` finding TypeScript in the project's `node_modules`; it
+  resolves the bundled compiler deterministically and runs it via the Deno binary.
+
 ## 1.0.1
 
 ### Patch Changes

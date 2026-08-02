@@ -1,5 +1,16 @@
 # @nextrush/testing
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @nextrush/types@4.0.1
+  - @nextrush/core@4.0.1
+  - @nextrush/router@4.0.1
+  - @nextrush/di@4.0.1
+  - @nextrush/class@1.0.1
+
 ## 1.0.0
 
 ### Patch Changes
