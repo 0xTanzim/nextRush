@@ -156,11 +156,19 @@ unit-testable payload builder), and its test.
 ### Scaffold a class-based project with DI
 
 ```bash
-pnpm create nextrush my-api --style class-based --middleware minimal --yes
+pnpm create nextrush my-api --style class-based --middleware api --yes
 ```
 
-Generates `src/index.ts` (which calls `registerControllers` under prefix `/api`),
-`src/controllers/health.controller.ts`, `src/services/app.service.ts`, and its test.
+Generates a feature-module scaffold: `src/index.ts` (which calls `registerModule(app,
+AppModule)` under prefix `/api`), a root `src/app.module.ts` composing feature modules via
+`@Module({ imports })`, and two feature modules under `src/modules/`:
+
+- `health/` — minimal controller + service with constructor DI.
+- `todos/` — full CRUD (`@Get`/`@Post`/`@Delete` with `@Param`/`@Body`/`@Query`,
+  `@HttpCode`, `@Repository`, `HttpError` validation paths) plus unit tests.
+
+Use `--middleware minimal` to omit the body-parser/cors/helmet presets; note `@Body()`
+requires a body-parser (`app.use(json())`), which ships with the default `api` preset.
 
 ### Target Bun or Deno instead of Node
 
