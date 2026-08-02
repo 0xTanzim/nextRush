@@ -1,0 +1,81 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for NextRush.
+title: "[Feature]: "
+labels:
+  - enhancement
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve NextRush!
+
+        Before submitting:
+        - Search existing issues and discussions.
+        - Consider opening a Discussion first if you'd like community feedback.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and discussions.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem are you trying to solve?
+      placeholder: |
+        I'm unable to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed solution.
+      placeholder: |
+        I would like NextRush to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered (Optional)
+      description: Have you considered other approaches?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Related Area
+      options:
+        - Core
+        - Routing
+        - Middleware
+        - Extensions
+        - CLI
+        - Configuration
+        - Performance
+        - Documentation
+        - Testing
+        - Other
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case
+      description: How would this feature be used?
+      placeholder: |
+        This feature would allow developers to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context (Optional)
+      description: Links, screenshots, examples, or references.
