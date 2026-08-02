@@ -35,23 +35,28 @@ export function toCamelCase(name: string): string {
 
 export function controllerTemplate(name: string): string {
   const className = `${toPascalCase(name)}Controller`;
-  return `import { Controller, Get, Post, Body, Param } from 'nextrush/class';
+  const serviceName = `${toPascalCase(name)}Service`;
+  const serviceRef = `${toCamelCase(name)}Service`;
+  return `import { Body, Controller, Get, Param, Post } from 'nextrush/class';
+import { ${serviceName} } from './${name}.service.js';
 
 @Controller('/${name}')
 export class ${className} {
+  constructor(private readonly ${serviceRef}: ${serviceName}) {}
+
   @Get()
-  async findAll() {
-    return [];
+  findAll() {
+    return this.${serviceRef}.findAll();
   }
 
   @Get('/:id')
-  async findOne(@Param('id') id: string) {
-    return { id };
+  findOne(@Param('id') id: string) {
+    return this.${serviceRef}.findOne(id);
   }
 
   @Post()
-  async create(@Body() data: unknown) {
-    return data;
+  create(@Body() data: unknown) {
+    return this.${serviceRef}.create(data);
   }
 }
 `;
@@ -61,22 +66,44 @@ export class ${className} {
 
 export function serviceTemplate(name: string): string {
   const className = `${toPascalCase(name)}Service`;
-  return `import { Service } from 'nextrush/class';
+  return `import { HttpError } from 'nextrush';
+import { Service } from 'nextrush/class';
 
 @Service()
 export class ${className} {
-  async findAll() {
+  findAll() {
     return [];
   }
 
-  async findOne(id: string) {
+  findOne(id: string) {
+    if (!id) throw new HttpError(404, 'Not found');
     return { id };
   }
 
-  async create(data: unknown) {
+  create(data: unknown) {
+    if (!data || typeof data !== 'object') throw new HttpError(400, 'Invalid input');
     return data;
   }
 }
+`;
+}
+
+// ─── Module (class-based feature module) ─────────────────────────────────
+
+export function moduleTemplate(name: string): string {
+  const className = `${toPascalCase(name)}Module`;
+  const controllerName = `${toPascalCase(name)}Controller`;
+  const serviceName = `${toPascalCase(name)}Service`;
+  return `import { Module } from 'nextrush/class';
+
+import { ${controllerName} } from './${name}.controller.js';
+import { ${serviceName} } from './${name}.service.js';
+
+@Module({
+  controllers: [${controllerName}],
+  providers: [${serviceName}],
+})
+export class ${className} {}
 `;
 }
 
@@ -112,30 +139,30 @@ export const ${fnName}: GuardFn = async (ctx) => {
 
 // ─── Route (functional) ─────────────────────────────────────────────────
 
-export function routeTemplate(_name: string): string {
+export function routeTemplate(name: string): string {
+  const routerName = `${toCamelCase(name)}Router`;
   return `import { createRouter } from 'nextrush';
 
-const router = createRouter();
+export const ${routerName} = createRouter();
 
-router.get('/', (ctx) => {
+${routerName}.get('/', (ctx) => {
   ctx.json([]);
 });
 
-router.get('/:id', (ctx) => {
+${routerName}.get('/:id', (ctx) => {
   ctx.json({ id: ctx.params.id });
 });
 
-router.post('/', (ctx) => {
+${routerName}.post('/', (ctx) => {
+  ctx.status = 201;
   ctx.json(ctx.body);
 });
-
-export default router;
 `;
 }
 
 // ─── Template Registry ──────────────────────────────────────────────────
 
-export type GeneratorType = 'controller' | 'service' | 'middleware' | 'guard' | 'route';
+export type GeneratorType = 'controller' | 'service' | 'middleware' | 'guard' | 'route' | 'module';
 
 export const GENERATOR_TYPES: readonly GeneratorType[] = [
   'controller',
@@ -143,6 +170,7 @@ export const GENERATOR_TYPES: readonly GeneratorType[] = [
   'middleware',
   'guard',
   'route',
+  'module',
 ];
 
 /** Short aliases for generator types */
@@ -152,6 +180,7 @@ export const GENERATOR_ALIASES: Record<string, GeneratorType> = {
   mw: 'middleware',
   g: 'guard',
   r: 'route',
+  m: 'module',
 };
 
 interface GeneratorConfig {
@@ -186,5 +215,10 @@ export const GENERATORS: Record<GeneratorType, GeneratorConfig> = {
     template: routeTemplate,
     directory: 'src/routes',
     suffix: '.ts',
+  },
+  module: {
+    template: moduleTemplate,
+    directory: 'src/modules',
+    suffix: '.module.ts',
   },
 };
