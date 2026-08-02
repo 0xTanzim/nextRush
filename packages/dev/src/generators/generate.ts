@@ -43,11 +43,39 @@ export function validateName(name: string): string | undefined {
 }
 
 /**
- * Build the output file path for a generator.
+ * Build the output file path for a generator using its default (flat) directory.
+ * Module-aware placement is resolved separately by {@link resolveOutputDirectory}.
  */
 export function buildFilePath(cwd: string, type: GeneratorType, name: string): string {
   const config = GENERATORS[type];
   return joinPath(cwd, config.directory, `${name}${config.suffix}`);
+}
+
+/** Types that co-locate into a feature directory when the project uses modules. */
+const FEATURE_DIRECTORY_TYPES: readonly GeneratorType[] = ['controller', 'service'];
+
+/**
+ * Resolve the output directory for a generator, matching the scaffolded project
+ * structure:
+ *
+ * - `module` always lands in its own feature directory (`src/modules/<name>/`),
+ *   the shape `create-nextrush`'s class-based template emits.
+ * - `controller`/`service` in a class-based module project (a `src/modules/`
+ *   directory exists) land in `src/modules/<name>/` so they co-locate with the
+ *   feature's other files (module, tests).
+ * - Everything else (including module-less/full-style projects) uses the
+ *   generator's default flat directory (`src/controllers/`, `src/services/`, ...).
+ *
+ * @param cwd - Project root.
+ * @param type - Generator type.
+ * @param name - Scaffold name (kebab-case).
+ * @returns The output directory relative to `cwd`.
+ */
+export async function resolveOutputDirectory(cwd: string, type: GeneratorType, name: string): Promise<string> {
+  if (type === 'module' || (FEATURE_DIRECTORY_TYPES.includes(type) && (await exists(joinPath(cwd, 'src', 'modules'))))) {
+    return joinPath('src', 'modules', name);
+  }
+  return GENERATORS[type].directory;
 }
 
 /**
@@ -56,8 +84,9 @@ export function buildFilePath(cwd: string, type: GeneratorType, name: string): s
 export async function generate(type: GeneratorType, name: string, cwd?: string): Promise<string> {
   const root = cwd ?? getCwd();
   const config = GENERATORS[type];
-  const filePath = buildFilePath(root, type, name);
-  const dirPath = joinPath(root, config.directory);
+  const directory = await resolveOutputDirectory(root, type, name);
+  const filePath = joinPath(root, directory, `${name}${config.suffix}`);
+  const dirPath = joinPath(root, directory);
 
   // Check if file already exists
   if (await exists(filePath)) {
@@ -163,7 +192,7 @@ export async function generateCli(args: string[]): Promise<void> {
   if (!type) {
     error(`Unknown generator type: "${typeArg}"`);
     error(`Available types: ${GENERATOR_TYPES.join(', ')}`);
-    error(`Aliases: c (controller), s (service), mw (middleware), g (guard), r (route)`);
+    error(`Aliases: c (controller), s (service), m (module), mw (middleware), g (guard), r (route)`);
     exitProcess(1);
   }
 
@@ -200,6 +229,7 @@ Usage: nextrush generate <type> <name>
 Types:
   controller, c    Create a controller class (src/controllers/<name>.controller.ts)
   service, s       Create a service class    (src/services/<name>.service.ts)
+  module, m        Create a feature module    (src/modules/<name>/<name>.module.ts)
   middleware, mw   Create a middleware fn     (src/middleware/<name>.ts)
   guard, g         Create a guard fn          (src/guards/<name>.guard.ts)
   route, r         Create a route module      (src/routes/<name>.ts)
@@ -208,6 +238,7 @@ Types:
 Examples:
   nextrush g controller user       Create src/controllers/user.controller.ts
   nextrush g s user                Create src/services/user.service.ts
+  nextrush g m todos               Create src/modules/todos/todos.module.ts
   nextrush g mw logger             Create src/middleware/logger.ts
   nextrush g guard auth            Create src/guards/auth.guard.ts
   nextrush g r products            Create src/routes/products.ts

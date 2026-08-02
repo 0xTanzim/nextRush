@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -6,6 +6,7 @@ import {
   buildFilePath,
   generate,
   resolveGeneratorType,
+  resolveOutputDirectory,
   validateName,
 } from '../../generators/generate.js';
 
@@ -18,11 +19,13 @@ describe('resolveGeneratorType', () => {
     expect(resolveGeneratorType('middleware')).toBe('middleware');
     expect(resolveGeneratorType('guard')).toBe('guard');
     expect(resolveGeneratorType('route')).toBe('route');
+    expect(resolveGeneratorType('module')).toBe('module');
   });
 
   it('resolves aliases', () => {
     expect(resolveGeneratorType('c')).toBe('controller');
     expect(resolveGeneratorType('s')).toBe('service');
+    expect(resolveGeneratorType('m')).toBe('module');
     expect(resolveGeneratorType('mw')).toBe('middleware');
     expect(resolveGeneratorType('g')).toBe('guard');
     expect(resolveGeneratorType('r')).toBe('route');
@@ -32,6 +35,7 @@ describe('resolveGeneratorType', () => {
     expect(resolveGeneratorType('Controller')).toBe('controller');
     expect(resolveGeneratorType('SERVICE')).toBe('service');
     expect(resolveGeneratorType('GUARD')).toBe('guard');
+    expect(resolveGeneratorType('MODULE')).toBe('module');
   });
 
   it('returns undefined for unknown types', () => {
@@ -117,9 +121,57 @@ describe('buildFilePath', () => {
     expect(path).toBe('/project/src/routes/products.ts');
   });
 
+  it('builds module file path', () => {
+    const path = buildFilePath('/project', 'module', 'todos');
+    expect(path).toBe('/project/src/modules/todos.module.ts');
+  });
+
   it('handles kebab-case names', () => {
     const path = buildFilePath('/project', 'controller', 'user-profile');
     expect(path).toBe('/project/src/controllers/user-profile.controller.ts');
+  });
+});
+
+// ─── resolveOutputDirectory (module-aware placement) ────────────────────
+
+describe('resolveOutputDirectory', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'nextrush-resolve-'));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('uses flat src/controllers when the project has no modules dir', async () => {
+    const dir = await resolveOutputDirectory(tempDir, 'controller', 'user');
+    expect(dir).toBe('src/controllers');
+  });
+
+  it('co-locates controllers into src/modules/<name> when src/modules exists', async () => {
+    await mkdir(join(tempDir, 'src', 'modules'), { recursive: true });
+    const dir = await resolveOutputDirectory(tempDir, 'controller', 'user');
+    expect(dir).toBe('src/modules/user');
+  });
+
+  it('co-locates services into src/modules/<name> when src/modules exists', async () => {
+    await mkdir(join(tempDir, 'src', 'modules'), { recursive: true });
+    const dir = await resolveOutputDirectory(tempDir, 'service', 'user');
+    expect(dir).toBe('src/modules/user');
+  });
+
+  it('keeps non-feature types on their flat directories even with modules present', async () => {
+    await mkdir(join(tempDir, 'src', 'modules'), { recursive: true });
+    expect(await resolveOutputDirectory(tempDir, 'route', 'products')).toBe('src/routes');
+    expect(await resolveOutputDirectory(tempDir, 'middleware', 'logger')).toBe('src/middleware');
+    expect(await resolveOutputDirectory(tempDir, 'guard', 'auth')).toBe('src/guards');
+  });
+
+  it('places a module in its own feature directory even without src/modules yet', async () => {
+    const dir = await resolveOutputDirectory(tempDir, 'module', 'todos');
+    expect(dir).toBe('src/modules/todos');
   });
 });
 
@@ -176,7 +228,33 @@ describe('generate (filesystem)', () => {
 
     const content = await readFile(filePath, 'utf-8');
     expect(content).toContain('createRouter');
-    expect(content).toContain('export default router');
+    expect(content).toContain('export const productsRouter = createRouter()');
+    expect(content).not.toContain('export default');
+  });
+
+  it('creates a module file', async () => {
+    const filePath = await generate('module', 'todos', tempDir);
+    expect(filePath).toContain('src/modules/todos/todos.module.ts');
+
+    const content = await readFile(filePath, 'utf-8');
+    expect(content).toContain('export class TodosModule');
+    expect(content).toContain('@Module({');
+  });
+
+  it('co-locates a controller into its feature module when src/modules exists', async () => {
+    await mkdir(join(tempDir, 'src', 'modules'), { recursive: true });
+    const filePath = await generate('controller', 'user', tempDir);
+    expect(filePath).toContain('src/modules/user/user.controller.ts');
+
+    const content = await readFile(filePath, 'utf-8');
+    expect(content).toContain('export class UserController');
+    expect(content).toContain("import { UserService } from './user.service.js'");
+  });
+
+  it('co-locates a service into its feature module when src/modules exists', async () => {
+    await mkdir(join(tempDir, 'src', 'modules'), { recursive: true });
+    const filePath = await generate('service', 'user', tempDir);
+    expect(filePath).toContain('src/modules/user/user.service.ts');
   });
 
   it('creates directories recursively', async () => {
