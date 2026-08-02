@@ -180,11 +180,17 @@ describe('generateProject', () => {
   });
 
   describe('class-based style', () => {
-    it('generates controller and service files', () => {
+    it('generates feature-module, controller, and service files', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       expect(files.has('src/index.ts')).toBe(true);
-      expect(files.has('src/controllers/health.controller.ts')).toBe(true);
-      expect(files.has('src/services/app.service.ts')).toBe(true);
+      expect(files.has('src/app.module.ts')).toBe(true);
+      expect(files.has('src/modules/health/health.module.ts')).toBe(true);
+      expect(files.has('src/modules/health/health.controller.ts')).toBe(true);
+      expect(files.has('src/modules/health/health.service.ts')).toBe(true);
+      expect(files.has('src/modules/todos/todos.module.ts')).toBe(true);
+      expect(files.has('src/modules/todos/todos.controller.ts')).toBe(true);
+      expect(files.has('src/modules/todos/todos.service.ts')).toBe(true);
+      expect(files.has('src/modules/todos/todos.repository.ts')).toBe(true);
     });
 
     it('does not manually import reflect-metadata (auto-imported by nextrush)', () => {
@@ -193,14 +199,25 @@ describe('generateProject', () => {
       expect(entry).not.toContain("import 'reflect-metadata'");
     });
 
-    it('uses awaited registerControllers with runtime-safe discovery config', () => {
+    it('wires the root module with registerModule instead of filesystem discovery', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('await registerControllers(');
-      expect(entry).toContain('root: CONTROLLERS_ROOT');
-      expect(entry).toContain('include: CONTROLLERS_INCLUDE');
-      expect(entry).toContain('strict: true');
-      expect(entry).toContain("const CONTROLLERS_ROOT = IS_DIST_RUNTIME ? './dist/controllers' : './src/controllers';");
+      expect(entry).toContain("import { registerModule } from 'nextrush/class';");
+      expect(entry).toContain("import { AppModule } from './app.module.js';");
+      expect(entry).toContain('await registerModule(app, AppModule');
+      expect(entry).not.toContain('registerControllers');
+      expect(entry).not.toContain('CONTROLLERS_ROOT');
+      expect(entry).not.toContain('IS_DIST_RUNTIME');
+    });
+
+    it('declares feature modules in the root AppModule via imports', () => {
+      const files = generateProject(createOptions({ style: 'class-based' }));
+      const appModule = files.get('src/app.module.ts')!;
+      expect(appModule).toContain("@Module({");
+      expect(appModule).toContain('imports: [HealthModule, TodosModule]');
+      expect(appModule).toContain("import { HealthModule } from './modules/health/health.module.js';");
+      expect(appModule).toContain("import { TodosModule } from './modules/todos/todos.module.js';");
+      expect(appModule).toContain('export class AppModule');
     });
 
     it('uses simple PORT declaration in class-based entrypoint', () => {
@@ -212,22 +229,47 @@ describe('generateProject', () => {
 
     it('uses @Controller and @Get decorators', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
-      const controller = files.get('src/controllers/health.controller.ts')!;
+      const controller = files.get('src/modules/health/health.controller.ts')!;
       expect(controller).toContain('@Controller');
       expect(controller).toContain('@Get');
     });
 
     it('uses @Service decorator', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
-      const service = files.get('src/services/app.service.ts')!;
+      const service = files.get('src/modules/health/health.service.ts')!;
       expect(service).toContain('@Service');
     });
 
-    it('uses process.uptime() in app service', () => {
+    it('uses process.uptime() in health service', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
-      const service = files.get('src/services/app.service.ts')!;
+      const service = files.get('src/modules/health/health.service.ts')!;
       expect(service).toContain('process.uptime()');
       expect(service).not.toContain('getUptimeSeconds');
+    });
+
+    it('uses full CRUD decorator surface in the todos feature', () => {
+      const files = generateProject(createOptions({ style: 'class-based' }));
+      const controller = files.get('src/modules/todos/todos.controller.ts')!;
+      expect(controller).toContain('@Controller(\'/todos\')');
+      expect(controller).toContain('@Get()');
+      expect(controller).toContain('@Get(\':id\')');
+      expect(controller).toContain('@Post()');
+      expect(controller).toContain('@Delete(\':id\')');
+      expect(controller).toContain('@Param(\'id\')');
+      expect(controller).toContain('@Body()');
+      expect(controller).toContain('@Query(\'status\')');
+      expect(controller).toContain('@HttpCode(201)');
+      expect(controller).toContain('@HttpCode(204)');
+    });
+
+    it('uses @Repository and HttpError in the todos feature', () => {
+      const files = generateProject(createOptions({ style: 'class-based' }));
+      const repository = files.get('src/modules/todos/todos.repository.ts')!;
+      expect(repository).toContain('@Repository()');
+      const service = files.get('src/modules/todos/todos.service.ts')!;
+      expect(service).toContain("import { HttpError } from 'nextrush';");
+      expect(service).toContain("import { Service } from 'nextrush/class';");
+      expect(service).toContain('new HttpError(404');
     });
 
     it('includes reflect-metadata in dependencies', () => {
@@ -404,9 +446,11 @@ describe('generateProject', () => {
 
     it('class-based generates correct number of files', () => {
       const files = generateProject(createOptions({ style: 'class-based', middleware: 'minimal' }));
-      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts,
-      // health.controller.ts, app.service.ts, services/__tests__/app.service.test.ts
-      expect(files.size).toBe(9);
+      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts, src/app.module.ts,
+      // modules/health/{health.module,health.controller,health.service}.ts,
+      // modules/todos/{todos.module,todos.controller,todos.service,todos.repository}.ts,
+      // modules/todos/__tests__/{todos.service,todos.controller}.test.ts
+      expect(files.size).toBe(16);
     });
 
     it('full generates correct number of files', () => {
