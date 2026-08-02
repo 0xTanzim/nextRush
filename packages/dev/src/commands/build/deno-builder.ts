@@ -11,7 +11,8 @@ import { getCwd, resolvePath } from '../../runtime/index.js';
 import { getNodeFsPromises, getNodePath } from '../../runtime/node-modules.js';
 import { error, info, log, success, warn, formatSize } from '../../utils/logger.js';
 import type { BuildOptions } from './types.js';
-import { findTypeScriptFiles, mapExtension } from './file-scanner.js';
+import { findTypeScriptFiles, mapExtension, type TypeScriptFile } from './file-scanner.js';
+import { writeDeclarationTsconfig, resolveTscPath } from './declaration-builder.js';
 import { buildSwcTransformOptions } from './swc-transform-options.js';
 
 /** SWC version pulled via Deno's `npm:` specifier — kept in sync with package.json. */
@@ -119,7 +120,7 @@ export async function buildWithDeno(entry: string, outDir: string, options: Buil
       success(`Built ${String(files.length)} file(s) to ${outDir}/`);
 
       // Generate declaration files
-      await generateDeclarationsWithDeno(cwd, outDir, Deno);
+      await generateDeclarationsWithDeno(cwd, outDir, srcDir, files, Deno);
 
       return;
     } catch (swcError) {
@@ -183,17 +184,43 @@ export async function buildWithDenoNative(
 export async function generateDeclarationsWithDeno(
   cwd: string,
   outDir: string,
+  srcDir: string,
+  files: TypeScriptFile[],
   Deno: DenoCommandCtor
 ): Promise<void> {
   log('Generating type declarations...');
 
   try {
-    const command = new Deno.Command('npx', {
-      args: ['tsc', '--declaration', '--emitDeclarationOnly', '--outDir', outDir],
-      cwd,
-      stderr: 'piped',
-      stdout: 'piped',
-    });
+    const path = await getNodePath();
+    const srcPrefix = srcDir.endsWith(path.sep) ? srcDir : `${srcDir}${path.sep}`;
+    const sourceFiles = files.filter((file) => file.path.startsWith(srcPrefix));
+
+    // Same test-filtered, srcDir-scoped source set as the Node builder (issue2): the
+    // declaration pass must agree with the SWC transform on "what is project source".
+    const configPath = await writeDeclarationTsconfig(cwd, sourceFiles);
+    const tscPath = await resolveTscPath();
+
+    const args = [
+      'run',
+      '-A',
+      tscPath,
+      '--declaration',
+      '--emitDeclarationOnly',
+      '--rootDir',
+      srcDir,
+      '--outDir',
+      outDir,
+    ];
+    if (configPath) {
+      args.push('--project', configPath);
+    } else {
+      // No project tsconfig → pass the files directly (no TS5112 hazard).
+      args.push(...sourceFiles.map((file) => file.path));
+    }
+
+    // The Deno binary is guaranteed present (we ARE running under it); `deno run -A`
+    // executes the locally resolved tsc directly — no npx, no node_modules requirement.
+    const command = new Deno.Command('deno', { args, cwd, stderr: 'piped', stdout: 'piped' });
 
     const result = await command.output();
 

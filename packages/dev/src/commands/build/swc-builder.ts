@@ -11,21 +11,15 @@
  */
 
 import { getCwd, resolvePath, existsSync } from '../../runtime/index.js';
-import {
-  getNodeChildProcess,
-  getNodeFsPromises,
-  getNodeModule,
-  getNodeOs,
-  getNodePath,
-} from '../../runtime/node-modules.js';
+import { getNodeFsPromises, getNodeOs, getNodePath } from '../../runtime/node-modules.js';
 import { error, log, success, formatSize } from '../../utils/logger.js';
 import type { BuildOptions } from './types.js';
 import { findTypeScriptFiles, mapExtension, type TypeScriptFile } from './file-scanner.js';
+import { generateDeclarations } from './declaration-builder.js';
 import { writeFileAtomic } from './atomic-write.js';
 import { loadCache, saveCache, createEmptyCache, isCached, updateCacheEntry, hashSourceAndOptions, hashString } from './cache.js';
 import { runConcurrent } from './concurrency.js';
 import { buildSwcTransformOptions } from './swc-transform-options.js';
-import { resolveDeclarationTypePackage } from './tsc-type-args.js';
 
 /** Hard cap on parallel transforms — high enough to use a dev box, low enough to bound memory. */
 const MAX_BUILD_CONCURRENCY = 8;
@@ -136,7 +130,7 @@ export async function buildWithSwc(entry: string, outDir: string, options: Build
     // Generate declaration files with local tsc. Gated on `dts` ONLY — independent of
     // decorator metadata, so `--no-decorator-metadata` still emits .d.ts (F-03).
     if (options.dts ?? true) {
-      await generateDeclarations(cwd, outDir, srcDir);
+      await generateDeclarations(cwd, outDir, srcDir, files);
     }
 
     const message =
@@ -191,107 +185,5 @@ async function transformFile(
   if (options.verbose) {
     const stats = await fs.stat(outFile);
     log(`  ${relativePath} → ${formatSize(stats.size)}`);
-  }
-}
-
-/**
- * Generate TypeScript declarations using local tsc.
- *
- * Resolves the locally installed typescript package deterministically (no npx, no
- * network), and pins `--rootDir` to the SWC source dir so emitted `.d.ts` files mirror
- * the `.js` output layout for nested sources (RFC-019 D6).
- */
-export async function generateDeclarations(cwd: string, outDir: string, srcDir: string): Promise<void> {
-  log('Generating type declarations...');
-
-  try {
-    // Resolve TypeScript location using createRequire
-    const nodeModule = await getNodeModule();
-    const requireFromThis = nodeModule.createRequire(import.meta.url);
-
-    let tscPath: string;
-    try {
-      // Resolve typescript package.json to find its bin/tsc
-      const tsPkgPath = requireFromThis.resolve('typescript/package.json');
-
-      const fs = await getNodeFsPromises();
-      const path = await getNodePath();
-
-      const tsPkgContent = await fs.readFile(tsPkgPath, 'utf-8');
-      const tsPkg = JSON.parse(tsPkgContent) as { bin?: { tsc?: string } };
-
-      if (!tsPkg.bin?.tsc) {
-        throw new Error('TypeScript bin/tsc not found in package.json');
-      }
-
-      tscPath = path.resolve(path.dirname(tsPkgPath), tsPkg.bin.tsc);
-    } catch (err) {
-      throw new Error(
-        `Cannot find local TypeScript compiler. Please install TypeScript: npm install --save-dev typescript\n` +
-        `Original error: ${(err as Error).message}`,
-        { cause: err }
-      );
-    }
-
-    // Run tsc via node:child_process
-    const { spawn: nodeSpawn } = await getNodeChildProcess();
-
-    // TS >= 6 no longer auto-includes @types/* when tsconfig omits `types`
-    // (issue #40): inject the runtime's ambient type package so declaration emit
-    // still resolves `process` etc. without the project pinning its own list.
-    const declarationArgs = [
-      tscPath,
-      '--declaration',
-      '--emitDeclarationOnly',
-      '--rootDir',
-      srcDir,
-      '--outDir',
-      outDir,
-    ];
-    const typePackage = await resolveDeclarationTypePackage(cwd);
-    if (typePackage !== undefined) {
-      declarationArgs.push('--types', typePackage);
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      // Run via process.execPath (node binary) to avoid relying on PATH
-      const tsc = nodeSpawn(process.execPath, declarationArgs, {
-        cwd,
-        stdio: 'pipe',
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      tsc.stdout.on('data', (data: Buffer) => {
-        stdout += data.toString();
-      });
-
-      tsc.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString();
-      });
-
-      tsc.on('close', (code: number | null) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(
-            new Error(
-              `Type declaration generation failed (code ${String(code)})\n` +
-              (stderr || stdout || 'No output from tsc')
-            )
-          );
-        }
-      });
-
-      tsc.on('error', (err: Error) => {
-        reject(new Error(`Failed to spawn tsc: ${err.message}`, { cause: err }));
-      });
-    });
-
-    success('Type declarations generated');
-  } catch (err) {
-    error(`Declaration generation failed: ${(err as Error).message}`);
-    throw err;
   }
 }
