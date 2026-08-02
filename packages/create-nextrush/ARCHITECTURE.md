@@ -252,9 +252,18 @@ src/
 └── routes/
     ├── health.ts
     ├── health-status.ts
+    ├── todos.ts
+    ├── todos-data.ts
     └── __tests__/
-        └── health-status.test.ts
+        ├── health-status.test.ts
+        └── todos-data.test.ts
 ```
+
+Two features teach the functional idiom: a minimal health check (route +
+pure payload builder) and a todos CRUD feature (route handlers using
+`ctx.params`/`ctx.query`/`ctx.body`, `ctx.status`, `ctx.throw`, backed by a
+pure `createTodoStore()` factory — state stays per-instance, no global
+mutable state, fully unit-testable without an HTTP server).
 
 **`class-based`** (`templates/class-based.ts`):
 
