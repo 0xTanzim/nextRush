@@ -1,5 +1,19 @@
 # create-nextrush
 
+## 1.2.0
+
+### Minor Changes
+
+- [`ba8c309`](https://github.com/0xTanzim/nextRush/commit/ba8c309) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Redesign the `functional` project template as a production-grade layered API: routes → services → repositories, with centralized config (`src/config/index.ts`, runtime-aware env reads), shared domain types (`src/lib/types.ts`), custom request-logging middleware, and the framework's built-in `errorHandler` first in the chain. No classes, decorators, or DI — still pure factory functions.
+
+- [`ba8c309`](https://github.com/0xTanzim/nextRush/commit/ba8c309) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Migrate the `full` project template to the class-based module standard: a root `AppModule` composes a `HelloModule` via `@Module({ imports })` under `src/modules/hello/`, wired in one call with `registerModule(app, AppModule, { prefix: '/api' })` + `await listen(app, PORT)`. Replaces the old filesystem controller auto-discovery path (`registerControllers` with `IS_DIST_RUNTIME` / `CONTROLLERS_ROOT` / `CONTROLLERS_INCLUDE` globals) so both class-based-family templates share one idiomatic architecture.
+
+- [`54476d8`](https://github.com/0xTanzim/nextRush/commit/54476d8) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Deno-first scaffold hardening for `--runtime deno`:
+  - Generated `deno.json` now carries `"unstable": ["sloppy-imports"]` and `nodeModulesDir: "auto"`, so native Deno tooling (`deno check`, `deno test`, the Deno LSP) resolves the `.js`-specifier relative imports and bare `@nextrush/*` specifiers — previously only the hand-written npm scripts passed the flag.
+  - `src/env.d.ts` is no longer emitted for Deno projects (its `@nextrush/types` triple-slash reference is unresolvable under `deno check`).
+  - `package.json` for Deno projects no longer declares `engines.node` — a Deno app is not Node-dependent.
+  - All 3 templates use `performance.now()` instead of `process.uptime()` for cross-runtime parity.
+
 ## 1.1.0
 
 ### Minor Changes
