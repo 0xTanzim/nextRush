@@ -82,8 +82,9 @@ describe('integration: file writing', () => {
 
     writeFiles(testDir, files);
 
-    expect(existsSync(join(testDir, 'src/controllers/health.controller.ts'))).toBe(true);
-    expect(existsSync(join(testDir, 'src/services/app.service.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/modules/health/health.controller.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/modules/todos/todos.service.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/app.module.ts'))).toBe(true);
   });
 
   it('creates all directories for full style', () => {
