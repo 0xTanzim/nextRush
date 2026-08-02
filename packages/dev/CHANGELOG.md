@@ -1,5 +1,11 @@
 # @nextrush/dev
 
+## 1.1.0
+
+### Minor Changes
+
+- [#47](https://github.com/0xTanzim/nextRush/pull/47) [`508d2b4`](https://github.com/0xTanzim/nextRush/commit/508d2b4ab192aa489f793abf46209466674d41f0) Thanks [@0xTanzim](https://github.com/0xTanzim)! - feat(generate): align generators with the create-nextrush scaffolds — new `module` generator type, module-aware placement for controllers/services, DI-connected controller and HttpError service templates, named-export route template. Fix `rootDir` in tsconfig for TS 6 typecheck.
+
 ## 1.0.2
 
 ### Patch Changes
