@@ -102,9 +102,10 @@ and installs dependencies with your detected package manager.
 ## Capabilities
 
 **Capabilities**
-- **3 project styles** - `functional` (routes only), `class-based` (controllers + DI under
-  `/api`), `full` (functional routes + class-based controllers + a shared error-handling
-  middleware, also under `/api`)
+- **3 project styles** - `functional` (a layered API: routes → services → repositories
+  with centralized config, shared types, and middleware), `class-based` (controllers + DI
+  under `/api` via `@Module`/`registerModule`), `full` (functional routes + a class-based
+  module graph + a shared error-handling middleware, with controllers under `/api`)
 - **3 target runtimes** - `node` (built-in adapter), `bun` (`@nextrush/adapter-bun`), `deno`
   (`@nextrush/adapter-deno`) - each emits the correct import and `package.json` scripts
 - **3 middleware presets** - `minimal` (none), `api` (`cors`, `body-parser`, `helmet`), `full`
@@ -150,10 +151,13 @@ real disk.
 pnpm create nextrush my-api --style functional --middleware api --yes
 ```
 
-Generates `src/index.ts`, `src/routes/health.ts`, `src/routes/health-status.ts` (the pure,
-unit-testable payload builder), a full todos CRUD feature (`src/routes/todos.ts` backed by
-the pure `src/routes/todos-data.ts` store — params, query, body, response codes, 400/404
-error paths), and unit tests for both pure modules.
+Generates `src/index.ts`, `src/config/index.ts` (centralized env config), `src/lib/types.ts`
+(shared domain types), `src/middleware/logger.ts` (request-logging middleware), a functional
+health route (`src/routes/health.routes.ts` calling `src/services/health.service.ts`), a full
+layered todos CRUD (`src/routes/todos.routes.ts` → `src/services/todos.service.ts` →
+`src/repositories/todos.repository.ts` — params, query, body, response codes, 400/404 error
+paths via `NotFoundError`/`BadRequestError` from `nextrush`), and unit tests for both the
+service and repository layers.
 
 ### Scaffold a class-based project with DI
 

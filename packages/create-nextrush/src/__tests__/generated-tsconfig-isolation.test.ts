@@ -108,10 +108,11 @@ describe('generated tsconfig is safe for a per-file transpiler (task 5.1)', () =
     seedAllPackageVersions('^0.0.0');
     projectDir = mkdtempSync(join(tmpdir(), 'nextrush-tsconfig-types-'));
     writeFileSync(join(projectDir, 'package.json'), '{ "name": "smoke", "private": true, "type": "module" }\n');
-    writeFileSync(join(projectDir, 'tsconfig.json'), generateTsconfig(false));
+    writeFileSync(join(projectDir, 'tsconfig.json'), generateTsconfig(createOptions({})));
     mkdirSync(join(projectDir, 'src'));
-    // The functional template's generated entry uses process.uptime(); TS >= 6 with no
-    // `types` pin fails this with TS2591 even though @types/node is installed (issue #40).
+    // A `process`-using canary. TS >= 6 with no `types` pin fails this with TS2591 even
+    // though @types/node is installed (issue #40), so the Node/Bun `types: ['node']` pin is
+    // what keeps this green. (Deno projects pin no node types — they use Deno's own.)
     writeFileSync(
       join(projectDir, 'src', 'index.ts'),
       "export function uptime(): number { return process.uptime(); }\n"

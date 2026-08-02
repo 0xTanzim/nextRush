@@ -109,21 +109,27 @@ export function generateEnvDts(): string {
 `;
 }
 
-/** Returns import lines for the selected runtime and server function. */
+/** Returns import lines for the selected runtime and server function.
+ *
+ * `extraNextrushImports` lets a template pull additional named exports from the
+ * `nextrush` meta-package (e.g. `errorHandler`) without a second import line. */
 export function getRuntimeEntrypointImports(
   runtime: Runtime,
-  serverFn: 'listen' | 'serve'
+  serverFn: 'listen' | 'serve',
+  extraNextrushImports: readonly string[] = []
 ): string[] {
   /* eslint-disable nextrush/no-runtime-identity-capability -- scaffolder emits runtime-specific template snippets for the GENERATED project; not a capability decision in this CLI's own request path */
   if (runtime === 'node') {
-    return [`import { createApp, createRouter, ${serverFn} } from 'nextrush';`];
+    const names = ['createApp', 'createRouter', ...extraNextrushImports, serverFn];
+    return [`import { ${names.join(', ')} } from 'nextrush';`];
   }
 
   const adapterPackage = runtime === 'bun' ? '@nextrush/adapter-bun' : '@nextrush/adapter-deno';
   /* eslint-enable nextrush/no-runtime-identity-capability */
 
+  const names = ['createApp', 'createRouter', ...extraNextrushImports];
   return [
-    "import { createApp, createRouter } from 'nextrush';",
+    `import { ${names.join(', ')} } from 'nextrush';`,
     `import { ${serverFn} } from '${adapterPackage}';`,
   ];
 }
@@ -135,12 +141,4 @@ export function getPortDeclaration(runtime: Runtime): string {
     return "const PORT = Number(Deno.env.get('PORT')) || 8080;";
   }
   return 'const PORT = Number(process.env.PORT) || 8080;';
-}
-
-/** Runtime-safe helpers for controller auto-discovery in src and dist contexts. */
-export function getControllerDiscoveryHelpers(): string {
-  return `const IS_DIST_RUNTIME = import.meta.url.includes('/dist/');
-const CONTROLLERS_ROOT = IS_DIST_RUNTIME ? './dist/controllers' : './src/controllers';
-const CONTROLLERS_INCLUDE = IS_DIST_RUNTIME ? ['**/*.js'] : ['**/*.ts'];
-`;
 }
