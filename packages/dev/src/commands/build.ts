@@ -129,7 +129,7 @@ export async function build(entry?: string, options: BuildOptions = {}): Promise
 /**
  * CLI entry point for build command
  */
-export function buildCli(args: string[]): void {
+export async function buildCli(args: string[]): Promise<void> {
   const options: BuildOptions = {};
   let entry: string | undefined;
 
@@ -235,12 +235,16 @@ export function buildCli(args: string[]): void {
     }
   }
 
-  // Run build
-  build(entry, options).catch((err: unknown) => {
+  // Run build and await completion — the CLI must not return before the build
+  // finished, or the `nextrush` launcher's process.exit(0) would kill it midway
+  // (issue #40).
+  try {
+    await build(entry, options);
+  } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     error(`Build failed: ${message}`);
     exitProcess(1);
-  });
+  }
 }
 
 /**
