@@ -21,7 +21,7 @@ export function generateProject(options: ProjectOptions): FileMap {
   // Shared files that don't depend on the emitted source tree.
   files.set('tsconfig.json', generateTsconfig(options));
   files.set('package.json', generatePackageJson(options));
-  files.set('src/env.d.ts', generateEnvDts());
+  files.set('src/env.d.ts', generateEnvDts(options));
   files.set('.gitignore', generateGitignore());
 
   // Deno projects get a Deno-native config (types, decorators, strictness) instead of

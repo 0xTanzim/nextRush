@@ -9,7 +9,7 @@ export { getDependencies };
 export function generatePackageJson(options: ProjectOptions): string {
   const deps = getDependencies(options);
   const scripts = getRuntimeScripts(options.runtime);
-  const metadata = getPackageMetadata(options.packageManager);
+  const metadata = getPackageMetadata(options.packageManager, options.runtime);
 
   const pkg: Record<string, unknown> = {
     name: options.name,
@@ -103,8 +103,19 @@ function renderFileTree(files: FileMap): string {
   return [...files.keys()].filter((path) => path.startsWith('src/')).sort().join('\n');
 }
 
-/** Generates the src/env.d.ts file for better type hints. */
-export function generateEnvDts(): string {
+/** Generates the src/env.d.ts file for better type hints.
+ *
+ * Deno resolves ambient type packages from `node_modules/@types/*` itself
+ * (Deno 2 `nodeModulesDir`), so the triple-slash `@nextrush/types` reference is
+ * only emitted for Node/Bun — under `deno check` the reference would be an
+ * unresolvable specifier error, since `@nextrush/types` is not a Deno module.
+ */
+export function generateEnvDts(options: ProjectOptions): string {
+  // capability-exempt: scaffolder emits runtime-specific project files from user choice,
+  // not the executing runtime. `options.runtime` is a scaffold-time decision.
+  if (options.runtime === 'deno') {
+    return '';
+  }
   return `/// <reference types="@nextrush/types" />
 `;
 }
