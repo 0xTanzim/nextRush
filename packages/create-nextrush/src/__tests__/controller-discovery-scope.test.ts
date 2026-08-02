@@ -10,6 +10,9 @@ import { seedAllPackageVersions } from './test-helpers.js';
  * Asserts controller auto-discovery is scoped to the controllers directory
  * (`root: './src/controllers'`), not the whole `src` tree — so discovery never imports
  * non-controller files (routes, services) or the entry module itself.
+ *
+ * Only the `full` template uses filesystem discovery: the class-based template composes
+ * controllers explicitly via `@Module`/`registerModule` (no discovery scope to constrain).
  */
 function createOptions(overrides: Partial<ProjectOptions>): ProjectOptions {
   return {
@@ -25,7 +28,7 @@ function createOptions(overrides: Partial<ProjectOptions>): ProjectOptions {
   };
 }
 
-const STYLES_WITH_CONTROLLERS: readonly Style[] = ['class-based', 'full'];
+const STYLES_WITH_CONTROLLERS: readonly Style[] = ['full'];
 
 describe('controller auto-discovery is scoped to the controllers directory (task 6.1)', () => {
   for (const style of STYLES_WITH_CONTROLLERS) {
