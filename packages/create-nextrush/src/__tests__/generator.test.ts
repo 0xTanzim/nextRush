@@ -108,6 +108,44 @@ describe('generateProject', () => {
       expect(files.has('src/routes/health.ts')).toBe(true);
     });
 
+    it('generates a todos CRUD feature with a pure data store', () => {
+      const files = generateProject(createOptions({ style: 'functional' }));
+      expect(files.has('src/routes/todos.ts')).toBe(true);
+      expect(files.has('src/routes/todos-data.ts')).toBe(true);
+      expect(files.has('src/routes/__tests__/todos-data.test.ts')).toBe(true);
+    });
+
+    it('mounts the todos router in the entrypoint', () => {
+      const files = generateProject(createOptions({ style: 'functional' }));
+      const entry = files.get('src/index.ts')!;
+      expect(entry).toContain("import { todosRouter } from './routes/todos.js';");
+      expect(entry).toContain("app.route('/todos', todosRouter);");
+    });
+
+    it('uses route params, query, body, and response codes in the todos feature', () => {
+      const files = generateProject(createOptions({ style: 'functional' }));
+      const todos = files.get('src/routes/todos.ts')!;
+      expect(todos).toContain("todosRouter.get('/',");
+      expect(todos).toContain("todosRouter.get('/:id',");
+      expect(todos).toContain("todosRouter.post('/',");
+      expect(todos).toContain("todosRouter.delete('/:id',");
+      expect(todos).toContain('ctx.params.id');
+      expect(todos).toContain('ctx.query.status');
+      expect(todos).toContain('ctx.body');
+      expect(todos).toContain('ctx.status = 201');
+      expect(todos).toContain('ctx.status = 204');
+      expect(todos).toContain('ctx.throw(404');
+      expect(todos).toContain('ctx.throw(400');
+    });
+
+    it('keeps todos state behind a pure store factory (no global mutable state)', () => {
+      const files = generateProject(createOptions({ style: 'functional' }));
+      const data = files.get('src/routes/todos-data.ts')!;
+      expect(data).toContain('export function createTodoStore()');
+      expect(data).not.toContain('export const todos');
+      expect(data).not.toContain('class TodoStore');
+    });
+
     it('uses createApp, createRouter, listen imports', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
@@ -440,8 +478,9 @@ describe('generateProject', () => {
     it('functional minimal generates correct number of files', () => {
       const files = generateProject(createOptions({ style: 'functional', middleware: 'minimal' }));
       // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts,
-      // routes/health.ts, routes/health-status.ts, routes/__tests__/health-status.test.ts
-      expect(files.size).toBe(9);
+      // routes/health.ts, routes/health-status.ts, routes/todos.ts, routes/todos-data.ts,
+      // routes/__tests__/health-status.test.ts, routes/__tests__/todos-data.test.ts
+      expect(files.size).toBe(12);
     });
 
     it('class-based generates correct number of files', () => {
