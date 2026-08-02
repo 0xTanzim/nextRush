@@ -1,5 +1,23 @@
 # nextrush
 
+## 4.0.1
+
+### Patch Changes
+
+- [#45](https://github.com/0xTanzim/nextRush/pull/45) [`6e9e28b`](https://github.com/0xTanzim/nextRush/commit/6e9e28b8a2d5e4a97e6b79f866a937d7c12d6508) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Fix the `nextrush` launcher exiting 0 before the delegated `@nextrush/dev` CLI has
+  finished its async work (issue [#40](https://github.com/0xTanzim/nextrush/issues/40)). The launcher now awaits the delegated `cli()`
+  promise and only then applies its own exit handling, so `nextrush dev`/`nextrush
+build` no longer get killed by a fire-and-forget `process.exit(0)` mid-flight; a
+  rejected `cli()` is also surfaced as an error exit instead of a silent 0.
+- Updated dependencies []:
+  - @nextrush/types@4.0.1
+  - @nextrush/errors@4.0.1
+  - @nextrush/core@4.0.1
+  - @nextrush/router@4.0.1
+  - @nextrush/di@4.0.1
+  - @nextrush/adapter-node@4.0.1
+  - @nextrush/class@1.0.1
+
 ## 4.0.0
 
 ### Patch Changes
