@@ -76,6 +76,16 @@ jobs:
       - name: Setup toolchain
         uses: ./.github/actions/setup-toolchain
 
+      # The parity smoke test and generated-example test (packages/create-nextrush) resolve
+      # `nextrush` + `@nextrush/dev` through examples/dev-cli-fixture/node_modules, which
+      # symlinks into packages/*. Turbo's `test` task depends only on the owning package's
+      # own `build` (no `^build` edge, and create-nextrush correctly declares no dependency
+      # on nextrush), so nothing orders `nextrush:build` before `create-nextrush:test` — it
+      # only won on cache hits. Build the fixture deps explicitly so dist/ exists
+      # deterministically, matching the install-matrix and cross-platform jobs.
+      - name: Build fixture workspace dependencies (nextrush, @nextrush/dev)
+        run: pnpm turbo run build --filter=dev-cli-fixture...
+
       - name: Build, test, typecheck, lint
         run: pnpm verify
 
