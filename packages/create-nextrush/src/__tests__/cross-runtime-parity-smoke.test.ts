@@ -19,6 +19,11 @@ import { seedAllPackageVersions } from './test-helpers.js';
  * the same response body/status from `/health` on Node (always available in this suite);
  * Bun/Deno boot parity is covered by the generate-then-install CI matrix (task 2.1/7.3),
  * which runs a real install against publish versions on every runtime present in CI.
+ *
+ * The child is spawned through `@nextrush/dev`'s swc-loader (`--import`) — the same
+ * mechanism the `nextrush dev` toolchain uses to run TypeScript — so the generated
+ * project boots exactly as emitted (relative `.js` specifiers resolve back to `.ts`).
+ * CI builds the fixture's workspace deps (incl. `@nextrush/dev`) before this suite runs.
  */
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,6 +34,7 @@ const WORKSPACE_ROOT = resolve(__dirname, '../../../../');
 // root's, so this fixture's already-resolved node_modules is what a generated project's
 // symlinked-in dependency graph should mirror.
 const FIXTURE_NODE_MODULES = join(WORKSPACE_ROOT, 'examples', 'dev-cli-fixture', 'node_modules');
+const SWC_LOADER = join(WORKSPACE_ROOT, 'packages', 'dev', 'dist', 'loaders', 'swc-loader.mjs');
 
 function createOptions(): ProjectOptions {
   return {
@@ -75,27 +81,10 @@ describe('cross-runtime parity: functional /health response (task 4.4)', () => {
       symlinkSync(FIXTURE_NODE_MODULES, join(projectDir, 'node_modules'), 'dir');
 
       const port = 39000 + Math.floor(Math.random() * 500);
-      // `--experimental-strip-types` is Node's raw type-stripper (not the real `nextrush
-      // dev` toolchain, which resolves relative `.js` specifiers back to `.ts` via
-      // @swc-node/register) — inline the health route here so this smoke test proves the
-      // boot + response contract without depending on that resolution step, which is
-      // @nextrush/dev's own concern (dev-tooling capability), not this scaffolder's output.
-      const entrySource = files
-        .get('src/index.ts')!
-        .replace('|| 8080', `|| ${port}`)
-        .replace(
-          "import { healthRouter } from './routes/health.js';",
-          [
-            'const healthRouter = createRouter();',
-            "healthRouter.get('/', (ctx) => { ctx.json({ status: 'ok' }); });",
-          ].join('\n')
-        );
-      writeFiles(projectDir, new Map([['src/index.ts', entrySource]]));
-
       const child = spawn(
         process.execPath,
-        ['--experimental-strip-types', join(projectDir, 'src', 'index.ts')],
-        { cwd: projectDir, stdio: ['ignore', 'pipe', 'pipe'] }
+        ['--import', SWC_LOADER, join(projectDir, 'src', 'index.ts')],
+        { cwd: projectDir, env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] }
       );
       let stderrOutput = '';
       child.stderr?.on('data', (chunk: Buffer) => {

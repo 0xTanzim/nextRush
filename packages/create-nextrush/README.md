@@ -151,7 +151,9 @@ pnpm create nextrush my-api --style functional --middleware api --yes
 ```
 
 Generates `src/index.ts`, `src/routes/health.ts`, `src/routes/health-status.ts` (the pure,
-unit-testable payload builder), and its test.
+unit-testable payload builder), a full todos CRUD feature (`src/routes/todos.ts` backed by
+the pure `src/routes/todos-data.ts` store — params, query, body, response codes, 400/404
+error paths), and unit tests for both pure modules.
 
 ### Scaffold a class-based project with DI
 
