@@ -50,6 +50,8 @@ describe('integration: file writing', () => {
     expect(existsSync(join(testDir, '.gitignore'))).toBe(true);
     expect(existsSync(join(testDir, 'src/index.ts'))).toBe(true);
     expect(existsSync(join(testDir, 'src/routes/health.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/routes/todos.ts'))).toBe(true);
+    expect(existsSync(join(testDir, 'src/routes/todos-data.ts'))).toBe(true);
     expect(existsSync(join(testDir, 'src/env.d.ts'))).toBe(true);
   });
 
