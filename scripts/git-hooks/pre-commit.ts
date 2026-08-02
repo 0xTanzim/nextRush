@@ -17,7 +17,12 @@ const execFileAsync = promisify(execFile);
 const RELEASE_RELEVANT = /(^|\/)package\.json$|(^|\/)\.changeset\//;
 
 async function getStagedFiles(): Promise<string[]> {
-  const { stdout } = await execFileAsync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM']);
+  const { stdout } = await execFileAsync('git', [
+    'diff',
+    '--cached',
+    '--name-only',
+    '--diff-filter=ACM',
+  ]);
   return stdout.split('\n').filter(Boolean);
 }
 
@@ -27,17 +32,25 @@ async function main(): Promise<void> {
 
   if (!touchesReleaseState) {
     // eslint-disable-next-line no-console
-    console.log('ℹ pre-commit: no package.json / .changeset/ changes staged — skipping release-state guard.');
+    console.log(
+      'ℹ pre-commit: no package.json / .changeset/ changes staged — skipping release-state guard.'
+    );
     return;
   }
 
   // eslint-disable-next-line no-console
-  console.log('ℹ pre-commit: package.json or .changeset/ changes detected — running release-state guard...');
-  await execFileAsync('pnpm', ['verify:release-state'], { stdio: 'inherit' } as never).catch((err: unknown) => {
-    // eslint-disable-next-line no-console
-    console.error('❌ pre-commit blocked: release-state guard failed. Fix the problem above before committing.');
-    throw err;
-  });
+  console.log(
+    'ℹ pre-commit: package.json or .changeset/ changes detected — running release-state guard...'
+  );
+  await execFileAsync('pnpm', ['verify:release-state'], { stdio: 'inherit' } as never).catch(
+    (err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.error(
+        '❌ pre-commit blocked: release-state guard failed. Fix the problem above before committing.'
+      );
+      throw err;
+    }
+  );
 }
 
 main().catch(() => {
