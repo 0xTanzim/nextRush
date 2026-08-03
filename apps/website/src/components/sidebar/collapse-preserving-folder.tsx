@@ -104,6 +104,7 @@ function StyledFolderTrigger({ children }: { children: ReactNode }) {
     <SidebarFolderTrigger
       className={itemVariants({ variant: collapsible ? 'button' : undefined, className: 'w-full' })}
       style={{ paddingInlineStart: getItemOffset(depth - 1) }}
+      data-folder-label
     >
       {children}
     </SidebarFolderTrigger>
@@ -128,6 +129,7 @@ function StyledFolderLink({
       external={external}
       active={isLinkActive(href, pathname)}
       className={itemVariants({ variant: 'link', highlight: depth > 1, className: 'w-full' })}
+      data-folder-label
       style={{ paddingInlineStart: getItemOffset(depth - 1) }}
     >
       {children}

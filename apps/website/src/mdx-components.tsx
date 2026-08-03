@@ -36,6 +36,9 @@ DocSectionEyebrow,
     Mistake,
     MistakeList,
     OpenInStackBlitz,
+    CodeShowcase,
+    Reveal,
+    ScrollHighlight,
     PackageCard,
     PackageGrid,
     PackageInstall,
@@ -55,6 +58,11 @@ DocSectionEyebrow,
     WhyItem,
     WizardFlow,
     WizardStep,
+    SetupTimeline,
+    SetupStep,
+    PrimaryCTA,
+    GuideAccordion,
+    StepTracker,
 } from '@/components/mdx';
 import { typeTableGenerator } from '@/lib/type-table-generator';
 import { AutoTypeTable as BaseAutoTypeTable, type AutoTypeTableProps } from 'fumadocs-typescript/ui';
@@ -110,6 +118,19 @@ const customComponents = {
   WizardFlow,
   WizardStep,
 
+  // Connected setup timeline for onboarding steps (Create → Install → Run)
+  SetupTimeline,
+  SetupStep,
+
+  // Single prominent finish-line CTA for onboarding pages
+  PrimaryCTA,
+
+  // Reusable "Learning Card Accordion" — replaces bare <details> affordance
+  GuideAccordion,
+
+  // Horizontal onboarding progress strip (choose → install → verify → done)
+  StepTracker,
+
   // Package grid with category sections
   PackageCard,
   PackageGrid,
@@ -145,6 +166,11 @@ const customComponents = {
 
   // Runnable sandbox embed (T21) — real "Open in StackBlitz" project link
   OpenInStackBlitz,
+  CodeShowcase,
+  // Gentle viewport fade/slide-in for onboarding sections (reduced-motion safe)
+  Reveal,
+  // Flash-highlight the mental-model target after clicking a concept stop
+  ScrollHighlight,
 
   // Onboarding / overview layout
   BenchmarkBars,
