@@ -64,7 +64,7 @@ ways:
 
 <ScaffoldCommand
   commands={{
-    pnpm: 'pnpm create nextrush my-api',
+    pnpm: 'pnpm create nextrush@latest my-api',
     bun: 'bun create nextrush my-api',
     npm: 'npm create nextrush my-api',
     yarn: 'yarn create nextrush my-api',
@@ -77,6 +77,15 @@ ways:
   `create <name>` to the npm package `create-<name>`, so `nextrush` resolves to `create-nextrush`.
   Calling the package directly (`npx`, `pnpm dlx`, `bunx`) needs the **hyphenated** name:
   `pnpm dlx create-nextrush`, not `pnpm dlx create nextrush`.
+</Callout>
+
+<Callout type="warn" title="pnpm 11 and Deno: stale scaffold possible">
+  As of pnpm 11.x, `pnpm create nextrush` (bare) and `deno run -A npm:create-nextrush@latest`
+  can resolve `@latest` to an **old cached version** (a pnpm/Deno resolution bug for packages
+  with a version gap — [pnpm#8659](https://github.com/pnpm/pnpm/issues/8659)). You get a stale
+  scaffold with no visible error. Reliable alternatives:
+  - **`npm create nextrush`** or **`bun create nextrush`** resolve correctly
+  - **`pnpm@10`** also resolves correctly if you prefer to stay on 10.x
 </Callout>
 
 `my-api` is the target directory — pass `.` to scaffold into the current folder, or omit it to be
@@ -149,27 +158,27 @@ Defaults to **yes** — `git init` plus an initial commit. Say no to skip.
 Every prompt has a matching flag. A fully-specified command never pauses:
 
 ```bash
-pnpm create nextrush my-api --style functional --runtime node --middleware api
+pnpm create nextrush@latest my-api --style functional --runtime node --middleware api
 ```
 
 ```bash
-pnpm create nextrush my-bun-api --style functional --runtime bun --middleware full
+pnpm create nextrush@latest my-bun-api --style functional --runtime bun --middleware full
 ```
 
 ```bash
-pnpm create nextrush my-deno-api --style class-based --runtime deno --middleware api
+pnpm create nextrush@latest my-deno-api --style class-based --runtime deno --middleware api
 ```
 
 `-y` / `--yes` accepts every default without specifying each option:
 
 ```bash
-pnpm create nextrush my-api --yes
+pnpm create nextrush@latest my-api --yes
 ```
 
 Scaffold without install or git:
 
 ```bash
-pnpm create nextrush my-api --yes --no-install --no-git
+pnpm create nextrush@latest my-api --yes --no-install --no-git
 ```
 
 <details>
@@ -463,6 +472,13 @@ Class-based projects answer on `/api/health` instead of `/health`.
     symptom="Package not found when running pnpm dlx create nextrush"
     cause="Direct invocations need the hyphenated npm name, not the create-space form"
     fix="Use pnpm dlx create-nextrush or npx create-nextrush@latest"
+  />
+  <Mistake
+    severity="warn"
+    title="Old scaffold despite publishing a new version"
+    symptom="The generated project has a flat src/routes/ layout with no services/, repositories/, or config/ — even though the scaffolder was just updated"
+    cause="pnpm 11.x (and Deno's npm: compatibility) can resolve @latest to an old cached version for packages with a version gap — a known resolution bug (pnpm#8659), not a problem with create-nextrush"
+    fix="Use npm create nextrush or bun create nextrush, which resolve @latest correctly — or use pnpm@10"
   />
   <Mistake
     severity="warn"

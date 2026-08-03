@@ -309,14 +309,16 @@ controller, service, repository, and tests. The root `AppModule` composes them v
 ```text
 src/
 ├── index.ts
+├── app.module.ts
 ├── routes/
 │   └── health.ts
-├── controllers/
-│   └── hello.controller.ts
-├── services/
-│   ├── hello.service.ts
-│   └── __tests__/
-│       └── hello.service.test.ts
+├── modules/
+│   └── hello/
+│       ├── hello.module.ts
+│       ├── hello.controller.ts
+│       ├── hello.service.ts
+│       └── __tests__/
+│           └── hello.service.test.ts
 └── middleware/
     └── error-handler.ts
 ```
@@ -324,9 +326,9 @@ src/
 All three styles additionally get `tsconfig.json`, `package.json`, `src/env.d.ts`,
 `.gitignore`, and `README.md` from `generator.ts`'s shared step. No style emits a
 `not-found.ts` or any other 404-handler file — there is no such generator function in
-`templates/`. The health payload built by `functional`'s `health-status.ts` and
-`class-based`'s `health.service.ts` both include a real `uptime: process.uptime()` field
-alongside `status` and `timestamp` — confirmed directly in `templates/functional.ts` and
+`templates/`. The health payload built by `functional`'s `health.service.ts` and
+`class-based`'s `health.service.ts` both include a real `uptime: Math.round(performance.now() / 1000)`
+field alongside `status` and `timestamp` — confirmed directly in `templates/functional.ts` and
 `templates/class-based.ts`.
 
 ## Performance characteristics

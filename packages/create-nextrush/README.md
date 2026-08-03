@@ -81,6 +81,14 @@ bunx create-nextrush my-app
 > `pnpm dlx create nextrush` (two words after `dlx`) does not resolve - use
 > `pnpm dlx create-nextrush` or `pnpm create nextrush` instead.
 
+> [!WARNING]
+> **pnpm 11.x and Deno can resolve `@latest` to an old cached version.** For packages whose
+> registry versions have a gap (e.g. `1.0.0` → `1.2.0`), `pnpm create nextrush` (bare) and
+> `deno run -A npm:create-nextrush@latest` may scaffold a stale release with no visible
+> error — a pnpm/Deno resolution bug ([pnpm#8659](https://github.com/pnpm/pnpm/issues/8659)),
+> not a problem with this package. `npm create nextrush` and `bun create nextrush` resolve
+> `@latest` correctly; `pnpm@10` also works.
+
 ## Quick start
 
 ```bash
