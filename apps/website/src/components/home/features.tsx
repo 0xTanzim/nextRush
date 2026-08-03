@@ -7,42 +7,48 @@ const features = [
     title: 'Segment-trie routing',
     description: 'Route matching scales with URL segments rather than route count, while keeping application code explicit.',
     colorVar: '--warning',
+    emphasis: true,
   },
   {
     icon: Shield,
     title: 'Typed request flow',
     description: 'Context, routes, middleware, and errors share TypeScript contracts without loosening to `any`.',
     colorVar: '--rush-blue',
+    emphasis: true,
   },
   {
     icon: Package,
     title: 'Small core, optional modules',
     description: 'Start with the functional core, then add middleware, streaming, or class-based composition when needed.',
     colorVar: '--rush-purple',
+    emphasis: true,
   },
   {
     icon: Globe,
     title: 'Web-standard adapters',
     description: 'Write against Request, Response, streams, and AbortSignal; adapters carry runtime-specific details.',
     colorVar: '--rush-cyan',
+    emphasis: false,
   },
   {
     icon: Puzzle,
     title: 'Class runtime when it helps',
     description: 'Controllers, modules, request scopes, guards, and lifecycle hooks remain an opt-in path.',
     colorVar: '--rush-green',
+    emphasis: false,
   },
   {
     icon: Lock,
     title: 'Security as composition',
     description: 'Add CORS, headers, CSRF protection, rate limits, and validation as intentional middleware choices.',
     colorVar: '--danger',
+    emphasis: false,
   },
 ];
 
 export function Features() {
   return (
-    <section aria-labelledby="framework-capabilities" className="relative py-24">
+    <section aria-labelledby="framework-capabilities" className="relative bg-fd-muted/40 py-24">
       <hr className="section-divider absolute inset-x-0 top-0" />
       <div className="container mx-auto px-4">
         <div className="mx-auto mb-16 max-w-2xl text-center">
@@ -62,17 +68,21 @@ export function Features() {
             return (
               <div
                 key={feature.title}
-                className="group rounded-xl p-6 card-glow card-gradient-border transition-transform hover:-translate-y-1"
+                className={`group rounded-xl p-6 card-glow card-gradient-border transition-transform hover:-translate-y-1${
+                  feature.emphasis ? ' ring-1 ring-[var(--rush-blue)]/20' : ''
+                }`}
                 style={{ '--feature-color': color } as React.CSSProperties}
               >
                 <div
-                  className="mb-4 inline-flex size-14 items-center justify-center rounded-xl"
+                  className={`mb-4 inline-flex items-center justify-center rounded-xl ${
+                    feature.emphasis ? 'size-16' : 'size-14'
+                  }`}
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
-                    border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${color} ${feature.emphasis ? 18 : 12}%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${color} ${feature.emphasis ? 26 : 22}%, transparent)`,
                   }}
                 >
-                  <Icon className="size-7" style={{ color }} aria-hidden="true" />
+                  <Icon className={feature.emphasis ? 'size-8' : 'size-7'} style={{ color }} aria-hidden="true" />
                 </div>
                 <h3 className="mb-2 text-xl font-semibold">{feature.title}</h3>
                 <p className="text-fd-muted-foreground">{feature.description}</p>

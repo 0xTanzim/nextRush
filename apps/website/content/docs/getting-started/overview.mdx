@@ -18,7 +18,7 @@ and know exactly which page to open next for depth.
 <div className="not-prose mt-5 flex flex-wrap gap-2">
   <DocHeroPill>Beginner</DocHeroPill>
   <DocHeroPill>15–20 min read</DocHeroPill>
-  <DocHeroPill>Node · Bun · Deno · Edge</DocHeroPill>
+  <DocHeroPill>Node · Bun · Deno · Edge · Serverless</DocHeroPill>
   <DocHeroPill>TypeScript</DocHeroPill>
 </div>
 
@@ -68,7 +68,7 @@ you to accept a real cost to get there — an ecosystem you wire by hand, a runt
 or a framework you have to learn before you can use it. **NextRush is what happens when none of those
 costs are treated as the price of entry.** Strict types from the first route, structure that's
 optional instead of mandatory, a core small enough to read start to finish in one sitting, and the
-same application code running on four different runtimes.
+same application code running on five different runtimes.
 
 That's the shape of the bet this framework makes. The head-to-head comparison against Express,
 Fastify, Koa, NestJS, and Hono lives on the
@@ -198,16 +198,13 @@ yourself creating a second `Application`, you probably want a second *router* mo
 prefix instead.
 </Callout>
 
-<details>
-<summary>Why is `createApp()` a function and not a class you extend?</summary>
-
-Extending a class ties your app to whatever that class's constructor does — you inherit its
-internals, not only its behavior. A factory function returns a plain object with a known, closed
-surface: you compose behavior by *calling* `app.use()`/`app.route()`, never by overriding a method the
-framework calls internally. That keeps "reading the code tells you the whole behavior" true even for
-the Application itself.
-
-</details>
+<GuideAccordion icon="sparkles" iconColor="blue" title="Why is createApp() a function, not a class you extend?" description="A factory returns a closed surface; a class makes you inherit its internals.">
+  Extending a class ties your app to whatever that class's constructor does — you inherit its
+  internals, not only its behavior. A factory function returns a plain object with a known, closed
+  surface: you compose behavior by *calling* `app.use()`/`app.route()`, never by overriding a method the
+  framework calls internally. That keeps "reading the code tells you the whole behavior" true even for
+  the Application itself.
+</GuideAccordion>
 
 Full detail: [Application](/docs/concepts/application).
 
@@ -264,14 +261,11 @@ Registering a body parser *after* the router. `ctx.body` stays empty in every ha
 middleware runs in registration order and the parser never got a chance to run first.
 </Callout>
 
-<details>
-<summary>What happens if a middleware never calls `ctx.next()`?</summary>
-
-The chain stops there — nothing downstream of it runs, including the router and the handler. That's
-not a bug to guard against; it's how you short-circuit a request on purpose (an auth check that
-responds `401` and returns, without calling `next()`, is exactly this).
-
-</details>
+<GuideAccordion icon="refresh-cw" iconColor="green" title="What happens if a middleware never calls ctx.next()?" description="The chain stops — that's how you short-circuit on purpose.">
+  The chain stops there — nothing downstream of it runs, including the router and the handler. That's
+  not a bug to guard against; it's how you short-circuit a request on purpose (an auth check that
+  responds `401` and returns, without calling `next()`, is exactly this).
+</GuideAccordion>
 
 Full detail: [Middleware](/docs/concepts/middleware).
 
@@ -324,19 +318,12 @@ Comparing `ctx.params.id` to a number with `===`. Route params are always string
 === 42` is `false` even when the URL is `/users/42`. Convert first: `Number(ctx.params.id) === 42`.
 </Callout>
 
-<details>
-<summary>Check yourself</summary>
+<GuideAccordion icon="book-open" iconColor="amber" title="Check yourself — which piece picks the handler?" description="Middleware or Router? (open to reveal)">
+  **Which piece decides *which handler* runs for a given path — Middleware or Router?**
 
-**Which piece decides *which handler* runs for a given path — Middleware or Router?**
-
-<details>
-<summary>Show answer</summary>
-
-The **Router**. Middleware runs for every request that reaches it regardless of path; the Router is
-the one piece that looks at the path and picks a single handler for it.
-
-</details>
-</details>
+  The **Router**. Middleware runs for every request that reaches it regardless of path; the Router is
+  the one piece that looks at the path and picks a single handler for it.
+</GuideAccordion>
 
 Full detail: [Router](/docs/concepts/routing).
 
@@ -452,18 +439,15 @@ requests or those headers "in case it's needed later." Every package you add is 
 someone has to understand later — install the ones the request in front of you actually needs.
 </Callout>
 
-<details>
-<summary>Why is DI the one exception to "zero external dependencies"?</summary>
-
-The functional core has no external runtime dependencies at all — `createApp`, `createRouter`, and
-`listen` are built entirely on internal `@nextrush/*` packages. `nextrush/class` is the one exception:
-its dependency injection container is built on `reflect-metadata` and `tsyringe`, two real external
-packages. Stay on the functional path and neither one touches your `node_modules`; import
-`nextrush/class` and they come with it. That's a deliberate trade, not an oversight — building a DI
-container from scratch would mean maintaining decorator metadata handling in-house for a feature only
-the class runtime needs.
-
-</details>
+<GuideAccordion icon="settings" iconColor="purple" title="Why is DI the one exception to zero external dependencies?" description="Only the class runtime pulls in reflect-metadata and tsyringe.">
+  The functional core has no external runtime dependencies at all — `createApp`, `createRouter`, and
+  `listen` are built entirely on internal `@nextrush/*` packages. `nextrush/class` is the one exception:
+  its dependency injection container is built on `reflect-metadata` and `tsyringe`, two real external
+  packages. Stay on the functional path and neither one touches your `node_modules`; import
+  `nextrush/class` and they come with it. That's a deliberate trade, not an oversight — building a DI
+  container from scratch would mean maintaining decorator metadata handling in-house for a feature only
+  the class runtime needs.
+</GuideAccordion>
 
 Full detail: [packages reference](/docs/reference).
 
@@ -660,7 +644,8 @@ Node's APIs anywhere in the request path, "one app, every runtime" stops being t
 the bridge between your application and a runtime's native server — the same `app` from every chapter
 above, unchanged, handed to a different `listen`-equivalent per runtime.
 
-```mermaid
+<Mermaid
+  chart="
 architecture-beta
     group app(cloud)[Your application]
     service code(server)[Application code] in app
@@ -668,7 +653,8 @@ architecture-beta
     service runtime(server)[Runtime target]
     code:R -- L:adapter
     adapter:R -- L:runtime
-```
+"
+/>
 
 ```ts
 // The same app — only the adapter import changes per runtime
@@ -756,8 +742,7 @@ The pieces above combine into real services. A few shapes NextRush is built for:
 
 ## Your learning path
 
-You have the map. Here's the order the rest of the docs are meant to be read in — each stage assumes
-the one before it:
+Read onward in this order — each stage assumes the one before it:
 
 <Mermaid
   chart="
@@ -772,7 +757,7 @@ flowchart LR
 
 <Cards>
   <Card
-    title="Build a Task API"
+    title="Task API Tutorial"
     description="The hands-on tutorial — POST a task, read it back, return a real 404."
     href="/docs/getting-started/quick-start"
   />

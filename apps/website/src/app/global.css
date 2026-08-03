@@ -477,6 +477,268 @@ kbd {
   border-color: var(--code-border);
 }
 
+/* ============================================
+   Editor-style code showcase (.code-showcase)
+   ============================================ */
+.code-showcase {
+  margin: 1.5rem 0;
+  max-width: 46rem;
+}
+.code-showcase__window {
+  overflow: hidden;
+  border: 1px solid var(--code-border);
+  border-radius: 0.75rem;
+  background: var(--code-bg);
+  box-shadow: 0 16px 40px -24px rgba(0, 0, 0, 0.5);
+}
+.code-showcase__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--code-bg-header);
+  border-bottom: 1px solid var(--code-border);
+}
+.code-showcase__title {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  color: var(--code-punctuation);
+}
+.code-showcase__copy {
+  margin-left: auto;
+}
+.code-showcase__pre {
+  margin: 0;
+  padding: 0.75rem 0.5rem;
+  overflow-x: auto;
+  background: var(--code-bg);
+  font-size: 0.85rem;
+  line-height: 1.8;
+}
+.code-showcase__line {
+  display: flex;
+  align-items: center;
+  white-space: pre;
+  min-height: 1.65em;
+}
+.code-showcase__line-no {
+  flex-shrink: 0;
+  width: 2.75ch;
+  padding-right: 0.75rem;
+  text-align: right;
+  color: var(--code-punctuation);
+  opacity: 0.5;
+  user-select: none;
+}
+.code-showcase__line-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  color: var(--code-variable);
+}
+.code-showcase__note-tick {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1px;
+  background: var(--code-border);
+}
+.code-showcase__line {
+  transition: background 0.15s ease;
+}
+.code-showcase__line:hover {
+  background: color-mix(in srgb, var(--rush-blue) 7%, transparent);
+}
+.code-showcase__note {
+  flex-shrink: 0;
+  margin-left: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid color-mix(in srgb, var(--code-border) 60%, transparent);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.code-showcase__note-badge {
+  margin-right: 0.25rem;
+  font-weight: 700;
+}
+.code-showcase__output {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem 0.6rem 1.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  background: var(--code-bg-header);
+  border-top: 1px solid var(--code-border);
+}
+.code-showcase__caption {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.6rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+.code-showcase__dot {
+  color: var(--text-subtle);
+}
+.code-showcase__run {
+  margin-left: auto;
+}
+
+/* Doc hero metrics strip — bold key stats, muted meta (feedback get.md #4) */
+.doc-metrics {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.doc-metrics__stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1.4rem;
+}
+.doc-metrics__stats li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.doc-metrics__stats b {
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+.doc-metrics__meta {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--text-subtle);
+  opacity: 0.75;
+}
+
+/* Viewport reveal (Reveal component) — SSR/no-JS safe fade/slide-in */
+.reveal {
+}
+.reveal--ready {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal--in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Flash-highlight the mental-model target after clicking a concept stop */
+@keyframes mm-flash {
+  0% {
+    background: transparent;
+  }
+  35% {
+    background: color-mix(in srgb, var(--rush-blue) 12%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.mm-timeline h3.flash {
+  animation: mm-flash 1.3s ease;
+  border-radius: 0.25rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal--ready {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .mm-timeline h3.flash {
+    animation: none;
+  }
+  .mm-flow > .mm-flow__stop[data-concept]:hover,
+  .mm-flow > .mm-flow__stop[data-concept]:active {
+    transform: none;
+    box-shadow: none;
+    transition: none;
+  }
+}
+
+/* Anchor-jump targets clear the sticky site header (ActNav / act links, TOC, in-page anchors) */
+:where(h1, h2, h3, h4, h5, h6, [id]) {
+  scroll-margin-top: 5.5rem;
+}
+
+/* StepTracker — horizontal onboarding progress strip (choose → install → verify → done) */
+.step-tracker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0;
+  margin: 1.5rem 0 2rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.75rem;
+  background: var(--color-fd-card);
+}
+.step-tracker__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-subtle);
+}
+.step-tracker__step:not(:last-child)::after {
+  content: '';
+  display: inline-block;
+  width: 1.25rem;
+  height: 1px;
+  margin: 0 0.875rem;
+  background: var(--color-fd-border);
+}
+.step-tracker__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  line-height: 1;
+  background: color-mix(in srgb, var(--color-fd-muted) 40%, var(--color-fd-card));
+  border: 1px solid var(--color-fd-border);
+  color: var(--text-secondary);
+}
+.step-tracker__step.is-current {
+  color: var(--text-primary);
+}
+.step-tracker__step.is-current .step-tracker__mark {
+  background: var(--rush-blue);
+  border-color: var(--rush-blue);
+  color: #fff;
+}
+.step-tracker__step.is-done {
+  color: var(--text-secondary);
+}
+.step-tracker__step.is-done .step-tracker__mark {
+  background: color-mix(in srgb, var(--success) 16%, var(--color-fd-card));
+  border-color: color-mix(in srgb, var(--success) 45%, var(--color-fd-border));
+  color: var(--success);
+}
+
+/* Verify payoff panel — big "🎉 Installation complete" card */
+.verify-panel {
+  margin: 1.5rem 0;
+  padding: 1.25rem 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--success) 32%, var(--color-fd-border));
+  background: color-mix(in srgb, var(--success) 7%, var(--color-fd-card));
+}
+
 /* Enhanced card with glass morphism in dark, crisp borders in light */
 .card-glow {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -582,11 +844,87 @@ kbd {
 }
 
 /* Dark mode sidebar — blue-tinted surfaces for depth */
-.dark #nd-sidebar {
+.dark #nd-docs-layout aside {
   --color-fd-muted: #12161f;
   --color-fd-secondary: #1a1e29;
   --color-fd-muted-foreground: hsla(220, 15%, 68%, 0.8);
 }
+
+/* ============================================
+   Sidebar polish (feedback side.md + side2.md)
+   ============================================
+   CORRECTION: the previous round scoped to `#nd-sidebar` — an ID that does
+   NOT exist in Fumadocs (the layout root is `#nd-docs-layout`, per
+   container.js line 17). That CSS was a silent no-op. The sidebar lives in an
+   `<aside>` within `#nd-docs-layout`, so `#nd-docs-layout aside` is the
+   correct, stable scope.  Separators render as `<p>` (base.js SidebarSeparator);
+   folder labels carry `data-folder-label` (collapse-preserving-folder.tsx).
+
+   feedback side.md:  #5 spacing  #7 active  #8 arrows  #9 labels
+   feedback side2.md: #3 nesting  #4 groups  #7 density  #8 rotate  #9 border  #10 hierarchy
+ */
+
+/* Top-level list: breathing room between categories (side2 #7) */
+#nd-docs-layout aside nav > ul {
+  gap: 4px;
+}
+
+/* Active item: 3px left accent border (side2 #9). Fumadocs marks the current
+   page with data-active="true"; add a bold left accent on top of the blue pill. */
+#nd-docs-layout aside [data-active="true"] {
+  position: relative;
+}
+#nd-docs-layout aside [data-active="true"]::before {
+  content: '';
+  position: absolute;
+  inset-block: 20%;
+  inset-inline-start: 2px;
+  width: 3px;
+  border-radius: 9999px;
+  background: var(--rush-blue, #3b82f6);
+  z-index: 1;
+}
+
+/* Expand arrows: smooth chevron rotation on open/close (side2 #8). Fumadocs'
+   collapsible folders flip data-state; rotate the trigger's chevron so
+   open = down, closed = right, with a 200ms transition. */
+#nd-docs-layout aside [data-state] button[data-icon] svg {
+  transition: transform 0.2s ease;
+}
+#nd-docs-layout aside [data-state="closed"] button[data-icon] svg {
+  transform: rotate(-90deg);
+}
+
+/* Section labels: `---Label---` separators render as <p> elements (the only
+   <p> inside the sidebar nav). We now use bare `---` (no label) for invisible
+   grouping — just a visual gap between sections, no text. If a labeled
+   separator is ever re-introduced, style it as a quiet muted header. Empty
+   <p> separators get a clean small gap (no padding/margin bloat). */
+#nd-docs-layout aside nav p:empty {
+  padding: 0;
+  margin: 0;
+  height: 0.5rem;
+}
+#nd-docs-layout aside nav p:not(:empty) {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-muted, hsla(220, 8%, 45%, 0.85));
+  padding-top: 0.6rem;
+  padding-bottom: 0.1rem;
+  margin-bottom: 0.1rem;
+}
+.dark #nd-docs-layout aside nav p:not(:empty) {
+  color: hsla(220, 12%, 62%, 0.75);
+}
+
+/* Hierarchy: category (folder) labels dominate children (side2 #3, #10).
+   `data-folder-label` marks the folder's own link/trigger (the category name).
+   Leaf items inherit normal weight (400) so the parent always dominates. */
+#nd-docs-layout aside [data-folder-label] {
+  font-weight: 600;
+}
+
 
 /* Light mode clean off-white background */
 .light {
@@ -809,6 +1147,14 @@ kbd {
 
 .animate-fade-in {
   animation: fade-in 0.5s ease-out;
+}
+
+/* Request lifecycle arrows nudge on hover — disable the motion for reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  .lifecycle-arrow {
+    transition: none !important;
+    translate: none !important;
+  }
 }
 
 /* ============================================
@@ -1094,20 +1440,31 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 /* One section-level deep-dive link-card closes the timeline — replaces the
    per-step "Learn more →" that repeated after every concept. */
 .mm-deepdive {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
   margin-top: 1.75rem;
   margin-bottom: 1.5rem;
-  padding: 0.6rem 0.1rem;
+  padding: 0.55rem 1rem;
   font-weight: 600;
   color: var(--accent-link-fg);
-  transition: color 0.2s ease;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.5rem;
+  background: var(--color-fd-card);
+  text-decoration: none;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
 }
 
 .mm-deepdive:hover {
   color: var(--rush-blue);
+  border-color: color-mix(in srgb, var(--rush-blue) 45%, var(--color-fd-border));
+  background: color-mix(in srgb, var(--rush-blue) 5%, var(--color-fd-card));
+  transform: translateY(-1px);
 }
 
 .mm-deepdive:focus-visible {
@@ -1128,7 +1485,354 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   .mm-deepdive span[aria-hidden] {
     transition: none;
   }
+  .mm-deepdive:hover {
+    transform: none;
+  }
 }
+
+/* ============================================
+   Setup timeline (.setup-timeline)
+   ============================================
+   Connected numbered timeline for onboarding setup steps (Create → Install →
+   Run). The vertical connector spine is intentionally more prominent than
+   Fumadocs' default `.fd-steps` 1px border: onboarding pages need the steps
+   to read as one journey ("keep going"), not three independent cards (feedback
+   create-nextrush/doc2.md #1, #2: "the 3 steps still don't feel connected" /
+   "the page is still too flat"). Mirrors the `.mm-timeline` spine pattern but
+   keeps `.prose` in effect (WizardFlow's `not-prose` breaks fenced code blocks
+   and <ScaffoldCommand> inside a step). */
+.setup-timeline {
+  position: relative;
+  margin: 2.5rem 0;
+  padding-left: 3.25rem;
+}
+
+/* One uninterrupted spine behind the numbered circles — structural, not
+   decorative. Stops at the last step's circle so it reads as a finished rail. */
+.setup-timeline::before {
+  content: '';
+  position: absolute;
+  left: 1.125rem;
+  top: 0.875rem;
+  bottom: 0.875rem;
+  width: 2px;
+  border-radius: 9999px;
+  background: var(--bg-border);
+}
+
+.setup-step {
+  position: relative;
+  padding-bottom: 2.75rem;
+}
+.setup-step:last-child {
+  padding-bottom: 0;
+}
+
+/* Number circle + connector stub live on a narrow left rail so the spine
+   shows through between steps. */
+.setup-step__rail {
+  position: absolute;
+  left: -3.25rem;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.setup-step__circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  background: var(--rush-blue);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 5px var(--bg-card);
+}
+
+.setup-step__title {
+  margin: 0.2rem 0 0.6rem !important;
+  font-size: 1.1rem !important;
+  font-weight: 600;
+  color: var(--text-primary);
+  scroll-margin-top: 6rem;
+}
+
+.setup-step__content {
+  /* prose stays in effect — code blocks, ScaffoldCommand, inline code render
+     normally. Only neutralize the default top margin prose adds to the first
+     child so the body sits flush under the title. */
+  margin-top: 0;
+}
+.setup-step__content > :first-child {
+  margin-top: 0;
+}
+
+/* ============================================
+   Primary CTA (.primary-cta)
+   ============================================
+   The single most prominent action on an onboarding page — a large brand-
+   accented pill button. Onboarding should end with momentum, not fade into
+   navigation (feedback create-nextrush/doc2.md #3, #9: "success section is
+   buried" / "missing finish CTA"). One per page; everything else stays
+   secondary so nothing competes with it. */
+.primary-cta__button {
+  text-decoration: none;
+}
+
+/* ============================================
+   Success + CTA integrated block (.success-finish)
+   ============================================
+   Groups the success Callout and the PrimaryCTA into one visual unit so the
+   CTA belongs to the success section instead of reading as a floating button
+   (feedback f.md #5: "the floating blue button feels disconnected"). The tinted
+   band makes the finish-line read as a single destination, not two stacked
+   rectangles. */
+.success-finish {
+  margin: 2.5rem 0;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--rush-green) 6%, var(--color-fd-card));
+}
+.success-finish > :first-child {
+  margin-top: 0;
+}
+.success-finish > :last-child {
+  margin-bottom: 0;
+}
+.success-finish .primary-cta {
+  margin: 1rem 0 0;
+}
+
+/* ============================================
+   Further Reading section (.further-reading)
+   ============================================
+   A subtly tinted band that groups the "deeper" accordions into one curated
+   collection, visually separating them from the onboarding flow above (feedback
+   f1.md Option 1: "give the whole section a subtle tinted background" — slate-
+   50/#F8FAFC in light). Reduces cognitive effort: related content is perceived
+   as a single unit before the user reads a single label. */
+.further-reading {
+  margin: 2.5rem 0;
+  padding: 1.5rem 1.5rem 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--color-fd-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-fd-muted) 45%, transparent);
+}
+.further-reading > :first-child {
+  margin-top: 0;
+}
+.further-reading details {
+  margin-bottom: 0.75rem;
+}
+.further-reading details:last-of-type {
+  margin-bottom: 0;
+}
+
+/* ============================================
+   Outcome flow strip (.doc-stat-strip--flow)
+   ============================================
+   Adds a sense of progression to the "What you'll build" cards so the outcome
+   reads as a flow (Project → Server → Tests), not three static peers (feedback
+   f.md #2: "I don't understand the relationship"). A faint connector arrow
+   between cards makes the story obvious on scan. */
+.doc-stat-strip--flow {
+  position: relative;
+}
+
+/* ============================================
+   Section eyebrow contrast
+   ============================================
+   Feedback f.md #10: "the 'Outcome' label is too faint" / "section labels could
+   use slightly more contrast". Bumps the eyebrow from --text-subtle (a 5th-ramp
+   neutral that disappears at small sizes) to --text-secondary so the rhythm
+   dividers are legible. */
+.doc-section-eyebrow,
+.setup-step__title + .doc-section-eyebrow {
+  color: var(--text-secondary) !important;
+}
+
+/* ============================================
+   Optional command — secondary code treatment
+   ============================================
+   Feedback f.md #7: "the actual code area is visually identical across all
+   three steps." Step 2's install command is optional (the scaffolder installs
+   by default), so it shouldn't carry the same visual weight as the primary
+   create command. Applied via a `not-prose` wrapper with this class. */
+.cmd-optional {
+  opacity: 0.85;
+}
+.cmd-optional > :first-child {
+  margin-top: 0;
+}
+
+/* ============================================
+   Guide Accordion (.guide-accordion)
+   ============================================
+   Reusable "Learning Card Accordion" for docs. Replaces bare <details> blocks
+   whose closed state gave no affordance (feedback accordion.md: "there's almost
+   no affordance … interactive elements should advertise that they're
+   interactive"). The closed state reads as a card, not a heading: icon badge,
+   title, description, meta, and an Expand/Collapse affordance with a chevron.
+
+   State model (feedback accordion.md "Border" section — the border itself
+   becomes the feedback):
+     closed : 1px neutral border, no shadow, neutral card bg
+     hover  : translateY(-2px), soft brand-tinted shadow, blue border
+     open   : blue border + blue left accent, blue-tinged background
+
+   Also loaded lazily: `.guide-accordion--open` keeps the blue border + accent so
+   the open card remains visually marked after the mouse leaves. */
+.guide-accordion {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 1rem;
+  background: var(--color-fd-card);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+
+/* Hover — lift + brand border so interactivity is obvious before the click. */
+.guide-accordion:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--rush-blue) 55%, var(--color-fd-border));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--rush-blue) 8%, transparent);
+}
+
+/* Open — border stays brand blue (matches hover) + a left accent bar and a
+   faint blue wash, so the open card is distinguishable even without hover. */
+.guide-accordion--open {
+  border-color: var(--rush-blue);
+  background: color-mix(in srgb, var(--rush-blue) 5%, var(--color-fd-card));
+}
+.guide-accordion--open::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: 0;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--rush-blue);
+}
+
+.guide-accordion__trigger {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 1.25rem 1.5rem; /* 20px vertical / 24px horizontal — breathing room */
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: inherit;
+}
+
+/* Icon badge — tinted circular chip (like Linear), not a bare emoji. */
+.guide-accordion__badge {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  margin-top: 0.1rem;
+}
+
+.guide-accordion__heading {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.guide-accordion__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.guide-accordion__desc {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.guide-accordion__meta {
+  margin-top: 0.1rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Expand/Collapse affordance — visible action, not a passive little caret. */
+.guide-accordion__action {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+.guide-accordion__action-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--rush-blue);
+}
+
+.guide-accordion__chevron {
+  color: var(--rush-blue);
+  transition: transform 0.2s ease-out;
+}
+.guide-accordion__chevron--open {
+  transform: rotate(180deg);
+}
+
+/* Panel — animates height + content fade/slide in. */
+.guide-accordion__panel {
+  overflow: hidden;
+  transition: height 0.22s ease-out;
+}
+.guide-accordion__content {
+  padding: 0.25rem 1.5rem 1.5rem;
+  animation: guide-accordion-in 0.22s ease-out;
+}
+@keyframes guide-accordion-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-accordion,
+  .guide-accordion__chevron,
+  .guide-accordion__panel,
+  .guide-accordion__content {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* When the plain browser <details> is used inside a GuideAccordion (e.g. a
+   nested reference table), keep it compact and unobtrusive. */
+.guide-accordion details {
+  margin-top: 0.5rem;
+}
+
+
 
 /* Callouts sit one surface level above cards: a subtle tint in the callout's
    own color (info reads blue, warning reads amber) plus a stronger left edge,
@@ -1207,7 +1911,12 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   color: var(--text-secondary);
   border: 1px solid transparent;
   text-decoration: none;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .mm-flow > .mm-flow__stop[data-concept] {
   background: color-mix(in srgb, var(--mm-accent, var(--learning-application)) 12%, var(--color-fd-card));
@@ -1218,6 +1927,11 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 .mm-flow > .mm-flow__stop[data-concept]:hover {
   border-color: var(--mm-accent, var(--learning-application));
   color: var(--mm-accent, var(--learning-application));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.35);
+}
+.mm-flow > .mm-flow__stop[data-concept]:active {
+  transform: translateY(0) scale(0.97);
 }
 .mm-flow > .mm-flow__stop[data-concept]:focus-visible {
   outline: 2px solid var(--mm-accent, var(--learning-application));
@@ -1631,9 +2345,14 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 .prose details {
   margin: 1rem 0;
   border: 1px solid var(--color-fd-border);
-  border-radius: 0.5rem;
+  border-radius: 0.625rem;
   background: var(--color-fd-card);
   overflow: hidden;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    background-color 0.18s ease;
 }
 .prose details + details {
   margin-top: 0.5rem;
@@ -1641,14 +2360,14 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 .prose details summary {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  gap: 0.625rem;
+  padding: 0.8rem 1.1rem;
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--text-primary);
   cursor: pointer;
   list-style: none;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
   background: color-mix(in srgb, var(--brand-wash) 20%, transparent);
 }
 .prose details summary::-webkit-details-marker {
@@ -1668,22 +2387,41 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 .prose details summary:hover {
   background: color-mix(in srgb, var(--brand-wash) 50%, transparent);
 }
+.prose details summary:focus-visible {
+  outline: 2px solid var(--rush-blue);
+  outline-offset: -2px;
+}
 .prose details:hover {
-  border-color: color-mix(in srgb, var(--brand-link) 30%, var(--color-fd-border));
+  border-color: color-mix(in srgb, var(--rush-blue) 40%, var(--color-fd-border));
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--rush-blue) 7%, transparent);
+}
+/* Open — brand border + left accent + faint blue wash, so an open accordion stays marked
+   even after the pointer leaves (mirrors the GuideAccordion open state). */
+.prose details[open] {
+  border-color: color-mix(in srgb, var(--rush-blue) 45%, var(--color-fd-border));
+  background: color-mix(in srgb, var(--rush-blue) 4%, var(--color-fd-card));
+  box-shadow: inset 3px 0 0 var(--rush-blue);
+  transform: none;
 }
 .prose details[open] summary {
-  border-bottom: 1px solid var(--color-fd-border);
+  border-bottom: 1px solid color-mix(in srgb, var(--rush-blue) 25%, var(--color-fd-border));
 }
 .prose details > *:not(summary) {
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.1rem;
 }
 .prose details > *:last-child {
-  padding-bottom: 1rem;
+  padding-bottom: 1.1rem;
 }
 @media (prefers-reduced-motion: reduce) {
+  .prose details,
   .prose details summary,
   .prose details summary::before {
     transition: none;
+  }
+  .prose details:hover {
+    transform: none;
+    box-shadow: none;
   }
 }
 

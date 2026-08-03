@@ -5,13 +5,16 @@
   "pages": [
     "index",
     "getting-started",
+    "---",
     "concepts",
     "guides",
     "recipes",
     "examples",
+    "---",
     "production",
     "architecture",
     "reference",
+    "---",
     "migrate",
     "community",
     "help"
