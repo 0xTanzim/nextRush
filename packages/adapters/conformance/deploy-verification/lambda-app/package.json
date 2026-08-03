@@ -2,7 +2,7 @@
   "name": "nextrush-deploy-verification-lambda",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Throwaway Lambda Function URL app for scheduled real-cloud deploy verification (task group 10). Not published.",
   "dependencies": {
     "@nextrush/adapter-serverless": "workspace:*",

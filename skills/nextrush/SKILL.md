@@ -59,6 +59,10 @@ pnpm create nextrush my-api
 cd my-api && pnpm dev
 ```
 
+> ⚠️ pnpm 11.x / Deno can resolve `@latest` to an old version for version-gap packages
+> ([pnpm#8659](https://github.com/pnpm/pnpm/issues/8659)). If the scaffold looks stale,
+> use `npm create nextrush` or `bun create nextrush` instead.
+
 Templates: functional | class-based | full. Runtimes: node | bun | deno. Flags: `--yes --no-git --no-install`.
 
 Dev toolkit (`@nextrush/dev`):

@@ -9,7 +9,7 @@ export { getDependencies };
 export function generatePackageJson(options: ProjectOptions): string {
   const deps = getDependencies(options);
   const scripts = getRuntimeScripts(options.runtime);
-  const metadata = getPackageMetadata(options.packageManager);
+  const metadata = getPackageMetadata(options.packageManager, options.runtime);
 
   const pkg: Record<string, unknown> = {
     name: options.name,
@@ -103,27 +103,44 @@ function renderFileTree(files: FileMap): string {
   return [...files.keys()].filter((path) => path.startsWith('src/')).sort().join('\n');
 }
 
-/** Generates the src/env.d.ts file for better type hints. */
-export function generateEnvDts(): string {
+/** Generates the src/env.d.ts file for better type hints.
+ *
+ * Deno resolves ambient type packages from `node_modules/@types/*` itself
+ * (Deno 2 `nodeModulesDir`), so the triple-slash `@nextrush/types` reference is
+ * only emitted for Node/Bun — under `deno check` the reference would be an
+ * unresolvable specifier error, since `@nextrush/types` is not a Deno module.
+ */
+export function generateEnvDts(options: ProjectOptions): string {
+  // capability-exempt: scaffolder emits runtime-specific project files from user choice,
+  // not the executing runtime. `options.runtime` is a scaffold-time decision.
+  if (options.runtime === 'deno') {
+    return '';
+  }
   return `/// <reference types="@nextrush/types" />
 `;
 }
 
-/** Returns import lines for the selected runtime and server function. */
+/** Returns import lines for the selected runtime and server function.
+ *
+ * `extraNextrushImports` lets a template pull additional named exports from the
+ * `nextrush` meta-package (e.g. `errorHandler`) without a second import line. */
 export function getRuntimeEntrypointImports(
   runtime: Runtime,
-  serverFn: 'listen' | 'serve'
+  serverFn: 'listen' | 'serve',
+  extraNextrushImports: readonly string[] = []
 ): string[] {
   /* eslint-disable nextrush/no-runtime-identity-capability -- scaffolder emits runtime-specific template snippets for the GENERATED project; not a capability decision in this CLI's own request path */
   if (runtime === 'node') {
-    return [`import { createApp, createRouter, ${serverFn} } from 'nextrush';`];
+    const names = ['createApp', 'createRouter', ...extraNextrushImports, serverFn];
+    return [`import { ${names.join(', ')} } from 'nextrush';`];
   }
 
   const adapterPackage = runtime === 'bun' ? '@nextrush/adapter-bun' : '@nextrush/adapter-deno';
   /* eslint-enable nextrush/no-runtime-identity-capability */
 
+  const names = ['createApp', 'createRouter', ...extraNextrushImports];
   return [
-    "import { createApp, createRouter } from 'nextrush';",
+    `import { ${names.join(', ')} } from 'nextrush';`,
     `import { ${serverFn} } from '${adapterPackage}';`,
   ];
 }
@@ -135,12 +152,4 @@ export function getPortDeclaration(runtime: Runtime): string {
     return "const PORT = Number(Deno.env.get('PORT')) || 8080;";
   }
   return 'const PORT = Number(process.env.PORT) || 8080;';
-}
-
-/** Runtime-safe helpers for controller auto-discovery in src and dist contexts. */
-export function getControllerDiscoveryHelpers(): string {
-  return `const IS_DIST_RUNTIME = import.meta.url.includes('/dist/');
-const CONTROLLERS_ROOT = IS_DIST_RUNTIME ? './dist/controllers' : './src/controllers';
-const CONTROLLERS_INCLUDE = IS_DIST_RUNTIME ? ['**/*.js'] : ['**/*.ts'];
-`;
 }

@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/adapter-conformance",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Cross-adapter behavioral conformance suite — asserts identical observable behavior across the Node, Bun, Deno, Edge, and serverless adapters (audit F-01). Testing/dev tier: exposes a reusable entrypoint (`defineConformanceSuite`) so external adapter authors can certify their own adapter. Not part of the frozen runtime API.",
   "type": "module",
