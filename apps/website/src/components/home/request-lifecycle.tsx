@@ -6,7 +6,7 @@ export function RequestLifecycle() {
   return (
     <div
       aria-label="Request lifecycle: Request, Router, Middleware, Context, Response"
-      className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2 sm:gap-3"
+      className="group mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2 sm:gap-3"
     >
       {stages.map((stage, index) => (
         <div key={stage} className="flex items-center gap-2 sm:gap-3">
@@ -14,7 +14,11 @@ export function RequestLifecycle() {
             {stage}
           </span>
           {index < stages.length - 1 && (
-            <ArrowRight className="size-4 text-fd-muted-foreground" aria-hidden="true" />
+            <ArrowRight
+              className="lifecycle-arrow size-4 text-fd-muted-foreground transition-transform duration-300 group-hover:translate-x-1"
+              style={{ transitionDelay: `${index * 80}ms` }}
+              aria-hidden="true"
+            />
           )}
         </div>
       ))}

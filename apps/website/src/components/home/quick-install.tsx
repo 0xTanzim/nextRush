@@ -5,35 +5,40 @@ import Image from 'next/image';
 import { useState } from 'react';
 
 const packageManagers = [
-  { name: 'pnpm', icon: '/icons/pnpm.svg', command: 'pnpm add nextrush' },
-  { name: 'npm', icon: '/icons/npm.svg', command: 'npm install nextrush' },
-  { name: 'yarn', icon: '/icons/yarn-svgrepo-com.svg', command: 'yarn add nextrush' },
-  { name: 'bun', icon: '/icons/bun.svg', command: 'bun add nextrush' },
+  { name: 'pnpm', icon: '/icons/pnpm.svg', create: 'pnpm create nextrush@latest my-api', dev: 'cd my-api && pnpm dev' },
+  { name: 'npm', icon: '/icons/npm.svg', create: 'npm create nextrush my-api', dev: 'cd my-api && npm run dev' },
+  { name: 'yarn', icon: '/icons/yarn-svgrepo-com.svg', create: 'yarn create nextrush my-api', dev: 'cd my-api && yarn dev' },
+  { name: 'bun', icon: '/icons/bun.svg', create: 'bun create nextrush my-api', dev: 'cd my-api && bun dev' },
 ] as const;
 
 export function QuickInstall() {
   const [activeTab, setActiveTab] = useState<(typeof packageManagers)[number]['name']>('pnpm');
-  const [copied, setCopied] = useState(false);
-  const activeCommand = packageManagers.find((pm) => pm.name === activeTab)?.command ?? '';
+  const [copiedStep, setCopiedStep] = useState<number | null>(null);
+  const active = packageManagers.find((pm) => pm.name === activeTab) ?? packageManagers[0];
 
-  const copyCommand = async () => {
-    await navigator.clipboard.writeText(activeCommand);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copy = async (text: string, step: number) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedStep(step);
+    setTimeout(() => setCopiedStep(null), 2000);
   };
 
+  const steps = [
+    { number: 1, label: 'Create', command: active.create },
+    { number: 2, label: 'Start', command: active.dev },
+  ] as const;
+
   return (
-    <section aria-labelledby="install-first-app" className="relative py-24">
+    <section aria-labelledby="install-first-app" className="relative bg-fd-muted/40 py-24">
       <hr className="section-divider absolute inset-x-0 top-0" />
       <div className="container mx-auto px-4">
         <div className="mb-12 text-center">
           <h2 id="install-first-app" className="mb-4 text-3xl font-bold md:text-4xl">
             Install your first app
           </h2>
-          <p className="text-lg text-fd-muted-foreground">Choose a package manager, install the core, then follow the introduction.</p>
+          <p className="text-lg text-fd-muted-foreground">Three commands. One running server.</p>
         </div>
 
-        <div className="mx-auto max-w-xl">
+        <div className="mx-auto max-w-2xl">
           <div className="overflow-hidden rounded-xl border border-fd-border bg-fd-card code-glow">
             <div role="group" aria-label="Package manager" className="flex border-b border-fd-border">
               {packageManagers.map((pm) => {
@@ -64,23 +69,45 @@ export function QuickInstall() {
               })}
             </div>
 
-            <div className="flex items-center justify-between gap-3 p-4">
-              <code aria-live="polite" className="overflow-x-auto font-mono text-[var(--rush-cyan)]">
-                <span className="text-fd-muted-foreground">$ </span>
-                {activeCommand}
-              </code>
-              <button
-                type="button"
-                onClick={copyCommand}
-                className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-fd-muted-foreground transition-colors hover:bg-fd-border hover:text-fd-foreground"
-                aria-label="Copy command"
-              >
-                {copied ? (
-                  <Check className="size-5 text-[var(--success)]" aria-hidden="true" />
-                ) : (
-                  <Copy className="size-5" aria-hidden="true" />
-                )}
-              </button>
+            <div className="divide-y divide-fd-border" aria-live="polite">
+              {steps.map((step) => (
+                <div key={step.number} className="flex items-center gap-3 p-4 sm:gap-4">
+                  <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--rush-blue)]/15 text-sm font-semibold text-[var(--rush-blue)]">
+                    {step.number}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">
+                      {step.label}
+                    </p>
+                    <code className="block overflow-x-auto font-mono text-sm text-[var(--rush-cyan)]">
+                      <span className="text-fd-muted-foreground">$ </span>
+                      {step.command}
+                    </code>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copy(step.command, step.number)}
+                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-fd-muted-foreground transition-colors hover:bg-fd-border hover:text-fd-foreground"
+                    aria-label={`Copy ${step.label} command`}
+                  >
+                    {copiedStep === step.number ? (
+                      <Check className="size-4 text-[var(--success)]" aria-hidden="true" />
+                    ) : (
+                      <Copy className="size-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+              ))}
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-[var(--code-bg-header)] px-4 py-3 font-mono text-sm sm:gap-4">
+                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--success)]/15 text-sm font-semibold text-[var(--success)]">
+                  3
+                </span>
+                <span className="text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">Visit</span>
+                <span className="text-[var(--rush-cyan)]">http://localhost:8080</span>
+                <span className="text-[var(--code-punctuation)]" aria-hidden="true">&rarr;</span>
+                <span className="font-semibold text-[var(--success)]">✓ Hello NextRush!</span>
+              </div>
             </div>
           </div>
         </div>
