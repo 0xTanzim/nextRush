@@ -1,5 +1,5 @@
 {
   "title": "Class Runtime",
   "defaultOpen": false,
-  "pages": ["dependency-injection", "modules", "interceptors", "exception-filters", "lifecycle"]
+  "pages": ["dependency-injection", "modules", "guards", "interceptors", "exception-filters", "lifecycle"]
 }
