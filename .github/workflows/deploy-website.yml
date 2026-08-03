@@ -1,0 +1,52 @@
+name: Deploy Website (Cloudflare Pages)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/website/**"
+      - "scripts/docs/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - ".github/workflows/deploy-website.yml"
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+concurrency:
+  group: deploy-website
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Build website (static export)
+        env:
+          NEXTRUSH_REPO_BRANCH: main
+          NEXTRUSH_DOCS_BASE_PATH: ""
+          NEXT_PUBLIC_SITE_URL: https://nextrush.dev
+        run: pnpm turbo build --filter=website
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ secrets.CLOUDFLARE_PROJECT_NAME }}
+          directory: apps/website/out
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
