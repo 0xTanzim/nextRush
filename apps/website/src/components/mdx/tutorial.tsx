@@ -69,10 +69,7 @@ export function TutorialChapter({
 }) {
   return (
     <div className="not-prose -mt-2 mb-8 border-l-[3px] border-[var(--brand-solid)] bg-[color-mix(in_srgb,var(--color-fd-muted)_28%,var(--color-fd-card))] py-4 pl-5 pr-4 md:pl-6">
-      <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[var(--brand-link)]">
-        Part {part} of {total}
-      </p>
-      <p className="mt-1.5 max-w-2xl text-base font-medium leading-relaxed text-[var(--text-primary)] md:text-lg">
+      <p className="max-w-2xl text-base font-medium leading-relaxed text-[var(--text-primary)] md:text-lg">
         {tagline}
       </p>
       {focus && focus.length > 0 ? (
@@ -131,7 +128,7 @@ export function TutorialPipeline({
               <span
                 className={
                   isActive
-                    ? 'rounded-full bg-[color-mix(in_srgb,var(--brand-solid)_14%,var(--color-fd-card))] px-3 py-1.5 text-sm font-semibold text-[var(--text-primary)] ring-2 ring-[color-mix(in_srgb,var(--brand-solid)_45%,transparent)]'
+                    ? 'rounded-full bg-[color-mix(in_srgb,var(--brand-solid)_10%,var(--color-fd-card))] px-3 py-1.5 text-sm font-semibold text-[var(--text-primary)] ring-1 ring-[color-mix(in_srgb,var(--brand-solid)_40%,transparent)]'
                     : isFuture
                       ? 'rounded-full bg-transparent px-3 py-1.5 text-sm font-medium text-[var(--text-muted)] ring-1 ring-dashed ring-[var(--color-fd-border)]'
                       : 'rounded-full bg-[var(--color-fd-card)] px-3 py-1.5 text-sm font-medium text-[var(--text-primary)] ring-1 ring-[var(--color-fd-border)]'
@@ -139,9 +136,7 @@ export function TutorialPipeline({
                 aria-current={isActive ? 'step' : undefined}
               >
                 {isActive ? (
-                  <span className="mr-1.5 text-[0.65rem] font-bold uppercase tracking-wider text-[var(--brand-link)]">
-                    New
-                  </span>
+                  <span className="mr-1.5 inline-block size-1.5 rounded-full bg-[var(--brand-solid)]" aria-label="new in this part" />
                 ) : null}
                 {step}
               </span>
@@ -255,7 +250,7 @@ export function WhatChanged({
   note?: string;
 }) {
   return (
-    <div className="not-prose my-5">
+    <div className="not-prose mt-3 mb-5">
       <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
         What changed
       </p>
@@ -271,7 +266,7 @@ export function WhatChanged({
         <span className="hidden text-[var(--text-secondary)] sm:block" aria-hidden>
           →
         </span>
-        <div className="rounded-lg bg-[color-mix(in_srgb,var(--brand-wash)_18%,var(--color-fd-card))] px-3 py-2.5 ring-1 ring-[color-mix(in_srgb,var(--brand-link)_25%,transparent)]">
+        <div className="rounded-lg bg-[color-mix(in_srgb,var(--brand-wash)_18%,var(--color-fd-card))] px-3 py-2.5">
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[var(--brand-link)]">
             After
           </p>
@@ -291,18 +286,18 @@ export function WhatChanged({
  * Distinct "why this works" band — scannable bullets, not another prose block.
  */
 export function WhyItWorks({
-  title = 'Why this works',
+  title = 'Why it works',
   children,
 }: {
   title?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="not-prose my-5 rounded-xl bg-[color-mix(in_srgb,var(--brand-wash)_12%,var(--color-fd-card))] px-4 py-3.5 ring-1 ring-[color-mix(in_srgb,var(--brand-link)_18%,transparent)]">
-      <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-[var(--brand-link)]">
-        💡 {title}
+    <div className="not-prose my-4">
+      <p className="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+        {title}
       </p>
-      <ul className="mt-2.5 m-0 grid list-none gap-1.5 p-0 text-sm leading-relaxed text-[var(--text-primary)]">
+      <ul className="m-0 grid list-none gap-1.5 p-0 text-sm leading-relaxed text-[var(--text-secondary)]">
         {children}
       </ul>
     </div>
@@ -331,19 +326,13 @@ export function TutorialCheckpoint({
   children: ReactNode;
 }) {
   return (
-    <div className="not-prose my-8 rounded-xl bg-[color-mix(in_srgb,var(--accent-success-fg)_7%,var(--color-fd-card))] px-5 py-5 ring-1 ring-[color-mix(in_srgb,var(--accent-success-fg)_30%,var(--color-fd-border))]">
-      <p className="text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[var(--accent-success-fg)]">
-        ✅ Part {part} complete
-      </p>
-      <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{title}</p>
-      <p className="mt-3 text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-        You now have
-      </p>
-      <ul className="mt-2 grid list-none gap-1.5 p-0 text-sm text-[var(--text-primary)] sm:grid-cols-2">
+    <div className="not-prose my-6 rounded-lg border border-[color-mix(in_srgb,var(--color-fd-border)_80%,transparent)] bg-[color-mix(in_srgb,var(--color-fd-card)_60%,transparent)] px-4 py-3.5">
+      <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
+      <ul className="mt-2 grid list-none gap-1 p-0 text-sm text-[var(--text-secondary)] sm:grid-cols-2">
         {children}
       </ul>
       {next ? (
-        <p className="mt-4 border-t border-[color-mix(in_srgb,var(--color-fd-border)_70%,transparent)] pt-3 text-sm text-[var(--text-primary)]">
+        <p className="mt-3 text-sm text-[var(--text-primary)]">
           <span className="font-semibold text-[var(--accent-success-fg)]">Next →</span> {next}
         </p>
       ) : null}
@@ -455,13 +444,15 @@ export function Challenge({
       'text-[var(--status-warning-text)] bg-[color-mix(in_srgb,var(--status-warning)_12%,transparent)]',
     Expert: 'text-[var(--rush-purple)] bg-[color-mix(in_srgb,var(--rush-purple)_12%,transparent)]',
   };
+  const stars: Record<typeof level, number> = { Starter: 1, Intermediate: 2, Advanced: 3, Expert: 4 };
 
   return (
     <div className="rounded-xl bg-[color-mix(in_srgb,var(--color-fd-muted)_28%,var(--color-fd-card))] px-4 py-3.5">
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`rounded-md px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider ${tone[level]}`}
+          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider ${tone[level]}`}
         >
+          <span aria-hidden>{'⭐'.repeat(stars[level])}</span>
           {level}
         </span>
         {time ? (
@@ -478,7 +469,7 @@ export function Challenge({
 
 /** Severity-tagged common mistake — fix is the scannable payoff. */
 export function MistakeList({ children }: { children: ReactNode }) {
-  return <div className="not-prose my-5 grid gap-3">{children}</div>;
+  return <div className="not-prose my-5 flex flex-col gap-2">{children}</div>;
 }
 
 export function Mistake({
@@ -497,22 +488,20 @@ export function Mistake({
   const icon = severity === 'error' ? '⛔' : severity === 'info' ? 'ℹ' : '⚠';
   const accent =
     severity === 'error'
-      ? 'border-l-[var(--status-danger)]'
+      ? 'var(--status-danger)'
       : severity === 'info'
-        ? 'border-l-[var(--brand-link)]'
-        : 'border-l-[var(--status-warning)]';
+        ? 'var(--brand-link)'
+        : 'var(--status-warning)';
 
   return (
-    <div
-      className={`rounded-r-xl border-l-[3px] bg-[color-mix(in_srgb,var(--color-fd-muted)_28%,var(--color-fd-card))] py-3 pl-4 pr-4 ${accent}`}
-    >
-      <p className="text-sm font-semibold text-[var(--text-primary)]">
-        <span className="mr-1.5" aria-hidden>
+    <details>
+      <summary>
+        <span aria-hidden style={{ color: accent }}>
           {icon}
-        </span>
+        </span>{' '}
         {title}
-      </p>
-      <dl className="mt-2 grid gap-1.5 text-sm">
+      </summary>
+      <dl className="m-0 grid gap-1.5 text-sm">
         <div>
           <dt className="inline font-medium text-[var(--text-secondary)]">Symptom: </dt>
           <dd className="inline text-[var(--text-primary)]">{symptom}</dd>
@@ -522,10 +511,10 @@ export function Mistake({
           <dd className="inline text-[var(--text-primary)]">{cause}</dd>
         </div>
       </dl>
-      <p className="mt-2.5 rounded-lg bg-[color-mix(in_srgb,var(--accent-success-fg)_9%,var(--color-fd-card))] px-3 py-2 text-sm text-[var(--text-primary)]">
+      <p className="text-sm">
         <span className="font-semibold text-[var(--accent-success-fg)]">✅ Fix: </span>
         {fix}
       </p>
-    </div>
+    </details>
   );
 }

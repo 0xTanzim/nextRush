@@ -128,7 +128,7 @@ export function SiteHeader({ version }: { version: string }) {
             className={cn(
               'inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors',
               isActive(pathname, link.href)
-                ? 'text-fd-primary'
+                ? 'relative text-fd-primary after:absolute after:inset-x-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-fd-primary'
                 : 'text-fd-muted-foreground hover:text-fd-foreground'
             )}
           >

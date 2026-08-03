@@ -18,8 +18,11 @@ export const DOCS_GETTING_STARTED = '/docs/getting-started' as const;
 /** Full overview: philosophy, architecture, trade-offs */
 export const DOCS_GETTING_STARTED_OVERVIEW = '/docs/getting-started/overview' as const;
 
-/** Quick-start tutorial: build a working API in minutes */
-export const DOCS_GETTING_STARTED_QUICK_START = '/docs/getting-started/quick-start' as const;
+/** Quick Start: scaffold a runnable project with create-nextrush */
+export const DOCS_GETTING_STARTED_QUICK_START = '/docs/getting-started/create-nextrush' as const;
+
+/** Task API Tutorial: build a working API from an empty folder */
+export const DOCS_GETTING_STARTED_TASK_API_TUTORIAL = '/docs/getting-started/quick-start' as const;
 
 /** Install guide: per-runtime setup instructions */
 export const DOCS_GETTING_STARTED_INSTALLATION = '/docs/getting-started/installation' as const;

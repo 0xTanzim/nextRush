@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { CopyButton } from '@/components/copy-button';
 
 const codeExample = `import { createApp, createRouter, listen } from 'nextrush';
@@ -77,29 +80,93 @@ const highlightedCode = (
   </>
 );
 
+const STATUS_STATES = [
+  {
+    key: 'started',
+    content: (
+      <>
+        <span className="text-[var(--success)]" aria-hidden="true">
+          ✓
+        </span>
+        <span className="text-fd-muted-foreground">Server started</span>
+      </>
+    ),
+  },
+  {
+    key: 'listening',
+    content: (
+      <>
+        <span className="text-[var(--success)]" aria-hidden="true">
+          ✓
+        </span>
+        <span className="text-fd-muted-foreground">Listening on</span>
+        <span className="text-[var(--code-variable)]">:8080</span>
+      </>
+    ),
+  },
+  {
+    key: 'request',
+    content: (
+      <>
+        <span className="text-[var(--success)]">GET /</span>
+        <span className="text-[var(--code-punctuation)]" aria-hidden="true">
+          &rarr;
+        </span>
+        <span className="rounded bg-[var(--success)]/15 px-1.5 py-0.5 text-xs font-semibold text-[var(--success)]">
+          200 OK
+        </span>
+        <span className="hidden text-fd-muted-foreground sm:inline">{'{ "message": "Hello NextRush!" }'}</span>
+      </>
+    ),
+  },
+] as const;
+
 export function HeroCodeExample() {
+  const [index, setIndex] = useState(0);
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduced(mq.matches);
+    const handler = (event: MediaQueryListEvent) => setReduced(event.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
+    if (reduced) return;
+    const id = window.setInterval(() => {
+      setIndex((i) => (i + 1) % STATUS_STATES.length);
+    }, 2600);
+    return () => window.clearInterval(id);
+  }, [reduced]);
+
+  const current = reduced ? STATUS_STATES[STATUS_STATES.length - 1] : STATUS_STATES[index];
+
   return (
     <div className="w-full max-w-3xl animate-fade-up animate-delay-500">
-      <div className="relative overflow-hidden rounded-xl border border-[var(--code-border)] bg-[var(--code-bg)] code-glow">
+      <div className="group relative overflow-hidden rounded-xl border border-[var(--code-border)] bg-[var(--code-bg)] code-glow">
         <div className="flex items-center justify-between border-b border-[var(--code-border)] bg-[var(--code-bg-header)] px-4 py-2">
           <div className="flex items-center gap-2">
-            <div className="flex gap-1.5" aria-hidden="true">
+            <div className="flex gap-2" aria-hidden="true">
               <span className="size-3 rounded-full bg-[var(--danger)]" />
               <span className="size-3 rounded-full bg-[var(--warning)]" />
               <span className="size-3 rounded-full bg-[var(--success)]" />
             </div>
-            <span className="ml-2 font-mono text-sm text-[var(--code-punctuation)]">src/index.ts</span>
+            <span className="ml-2 font-mono text-sm text-[var(--code-punctuation)]">TypeScript</span>
+            <span className="hidden font-mono text-sm text-fd-muted-foreground sm:inline">&middot; src/index.ts</span>
           </div>
-          <CopyButton code={codeExample} label="Copy code example" />
+          <span className="transition-opacity duration-200 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100">
+            <CopyButton code={codeExample} label="Copy code example" />
+          </span>
         </div>
         <pre className="overflow-x-auto p-4 text-left leading-snug" tabIndex={0}>
           <code className="text-sm font-mono">{highlightedCode}</code>
         </pre>
         <div className="flex items-center gap-2 border-t border-[var(--code-border)] bg-[var(--code-bg-header)] px-4 py-2 font-mono text-sm">
-          <span className="text-[var(--success)]">GET /</span>
-          <span className="text-[var(--code-punctuation)]">&rarr;</span>
-          <span className="rounded bg-[var(--success)]/15 px-1.5 py-0.5 text-xs font-semibold text-[var(--success)]">200 OK</span>
-          <span className="text-fd-muted-foreground">{'{'} &quot;message&quot;: &quot;Hello NextRush!&quot; {'}'}</span>
+          <div key={current.key} className="flex items-center gap-2 animate-fade-in" aria-hidden="true">
+            {current.content}
+          </div>
         </div>
       </div>
     </div>
