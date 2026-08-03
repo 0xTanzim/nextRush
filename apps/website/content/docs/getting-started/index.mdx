@@ -10,9 +10,8 @@ keywords: [getting, index, introduction, nextrush, started]
   One request flow. Every runtime. Zero hidden behavior.
 </div>
 
-NextRush is a backend framework for Node.js, Bun, Deno, and Edge — **small core**, **strict
-TypeScript**, **explicit wiring**. Follow a request through middleware, the router, and the adapter
-without hidden steps, and install only the packages you actually use.
+Build APIs with explicit routing, middleware, and adapters. **Install only the packages you need** —
+nothing hidden, nothing automatic — on Node, Bun, Deno, Edge, or Serverless.
 
 <div className="not-prose mt-5 flex flex-wrap gap-2">
   <DocHeroPill>Beginner</DocHeroPill>
@@ -23,32 +22,75 @@ without hidden steps, and install only the packages you actually use.
 
 <div className="not-prose mt-5 flex flex-wrap gap-3">
   <a href="/docs/getting-started/installation" className="doc-hero__cta--primary">Install →</a>
-  <a href="/docs/getting-started/overview" className="doc-hero__cta--secondary">Read in one page</a>
+  <a href="/docs/getting-started/overview" className="doc-hero__cta--secondary">Framework overview →</a>
 </div>
 
-<ul className="doc-trustbar not-prose">
-  <li><b>MIT</b></li>
-  <li><b>100%</b> <span>TypeScript</span></li>
-  <li><b>0</b> <span>core dependencies</span></li>
-  <li><b>4</b> <span>runtimes, one codebase</span></li>
-  <li><b>Open source</b></li>
-</ul>
+<div className="doc-metrics not-prose">
+  <ul className="doc-metrics__stats">
+    <li><b>0</b> <span>core dependencies</span></li>
+    <li><b>5</b> <span>runtimes on one codebase</span></li>
+    <li><b>100%</b> <span>TypeScript</span></li>
+  </ul>
+  <p className="doc-metrics__meta">MIT licensed · Open source</p>
+</div>
 
 </DocHero>
 
+## Your first NextRush app
+
+The smallest useful NextRush app — create an application, register one route, start listening:
+
+<Reveal>
+
+<CodeShowcase />
+
+</Reveal>
+
 ## Why NextRush exists
 
-Node backend frameworks usually force one of two extremes.
+Bare Node frameworks and full platforms each give something away. NextRush is built to skip that trade:
 
-**Tiny but unstructured** — a few hundred lines and a wildcard `app.use`. Fast to start, but every
-project reinvents how middleware composes, where types live, and how to grow past one file.
+<div className="my-6 grid gap-3 md:grid-cols-3">
+  <div className="rounded-xl border border-fd-border bg-fd-card/40 p-4 transition-transform hover:-translate-y-1">
+    <h4 className="mb-2 font-semibold">Tiny framework</h4>
+    <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Pros</p>
+    <ul className="mb-3 space-y-1 text-sm">
+      <li className="text-fd-foreground">✓ Small, learnable core</li>
+      <li className="text-fd-foreground">✓ Easy to understand</li>
+    </ul>
+    <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Trade-offs</p>
+    <ul className="space-y-1 text-sm">
+      <li className="text-fd-muted-foreground">✗ Reinvent middleware</li>
+      <li className="text-fd-muted-foreground">✗ Weak scalability</li>
+    </ul>
+  </div>
+  <div className="rounded-xl border border-fd-border bg-fd-card/40 p-4 transition-transform hover:-translate-y-1">
+    <h4 className="mb-2 font-semibold">Heavy framework</h4>
+    <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Pros</p>
+    <ul className="mb-3 space-y-1 text-sm">
+      <li className="text-fd-foreground">✓ Batteries included</li>
+      <li className="text-fd-foreground">✓ Scales for big teams</li>
+    </ul>
+    <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Trade-offs</p>
+    <ul className="space-y-1 text-sm">
+      <li className="text-fd-muted-foreground">✗ Large runtime</li>
+      <li className="text-fd-muted-foreground">✗ Smallest service pays for the whole machine</li>
+    </ul>
+  </div>
+  <div className="relative rounded-xl border-2 border-[color-mix(in_srgb,var(--rush-blue)_50%,transparent)] bg-[color-mix(in_srgb,var(--rush-blue)_6%,transparent)] p-5 transition-transform hover:-translate-y-1">
+    <span className="absolute -top-3 left-4 rounded-full bg-[var(--rush-blue)] px-2.5 py-0.5 text-xs font-semibold text-white">★ Recommended</span>
+    <h4 className="mb-2 font-semibold text-[var(--rush-blue)]">NextRush</h4>
+    <ul className="space-y-1 text-sm">
+      <li className="text-fd-foreground">✓ Explicit</li>
+      <li className="text-fd-foreground">✓ Modular</li>
+      <li className="text-fd-foreground">✓ Typed</li>
+      <li className="text-fd-foreground">✓ Portable</li>
+    </ul>
+  </div>
+</div>
 
-**Powerful but heavy** — a full platform with decorators, modules, and its own runtime. Productive
-at scale, but the smallest service pays for the whole machine.
-
-NextRush sits in the middle. Strict TypeScript and optional structure (controllers, DI) when you
-want them, on a core that stays under 3,000 lines and runs the same code across four runtimes.
-One request path explains every feature; nothing is hidden behind a decorator or a global.
+One request path explains every feature; nothing is hidden behind a decorator or a global — on a core
+that stays under 3,000 lines and runs the same code across all five runtimes.
 
 ## Core mental model
 
@@ -88,10 +130,41 @@ The one per-request object every step reads from and writes to — `params`/`que
   <span aria-hidden>→</span>
 </a>
 
-<Callout type="info">
-  Application owns the middleware chain. Middleware composes behavior around a handler. The router
-  picks which handler runs. Context is what they all read from and write to.
-</Callout>
+## Your next step
+
+One path, three stops — each hands you straight to the next.
+
+<div className="not-prose my-6 flex flex-col gap-0">
+  <a href="/docs/getting-started/create-nextrush" className="group flex items-center gap-4 rounded-t-xl border border-b-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-blue)_6%,var(--color-fd-card))]">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--rush-blue)] text-sm font-bold text-white shadow-[0_0_0_3px_color-mix(in_srgb,var(--rush-blue)_20%,transparent)]">1</span>
+    <span className="min-w-0 flex-1">
+      <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 1 · Set up</span>
+      <span className="block font-semibold text-[var(--text-primary)] group-hover:text-[var(--rush-blue)]">Create</span>
+      <span className="block text-sm text-[var(--text-secondary)]">Scaffold a runnable project in one command, then verify a running server.</span>
+    </span>
+    <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-blue)]" aria-hidden>→</span>
+  </a>
+  <div className="ms-[1.375rem] h-5 w-px bg-[linear-gradient(to_bottom,var(--rush-blue),var(--rush-purple))]" aria-hidden />
+  <a href="/docs/getting-started/quick-start" className="group flex items-center gap-4 rounded-none border border-y-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-purple)_6%,var(--color-fd-card))]">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-[color-mix(in_srgb,var(--rush-purple)_55%,transparent)] bg-transparent text-sm font-bold text-[var(--rush-purple)]">2</span>
+    <span className="min-w-0 flex-1">
+      <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 2 · Build</span>
+      <span className="block font-semibold text-[var(--text-primary)] group-hover:text-[var(--rush-purple)]">Task API Tutorial</span>
+      <span className="block text-sm text-[var(--text-secondary)]">The hands-on tutorial: create, read, update, and delete over HTTP.</span>
+    </span>
+    <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-purple)]" aria-hidden>→</span>
+  </a>
+  <div className="ms-[1.375rem] h-5 w-px bg-[linear-gradient(to_bottom,var(--rush-purple),var(--rush-cyan))]" aria-hidden />
+  <a href="/docs/getting-started/overview" className="group flex items-center gap-4 rounded-b-xl border border-t-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-cyan)_8%,var(--color-fd-card))]">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-[color-mix(in_srgb,var(--rush-cyan)_55%,transparent)] bg-transparent text-sm font-bold text-[var(--rush-cyan)]">3</span>
+    <span className="min-w-0 flex-1">
+      <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 3 · Go deeper</span>
+      <span className="block font-semibold text-[var(--text-primary)] group-hover:text-[var(--rush-cyan)]">NextRush in one page</span>
+      <span className="block text-sm text-[var(--text-secondary)]">Every concept with a minimal example and a deep-dive link.</span>
+    </span>
+    <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-cyan)]" aria-hidden>→</span>
+  </a>
+</div>
 
 <div className="section-band section-gap-major">
 
@@ -128,10 +201,6 @@ wins at and the cost you take on — so you can place NextRush against what you 
   />
 </CompareGrid>
 
-NextRush aims for the middle NestJS and Express leave open: strict TypeScript and optional structure
-(controllers, DI) without a heavy runtime, on a core that stays under 3,000 lines and runs the same
-code across four runtimes.
-
 **Migrating from Express, Fastify, Hono, or NestJS?** — the [migration guide](/docs/migrate) maps
 each one's habits to NextRush's, with side-by-side snippets and a difficulty rating per origin.
 
@@ -154,52 +223,18 @@ each one's habits to NextRush's, with side-by-side snippets and a difficulty rat
 
 </div>
 
-## Your next step
-
-One path, three stops — each hands you straight to the next.
-
-<div className="not-prose my-6 flex flex-col gap-0">
-  <a href="/docs/getting-started/installation" className="group flex items-center gap-4 rounded-t-xl border border-b-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-blue)_6%,var(--color-fd-card))]">
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--rush-blue)] text-sm font-bold text-white shadow-[0_0_0_3px_color-mix(in_srgb,var(--rush-blue)_20%,transparent)]">1</span>
-    <span className="min-w-0 flex-1">
-      <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 1 · Set up</span>
-      <span className="block font-semibold text-[var(--text-primary)] group-hover:text-[var(--rush-blue)]">Install</span>
-      <span className="block text-sm text-[var(--text-secondary)]">Scaffold a project or install by hand, then verify a running server.</span>
-    </span>
-    <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-blue)]" aria-hidden>→</span>
-  </a>
-  <div className="ms-[1.375rem] h-5 w-px bg-[linear-gradient(to_bottom,var(--rush-blue),var(--rush-purple))]" aria-hidden />
-  <a href="/docs/getting-started/quick-start" className="group flex items-center gap-4 rounded-none border border-y-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-purple)_6%,var(--color-fd-card))]">
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-[color-mix(in_srgb,var(--rush-purple)_55%,transparent)] bg-transparent text-sm font-bold text-[var(--rush-purple)]">2</span>
-    <span className="min-w-0 flex-1">
-      <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 2 · Build</span>
-      <span className="block font-semibold text-[var(--text-primary)] group-hover:text-[var(--rush-purple)]">Build a Task API</span>
-      <span className="block text-sm text-[var(--text-secondary)]">The hands-on tutorial: create, read, update, and delete over HTTP.</span>
-    </span>
-    <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-purple)]" aria-hidden>→</span>
-  </a>
-  <div className="ms-[1.375rem] h-5 w-px bg-[linear-gradient(to_bottom,var(--rush-purple),var(--rush-cyan))]" aria-hidden />
-  <a href="/docs/getting-started/overview" className="group flex items-center gap-4 rounded-b-xl border border-t-0 border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--rush-cyan)_8%,var(--color-fd-card))]">
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-[color-mix(in_srgb,var(--rush-cyan)_55%,transparent)] bg-transparent text-sm font-bold text-[var(--rush-cyan)]">3</span>
-    <span className="min-w-0 flex-1">
-      <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Step 3 · Go deeper</span>
-      <span className="block font-semibold text-[var(--text-primary)] group-hover:text-[var(--rush-cyan)]">NextRush in one page</span>
-      <span className="block text-sm text-[var(--text-secondary)]">Every concept with a minimal example and a deep-dive link.</span>
-    </span>
-    <span className="shrink-0 text-[var(--text-subtle)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--rush-cyan)]" aria-hidden>→</span>
-  </a>
-</div>
+<ScrollHighlight />
 
 ## Continue learning
 
-Three on-ramps pick up where this page leaves off — read in whichever order matches what you're
+Four on-ramps pick up where this page leaves off — read in whichever order matches what you're
 building.
 
 <DocPageOutline
   items={[
     { href: '/docs/getting-started/overview', title: 'NextRush in one page', description: 'Every concept with a minimal example, both programming styles, and the runtimes — the whole framework on one screen.' },
-    { href: '/docs/getting-started/quick-start', title: 'Build a Task API', description: 'A hands-on CRUD tutorial that walks through middleware, routing, validation, and errors end to end.' },
-    { href: '/docs/getting-started/runtime/decision-guide', title: 'Pick a runtime', description: 'Node, Bun, Deno, and Edge differ in cold starts, streaming, and platform APIs. This guide tells you which to reach for and when.' },
+    { href: '/docs/getting-started/quick-start', title: 'Task API Tutorial', description: 'A hands-on CRUD tutorial that walks through middleware, routing, validation, and errors end to end.' },
+    { href: '/docs/getting-started/runtime/decision-guide', title: 'Pick a runtime', description: 'Node, Bun, Deno, Edge, and Serverless differ in cold starts, streaming, and platform APIs. This guide tells you which to reach for and when.' },
     { href: '/docs/migrate', title: 'Migrate from another framework', description: 'Side-by-side maps from Express, Fastify, Hono, and NestJS, with a difficulty rating per origin.' },
   ]}
 />

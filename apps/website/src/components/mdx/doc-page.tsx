@@ -144,7 +144,7 @@ const highlightIcons: Record<string, LucideIcon> = {
  */
 export function DocHero({ eyebrow, children }: { eyebrow?: string; children: ReactNode }) {
   return (
-    <div className="doc-hero not-prose relative mb-10 overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 sm:p-6 md:p-8">
+    <div className="doc-hero not-prose relative mb-10 overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-4 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,var(--brand-wash)_0%,transparent_60%)]"
@@ -178,7 +178,7 @@ export function DocHeroPill({ children }: { children: ReactNode }) {
 
 export function DocStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="doc-stat flex flex-col rounded-xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_55%,var(--color-fd-card))] px-3.5 py-3 transition-colors hover:border-[var(--border-strong)]">
+    <div className="doc-stat flex flex-col rounded-xl border border-transparent px-3.5 py-3 transition-colors hover:border-[var(--color-fd-border)]">
       <span className="text-[0.65rem] font-medium uppercase tracking-wider text-[var(--text-muted)]">
         {label}
       </span>
@@ -192,8 +192,14 @@ export function DocStat({ label, value, hint }: { label: string; value: string; 
   );
 }
 
-export function DocStatStrip({ children }: { children: ReactNode }) {
-  return <div className="not-prose my-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>;
+export function DocStatStrip({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={`doc-stat-strip not-prose my-8 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-3 ${className ?? ''}`}
+    >
+      {children}
+    </div>
+  );
 }
 
 /**

@@ -1,15 +1,16 @@
 ---
 title: Installation
-description: Install NextRush with your package manager of choice, confirm the Node.js version requirement, and get a server running in one file.
+description: Install NextRush in under five minutes — one package, one command, one running server — then verify it end to end.
 keywords: [getting, installation, nextrush, started]
 ---
 
 <DocHero eyebrow="Start here">
 
-Installing a web framework should take one command and a couple of minutes, not a checklist of
-peripheral tooling. NextRush ships as a single meta-package with everything the functional core
-needs, so the fastest path from an empty folder to a running server is genuinely short — you'll
-have one here before this page ends.
+<div className="mt-0 mb-4 text-xl font-bold leading-tight tracking-tight text-[var(--text-primary)] md:text-2xl">
+  Install NextRush in under five minutes.
+</div>
+
+One package. One command. One running server.
 
 <div className="not-prose mt-5 flex flex-wrap gap-2">
   <DocHeroPill>~5 min</DocHeroPill>
@@ -20,102 +21,97 @@ have one here before this page ends.
 
 </DocHero>
 
-## What you'll have
+<StepTracker current={1} />
 
-By the end of this page, three things are true and verified — not assumed:
+## Choose your path
 
-<DocStatStrip>
-  <DocStat label="✓ Package" value="Installed" hint="nextrush, via your package manager" />
-  <DocStat label="✓ Server" value="Running" hint="One file, listening on :8080" />
-  <DocStat label="✓ Response" value="Verified" hint="A real request answered on localhost" />
-</DocStatStrip>
+Two paths reach the same running server — both install the same `nextrush` package; the scaffolder
+automates the folder and config around it. If you're unsure, scaffold — you can still read every file
+it produces afterward.
 
-## Prerequisites
+<div className="not-prose my-6 grid gap-3 md:grid-cols-2">
+  <div className="relative rounded-xl border-2 border-[color-mix(in_srgb,var(--rush-blue)_50%,transparent)] bg-[color-mix(in_srgb,var(--rush-blue)_6%,transparent)] p-5">
+    <span className="absolute -top-3 left-4 rounded-full bg-[var(--rush-blue)] px-2.5 py-0.5 text-xs font-semibold text-white">★ Recommended</span>
+    <h3 className="mb-1 font-semibold">Create a new project</h3>
+    <p className="mb-3 text-sm text-[var(--text-secondary)]">
+      One command wires routing, middleware, scripts, and your chosen style — functional, class-based,
+      or full — with <code>create-nextrush</code>.
+    </p>
+    <a href="/docs/getting-started/create-nextrush" className="inline-flex items-center gap-1.5 rounded-md bg-[var(--rush-blue)] px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[color-mix(in_srgb,var(--rush-blue)_85%,black)]">
+      Use this →
+    </a>
+  </div>
+  <div className="rounded-xl border border-fd-border bg-fd-card/40 p-5">
+    <h3 className="mb-1 font-semibold">Existing project</h3>
+    <p className="mb-3 text-sm text-[var(--text-secondary)]">
+      Add <code>nextrush</code> to a project you already have, or wire each piece yourself to see how it
+      fits together.
+    </p>
+    <a href="#install" className="inline-flex items-center gap-1.5 rounded-md border border-fd-border bg-fd-card px-3 py-1.5 text-sm font-semibold text-fd-foreground transition-colors hover:border-[var(--rush-blue)] hover:text-[var(--rush-blue)]">
+      Install manually →
+    </a>
+  </div>
+</div>
 
-<DocPrerequisiteGrid
-  items={[
-    { label: 'Runtime', value: 'Node.js 22.0.0 or newer' },
-    { label: 'Package manager', value: 'pnpm, bun, npm, yarn, or deno' },
-    { label: 'Editor', value: 'Any — full type definitions ship with every package' },
-  ]}
-/>
+## Requirements
 
-[Download Node.js](https://nodejs.org/) or manage versions with
-[nvm](https://github.com/nvm-sh/nvm). NextRush declares `"engines": { "node": ">=22.0.0" }` in
-every published package — this isn't a recommendation, it's what the framework is built and
-tested against. Examples on this page show all five package managers.
+Three things, and you're set:
 
-<Callout type="info" title="Why Node.js 22?">
-  The framework targets ES2022 and stable ESM throughout — no CommonJS build exists for any
-  `@nextrush/*` package. Node 22 is the oldest LTS line where that target lands cleanly, so it's
-  the floor every adapter and example assumes. See the [FAQ](/docs/help/faq) for the full
-  reasoning.
-</Callout>
+<div className="not-prose my-4 grid gap-2 sm:grid-cols-3">
+  <div className="rounded-lg border border-fd-border bg-fd-card/40 px-3 py-2 text-sm font-medium text-fd-foreground">✓ Node.js 22+</div>
+  <div className="rounded-lg border border-fd-border bg-fd-card/40 px-3 py-2 text-sm font-medium text-fd-foreground">✓ ESM project</div>
+  <div className="rounded-lg border border-fd-border bg-fd-card/40 px-3 py-2 text-sm font-medium text-fd-foreground">✓ TypeScript</div>
+</div>
 
-## Which path fits you?
+Only curious? Open these.
 
-<DocSectionEyebrow>Recommended</DocSectionEyebrow>
+<GuideAccordion icon="sparkles" iconColor="blue" title="Why Node 22?" description="The oldest LTS line where the framework's targets land cleanly.">
+  NextRush targets ES2022 and stable ESM throughout — there's no CommonJS build for any `@nextrush/*`
+  package. Node 22 is the oldest LTS line where that target lands cleanly, so it's the floor every
+  adapter and example assumes. NextRush declares `"engines": { "node": ">=22.0.0" }` in every
+  published package. See the [FAQ](/docs/help/faq) for the full reasoning.
+</GuideAccordion>
 
-Two paths reach the same running server underneath — both install the same `nextrush` package;
-the scaffolder automates the folder and config around it. If you're unsure, scaffold — you can
-still read every file it produces afterward.
+<GuideAccordion icon="book-open" iconColor="purple" title="Why ESM only?" description="One module system, no runtime ambiguity — Node needs to know your files are modules.">
+  NextRush publishes ESM only, with no CommonJS build to fall back to. That's why your `package.json`
+  needs `"type": "module"` before anything runs — and it explains the one-line setup in the next
+  section. Installing on Bun, Deno, or the edge instead? See [Runtimes](/docs/getting-started/runtime/decision-guide).
+</GuideAccordion>
 
-<Cards>
-  <Card
-    title="🚀 Scaffold a project"
-    href="/docs/getting-started/create-nextrush"
-    description="One command wires routing, middleware, scripts, and your chosen style (functional, class-based, or full)."
-  />
-  <Card
-    title="⚙ Install manually"
-    href="#install-manually"
-    description="Add nextrush to an existing project, or wire each piece yourself to see how it fits together."
-  />
-</Cards>
+## Install
 
-## Install manually
+<SetupTimeline>
 
-<div className="install-steps">
-
-<Steps>
-
-<Step>
-
-### Create a project folder
+<SetupStep number={1} title="Create the project folder">
 
 ```bash
 mkdir my-api && cd my-api
 pnpm init
 ```
 
-Add `"type": "module"` to the generated `package.json`. NextRush is ESM-only — there's no
-CommonJS build to fall back to — so Node needs to know your `.ts`/`.js` files are ES modules
-before anything else runs.
+Add `"type": "module"` to the generated `package.json`. NextRush is ESM-only — there's no CommonJS
+build to fall back to — so Node needs to know your `.ts`/`.js` files are ES modules before anything
+else runs.
 
 <p className="not-prose mt-3 flex items-start gap-2 rounded-lg bg-[color-mix(in_srgb,var(--success)_8%,var(--color-fd-card))] px-3 py-2 text-sm font-medium text-[var(--status-success-text)]">
   <span aria-hidden>✅</span>
   <span>Expected result — the folder appears with a <code>package.json</code> containing <code>"type": "module"</code>.</span>
 </p>
 
-</Step>
+</SetupStep>
 
-<Step>
-
-### Install NextRush
+<SetupStep number={2} title="Install NextRush">
 
 <PackageInstall packages={['nextrush']} dev={['tsx', 'typescript', '@types/node']} />
 
-**Why it works:**
+<p className="not-prose mt-3 flex items-start gap-2 rounded-lg bg-[color-mix(in_srgb,var(--success)_8%,var(--color-fd-card))] px-3 py-2 text-sm font-medium text-[var(--status-success-text)]">
+  <span aria-hidden>✅</span>
+  <span>Expected result — <code>nextrush</code> (and the dev tooling) added to your <code>package.json</code>.</span>
+</p>
 
-- `nextrush` is the meta-package — re-exports `@nextrush/core`, `@nextrush/router`, `@nextrush/adapter-node`, `@nextrush/errors`, and `@nextrush/types` in one install
-- This single install covers the functional path (`createApp`, `createRouter`, `listen`) with no separate packages to add
-- `tsx` runs the TypeScript entry file directly in the next step — no separate compile pass
+</SetupStep>
 
-</Step>
-
-<Step>
-
-### Write a server and run it
+<SetupStep number={3} title="Write a server and run it">
 
 Create `src/index.ts`:
 
@@ -141,114 +137,124 @@ npx tsx src/index.ts
 
 <p className="not-prose mt-3 flex items-start gap-2 rounded-lg bg-[color-mix(in_srgb,var(--success)_8%,var(--color-fd-card))] px-3 py-2 text-sm font-medium text-[var(--status-success-text)]">
   <span aria-hidden>✅</span>
-  <span>Expected result — a JSON response on <code>http://localhost:8080</code>: <code>{"{"}"status": "ok", "framework": "NextRush"{"}"}</code></span>
+  <span>Expected result — a JSON response at <code>http://localhost:8080</code>: <code>{"{"}"status": "ok", "framework": "NextRush"{"}"}</code>.</span>
 </p>
 
-**Why it works:**
+</SetupStep>
 
-- `createApp()` builds the application
-- `createRouter()` gives you a router to attach routes to
-- `app.route('/', router)` mounts the router
-- `listen(app, 8080)` starts the Node adapter
-
-If you see that JSON response, NextRush is installed and serving requests.
-
-</Step>
-
-<Step>
-
-### Configure TypeScript
-
-NextRush ships full type definitions. This `tsconfig.json` matches what the framework's
-own examples and CI run against:
-
-```json title="tsconfig.json"
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "outDir": "dist",
-    "rootDir": "src"
-  },
-  "include": ["src"]
-}
-```
-
-<Callout type="info" title="Only using class-based controllers?">
-  Add `"experimentalDecorators": true` and `"emitDecoratorMetadata": true` to
-  `compilerOptions` if you import from `nextrush/class`. That entry point auto-imports
-  `reflect-metadata` itself — you don't add it to your own code or dependencies.
-</Callout>
-
-</Step>
-
-</Steps>
-
-</div>
+</SetupTimeline>
 
 <p className="not-prose my-6 flex items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--success)_25%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--success)_6%,var(--color-fd-card))] px-4 py-3 text-sm font-semibold text-[var(--status-success-text)]">
   <span aria-hidden className="text-lg">🎉</span>
-  <span>Installation complete — you have everything you need. Let's make sure it works.</span>
+  <span>Installed — you have everything you need. Let's verify it end to end.</span>
 </p>
 
-## Verify everything works
+<GuideAccordion icon="refresh-cw" iconColor="green" title="How it works" description="What creates the app, routes the request, and answers it.">
+  - `nextrush` is the **meta-package** — one install re-exports `@nextrush/core`, `@nextrush/router`,
+    `@nextrush/adapter-node`, `@nextrush/errors`, and `@nextrush/types`. Nothing else to add.
+  - `createApp()` builds the application, `createRouter()` gives you a router to attach routes to,
+    `app.route('/', router)` mounts it, and `listen(app, 8080)` starts the Node adapter.
+  - `tsx` runs the TypeScript entry directly — no separate compile pass.
+</GuideAccordion>
 
-Two checks and you're done — runtime version, then the server responds.
+<GuideAccordion icon="settings" iconColor="purple" title="Advanced: TypeScript configuration" description="Only if you're tuning compiler options.">
+  NextRush ships full type definitions. This `tsconfig.json` matches what the framework's own examples
+  and CI run against:
 
-**Check 1 · Runtime**
+  ```json title="tsconfig.json"
+  {
+    "compilerOptions": {
+      "target": "ES2022",
+      "module": "NodeNext",
+      "moduleResolution": "NodeNext",
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "types": ["node"],
+      "outDir": "dist",
+      "rootDir": "src"
+    },
+    "include": ["src"]
+  }
+  ```
+
+  Only using class-based controllers? Add `"experimentalDecorators": true` and
+  `"emitDecoratorMetadata": true` to `compilerOptions` if you import from `nextrush/class` — that entry
+  point auto-imports `reflect-metadata` itself. See [Class-based controllers](/docs/reference/class/decorators).
+</GuideAccordion>
+
+## Verify
+
+Two checks prove the install end to end — runtime version, then the server responds.
+
+<div className="not-prose my-4 grid gap-2 sm:grid-cols-2">
+  <div className="rounded-lg border border-fd-border bg-fd-card/40 px-3 py-2 text-sm font-medium text-fd-foreground">✓ Node.js 22</div>
+  <div className="rounded-lg border border-fd-border bg-fd-card/40 px-3 py-2 text-sm font-medium text-fd-foreground">✓ Package installed</div>
+  <div className="rounded-lg border border-fd-border bg-fd-card/40 px-3 py-2 text-sm font-medium text-fd-foreground">✓ Server running</div>
+  <div className="rounded-lg border border-fd-border bg-fd-card/40 px-3 py-2 text-sm font-medium text-fd-foreground">✓ JSON response</div>
+</div>
 
 ```bash
 node --version
 # → v22.x.x or newer
 ```
 
-If `node --version` reports below 22, install a newer version before continuing — NextRush's
-adapters and examples aren't tested against older lines, and package installs may warn or fail
-depending on your package manager's `engines` enforcement.
-
-**Check 2 · Server**
+If `node --version` reports below 22, install a newer version before continuing — NextRush's adapters
+and examples aren't tested against older lines, and installs may warn or fail depending on your package
+manager's `engines` enforcement.
 
 ```bash
 curl http://localhost:8080/
 # → {"status":"ok","framework":"NextRush"}
 ```
 
-<Callout type="info" title="🎉 Installation successful">
-  Your request completed the full request path — the same one every NextRush app runs:
-
+<div className="verify-panel not-prose">
+  <p className="mb-1 text-lg font-bold text-[var(--status-success-text)]">🎉 Installation complete</p>
+  <p className="mb-3 text-sm text-[var(--text-secondary)]">
+    Your request completed the full request path — the same one every NextRush app runs.
+  </p>
   <MentalModelFlow steps={['Application', 'Router', 'Handler', 'Response']} />
+</div>
 
-  `createApp()` built the application, the router matched `/` to your handler, and the handler
-  wrote the response back through `ctx.json()`. Your environment is ready for a real application.
-  Everything below this point is optional: pick it up whenever you need it.
+## Common issues
+
+Most installation issues fall into these three categories.
+
+<GuideAccordion icon="alert-triangle" iconColor="amber" title="Node version is below 22" defaultOpen>
+  **Cause:** an older Node install or version-manager default.
+
+  **Fix:** install or select Node 22 or newer before running `pnpm add nextrush` — the framework's
+  `engines` field expects it everywhere.
+</GuideAccordion>
+
+<GuideAccordion icon="folder-tree" iconColor="red" title="Module error — ESM / can't find the package" defaultOpen={false}>
+  **Cause:** `package.json` is missing `"type": "module"`, so Node tries to load ESM output as CommonJS.
+
+  **Fix:** add `"type": "module"` — NextRush publishes no CommonJS build for any package to fall back to.
+</GuideAccordion>
+
+<GuideAccordion icon="settings" iconColor="blue" title="Decorators throw reflect-metadata errors" defaultOpen={false}>
+  **Cause:** importing `nextrush/class` without `experimentalDecorators` / `emitDecoratorMetadata`
+  enabled in `tsconfig.json`.
+
+  **Fix:** add both compiler options — the `reflect-metadata` import itself is already handled for you.
+</GuideAccordion>
+
+## Next step
+
+<Callout type="info" title="🚀 Task API Tutorial — recommended · ~20 min">
+  The hands-on tutorial: routing, a JSON body, and a real 404 — starting from exactly where this page
+  leaves off. [Start the tutorial →](/docs/getting-started/quick-start)
 </Callout>
-
-## Your next step
-
-<Callout type="info" title="🚀 Build a Task API — recommended · ~20 min">
-  The hands-on tutorial: routing, a JSON body, and a real 404 — starting from exactly where this
-  page leaves off. [Start the tutorial →](/docs/getting-started/quick-start)
-</Callout>
-
-Other guides:
 
 <Cards>
-  <Card title="Scaffold with create-nextrush" href="/docs/getting-started/create-nextrush">
+  <Card title="Quick Start — scaffold with create-nextrush" href="/docs/getting-started/create-nextrush">
     Generate a project with your style, middleware, and runtime chosen up front.
   </Card>
-  <Card title="Runtimes" href="/docs/getting-started/runtime/node">
+  <Card title="Runtimes" href="/docs/getting-started/runtime/decision-guide">
     Running on Bun, Deno, the edge, or serverless — the adapter each one needs.
   </Card>
-  <Card title="Framework overview" href="/docs/getting-started/overview">
-    The mental model — Application, Context, Router, and how they compose.
-  </Card>
 </Cards>
-
-Now build something.
 
 ## Optional: developer toolkit
 
@@ -281,38 +287,4 @@ Now build something.
 When you're ready to deploy, see the [production guide](/docs/production) for runtime pinning,
 dependency trimming, and per-platform setup — that's a deployment concern, not an install one.
 
-## Having trouble?
-
-Most installation issues fall into one of these three categories.
-
-<details>
-<summary>⚠ Server won't start; import errors on <code>nextrush</code></summary>
-
-**Cause:** `package.json` is missing `"type": "module"`, so Node tries to load ESM output as
-CommonJS.
-
-**Fix:** add `"type": "module"` — NextRush publishes no CommonJS build for any package to fall
-back to.
-
-</details>
-
-<details>
-<summary>⚠ <code>node --version</code> is below 22</summary>
-
-**Cause:** an older Node install or version manager default.
-
-**Fix:** install/select Node 22 or newer before running `pnpm add nextrush` — the framework's
-`engines` field expects it everywhere.
-
-</details>
-
-<details>
-<summary>⚠ Decorators throw <code>reflect-metadata</code> errors</summary>
-
-**Cause:** importing `nextrush/class` without `experimentalDecorators`/`emitDecoratorMetadata`
-enabled in `tsconfig.json`.
-
-**Fix:** add both compiler options — the `reflect-metadata` import itself is already handled for
-you.
-
-</details>
+Now build something.

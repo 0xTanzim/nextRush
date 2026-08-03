@@ -1,28 +1,25 @@
 ---
-title: Scaffold with create-nextrush
-description: Generate a runnable NextRush project with one command — pick a style, a middleware preset, and a runtime, and skip the manual setup from Installation.
-keywords: [create, create-nextrush, getting, nextrush, scaffold, started, with]
+title: Quick Start
+description: Scaffold a runnable NextRush project in one command — npm create nextrush, cd, npm run dev. Pick a style, a middleware preset, and a runtime, and skip the manual setup from Installation.
+keywords: [create, create-nextrush, getting, nextrush, quick, scaffold, start, started]
 ---
 
-<DocHero eyebrow="Start · Scaffold">
+<DocHero eyebrow="Quick Start · Scaffold">
 
-Wiring a project by hand teaches how the pieces fit — that's what
-[Installation](/docs/getting-started/installation) and the [Task API tutorial](/docs/getting-started/quick-start) are
-for. Once you've done that once, `create-nextrush` generates the same foundation in one command:
-`tsconfig.json`, scripts, middleware wiring, a sample route or controller, and a real unit test.
+Go from zero to a **running API in under 2 minutes.**
 
-<div className="not-prose mt-5 grid gap-2 sm:grid-cols-2">
-  <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
-    <span className="text-[var(--accent-success-fg)]">✓</span> Functional, class-based, or full layout
+One command. No manual setup — `tsconfig.json`, scripts, a sample route, and a real unit test
+are all generated.
+
+<div className="not-prose mt-5 flex flex-wrap items-center gap-x-5 gap-y-2">
+  <div className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]">
+    <span className="text-[var(--accent-success-fg)]">✓</span> Generated
   </div>
-  <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
-    <span className="text-[var(--accent-success-fg)]">✓</span> Node, Bun, or Deno scripts
+  <div className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]">
+    <span className="text-[var(--accent-success-fg)]">✓</span> Running
   </div>
-  <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
-    <span className="text-[var(--accent-success-fg)]">✓</span> Middleware preset wired for you
-  </div>
-  <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
-    <span className="text-[var(--accent-success-fg)]">✓</span> Runnable + testable out of the box
+  <div className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]">
+    <span className="text-[var(--accent-success-fg)]">✓</span> Tested
   </div>
 </div>
 
@@ -32,32 +29,39 @@ for. Once you've done that once, `create-nextrush` generates the same foundation
   <DocHeroPill>Interactive or flags</DocHeroPill>
 </div>
 
+<GuideAccordion
+  icon="sparkles"
+  iconColor="blue"
+  title="Why use the scaffolder?"
+  description="Wiring by hand teaches the pieces — but once you have, skip straight to running."
+  meta="Context"
+>
+
+Wiring a project by hand teaches how the pieces fit — that's what
+[Installation](/docs/getting-started/installation) and the [Task API tutorial](/docs/getting-started/quick-start)
+are for. Once you've done that once, use this page to skip straight to running: it picks a style,
+a middleware preset, and a runtime for you.
+
+</GuideAccordion>
+
 </DocHero>
 
-## What you'll have
+<DocSectionEyebrow>Outcome</DocSectionEyebrow>
 
-By the end, a new folder runs with `pnpm dev` (or your package manager's equivalent):
+## What you'll build
 
-<DocStatStrip>
-  <DocStat label="Project" value="Generated" hint="package.json, tsconfig, src/, .gitignore" />
-  <DocStat label="Server" value="Running" hint="Welcome route + /health (or /api/health)" />
-  <DocStat label="Tests" value="Passing" hint="vitest run — at least one real unit test" />
+A new folder that runs with `pnpm dev` and ships a real unit test — everything wired for you:
+
+<DocStatStrip className="doc-stat-strip--flow">
+  <DocStat label="📁 Project" value="Ready-to-run" hint="package.json, tsconfig, src/, .gitignore" />
+  <DocStat label="⚡ Server" value="Live dev server" hint="Welcome route + /health (or /api/health)" />
+  <DocStat label="✅ Tests" value="Passing" hint="vitest run — at least one real unit test" />
 </DocStatStrip>
 
-## Prerequisites
+<DocSectionEyebrow>Setup · 3 steps</DocSectionEyebrow>
 
-<DocPrerequisiteGrid
-  items={[
-    { label: 'CLI runtime', value: 'Node.js 22+ — the scaffolder itself runs on Node' },
-    { label: 'Package manager', value: 'pnpm, npm, yarn, or bun' },
-    { label: 'When to scaffold', value: 'New project — not adding one package to an existing app' },
-  ]}
-/>
-
-Prefer wiring every file yourself first? Start with [Installation](/docs/getting-started/installation) or the
-[Task API tutorial](/docs/getting-started/quick-start), then come back here for your second project.
-
-## Run it
+<SetupTimeline>
+  <SetupStep number={1} title="Create the project">
 
 The scaffolder is the npm package `create-nextrush`. Your package manager can invoke it several
 ways:
@@ -72,26 +76,78 @@ ways:
   }}
 />
 
-<Callout type="warn" title="create nextrush vs. create-nextrush">
-  `pnpm create nextrush` and `npm create nextrush` use a **space** — your package manager expands
-  `create <name>` to the npm package `create-<name>`, so `nextrush` resolves to `create-nextrush`.
-  Calling the package directly (`npx`, `pnpm dlx`, `bunx`) needs the **hyphenated** name:
-  `pnpm dlx create-nextrush`, not `pnpm dlx create nextrush`.
-</Callout>
-
-<Callout type="warn" title="pnpm 11 and Deno: stale scaffold possible">
-  As of pnpm 11.x, `pnpm create nextrush` (bare) and `deno run -A npm:create-nextrush@latest`
-  can resolve `@latest` to an **old cached version** (a pnpm/Deno resolution bug for packages
-  with a version gap — [pnpm#8659](https://github.com/pnpm/pnpm/issues/8659)). You get a stale
-  scaffold with no visible error. Reliable alternatives:
-  - **`npm create nextrush`** or **`bun create nextrush`** resolve correctly
-  - **`pnpm@10`** also resolves correctly if you prefer to stay on 10.x
-</Callout>
-
 `my-api` is the target directory — pass `.` to scaffold into the current folder, or omit it to be
 prompted. The flow is built on [`@clack/prompts`](https://github.com/bombshell-dev/clack).
 
-## How it works
+  </SetupStep>
+  <SetupStep number={2} title="Install dependencies">
+
+The scaffolder installs for you by default — this step is usually a no-op. Only if you skipped
+install, or want to re-run it:
+
+<div className="cmd-optional">
+
+```bash
+cd my-api
+pnpm install
+```
+
+</div>
+
+  </SetupStep>
+  <SetupStep number={3} title="Run it">
+
+```bash
+cd my-api
+pnpm dev     # hot-reload dev server
+```
+
+  </SetupStep>
+</SetupTimeline>
+
+<div className="success-finish not-prose">
+
+<Callout type="success" title="🎉 You're ready — verify it works">
+
+Your app should be live on `http://localhost:8080`. Confirm it:
+
+```bash
+curl http://localhost:8080/
+# → {"message":"Welcome to NextRush!"}
+
+curl http://localhost:8080/health
+# → {"status":"ok","timestamp":"…","uptime":…}
+```
+
+**Expected:** a `Welcome to NextRush!` JSON body on `/` and an `ok` status on `/health`. Class-based
+projects answer on `/api/health` instead of `/health`.
+
+Your NextRush app is running. Everything is working correctly.
+
+</Callout>
+
+<PrimaryCTA href="/docs/getting-started/quick-start" label="Recommended next">
+  Build your first API
+</PrimaryCTA>
+
+</div>
+
+## Further Reading
+
+Your app is running. Want to understand what's happening under the hood? These explain the
+scaffold, project structure, CLI flags, and common pitfalls.
+
+<div className="further-reading">
+
+<GuideAccordion
+  icon="book-open"
+  iconColor="blue"
+  title="Why the scaffold works — the six prompts"
+  description="Understand how the six prompts generate your project structure automatically."
+  meta="Beginner · 6 min"
+  defaultOpen
+>
+
 
 Six prompts, every one with a default — press Enter to accept.
 
@@ -113,7 +169,7 @@ Three choices. **Functional** is the default — the smallest surface.
   <Card title="Full" description="Both styles side by side. A reference layout showing functional routes and class-based controllers together." />
 </Cards>
 
-Full comparison with generated trees and code: [Project styles](#project-styles).
+Full comparison with generated trees and code: [Project structure](#project-structure).
 
   </WizardStep>
   <WizardStep number={3} title="Runtime">
@@ -124,10 +180,8 @@ Full comparison with generated trees and code: [Project styles](#project-styles)
   <Card title="Deno" description="Adds @nextrush/adapter-deno and swaps the generated import and scripts." />
 </Cards>
 
-<Callout type="info" title="Edge and serverless aren't scaffolder targets">
-  The runtime prompt only offers Node, Bun, and Deno. [Edge](/docs/getting-started/runtime/edge) and
-  [Serverless](/docs/getting-started/runtime/serverless) are paths you follow manually once a project exists.
-</Callout>
+Edge and serverless aren't scaffolder targets — [Edge](/docs/getting-started/runtime/edge) and
+[Serverless](/docs/getting-started/runtime/serverless) are paths you follow manually once a project exists.
 
   </WizardStep>
   <WizardStep number={4} title="Middleware preset">
@@ -153,7 +207,16 @@ Defaults to **yes** — `git init` plus an initial commit. Say no to skip.
   </WizardStep>
 </WizardFlow>
 
-## Skip the prompts
+</GuideAccordion>
+
+<GuideAccordion
+  icon="settings"
+  iconColor="purple"
+  title="Skip the prompts — CLI flags"
+  description="Every prompt has a matching flag — build a fully-specified command that never pauses."
+  meta="Reference"
+>
+
 
 Every prompt has a matching flag. A fully-specified command never pauses:
 
@@ -180,9 +243,6 @@ Scaffold without install or git:
 ```bash
 pnpm create nextrush@latest my-api --yes --no-install --no-git
 ```
-
-<details>
-<summary>All CLI flags</summary>
 
 <TypeTable
   title="create-nextrush flags"
@@ -224,9 +284,16 @@ pnpm create nextrush@latest my-api --yes --no-install --no-git
 The project name comes from the directory you pass — invalid characters become hyphens, so
 `My API!` becomes `my-api`. Passing `.` names the project after the current folder.
 
-</details>
+</GuideAccordion>
 
-## Project styles
+<GuideAccordion
+  icon="folder-tree"
+  iconColor="amber"
+  title="Project structure"
+  description="See the files each style (functional, class-based, full) adds on top of the shared base."
+  meta="Reference"
+>
+
 
 Every style shares `tsconfig.json`, `package.json`, `README.md`, `.gitignore`, and `src/env.d.ts`
 for editor hints — then adds its own source layout. Each ships at least one **real** `vitest` unit
@@ -435,111 +502,102 @@ Deno's `dev`/`build` scripts route through `nextrush dev` and `nextrush build` (
 
 </details>
 
-## After scaffolding
+</GuideAccordion>
 
-```bash
-cd my-api
+<GuideAccordion
+  icon="alert-triangle"
+  iconColor="red"
+  title="Common mistakes"
+  description="Skip the pitfalls that most often trip people up right after scaffolding."
+  meta="Troubleshooting"
+>
 
-pnpm dev     # hot-reload dev server
-pnpm test    # run the generated unit test(s)
-pnpm build   # production build
-pnpm start   # run the production build
-```
-
-Verify the server (functional style, default middleware):
-
-```bash
-curl http://localhost:8080/
-# → {"message":"Welcome to NextRush!"}
-
-curl http://localhost:8080/health
-# → {"status":"ok","timestamp":"…","uptime":…}
-```
-
-Class-based projects answer on `/api/health` instead of `/health`.
-
-<Callout type="info" title="Code generators">
-  Once the project exists, `nextrush generate` (alias `nextrush g`) adds controllers, services,
-  middleware, guards, and routes — see the [generators guide](/docs/guides/api-development/generators).
-</Callout>
-
-## Common mistakes
 
 <MistakeList>
   <Mistake
     severity="warn"
-    title="Wrong package name with dlx/npx"
+  title="Wrong package name with dlx/npx"
     symptom="Package not found when running pnpm dlx create nextrush"
     cause="Direct invocations need the hyphenated npm name, not the create-space form"
     fix="Use pnpm dlx create-nextrush or npx create-nextrush@latest"
   />
   <Mistake
     severity="warn"
-    title="Old scaffold despite publishing a new version"
+  title="Old scaffold despite publishing a new version"
     symptom="The generated project has a flat src/routes/ layout with no services/, repositories/, or config/ — even though the scaffolder was just updated"
     cause="pnpm 11.x (and Deno's npm: compatibility) can resolve @latest to an old cached version for packages with a version gap — a known resolution bug (pnpm#8659), not a problem with create-nextrush"
     fix="Use npm create nextrush or bun create nextrush, which resolve @latest correctly — or use pnpm@10"
   />
   <Mistake
     severity="warn"
-    title="Looking for /health on a class-based project"
+  title="Looking for /health on a class-based project"
     symptom="404 on GET /health after scaffolding class-based or full"
     cause="Controllers register under the /api prefix"
     fix="Try GET /api/health — or scaffold functional if you want /health at the root"
   />
   <Mistake
     severity="info"
-    title="Git or install step failed"
+  title="Git or install step failed"
     symptom="CLI prints failed - see the error above but files exist on disk"
     cause="Missing git on PATH, network blocked during install, or permission error"
     fix="Files are already written — retry git init or pnpm install manually"
   />
   <Mistake
     severity="warn"
-    title="Scaffolding into a non-empty directory"
+  title="Scaffolding into a non-empty directory"
     symptom="CLI asks for confirmation before overwriting"
     cause="Target folder already has files"
     fix="Confirm only if you mean to merge, or pass a fresh directory name"
   />
 </MistakeList>
 
-## What you learned
+</GuideAccordion>
 
-- ✓ Invoke the scaffolder with your package manager — pnpm, bun, npm, or yarn
-- ✓ Three project styles: Functional (smallest), Class-based (structured), Full (both)
-- ✓ Runtime selection changes the adapter import and scripts — Node, Bun, or Deno
-- ✓ Middleware presets wire `cors`, `body-parser`, `helmet` (API) + `rate-limit`, `compression`, `request-id` (Full) in production-safe order
-- ✓ Every style ships at least one real `vitest` unit test, not a placeholder
+<GuideAccordion
+  icon="refresh-cw"
+  iconColor="green"
+  title="Keeping NextRush up to date"
+  description="How @latest can resolve to a stale cached version — and how to avoid it."
+  meta="How-to"
+>
 
-<p className="not-prose mt-6 flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--success)_25%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--success)_6%,var(--color-fd-card))] px-5 py-4 text-sm font-semibold text-[var(--status-success-text)]">
-  <span aria-hidden className="text-xl">🎉</span>
-  <span>
-    <span className="block text-base font-bold mb-1">Scaffold complete</span>
-    <span className="block font-normal text-[var(--text-secondary)]">Your project is generated, dependencies installed, and a real test is passing. Run <code>pnpm dev</code> to start the server.</span>
-  </span>
-</p>
 
-## Next steps
+Use **`npm create nextrush`** or **`bun create nextrush`** — `pnpm create nextrush` (bare) and
+`deno run -A npm:create-nextrush@latest` can resolve `@latest` to an **old cached version**
+on pnpm 11.x and Deno (a known resolution bug, [pnpm#8659](https://github.com/pnpm/pnpm/issues/8659)).
+Direct invocations (`npx`, `pnpm dlx`, `bunx`) need the **hyphenated** package name:
+`create-nextrush`, not `create nextrush`.
+
+</GuideAccordion>
+
+</div>
+
+<DocSectionEyebrow>What's next</DocSectionEyebrow>
+
+## Continue learning
+
+You have a running app — now make it yours. Each of these picks up exactly where the scaffolder left off:
 
 <Cards>
   <Card
-    title="⭐ Build a Task API — recommended if you skipped the tutorial"
-    description="Hand-wire create, read, and honest 404s to learn the request pipeline."
+  title="⭐ Task API Tutorial"
+  description="Hand-wire create, read, and honest 404s to learn the request pipeline. ~40 min · beginner"
     href="/docs/getting-started/quick-start"
   />
   <Card
-    title="Class-based controllers"
-    description="Build on class-based or full with guards, DI, and decorators."
+  title="Class-based controllers"
+  description="Build on class-based or full with guards, DI, and decorators. intermediate"
     href="/docs/guides/api-development/class-based"
   />
   <Card
-    title="Dev tools"
-    description="Hot reload, production builds, and generator commands."
+  title="Dev tools"
+  description="Hot reload, production builds, and generator commands."
     href="/docs/guides/api-development/dev-tools"
   />
   <Card
-    title="Runtimes"
-    description="What changes on Bun, Deno, edge, and serverless once your project exists."
+  title="Runtimes"
+  description="What changes on Bun, Deno, edge, and serverless once your project exists."
     href="/docs/getting-started/runtime/node"
   />
 </Cards>
+

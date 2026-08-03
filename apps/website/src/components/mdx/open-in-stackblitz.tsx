@@ -32,6 +32,8 @@ export interface OpenInStackBlitzProps {
   files: StackBlitzFile[];
   /** File to open by default in the StackBlitz editor. Defaults to the first file's path. */
   openFile?: string;
+  /** Action label. Defaults to "Open in StackBlitz". */
+  label?: string;
 }
 
 function buildPackageJson(title: string, dependencies: Record<string, string>): string {
@@ -49,7 +51,7 @@ function buildPackageJson(title: string, dependencies: Record<string, string>): 
   );
 }
 
-export function OpenInStackBlitz({ title, dependencies, files, openFile }: OpenInStackBlitzProps) {
+export function OpenInStackBlitz({ title, dependencies, files, openFile, label }: OpenInStackBlitzProps) {
   const allFiles: StackBlitzFile[] = [
     ...files,
     { path: 'package.json', content: buildPackageJson(title, dependencies) },
@@ -77,7 +79,7 @@ export function OpenInStackBlitz({ title, dependencies, files, openFile }: OpenI
         className="inline-flex items-center gap-2 rounded-md border border-fd-border bg-fd-secondary px-3 py-1.5 text-sm font-medium text-fd-secondary-foreground transition-colors hover:bg-fd-accent"
       >
         <StackBlitzMark />
-        Open in StackBlitz
+        {label ?? 'Open in StackBlitz'}
       </button>
     </form>
   );
