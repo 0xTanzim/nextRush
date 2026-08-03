@@ -8,8 +8,23 @@ The `nextrush generate` command (alias `nextrush g`) creates new files from temp
 
 ## Usage
 
+The `nextrush` CLI ships with the `@nextrush/dev` toolkit, which `create-nextrush` adds to every
+scaffolded project as a devDependency. Invoke it through your package manager so the local
+binary resolves:
+
 ```bash
-nextrush generate <type> <name>
+# npm
+npx nextrush generate <type> <name>
+npx nextrush g <type> <name>
+
+# pnpm
+pnpm exec nextrush generate <type> <name>
+pnpm exec nextrush g <type> <name>
+```
+
+If you installed `@nextrush/dev` globally, you can call the bare command instead:
+
+```bash
 nextrush g <type> <name>
 ```
 
@@ -50,7 +65,7 @@ nextrush g <type> <name>
 ### Generate a Module
 
 ```bash
-nextrush g module todos
+npx nextrush g module todos
 ```
 
 Creates `src/modules/todos/todos.module.ts`:
@@ -72,9 +87,9 @@ A feature module composes its controller and service. Generate all three for a c
 feature:
 
 ```bash
-nextrush g m todos
-nextrush g controller todos
-nextrush g service todos
+npx nextrush g m todos
+npx nextrush g controller todos
+npx nextrush g service todos
 ```
 
 Then register the module in your root module's `imports`.
@@ -82,7 +97,7 @@ Then register the module in your root module's `imports`.
 ### Generate a Controller
 
 ```bash
-nextrush g controller user
+npx nextrush g controller user
 ```
 
 In a class-based project (one with a `src/modules/` directory) the controller is placed
@@ -117,7 +132,7 @@ export class UserController {
 ### Generate a Service
 
 ```bash
-nextrush g service user
+npx nextrush g service user
 ```
 
 Creates `src/modules/user/user.service.ts` in a module project, or
@@ -148,7 +163,7 @@ export class UserService {
 ### Generate Middleware
 
 ```bash
-nextrush g middleware request-logger
+npx nextrush g middleware request-logger
 ```
 
 Creates `src/middleware/request-logger.ts`:
@@ -167,7 +182,7 @@ export const requestLogger: Middleware = async (ctx) => {
 ### Generate a Guard
 
 ```bash
-nextrush g guard auth
+npx nextrush g guard auth
 ```
 
 Creates `src/guards/auth.guard.ts`:
@@ -186,7 +201,7 @@ export const authGuard: GuardFn = async (ctx) => {
 ### Generate a Route
 
 ```bash
-nextrush g route product
+npx nextrush g route product
 ```
 
 Creates `src/routes/product.ts` — a named-export router, matching the functional

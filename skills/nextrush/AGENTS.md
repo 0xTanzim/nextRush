@@ -102,6 +102,7 @@ await registerControllers(app, { root: './src', prefix: '/api' });
 
 ```bash
 pnpm create nextrush my-api
+# pnpm 11 / Deno may resolve @latest to an old version (pnpm#8659) — use npm create nextrush instead
 ```
 
 ---

@@ -8,4 +8,4 @@ export {
   generatePackageJson,
   generateReadme,
 } from './shared.js';
-export { generateTsconfig } from './tsconfig.js';
+export { generateTsconfig, generateDenoJson } from './tsconfig.js';

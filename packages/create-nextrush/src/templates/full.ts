@@ -1,23 +1,28 @@
 import { MIDDLEWARE_IMPORTS, MIDDLEWARE_SETUP } from '../constants.js';
 import type { FileMap, ProjectOptions } from '../types.js';
 import {
-    getControllerDiscoveryHelpers,
     getPortDeclaration,
     getRuntimeEntrypointImports,
 } from './shared.js';
 
 /**
  * Generates a full-featured NextRush project.
- * Combines functional routes + class-based controllers + middleware + error handling.
+ *
+ * Combines a functional `/health` route with a class-based module graph
+ * (`@Module`/`AppModule` via `registerModule` — the same standard as the
+ * class-based style) and a shared error-handling middleware. Both routing
+ * styles in one service.
  */
 export function generateFull(options: ProjectOptions): FileMap {
   const files: FileMap = new Map();
 
   files.set('src/index.ts', generateEntrypoint(options));
+  files.set('src/app.module.ts', generateAppModule());
+  files.set('src/modules/hello/hello.module.ts', generateHelloModule());
+  files.set('src/modules/hello/hello.controller.ts', generateHelloController());
+  files.set('src/modules/hello/hello.service.ts', generateHelloService());
+  files.set('src/modules/hello/__tests__/hello.service.test.ts', generateHelloServiceTest());
   files.set('src/routes/health.ts', generateHealthRoute());
-  files.set('src/controllers/hello.controller.ts', generateHelloController());
-  files.set('src/services/hello.service.ts', generateHelloService());
-  files.set('src/services/__tests__/hello.service.test.ts', generateHelloServiceTest());
   files.set('src/middleware/error-handler.ts', generateErrorHandler());
 
   return files;
@@ -27,12 +32,12 @@ function generateEntrypoint(options: ProjectOptions): string {
   const middlewareImports = MIDDLEWARE_IMPORTS[options.middleware];
   const middlewareSetup = MIDDLEWARE_SETUP[options.middleware];
   const portDecl = getPortDeclaration(options.runtime);
-  const controllerDiscoveryHelpers = getControllerDiscoveryHelpers();
 
   const lines: string[] = [];
 
-  lines.push(...getRuntimeEntrypointImports(options.runtime, 'serve'));
-  lines.push("import { registerControllers } from 'nextrush/class';");
+  lines.push(...getRuntimeEntrypointImports(options.runtime, 'listen'));
+  lines.push("import { registerModule } from 'nextrush/class';");
+  lines.push("import { AppModule } from './app.module.js';");
 
   if (middlewareImports) {
     lines.push(middlewareImports);
@@ -44,7 +49,6 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push('const router = createRouter();');
   lines.push('const app = createApp({ router });');
   lines.push(portDecl);
-  lines.push(controllerDiscoveryHelpers.trimEnd());
   lines.push('');
   lines.push('// Error handling (first middleware — catches all downstream errors)');
   lines.push('app.use(errorHandler());');
@@ -59,23 +63,39 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push('// Functional routes');
   lines.push("app.route('/health', healthRouter);");
   lines.push('');
-  lines.push('// Auto-discover controllers (registered on the app router)');
-  lines.push('await registerControllers(app, {');
-  lines.push('  root: CONTROLLERS_ROOT,');
-  lines.push('  include: CONTROLLERS_INCLUDE,');
-  lines.push("  prefix: '/api',");
-  lines.push('  strict: true,');
-  lines.push('});');
+  lines.push('// Wire the root module — registers the whole module graph in one call');
+  lines.push("await registerModule(app, AppModule, { prefix: '/api' });");
   lines.push('');
-  lines.push('await serve(app, {');
-  lines.push('  port: PORT,');
-  lines.push('  onListen: ({ port: p }) => {');
-  lines.push('    console.info(`Server running on http://localhost:${p}`);');
-  lines.push('  },');
-  lines.push('});');
+  lines.push('await listen(app, PORT);');
   lines.push('');
 
   return lines.join('\n');
+}
+
+function generateAppModule(): string {
+  return `import { Module } from 'nextrush/class';
+
+import { HelloModule } from './modules/hello/hello.module.js';
+
+@Module({
+  imports: [HelloModule],
+})
+export class AppModule {}
+`;
+}
+
+function generateHelloModule(): string {
+  return `import { Module } from 'nextrush/class';
+
+import { HelloController } from './hello.controller.js';
+import { HelloService } from './hello.service.js';
+
+@Module({
+  controllers: [HelloController],
+  providers: [HelloService],
+})
+export class HelloModule {}
+`;
 }
 
 function generateHealthRoute(): string {
@@ -87,7 +107,7 @@ healthRouter.get('/', (ctx) => {
   ctx.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
+    uptime: Math.round(performance.now() / 1000),
   });
 });
 `;
@@ -95,7 +115,7 @@ healthRouter.get('/', (ctx) => {
 
 function generateHelloController(): string {
   return `import { Controller, Get, Post, Body } from 'nextrush/class';
-import { HelloService } from '../services/hello.service.js';
+import { HelloService } from './hello.service.js';
 
 @Controller('/hello')
 export class HelloController {

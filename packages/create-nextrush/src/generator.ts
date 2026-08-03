@@ -1,5 +1,6 @@
 import {
   generateClassBased,
+  generateDenoJson,
   generateEnvDts,
   generateFull,
   generateFunctional,
@@ -18,11 +19,18 @@ export function generateProject(options: ProjectOptions): FileMap {
   const files: FileMap = new Map();
 
   // Shared files that don't depend on the emitted source tree.
-  const needsDecorators = options.style === 'class-based' || options.style === 'full';
-  files.set('tsconfig.json', generateTsconfig(needsDecorators));
+  files.set('tsconfig.json', generateTsconfig(options));
   files.set('package.json', generatePackageJson(options));
-  files.set('src/env.d.ts', generateEnvDts());
+  files.set('src/env.d.ts', generateEnvDts(options));
   files.set('.gitignore', generateGitignore());
+
+  // Deno projects get a Deno-native config (types, decorators, strictness) instead of
+  // relying on a Node-flavored tsconfig alone.
+  // capability-exempt: scaffolding tool emits runtime-specific project files from user choice,
+  // not the executing runtime. `options.runtime` is a scaffold-time decision.
+  if (options.runtime === 'deno') {
+    files.set('deno.json', generateDenoJson(options));
+  }
 
   // Style-specific source files
   const styleFiles = generateStyleFiles(options);

@@ -9,6 +9,7 @@
     "@nextrush/stream": "../../../stream/dist/index.js",
     "@nextrush/di": "../../../di/dist/index.js",
     "@nextrush/adapter-deno": "../../deno/dist/index.js",
+    "@nextrush/adapter-nextjs": "../../nextjs/dist/index.js",
     "@nextrush/adapter-node": "../../node/dist/index.js",
     "@nextrush/adapter-bun": "../../bun/dist/index.js",
     "@nextrush/adapter-edge": "../../edge/dist/index.js",
