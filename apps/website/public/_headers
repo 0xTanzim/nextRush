@@ -7,6 +7,54 @@
   Link: </sitemap.xml>; rel="sitemap"; title="Sitemap"
   Link: </.well-known/api-catalog>; rel="api-catalog"; title="API Catalog (RFC 9727)"
 
+# Next.js build output is content-hashed and immutable — cache at the edge
+# so chunk/asset lookups never revalidate against a stale version.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Fonts and icons — content-hashed or rarely-changing, cache aggressively
+/_next/static/media/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+/favicon/*
+  Cache-Control: public, max-age=86400
+  Access-Control-Allow-Origin: *
+
+/favicon.ico
+  Cache-Control: public, max-age=86400
+
+/*.svg
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.js
+  Cache-Control: public, max-age=1800, must-revalidate
+
+/*.css
+  Cache-Control: public, max-age=1800, must-revalidate
+
+# Markdown/LLM endpoints — short cache so content stays fresh
+/api/mdx/*
+  Cache-Control: public, max-age=3600
+  Content-Type: text/markdown
+  X-Markdown-Tokens: full
+  Vary: Accept
+
+/api/blog/*.md
+  Cache-Control: public, max-age=3600
+  Content-Type: text/markdown
+  X-Markdown-Tokens: full
+  Vary: Accept
+
+/api/skills/*.md
+  Cache-Control: public, max-age=3600
+  Content-Type: text/markdown
+  X-Markdown-Tokens: full
+  Vary: Accept
+
 /.well-known/api-catalog
   Content-Type: application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"
 
@@ -39,15 +87,3 @@
 
 /.well-known/auth.md
   Content-Type: text/markdown; charset=utf-8
-
-/api/mdx/*
-  Content-Type: text/markdown
-  X-Markdown-Tokens: full
-
-/api/blog/*.md
-  Content-Type: text/markdown
-  X-Markdown-Tokens: full
-
-/api/skills/*.md
-  Content-Type: text/markdown
-  X-Markdown-Tokens: full

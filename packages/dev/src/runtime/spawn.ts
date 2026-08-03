@@ -318,6 +318,10 @@ export function buildDevArgs(
         args: [
           'run',
           watchArg,
+          // Resolve `.js` → `.ts` relative ESM specifiers (every generated project uses
+          // `.js` specifiers; node/bun handle this in their transpiler, Deno needs
+          // sloppy-imports). Same flag the framework's own conformance runner uses.
+          '--unstable-sloppy-imports',
           ...permissions,
           ...(inspect ? [`--inspect=${String(inspectPort ?? 9229)}`] : []),
           entry,

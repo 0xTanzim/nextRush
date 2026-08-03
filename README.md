@@ -232,6 +232,12 @@ cd my-api && pnpm dev
 
 The `create nextrush` form (with a space) installs the `create-nextrush` package. You can also use `npx create-nextrush@latest` or `pnpm dlx create-nextrush@latest`. See the [create-nextrush docs](https://github.com/0xTanzim/nextRush/tree/main/packages/create-nextrush#usage).
 
+> [!WARNING]
+> **pnpm 11.x and Deno may resolve `@latest` to an old version** for packages with a version
+> gap ([pnpm#8659](https://github.com/pnpm/pnpm/issues/8659)) — you'd get a stale scaffold.
+> If your generated project looks outdated, use `npm create nextrush` or `bun create nextrush`
+> (both resolve `@latest` correctly).
+
 The interactive scaffolder lets you choose between functional, class-based, or full style, pick a middleware preset, and select your runtime target.
 
 ### Manual Setup

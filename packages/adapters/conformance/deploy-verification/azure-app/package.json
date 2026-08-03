@@ -2,7 +2,7 @@
   "name": "nextrush-deploy-verification-azure",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Throwaway Azure Functions app for scheduled real-cloud deploy verification (P2-6 / RFC-027, extending openspec/changes/close-runtime-compatibility-gaps task group 5). Not published.",
   "main": "index.mjs",
   "dependencies": {
