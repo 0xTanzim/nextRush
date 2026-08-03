@@ -11,6 +11,12 @@ pnpm dlx create-nextrush@latest my-api
 pnpm create nextrush my-api --yes --no-git --no-install
 ```
 
+> ⚠️ **pnpm 11.x / Deno `@latest` resolution bug** ([pnpm#8659](https://github.com/pnpm/pnpm/issues/8659)):
+> for packages with a version gap, `pnpm create nextrush` and
+> `deno run -A npm:create-nextrush@latest` can scaffold an OLD release silently.
+> If the generated tree looks stale (no `services/`/`repositories/`/`config/`), use
+> `npm create nextrush` or `bun create nextrush` instead (they resolve `@latest` correctly).
+
 Interactive choices typically include:
 
 - Style: **functional** | **class-based** | **full**

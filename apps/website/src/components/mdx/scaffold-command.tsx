@@ -19,7 +19,7 @@ interface ScaffoldCommandProps {
    * ```mdx
    * <ScaffoldCommand
    *   commands={{
-   *     pnpm: 'pnpm create nextrush my-api',
+   *     pnpm: 'pnpm create nextrush@latest my-api',
    *     bun: 'bun create nextrush my-api',
    *     npm: 'npm create nextrush my-api',
    *     yarn: 'yarn create nextrush my-api',

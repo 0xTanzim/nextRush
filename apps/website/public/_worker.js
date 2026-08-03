@@ -43,13 +43,20 @@ function toMarkdownPath(pathname) {
 
 // MIME types for static assets — Cloudflare CDN may cache with wrong type
 const MIME_MAP = {
-  '.js':   'application/javascript',
-  '.mjs':  'application/javascript',
-  '.css':  'text/css',
-  '.json': 'application/json',
-  '.md':   'text/markdown; charset=utf-8',
-  '.wasm': 'application/wasm',
-  '.svg':  'image/svg+xml',
+  '.js':    'application/javascript',
+  '.mjs':   'application/javascript',
+  '.css':   'text/css',
+  '.json':  'application/json',
+  '.md':    'text/markdown; charset=utf-8',
+  '.wasm':  'application/wasm',
+  '.svg':   'image/svg+xml',
+  '.png':   'image/png',
+  '.ico':   'image/x-icon',
+  '.woff':  'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf':   'font/ttf',
+  '.otf':   'font/otf',
+  '.eot':   'application/vnd.ms-fontobject',
 };
 
 function fixMimeType(response, pathname) {
@@ -223,32 +230,51 @@ const OAUTH_METADATA = new Map([
 
 /**
  * Attempts to fetch an asset with clean-URL fallback.
+ *
  * Cloudflare Pages ASSETS binding does NOT auto-resolve clean URLs
- * (unlike the default Pages worker).  We try the exact path first,
- * then .html extension, then index.html for directory-like paths.
+ * (unlike the default Pages worker). We try the exact path first, then
+ * .html extension, then index.html for directory-like paths.
+ *
+ * IMPORTANT: ASSETS must receive a path-only request. Passing the full
+ * original request (with Accept: text/markdown, cookies, Sec-Fetch-*,
+ * etc.) makes ASSETS intermittently 404 on valid static files — the
+ * Accept header can trigger content negotiation, and other headers can
+ * make the edge treat the asset as missable. Always rebuild a minimal
+ * GET/HEAD request from just the URL.
  */
+function assetRequest(url, method) {
+  return new Request(url, { method });
+}
+
 async function fetchAsset(request, env, pathname) {
-  // 1. Try exact path
-  let res = await env.ASSETS.fetch(request);
+  const method = request.method === 'HEAD' ? 'HEAD' : 'GET';
+
+  // 1. Try exact path (path-only request — never the original request)
+  const exactUrl = new URL(request.url);
+  exactUrl.pathname = pathname;
+  exactUrl.search = '';
+  exactUrl.hash = '';
+  let res = await env.ASSETS.fetch(assetRequest(exactUrl, method));
   if (res.ok) return res;
 
   // 2. Try + .html (Next.js static export generates .html files)
-  const htmlUrl = new URL(request.url);
   const trimmed = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  const htmlUrl = new URL(exactUrl);
   htmlUrl.pathname = trimmed + '.html';
-  res = await env.ASSETS.fetch(new Request(htmlUrl, request));
+  res = await env.ASSETS.fetch(assetRequest(htmlUrl, method));
   if (res.ok) return res;
 
   // 3. Try /index.html
-  htmlUrl.pathname = pathname.replace(/\/?$/, '/') + 'index.html';
-  res = await env.ASSETS.fetch(new Request(htmlUrl, request));
+  const indexUrl = new URL(exactUrl);
+  indexUrl.pathname = pathname.replace(/\/?$/, '/') + 'index.html';
+  res = await env.ASSETS.fetch(assetRequest(indexUrl, method));
   if (res.ok) return res;
 
   // 4. Try path without trailing slash
   if (pathname !== '/' && pathname.endsWith('/')) {
-    const noSlash = new URL(request.url);
+    const noSlash = new URL(exactUrl);
     noSlash.pathname = pathname.slice(0, -1);
-    res = await env.ASSETS.fetch(new Request(noSlash, request));
+    res = await env.ASSETS.fetch(assetRequest(noSlash, method));
     if (res.ok) return res;
   }
 
@@ -297,9 +323,9 @@ export default {
       return fixMimeType(res, url.pathname);
     }
 
-    // Fetch the pre-generated markdown from static assets
+    // Fetch the pre-generated markdown from static assets (path-only request)
     const mdUrl = new URL(markdownPath, url);
-    const mdReq = new Request(mdUrl, request);
+    const mdReq = assetRequest(mdUrl, 'GET');
     const mdRes = await env.ASSETS.fetch(mdReq);
 
     if (!mdRes.ok) {

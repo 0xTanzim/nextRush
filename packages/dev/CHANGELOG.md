@@ -1,5 +1,13 @@
 # @nextrush/dev
 
+## 1.1.1
+
+### Patch Changes
+
+- [`ba8c309`](https://github.com/0xTanzim/nextRush/commit/ba8c309) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Fix `nextrush dev` on Deno: the Deno dev-server spawn now passes `--unstable-sloppy-imports`, so `.js`-specifier relative imports (which every generated project uses) resolve to `.ts` — matching the framework's own conformance runner. Previously `nextrush dev` failed on Deno with "Module not found .../health.js".
+
+- [`54476d8`](https://github.com/0xTanzim/nextRush/commit/54476d8) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Harden the Deno build path: the native-fallback run hint now carries `--unstable-sloppy-imports` (the copied `.ts` sources keep `.js` specifiers) and scoped permissions instead of blanket `-A`; the internal declaration tsc spawn uses `--allow-read --allow-write` instead of `-A`.
+
 ## 1.1.0
 
 ### Minor Changes

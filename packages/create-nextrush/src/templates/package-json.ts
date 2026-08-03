@@ -60,9 +60,17 @@ export function getDependencies(options: ProjectOptions): DependencySet {
     '@nextrush/dev': getPackageRange('@nextrush/dev'),
     '@nextrush/types': getPackageRange('@nextrush/types'),
     typescript: getToolchainRange('typescript'),
-    '@types/node': getToolchainRange('@types/node'),
     vitest: getVitestRange(),
   };
+
+  // @types/node is Node-specific — Deno ships its own global types (via `deno.json` lib +
+  // its native type system), and installing `@types/node` would inject Node's `process` /
+  // `Buffer` globals into a Deno project and conflict with Deno's own globals.
+  // capability-exempt: scaffolding tool emits runtime-specific project files from user choice,
+  // not the executing runtime. `options.runtime` is a scaffold-time decision.
+  if (options.runtime !== 'deno') {
+    devDependencies['@types/node'] = getToolchainRange('@types/node');
+  }
 
   return { dependencies, devDependencies };
 }
@@ -102,14 +110,28 @@ function getToolchainRange(pkg: 'typescript' | '@types/node'): string {
   return rawRange;
 }
 
-/** Generates the `engines`/`packageManager` metadata block for a generated `package.json` (F-08). */
-export function getPackageMetadata(packageManager: PackageManager): {
-  engines: { node: string };
+/** Generates the `engines`/`packageManager` metadata block for a generated `package.json` (F-08).
+ *
+ * A Deno project's app itself runs on Deno, not Node — the `node` engine floor only
+ * makes sense there as a *toolchain* constraint (the `@nextrush/dev`/`vitest`/`typescript`
+ * devDependencies all require Node >= 22). Emitting `engines.node` on a Deno project
+ * would misrepresent a Node-free app, so it's omitted (F-08's F-07-fix rationale applies
+ * to Node/Bun projects, which do run on Node-class runtimes).
+ */
+export function getPackageMetadata(
+  packageManager: PackageManager,
+  runtime: Runtime
+): {
+  engines?: { node: string };
   packageManager?: string;
 } {
-  const metadata: { engines: { node: string }; packageManager?: string } = {
-    engines: { node: `>=${MIN_NODE_MAJOR.toString()}.0.0` },
-  };
+  const metadata: { engines?: { node: string }; packageManager?: string } = {};
+
+  // capability-exempt: scaffolder emits runtime-specific project files from user choice,
+  // not the executing runtime. `runtime` is a scaffold-time decision.
+  if (runtime !== 'deno') {
+    metadata.engines = { node: `>=${MIN_NODE_MAJOR.toString()}.0.0` };
+  }
 
   // Only emit `packageManager` for an explicitly detected/selected NON-npm manager — Corepack
   // can trip users who don't have it enabled, and npm is the safe universal default (design.md
