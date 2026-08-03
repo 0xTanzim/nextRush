@@ -1,7 +1,7 @@
 ---
 title: Guards
 description: How NextRush runs a yes/no access check before a controller handler — so authentication and authorization live in one declared place instead of the top of every handler.
-keywords: [concepts, extension, guards, nextrush, system]
+keywords: [concepts, guards, nextrush, system]
 ---
 
 Every protected route asks the same question before it does any real work: is this caller allowed in? Answer it inline and the check is copy-pasted into the top of each handler — read the token, verify it, check the role, bail out on failure — with the one line that matters buried underneath. Miss it in a single handler and you have a hole no one sees until it is exploited.
