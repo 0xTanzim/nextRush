@@ -57,6 +57,20 @@ pnpm-debug.log*
 }
 
 /**
+ * Generates a `.yarnrc.yml` for Yarn projects.
+ *
+ * Yarn Berry (v4) defaults to PnP, which never materializes `node_modules` — a
+ * generated project's scripts (`nextrush dev`/`build`, `vitest`) assume a classic
+ * `node_modules` layout. Pinning `nodeLinker: node-modules` makes Yarn behave like
+ * the other supported managers so install/build/dev work out of the box (fixes the
+ * Docker-matrix Yarn failure where `yarn build` could not find `@nextrush/dev`).
+ */
+export function generateYarnrc(): string {
+  return `nodeLinker: node-modules
+`;
+}
+
+/**
  * Generates a README.md for the project, deriving the "Project Structure" section from
  * the given FileMap so it can never drift from what the generator actually emits (fixes
  * F-10 — the package README's `full` listing previously named a `not-found.ts` that was

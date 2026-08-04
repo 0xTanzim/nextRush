@@ -62,6 +62,9 @@ describe('generated scripts avoid transient and over-broad flags (task 4.2)', ()
         expect(script).toMatch(/--allow-net/);
         expect(script).toMatch(/--allow-read/);
         expect(script).toMatch(/--allow-env/);
+        // --allow-sys: SWC's native binding under Deno >= 2.9 performs an `Object.uid`
+        // os check during build; without it `nextrush build` fails with NotCapable.
+        expect(script).toMatch(/--allow-sys/);
       }
     });
   }
