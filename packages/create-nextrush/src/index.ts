@@ -6,6 +6,7 @@ import * as p from '@clack/prompts';
 import { parseArgs, printHelp } from './cli.js';
 import { MIN_NODE_MAJOR, NEXTRUSH_VERSION } from './constants.js';
 import { generateProject } from './generator.js';
+import { validatePackageManager } from './installer.js';
 import { resolveVersions } from './npm-version.js';
 import { runPrompts } from './prompts.js';
 import { getAllPossiblePackageNames } from './templates/index.js';
@@ -157,16 +158,32 @@ function finishScaffold(input: {
     );
   }
 
+  let installSkipped = false;
   if (install) {
-    const argv = getInstallArgv(packageManager);
-    s.start(`Installing dependencies via ${packageManager}...`);
-    const installOk = runCaptured(
-      argv,
-      targetDir,
-      getInstallCommandLabel(packageManager),
-      'Dependency installation'
-    );
-    s.stop(installOk ? 'Dependencies installed.' : 'Dependency installation failed — see the error above.');
+    const validation = validatePackageManager(packageManager);
+    if (!validation.ok && validation.guidance) {
+      console.error(`\n${validation.guidance}\n`);
+      p.cancel('Dependency installation aborted — see guidance above.');
+      return;
+    }
+    if (validation.ok && validation.guidance) {
+      console.warn(`\n${validation.guidance}\n`);
+    }
+
+    if (!validation.skipInstall) {
+      const argv = getInstallArgv(packageManager);
+      s.start(`Installing dependencies via ${packageManager}...`);
+      const installOk = runCaptured(
+        argv,
+        targetDir,
+        getInstallCommandLabel(packageManager),
+        'Dependency installation'
+      );
+      s.stop(installOk ? 'Dependencies installed.' : 'Dependency installation failed — see the error above.');
+    } else {
+      installSkipped = true;
+      s.stop('Dependency installation skipped.');
+    }
   }
 
   const runCmd = getRunCommand(packageManager);
@@ -175,7 +192,7 @@ function finishScaffold(input: {
   if (directory !== '.') {
     nextSteps.push(`cd ${directory}`);
   }
-  if (!install) {
+  if (!install || installSkipped) {
     nextSteps.push(getInstallCommandLabel(packageManager));
   }
   nextSteps.push(`${runCmd} dev`);

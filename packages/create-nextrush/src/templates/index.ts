@@ -7,5 +7,6 @@ export {
   generateGitignore,
   generatePackageJson,
   generateReadme,
+  generateYarnrc,
 } from './shared.js';
 export { generateTsconfig, generateDenoJson } from './tsconfig.js';

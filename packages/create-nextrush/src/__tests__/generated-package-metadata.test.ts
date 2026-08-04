@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { generateProject } from '../generator.js';
-import type { PackageManager, ProjectOptions } from '../types.js';
+import type { ProjectOptions } from '../types.js';
 import { seedAllPackageVersions } from './test-helpers.js';
 
 /**
@@ -42,14 +42,27 @@ describe('generated package.json carries production-ready metadata (task 5.2)', 
     expect(pkg.packageManager).toBeUndefined();
   });
 
-  const nonNpmManagers: PackageManager[] = ['pnpm', 'yarn', 'bun'];
-  for (const pm of nonNpmManagers) {
-    it(`sets packageManager for ${pm}`, () => {
-      seedAllPackageVersions('^0.0.0');
-      const files = generateProject(createOptions({ packageManager: pm, runtime: pm === 'bun' ? 'bun' : 'node' }));
-      const pkg = JSON.parse(files.get('package.json')!) as { packageManager?: string };
+  it('omits packageManager for yarn so Yarn Classic (1.x) does not refuse to run', () => {
+    seedAllPackageVersions('^0.0.0');
+    const files = generateProject(createOptions({ packageManager: 'yarn' }));
+    const pkg = JSON.parse(files.get('package.json')!) as { packageManager?: string };
 
-      expect(pkg.packageManager).toMatch(new RegExp(`^${pm}@\\d+\\.\\d+\\.\\d+$`));
-    });
-  }
+    expect(pkg.packageManager).toBeUndefined();
+  });
+
+  it('omits packageManager for bun so pnpm does not reject the spec', () => {
+    seedAllPackageVersions('^0.0.0');
+    const files = generateProject(createOptions({ packageManager: 'bun', runtime: 'bun' }));
+    const pkg = JSON.parse(files.get('package.json')!) as { packageManager?: string };
+
+    expect(pkg.packageManager).toBeUndefined();
+  });
+
+  it('sets packageManager for pnpm (the one manager that validates and benefits from the pin)', () => {
+    seedAllPackageVersions('^0.0.0');
+    const files = generateProject(createOptions({ packageManager: 'pnpm' }));
+    const pkg = JSON.parse(files.get('package.json')!) as { packageManager?: string };
+
+    expect(pkg.packageManager).toMatch(/^pnpm@\d+\.\d+\.\d+$/);
+  });
 });
