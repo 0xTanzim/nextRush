@@ -79,6 +79,14 @@ const highlightedCode = (
     {'\n'}
     <span className="text-[var(--code-punctuation)]">{'}'});</span>
     {'\n\n'}
+    <span className="text-[var(--code-variable)]">app.</span>
+    <span className="text-[var(--code-function)]">route</span>
+    <span className="text-[var(--code-punctuation)]">(</span>
+    <span className="text-[var(--code-string)]">&apos;/&apos;</span>
+    <span className="text-[var(--code-variable)]">, </span>
+    <span className="text-[var(--code-variable)]">router</span>
+    <span className="text-[var(--code-punctuation)]">);</span>
+    {'\n'}
     <span className="text-[var(--code-keyword)]">await</span>
     <span className="text-[var(--code-variable)]"> </span>
     <span className="text-[var(--code-function)]">listen</span>
