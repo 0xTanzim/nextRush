@@ -1,0 +1,43 @@
+# Verdaccio config for the create-nextrush Docker compatibility matrix.
+#
+# Serves the locally-packed create-nextrush tarball (published by the entrypoint)
+# and proxies everything else to the real npm registry, so the real `npm create`,
+# `pnpm create`, `yarn create`, `bun create`, and `deno run npm:create-nextrush`
+# entrypoints can be exercised against the exact tarball under test.
+
+storage: /work/verdaccio/storage
+
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+    timeout: 60s
+    maxage: 5m
+
+packages:
+  # The package under test is served ONLY from local storage — never proxied from
+  # the public registry (where create-nextrush already exists), so the matrix
+  # exercises the exact tarball under test.
+  'create-nextrush':
+    access: $all
+    publish: $all
+    unpublish: $all
+  '@*/*':
+    access: $all
+    publish: $all
+    proxy: npmjs
+  '**':
+    access: $all
+    publish: $all
+    proxy: npmjs
+
+listen:
+  - 0.0.0.0:4873
+
+auth:
+  htpasswd:
+    file: /work/verdaccio/htpasswd
+
+log:
+  type: stdout
+  format: pretty
+  level: warn

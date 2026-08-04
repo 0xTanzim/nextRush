@@ -8,6 +8,7 @@ import {
   generatePackageJson,
   generateReadme,
   generateTsconfig,
+  generateYarnrc,
 } from './templates/index.js';
 import type { FileMap, ProjectOptions } from './types.js';
 
@@ -23,6 +24,13 @@ export function generateProject(options: ProjectOptions): FileMap {
   files.set('package.json', generatePackageJson(options));
   files.set('src/env.d.ts', generateEnvDts(options));
   files.set('.gitignore', generateGitignore());
+
+  // Yarn Berry (v4) defaults to PnP, which would leave a generated project without a
+  // materialized `node_modules` — pin `nodeLinker: node-modules` so its scripts
+  // (nextrush dev/build, vitest) work out of the box like every other manager.
+  if (options.packageManager === 'yarn') {
+    files.set('.yarnrc.yml', generateYarnrc());
+  }
 
   // Deno projects get a Deno-native config (types, decorators, strictness) instead of
   // relying on a Node-flavored tsconfig alone.
