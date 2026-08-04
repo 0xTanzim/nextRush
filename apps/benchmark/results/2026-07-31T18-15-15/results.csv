@@ -1,0 +1,223 @@
+run_id,profile,tool,framework_id,framework,scenario_id,scenario,identical_work,connections,rps_mean,rps_stddev,cv_pct,latency_p50,latency_p99,non_2xx,valid_runs,rank,points
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,hello-world,Hello World,true,1,26803.32,564.86,2.11,0.03ms,0.08ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,hello-world,Hello World,true,64,36184.18,1569.03,4.34,1.66ms,2.76ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,hello-world,Hello World,true,256,35503.1,563.62,1.59,6.86ms,10.95ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,json-serialize,JSON Serialization,true,1,26808.9,867.15,3.23,0.03ms,0.07ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,json-serialize,JSON Serialization,true,64,35452.45,602.98,1.7,1.68ms,2.81ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,json-serialize,JSON Serialization,true,256,34465.83,810.14,2.35,6.89ms,11.31ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,route-params,Route Parameters,true,1,26032.14,571.57,2.2,0.04ms,0.06ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,route-params,Route Parameters,true,64,34427.89,1632.02,4.74,1.76ms,2.91ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,route-params,Route Parameters,true,256,33672.12,785.72,2.33,7.28ms,11.70ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,query-string,Query Strings,true,1,21091.95,428.44,2.03,0.04ms,0.08ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,query-string,Query Strings,true,64,28032.14,672.95,2.4,2.23ms,2.53ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,query-string,Query Strings,true,256,27786.35,733.91,2.64,9.09ms,9.99ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,post-json,POST JSON,true,1,18769.96,908.84,4.84,0.05ms,0.07ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,post-json,POST JSON,true,64,26028.79,592.08,2.27,2.42ms,2.79ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,post-json,POST JSON,true,256,25420,537.19,2.11,9.96ms,10.93ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,deep-route,Deep Route,true,1,25965.65,305.21,1.18,0.04ms,0.06ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,deep-route,Deep Route,true,64,33703.34,735.62,2.18,1.80ms,2.92ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,deep-route,Deep Route,true,256,32668.61,773.9,2.37,7.44ms,12.01ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,middleware-stack,Middleware Stack,false,1,23908.52,437.06,1.83,0.04ms,0.07ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,middleware-stack,Middleware Stack,false,64,31185.95,662.88,2.13,2.05ms,2.26ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,middleware-stack,Middleware Stack,false,256,30749.33,551.58,1.79,8.31ms,9.05ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,error-handling,Error Handling,false,1,19198.45,970.04,5.05,0.05ms,0.08ms,3467216,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,error-handling,Error Handling,false,64,25033.32,542.02,2.17,2.53ms,3.22ms,4507984,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,error-handling,Error Handling,false,256,24970.84,482.09,1.93,10.27ms,11.00ms,4499840,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,large-json,Large JSON,true,1,17899.73,734.27,4.1,0.05ms,0.09ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,large-json,Large JSON,true,64,23072.16,543.23,2.35,2.78ms,3.14ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,large-json,Large JSON,true,256,22589.29,516.32,2.29,11.23ms,12.12ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,empty-response,Empty Response,true,1,30277.03,168.38,0.56,0.03ms,0.05ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,empty-response,Empty Response,true,64,46373.23,1408.46,3.04,1.35ms,2.08ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,empty-response,Empty Response,true,256,44817.73,1407.36,3.14,5.56ms,8.61ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,send-object,Send Object,true,1,26611.35,1061.55,3.99,0.03ms,0.05ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,send-object,Send Object,true,64,35255.36,1160.44,3.29,1.72ms,2.79ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,send-object,Send Object,true,256,35329.01,692.58,1.96,6.99ms,10.79ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,static-file,Static File,false,1,8641.15,167.67,1.94,0.10ms,0.27ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,static-file,Static File,false,64,15117.64,266.82,1.76,4.20ms,6.93ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,static-file,Static File,false,256,14759.1,475.86,3.22,17.38ms,21.35ms,0,6,1,6
+2026-07-31T18-15-15,standard,wrk,raw-node,Raw Node.js,large-post,Large POST Body,true,1,186.16,10.71,5.75,5.47ms,6.15ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,hello-world,Hello World,true,1,24302.14,763.37,3.14,0.04ms,0.07ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,hello-world,Hello World,true,64,31706.89,558.46,1.76,1.96ms,3.08ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,hello-world,Hello World,true,256,31343.15,787.4,2.51,7.98ms,10.09ms,0,6,2,3.8
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,json-serialize,JSON Serialization,true,1,24404.5,854.73,3.5,0.04ms,0.06ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,json-serialize,JSON Serialization,true,64,31773.52,427.32,1.34,1.97ms,2.27ms,0,6,3,4
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,json-serialize,JSON Serialization,true,256,31241.59,381.64,1.22,8.12ms,9.05ms,0,6,3,4
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,route-params,Route Parameters,true,1,21580.5,1602.57,7.43,0.04ms,0.08ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,route-params,Route Parameters,true,64,29409.61,574.11,1.95,2.13ms,2.41ms,0,6,3,4
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,route-params,Route Parameters,true,256,28847.34,617.67,2.14,8.89ms,9.51ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,query-string,Query Strings,true,1,19679.04,674.18,3.43,0.05ms,0.08ms,0,6,1,3.9
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,query-string,Query Strings,true,64,24803.53,432.04,1.74,2.54ms,3.49ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,query-string,Query Strings,true,256,24651.51,131.19,0.53,10.32ms,11.29ms,0,6,3,4
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,post-json,POST JSON,true,1,15204.37,851.01,5.6,0.06ms,0.09ms,0,6,2,3.8
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,post-json,POST JSON,true,64,19481.84,218.79,1.12,3.21ms,4.07ms,0,6,2,3.8
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,post-json,POST JSON,true,256,19144.38,265.05,1.38,13.29ms,14.33ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,deep-route,Deep Route,true,1,22316.25,738.82,3.31,0.04ms,0.07ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,deep-route,Deep Route,true,64,29253.35,502.11,1.72,2.17ms,2.50ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,deep-route,Deep Route,true,256,28636.55,496.81,1.73,8.93ms,9.96ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,middleware-stack,Middleware Stack,false,1,19739.22,392.32,1.99,0.05ms,0.10ms,0,6,3,4
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,middleware-stack,Middleware Stack,false,64,24764.99,359.06,1.45,2.54ms,2.94ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,middleware-stack,Middleware Stack,false,256,24188.43,567.85,2.35,10.47ms,11.29ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,error-handling,Error Handling,false,1,14798.31,938.41,6.34,0.06ms,0.09ms,2672553,6,4,2.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,error-handling,Error Handling,false,64,19866.18,156.55,0.79,3.18ms,3.61ms,3577398,6,4,3
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,error-handling,Error Handling,false,256,19409.33,608.3,3.13,12.91ms,14.22ms,3497945,6,4,3
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,large-json,Large JSON,true,1,16536.89,636.26,3.85,0.05ms,0.09ms,0,6,1,3.9
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,large-json,Large JSON,true,64,21053.69,499.42,2.37,2.95ms,3.55ms,0,6,3,4
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,large-json,Large JSON,true,256,20716.52,631.35,3.05,12.17ms,13.24ms,0,6,3,4
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,empty-response,Empty Response,true,1,27769.1,349.11,1.26,0.03ms,0.05ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,empty-response,Empty Response,true,64,36583.93,795.69,2.17,1.65ms,2.75ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,empty-response,Empty Response,true,256,35778.45,783.63,2.19,6.74ms,11.14ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,send-object,Send Object,true,1,23877.63,499.96,2.09,0.04ms,0.06ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,send-object,Send Object,true,64,32489.9,417.33,1.28,1.95ms,2.22ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,send-object,Send Object,true,256,31751.35,755.99,2.38,8.07ms,8.71ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,static-file,Static File,false,1,6047.4,128.16,2.12,0.15ms,0.31ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,static-file,Static File,false,64,9244,238.39,2.58,7.10ms,9.35ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,static-file,Static File,false,256,9237.66,69.93,0.76,28.06ms,34.39ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,nextrush-v3,NextRush v3,large-post,Large POST Body,true,1,140.9,3.95,2.8,6.62ms,9.66ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,hello-world,Hello World,true,1,26728.03,185.94,0.7,0.04ms,0.06ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,hello-world,Hello World,true,64,34091.04,1621.59,4.76,1.77ms,2.85ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,hello-world,Hello World,true,256,32703.03,1607.82,4.92,7.23ms,11.75ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,json-serialize,JSON Serialization,true,1,25961.24,282.72,1.09,0.04ms,0.10ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,json-serialize,JSON Serialization,true,64,33996.35,1026.55,3.02,1.80ms,2.85ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,json-serialize,JSON Serialization,true,256,33570.09,790.49,2.35,7.32ms,11.50ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,route-params,Route Parameters,true,1,24792.08,1024.95,4.13,0.04ms,0.06ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,route-params,Route Parameters,true,64,31240.24,1036.92,3.32,1.92ms,3.11ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,route-params,Route Parameters,true,256,30743.05,568.12,1.85,7.90ms,12.50ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,query-string,Query Strings,true,1,20225.98,1043.75,5.16,0.04ms,0.09ms,0,6,1,4.8
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,query-string,Query Strings,true,64,26900.94,525.1,1.95,2.30ms,2.93ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,query-string,Query Strings,true,256,26452.17,513.57,1.94,9.59ms,10.44ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,post-json,POST JSON,true,1,16122.82,423.37,2.63,0.06ms,0.09ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,post-json,POST JSON,true,64,20816.41,269.78,1.3,3.02ms,3.49ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,post-json,POST JSON,true,256,20507.79,267.07,1.3,12.42ms,13.61ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,deep-route,Deep Route,true,1,25195.25,408.55,1.62,0.04ms,0.06ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,deep-route,Deep Route,true,64,31449.77,895.26,2.85,1.93ms,3.05ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,deep-route,Deep Route,true,256,30775.81,1227.94,3.99,7.90ms,12.51ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,middleware-stack,Middleware Stack,false,1,23939.55,642.3,2.68,0.04ms,0.06ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,middleware-stack,Middleware Stack,false,64,31192.61,716.54,2.3,2.03ms,2.34ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,middleware-stack,Middleware Stack,false,256,30526.82,785.01,2.57,8.40ms,9.04ms,0,6,1,5.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,error-handling,Error Handling,false,1,17043.26,980.31,5.75,0.05ms,0.08ms,3076359,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,error-handling,Error Handling,false,64,22128.93,383.49,1.73,2.86ms,3.16ms,3986317,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,error-handling,Error Handling,false,256,21533.7,470.93,2.19,11.92ms,12.64ms,3879506,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,large-json,Large JSON,true,1,17014.47,1519.32,8.93,0.05ms,0.09ms,0,6,1,4.8
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,large-json,Large JSON,true,64,21988.5,318.36,1.45,2.84ms,3.31ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,large-json,Large JSON,true,256,21748.05,276.07,1.27,11.62ms,12.66ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,empty-response,Empty Response,true,1,29471.63,520.83,1.77,0.03ms,0.05ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,empty-response,Empty Response,true,64,40406.83,880.6,2.18,1.52ms,2.55ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,empty-response,Empty Response,true,256,39782.15,955.33,2.4,6.19ms,10.15ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,send-object,Send Object,true,1,25317.61,176.72,0.7,0.04ms,0.06ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,send-object,Send Object,true,64,31845.63,1034.38,3.25,1.88ms,3.04ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,send-object,Send Object,true,256,31455.82,753.5,2.4,7.64ms,12.30ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,static-file,Static File,false,1,7620.32,125.27,1.64,0.12ms,0.22ms,0,6,2,5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,static-file,Static File,false,64,11244.68,148.5,1.32,5.81ms,6.86ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,static-file,Static File,false,256,10999.59,186.21,1.69,24.15ms,28.03ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,fastify,Fastify,large-post,Large POST Body,true,1,167.71,5.01,2.99,5.93ms,6.52ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,hono,Hono,hello-world,Hello World,true,1,22692.41,877.76,3.87,0.04ms,0.08ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,hello-world,Hello World,true,64,31381.48,604.25,1.93,2.01ms,2.23ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,hello-world,Hello World,true,256,31072.82,667.38,2.15,8.16ms,8.68ms,0,6,2,3.8
+2026-07-31T18-15-15,standard,wrk,hono,Hono,json-serialize,JSON Serialization,true,1,22745.78,1155.12,5.08,0.04ms,0.07ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,json-serialize,JSON Serialization,true,64,30668.83,585.92,1.91,2.05ms,2.50ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,hono,Hono,json-serialize,JSON Serialization,true,256,29514.89,802.2,2.72,8.58ms,9.52ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,hono,Hono,route-params,Route Parameters,true,1,21601.41,1034.07,4.79,0.04ms,0.09ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,route-params,Route Parameters,true,64,28008.55,652.58,2.33,2.26ms,2.95ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,hono,Hono,route-params,Route Parameters,true,256,27910.9,592.98,2.12,9.18ms,9.86ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,query-string,Query Strings,true,1,19102.74,779.8,4.08,0.05ms,0.08ms,0,6,1,3.9
+2026-07-31T18-15-15,standard,wrk,hono,Hono,query-string,Query Strings,true,64,24060.83,337.91,1.4,2.63ms,2.93ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,query-string,Query Strings,true,256,23541.9,550.26,2.34,10.79ms,11.63ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,hono,Hono,post-json,POST JSON,true,1,15833.24,440.58,2.78,0.06ms,0.09ms,0,6,2,3.8
+2026-07-31T18-15-15,standard,wrk,hono,Hono,post-json,POST JSON,true,64,20006.72,1162.05,5.81,3.10ms,3.87ms,0,6,2,3.8
+2026-07-31T18-15-15,standard,wrk,hono,Hono,post-json,POST JSON,true,256,19953.23,154.82,0.78,12.72ms,14.26ms,0,6,3,4
+2026-07-31T18-15-15,standard,wrk,hono,Hono,deep-route,Deep Route,true,1,21961.87,900,4.1,0.04ms,0.09ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,deep-route,Deep Route,true,64,28727.79,375.82,1.31,2.21ms,2.47ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,deep-route,Deep Route,true,256,28520.98,423.3,1.48,8.89ms,9.73ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,middleware-stack,Middleware Stack,false,1,17513.57,868.1,4.96,0.05ms,0.09ms,0,6,4,2.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,middleware-stack,Middleware Stack,false,64,24555.19,370.73,1.51,2.59ms,2.87ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,middleware-stack,Middleware Stack,false,256,24273.39,520.23,2.14,10.49ms,11.20ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,error-handling,Error Handling,false,1,16699.51,884.03,5.29,0.05ms,0.09ms,3015894,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,error-handling,Error Handling,false,64,20606.86,412.07,2,3.08ms,3.39ms,3710648,6,3,4
+2026-07-31T18-15-15,standard,wrk,hono,Hono,error-handling,Error Handling,false,256,20457.16,329.15,1.61,12.54ms,13.35ms,3685965,6,3,4
+2026-07-31T18-15-15,standard,wrk,hono,Hono,large-json,Large JSON,true,1,15326.03,1160.5,7.57,0.06ms,0.10ms,0,6,1,3
+2026-07-31T18-15-15,standard,wrk,hono,Hono,large-json,Large JSON,true,64,19795.62,514.37,2.6,3.20ms,3.65ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,hono,Hono,large-json,Large JSON,true,256,19416.06,407.88,2.1,13.14ms,13.99ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,hono,Hono,empty-response,Empty Response,true,1,27812.43,389.86,1.4,0.03ms,0.05ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,empty-response,Empty Response,true,64,35693.09,931.07,2.61,1.67ms,2.78ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,empty-response,Empty Response,true,256,35713.54,1147.7,3.21,6.79ms,11.14ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,send-object,Send Object,true,1,22806.68,1044.18,4.58,0.04ms,0.06ms,0,6,3,3.5
+2026-07-31T18-15-15,standard,wrk,hono,Hono,send-object,Send Object,true,64,30153.7,610.73,2.03,2.11ms,2.40ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,hono,Hono,send-object,Send Object,true,256,29848.77,576.08,1.93,8.52ms,9.27ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,hono,Hono,static-file,Static File,false,1,6383.26,145.61,2.28,0.14ms,0.94ms,0,6,4,3
+2026-07-31T18-15-15,standard,wrk,hono,Hono,static-file,Static File,false,64,8355.13,244.97,2.93,7.14ms,13.45ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,hono,Hono,static-file,Static File,false,256,7921.68,155.26,1.96,31.50ms,41.77ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,hono,Hono,large-post,Large POST Body,true,1,176.15,4.15,2.35,5.40ms,8.56ms,0,6,1,3.9
+2026-07-31T18-15-15,standard,wrk,koa,Koa,hello-world,Hello World,true,1,19146.01,577.2,3.01,0.05ms,0.11ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,koa,Koa,hello-world,Hello World,true,64,25118.43,529.05,2.11,2.50ms,2.90ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,hello-world,Hello World,true,256,24778.94,534.53,2.16,10.22ms,11.12ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,json-serialize,JSON Serialization,true,1,18289.27,481.29,2.63,0.05ms,0.16ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,koa,Koa,json-serialize,JSON Serialization,true,64,24464.16,480.09,1.96,2.58ms,2.92ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,json-serialize,JSON Serialization,true,256,24224.47,363.6,1.5,10.52ms,11.50ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,route-params,Route Parameters,true,1,18289.35,460.45,2.52,0.05ms,0.08ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,koa,Koa,route-params,Route Parameters,true,64,23460.39,320.05,1.36,2.69ms,3.08ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,route-params,Route Parameters,true,256,23216.51,366.55,1.58,10.95ms,11.93ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,query-string,Query Strings,true,1,15888.94,838.89,5.28,0.06ms,0.13ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,koa,Koa,query-string,Query Strings,true,64,19865.92,412.21,2.07,3.14ms,3.67ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,query-string,Query Strings,true,256,19529.72,276.02,1.41,13.10ms,14.29ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,post-json,POST JSON,true,1,13524.07,634.44,4.69,0.07ms,0.11ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,koa,Koa,post-json,POST JSON,true,64,16431.09,299.47,1.82,3.85ms,4.54ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,post-json,POST JSON,true,256,16131.82,133.13,0.83,15.80ms,16.95ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,deep-route,Deep Route,true,1,18330.07,575.64,3.14,0.05ms,0.08ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,koa,Koa,deep-route,Deep Route,true,64,23250.5,134.47,0.58,2.72ms,3.05ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,deep-route,Deep Route,true,256,22843.64,61.83,0.27,11.14ms,12.09ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,middleware-stack,Middleware Stack,false,1,16919.37,932.46,5.51,0.05ms,0.08ms,0,6,4,1.8
+2026-07-31T18-15-15,standard,wrk,koa,Koa,middleware-stack,Middleware Stack,false,64,22566.28,314.75,1.39,2.79ms,3.16ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,middleware-stack,Middleware Stack,false,256,21963.64,721.17,3.28,11.51ms,12.42ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,error-handling,Error Handling,false,1,14185.3,407.99,2.88,0.07ms,0.10ms,2561838,6,4,1.8
+2026-07-31T18-15-15,standard,wrk,koa,Koa,error-handling,Error Handling,false,64,16781.84,275.11,1.64,3.76ms,4.22ms,3021799,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,koa,Koa,error-handling,Error Handling,false,256,16763.48,203.25,1.21,15.15ms,16.41ms,3020685,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,koa,Koa,large-json,Large JSON,true,1,14326.27,701.47,4.9,0.06ms,0.10ms,0,6,1,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,large-json,Large JSON,true,64,17480.18,342.92,1.96,3.63ms,4.00ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,large-json,Large JSON,true,256,17208.76,301.45,1.75,14.96ms,16.04ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,empty-response,Empty Response,true,1,22315.52,925.8,4.15,0.04ms,0.06ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,koa,Koa,empty-response,Empty Response,true,64,30578.87,797.51,2.61,2.10ms,2.39ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,koa,Koa,empty-response,Empty Response,true,256,30077.17,709.72,2.36,8.57ms,9.19ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,koa,Koa,send-object,Send Object,true,1,18839.76,950.44,5.04,0.05ms,0.07ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,koa,Koa,send-object,Send Object,true,64,24469.02,619.13,2.53,2.58ms,2.91ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,send-object,Send Object,true,256,24200.62,428.98,1.77,10.50ms,11.39ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,koa,Koa,static-file,Static File,false,1,5366.22,55.81,1.04,0.17ms,1.15ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,koa,Koa,static-file,Static File,false,64,7489.76,99.99,1.34,7.85ms,15.51ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,koa,Koa,static-file,Static File,false,256,6556.17,224.67,3.43,39.65ms,54.65ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,koa,Koa,large-post,Large POST Body,true,1,175.57,2.63,1.5,5.68ms,6.18ms,0,6,1,3.9
+2026-07-31T18-15-15,standard,wrk,express,Express,hello-world,Hello World,true,1,17872.32,904.76,5.06,0.05ms,0.10ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,express,Express,hello-world,Hello World,true,64,22592.62,1078,4.77,2.75ms,3.15ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,hello-world,Hello World,true,256,22508.5,655.71,2.91,11.17ms,12.42ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,json-serialize,JSON Serialization,true,1,18404.81,729.18,3.96,0.05ms,0.08ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,express,Express,json-serialize,JSON Serialization,true,64,22924.16,372.45,1.62,2.76ms,3.08ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,json-serialize,JSON Serialization,true,256,22567.21,293.02,1.3,11.25ms,12.16ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,route-params,Route Parameters,true,1,17062.92,795.99,4.67,0.05ms,0.08ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,express,Express,route-params,Route Parameters,true,64,21395.42,371.87,1.74,2.96ms,3.33ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,route-params,Route Parameters,true,256,20888.56,592.44,2.84,12.17ms,13.78ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,query-string,Query Strings,true,1,15925.23,651.74,4.09,0.06ms,0.09ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,express,Express,query-string,Query Strings,true,64,18731.56,284.83,1.52,3.35ms,4.25ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,query-string,Query Strings,true,256,18395.38,519.05,2.82,13.71ms,15.83ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,post-json,POST JSON,true,1,12821.89,616.34,4.81,0.07ms,0.10ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,express,Express,post-json,POST JSON,true,64,15834.96,163.13,1.03,3.99ms,4.50ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,post-json,POST JSON,true,256,15617.18,279.44,1.79,16.22ms,17.76ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,deep-route,Deep Route,true,1,17928.51,431.63,2.41,0.05ms,0.08ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,express,Express,deep-route,Deep Route,true,64,21712.94,262.55,1.21,2.92ms,3.27ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,deep-route,Deep Route,true,256,21332.32,291.22,1.37,11.99ms,12.81ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,middleware-stack,Middleware Stack,false,1,16464.13,359.09,2.18,0.06ms,0.08ms,0,6,4,1.8
+2026-07-31T18-15-15,standard,wrk,express,Express,middleware-stack,Middleware Stack,false,64,20240.76,592.32,2.93,3.07ms,3.94ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,middleware-stack,Middleware Stack,false,256,20180.36,261.69,1.3,12.57ms,13.74ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,error-handling,Error Handling,false,1,14528.92,1057.63,7.28,0.06ms,0.10ms,2622601,6,4,1.8
+2026-07-31T18-15-15,standard,wrk,express,Express,error-handling,Error Handling,false,64,15365.98,1542.56,10.04,3.94ms,4.31ms,2767011,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,express,Express,error-handling,Error Handling,false,256,15474.14,1481.36,9.57,15.93ms,16.92ms,2788221,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,express,Express,large-json,Large JSON,true,1,13106.37,1069.84,8.16,0.07ms,0.29ms,0,6,1,2
+2026-07-31T18-15-15,standard,wrk,express,Express,large-json,Large JSON,true,64,15157.03,1017.51,6.71,3.94ms,6.49ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,large-json,Large JSON,true,256,15558.29,338.29,2.17,16.10ms,21.64ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,empty-response,Empty Response,true,1,24222.31,556.47,2.3,0.04ms,0.06ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,express,Express,empty-response,Empty Response,true,64,33358.01,519.39,1.56,1.91ms,2.16ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,express,Express,empty-response,Empty Response,true,256,32729.78,703.52,2.15,7.82ms,8.31ms,0,6,5,2
+2026-07-31T18-15-15,standard,wrk,express,Express,send-object,Send Object,true,1,17581.32,520.37,2.96,0.05ms,0.13ms,0,6,5,1.5
+2026-07-31T18-15-15,standard,wrk,express,Express,send-object,Send Object,true,64,21961.87,288.77,1.31,2.87ms,3.41ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,send-object,Send Object,true,256,21569.73,719.55,3.34,11.79ms,12.71ms,0,6,6,1
+2026-07-31T18-15-15,standard,wrk,express,Express,static-file,Static File,false,1,7330.86,124.23,1.69,0.13ms,0.22ms,0,6,3,4
+2026-07-31T18-15-15,standard,wrk,express,Express,static-file,Static File,false,64,10663.08,487.79,4.57,6.04ms,7.19ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,express,Express,static-file,Static File,false,256,10996.32,309.49,2.81,24.19ms,28.32ms,0,6,2,4.5
+2026-07-31T18-15-15,standard,wrk,express,Express,large-post,Large POST Body,true,1,183.84,8.24,4.48,5.36ms,6.01ms,0,6,1,4.8

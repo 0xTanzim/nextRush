@@ -156,6 +156,59 @@ npx tsx src/index.ts
     `app.route('/', router)` mounts it, and `listen(app, 8080)` starts the Node adapter.
   - `tsx` runs the TypeScript entry directly — no separate compile pass.
 </GuideAccordion>
+<GuideAccordion icon="book-open" iconColor="blue" title="Reading JSON bodies on POST" description="ctx.json() sends JSON responses — reading a request body is opt-in via @nextrush/body-parser.">
+  `ctx.json()` sends JSON **responses** automatically, but reading an incoming JSON **request body** is
+  **not**. To handle a `POST` (or any body-bearing request) you must add a body parser — otherwise
+  `ctx.body` stays `undefined` and the body is silently ignored.
+
+  Install it, then register it before your routes:
+
+  ```bash
+  pnpm add @nextrush/body-parser
+  ```
+
+  ```ts title="src/index.ts"
+  import { createApp, createRouter, listen } from 'nextrush';
+  import { bodyParser } from '@nextrush/body-parser'; // combined: JSON + urlencoded
+
+  const app = createApp();
+  const router = createRouter();
+
+  app.use(bodyParser()); // ← parse incoming bodies before routes run
+
+  router.post('/tasks', (ctx) => {
+    const body = ctx.body as { title?: string }; // ctx.body is typed unknown
+    ctx.json({ saved: body.title });
+  });
+
+  app.route('/', router);
+  await listen(app, 8080);
+  ```
+
+  Only need JSON, with tighter limits? Swap the combined parser for the single `json` parser — same
+  shape: import, register, read.
+
+  ```ts title="src/index.ts"
+  import { createApp, createRouter, listen } from 'nextrush';
+  import { json } from '@nextrush/body-parser';
+
+  const app = createApp();
+  const router = createRouter();
+
+  app.use(json({ limit: '10mb', strict: true }));
+
+  router.post('/tasks', (ctx) => {
+    const body = ctx.body as { title?: string };
+    ctx.json({ saved: body.title });
+  });
+
+  app.route('/', router);
+  await listen(app, 8080);
+  ```
+
+  `bodyParser()` skips bodyless methods (GET/HEAD/DELETE/OPTIONS), enforces a 1 MB default limit, and
+  rejects invalid JSON with a 400. Full options: [Body parser](/docs/reference/body-parser).
+</GuideAccordion>
 
 <GuideAccordion icon="settings" iconColor="purple" title="Advanced: TypeScript configuration" description="Only if you're tuning compiler options.">
   NextRush ships full type definitions. This `tsconfig.json` matches what the framework's own examples

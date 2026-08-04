@@ -1,7 +1,12 @@
 # Generated benchmark runs are not committed. A single pinned `baseline/` may be
 # committed so `pnpm bench:check` has something to compare against in CI.
 /results/*
+!/results/
 !/results/baseline/
+
+# The latest published run is committed so the website dashboard has a stable source.
+!/results/2026-07-31T18-15-15/
+!/results/2026-07-31T18-15-15/**
 /wrk/.generated/
 node_modules/
 
