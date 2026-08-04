@@ -81,6 +81,9 @@ benchmark-results.json
 **/benchmark-results.json
 **/results/
 
+# Packed create-nextrush tarball copied in by the Docker matrix workflow
+packages/create-nextrush/docker/create-nextrush.tgz
+
 # Test artifacts
 coverage/
 **/coverage/
