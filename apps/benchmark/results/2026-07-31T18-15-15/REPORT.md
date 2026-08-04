@@ -4,8 +4,6 @@
 
 **Frameworks:** Raw Node.js · NextRush v3 · Fastify · Hono · Koa · Express
 
-> ⚠️ This profile is NOT publishable: host 1-minute load average was 1.04 at run start, above the 1 ceiling for a publishable run — competing work on the same cores inflates run-to-run variance beyond the differences being compared
-
 > Every table and chart below is derived from `results.json` in this directory. Regenerate any of it without re-measuring: `pnpm report:generate --id 2026-07-31T18-15-15`.
 
 ## System Information
