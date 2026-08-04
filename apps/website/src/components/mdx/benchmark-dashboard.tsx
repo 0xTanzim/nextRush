@@ -367,7 +367,7 @@ const RUN_META = {
   node: 'v26.5.1',
   cpu: 'Intel Core i5-8300H · 8 logical cores',
   profile: 'standard · 6 runs · 30s · pin 2–7',
-  timedRuns: '1,404',
+  timedCells: '1,404 × 30s',
   connections: '1 · 64 · 256',
 };
 
@@ -1278,7 +1278,7 @@ export function BenchmarkDashboard() {
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: 'Timed runs', value: RUN_META.timedRuns },
+            { label: 'Timed cells', value: RUN_META.timedCells },
             { label: 'Frameworks', value: '6' },
             { label: 'Scenarios', value: '13' },
             { label: 'Headline rank', value: '#3' },
