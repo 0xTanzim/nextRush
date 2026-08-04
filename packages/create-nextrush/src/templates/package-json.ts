@@ -133,9 +133,15 @@ export function getPackageMetadata(
     metadata.engines = { node: `>=${MIN_NODE_MAJOR.toString()}.0.0` };
   }
 
-  // Only emit `packageManager` for an explicitly detected/selected NON-npm manager — Corepack
-  // can trip users who don't have it enabled, and npm is the safe universal default (design.md
-  // risk mitigation).
+  // Only emit `packageManager` when it is safe and useful: pnpm validates it and benefits
+  // from the pin. npm, yarn, and bun are deliberately NOT pinned:
+  //   - npm: no Corepack gating, and a pin can trip users without Corepack enabled.
+  //   - yarn: emitting `yarn@4.0.0` makes Yarn Classic (1.x, still the most common install)
+  //     refuse to run with "This project's package.json defines packageManager yarn@4.0.0".
+  //   - bun: pnpm 10 rejects a `bun@x.y.z` packageManager spec with
+  //     "Unsupported package manager specification" and aborts install.
+  // The generated `.yarnrc.yml` (`nodeLinker: node-modules`) keeps Yarn Classic and Berry
+  // behaviors consistent without the field.
   const pmVersion = getPackageManagerPinnedVersion(packageManager);
   if (pmVersion) {
     metadata.packageManager = `${packageManager}@${pmVersion}`;
@@ -148,11 +154,12 @@ function getPackageManagerPinnedVersion(pm: PackageManager): string | undefined 
   switch (pm) {
     case 'pnpm':
       return '10.0.0';
-    case 'yarn':
-      return '4.0.0';
-    case 'bun':
-      return '1.3.14';
+    // npm/yarn/bun are intentionally unpinned (see getPackageMetadata): npm to avoid
+    // Corepack gating, yarn so Yarn Classic 1.x does not refuse to run, bun because
+    // pnpm 10 rejects a bun spec in the packageManager field.
     case 'npm':
+    case 'yarn':
+    case 'bun':
       return undefined;
   }
 }
@@ -186,9 +193,11 @@ export function getRuntimeScripts(runtime: Runtime): {
       // resolve `npm:` specifiers — dev-tooling owns the Deno metadata guarantee this
       // script reaches into via `npm:nextrush` (unpinned specifier, no `@latest`, so the
       // devDependency version this scaffold pinned is the version that actually runs).
+      // `--allow-sys` is required by SWC's native binding under Deno >= 2.9 (`Object.uid`
+      // os check during build) — without it, `nextrush build` fails with NotCapable.
       return {
-        dev: 'deno run --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-sloppy-imports npm:nextrush dev',
-        build: 'deno run --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-sloppy-imports npm:nextrush build',
+        dev: 'deno run --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys --unstable-sloppy-imports npm:nextrush dev',
+        build: 'deno run --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys --unstable-sloppy-imports npm:nextrush build',
         start: 'deno run --allow-net --allow-read --allow-env dist/index.js',
         test,
       };

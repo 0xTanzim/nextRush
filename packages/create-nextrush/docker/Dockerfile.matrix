@@ -1,0 +1,49 @@
+# Docker compatibility matrix for create-nextrush.
+#
+# Builds a clean environment per supported Node major (22/24) with all four supported
+# package managers pre-installed, then runs the scaffold-then-verify flow for
+# each manager. This is the "not just my machine" proof: every generated project
+# must install, build, start, and answer the health endpoint in a pristine
+# container, regardless of the host's ~/.npmrc or global config.
+
+ARG NODE_MAJOR=22
+FROM node:${NODE_MAJOR}-slim
+
+# The packed create-nextrush tarball is passed as the build context (see the CI
+# workflow / local `docker build -f ... .` invocation) and copied in, so the
+# matrix never depends on host-volume uid/read-only-mount quirks.
+COPY create-nextrush.tgz /work/create-nextrush.tgz
+COPY verdaccio-config.yml /work/verdaccio-config.yml
+
+# Corepack (ships with Node) provides pinned pnpm; Yarn Classic (1.x) is what the
+# majority of users actually run, so the matrix tests against it explicitly (a
+# generated project must install under Yarn Classic, not only Yarn Berry 4). bun is
+# fetched on demand by its own installer since `bun create` requires the bun binary
+# on PATH and bun is not shimmed by corepack. deno is installed for the Deno
+# runtime path. curl + ca-certificates + unzip are needed by the health probe and
+# the bun install.
+#
+# bun is installed via the official installer, falling back to the npm package
+# (`bun` on the npm registry) if the GitHub release download is unreachable —
+# that keeps the matrix buildable in network-restricted environments.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates unzip \
+    && rm -rf /var/lib/apt/lists/* \
+    && corepack enable \
+    && corepack prepare pnpm@10 --activate \
+    && npm install -g --force yarn@1.22.22 \
+    && npm install -g verdaccio@6 \
+    && (curl -fsSL https://bun.sh/install | bash || true) \
+    && if [ -x /root/.bun/bin/bun ]; then ln -sf /root/.bun/bin/bun /usr/local/bin/bun; fi \
+    && (command -v bun >/dev/null || npm install -g bun@1) \
+    && curl -fsSL https://deno.land/install.sh | sh -s -- -y \
+    && ln -sf /root/.deno/bin/deno /usr/local/bin/deno
+
+WORKDIR /work
+
+# The harness runs in the built image; see ci-workflow and the npm/pnpm/yarn/bun
+# matrix scripts below.
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
