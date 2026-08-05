@@ -34,6 +34,7 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0019](ADR-0019-context-bound-signatures.md) | Context-bound signature construction for signed cookies (name + issue time) | Proposed | `docs/RFC/request-data/031-context-bound-signatures.md` |
 | [ADR-0020](ADR-0020-session-position.md) | `@nextrush/session`: documented position, implementation deferred to a future RFC | Proposed | `docs/RFC/class-runtime/032-session-position.md` |
 | [ADR-0021](ADR-0021-fast-property-request-containers.md) | Fast-property request containers derived from a shared null-prototype base (`ctx.params`/`query`/`headers`) | Accepted · Shipped | — |
+| [ADR-0022](ADR-0022-design-token-architecture-orange-identity.md) | Layered design-token architecture & orange `#F16913` identity (warm-paper/graphite), CI-enforced | Accepted · Shipped | — |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 
