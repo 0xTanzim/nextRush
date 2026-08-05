@@ -19,18 +19,18 @@ export function ProofSection() {
       {/* Tighter bottom so Install follows without a huge gap */}
       <div className="container mx-auto px-4 pb-8 md:pb-10">
         <div className="mx-auto flex w-full max-w-[800px] flex-col items-center text-center">
-          {/* Quiet entry — no decorative center dot */}
-          <div className="mb-3 flex w-full max-w-[12rem] items-center" aria-hidden="true">
+          {/* Quiet entry — slightly more air so code feels introduced, not abrupt */}
+          <div className="mb-4 flex w-full max-w-[14rem] items-center" aria-hidden="true">
             <span className="h-px w-full bg-gradient-to-r from-transparent via-fd-border to-transparent" />
           </div>
 
-          <p className="mb-1.5 text-[12px] font-medium text-fd-muted-foreground/55 animate-fade-up">
+          <p className="mb-2 text-[12px] font-medium text-fd-muted-foreground/55 animate-fade-up">
             Quick example
           </p>
 
           <h2
             id="hello-nextrush-heading"
-            className="mb-2.5 flex items-center gap-2 text-[1.25rem] font-semibold tracking-tight text-fd-foreground animate-fade-up sm:text-[1.375rem]"
+            className="mb-4 flex items-center gap-2 text-[1.25rem] font-semibold tracking-tight text-fd-foreground animate-fade-up sm:text-[1.375rem]"
           >
             <span className="font-mono text-sm font-medium text-[var(--code-punctuation)]" aria-hidden="true">
               &lt;/&gt;

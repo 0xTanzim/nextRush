@@ -44,11 +44,11 @@ export function PrimaryCTA({ href, children, label, hint, external }: PrimaryCTA
       <a
         href={href}
         {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-        className="primary-cta__button group inline-flex items-center gap-2 rounded-full bg-[var(--brand-solid)] px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-[color-mix(in_srgb,var(--brand-link)_30%,transparent)] transition-all hover:bg-[color-mix(in_srgb,var(--brand-link)_88%,black)] hover:shadow-xl hover:shadow-[color-mix(in_srgb,var(--brand-link)_40%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-link)]"
+        className="primary-cta__button group inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-base font-semibold shadow-lg shadow-[color-mix(in_srgb,var(--brand-solid)_30%,transparent)] transition-all hover:shadow-xl hover:shadow-[color-mix(in_srgb,var(--brand-solid)_40%,transparent)]"
       >
         <span>{children}</span>
         <ArrowRight
-          className="size-5 transition-transform group-hover:translate-x-0.5"
+          className="size-5 shrink-0 transition-transform group-hover:translate-x-0.5"
           aria-hidden
         />
       </a>
