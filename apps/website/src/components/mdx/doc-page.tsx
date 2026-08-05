@@ -144,7 +144,7 @@ const highlightIcons: Record<string, LucideIcon> = {
  */
 export function DocHero({ eyebrow, children }: { eyebrow?: string; children: ReactNode }) {
   return (
-    <div className="doc-hero not-prose relative mb-10 overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-4 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10">
+    <div className="doc-hero not-prose relative mb-10 overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--surface-feature)] px-4 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,var(--brand-wash)_0%,transparent_60%)]"
@@ -155,7 +155,7 @@ export function DocHero({ eyebrow, children }: { eyebrow?: string; children: Rea
             {eyebrow}
           </p>
         ) : null}
-        <div className="text-base leading-relaxed text-[var(--text-secondary)] md:text-lg [&_a]:font-medium [&_a]:text-[var(--brand-link)] [&_a]:underline-offset-4 hover:[&_a]:text-[var(--brand-hover)] [&_strong]:font-semibold [&_strong]:text-[var(--text-primary)]">
+        <div className="text-base leading-relaxed text-[var(--text-secondary)] md:text-lg [&_a:not([class*='doc-hero__cta'])]:font-medium [&_a:not([class*='doc-hero__cta'])]:text-[var(--brand-doc-link)] [&_a:not([class*='doc-hero__cta'])]:underline-offset-4 hover:[&_a:not([class*='doc-hero__cta'])]:text-[var(--brand-hover)] [&_strong]:font-semibold [&_strong]:text-[var(--text-primary)]">
           {children}
         </div>
       </div>
@@ -624,10 +624,10 @@ const docTableShell =
 
 const docTableInner =
   '[&_table]:m-0 [&_table]:w-full [&_table]:min-w-[min(100%,520px)] [&_table]:border-collapse [&_table]:text-sm [&_caption]:mb-2 [&_caption]:text-left [&_caption]:text-xs [&_caption]:text-[var(--text-muted)] ' +
-  '[&_thead]:bg-[color-mix(in_srgb,var(--color-fd-muted)_70%,transparent)] [&_th]:border-b [&_th]:border-[var(--color-fd-border)] [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-[var(--text-primary)] ' +
+  '[&_thead]:bg-[var(--surface-table-head)] [&_th]:border-b [&_th]:border-[var(--color-fd-border)] [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-[var(--text-primary)] ' +
   '[&_td]:border-b [&_td]:border-[var(--color-fd-border)] [&_td]:px-3 [&_td]:py-2.5 [&_td]:align-top [&_td]:text-[var(--text-secondary)] [&_td]:leading-relaxed [&_tbody_tr:last-child_td]:border-b-0 ' +
   '[&_tbody_tr:hover]:bg-[color-mix(in_srgb,var(--color-fd-muted)_35%,transparent)] [&_code]:rounded [&_code]:bg-[color-mix(in_srgb,var(--color-fd-muted)_80%,transparent)] [&_code]:px-1 [&_code]:py-px [&_code]:text-[0.85em] ' +
-  '[&_a]:font-medium [&_a]:text-[var(--brand-link)] [&_a]:underline [&_a]:decoration-[color-mix(in_srgb,var(--brand-link)_45%,transparent)] [&_a]:underline-offset-2 hover:[&_a]:text-[var(--learning-middleware)]';
+  '[&_a]:font-medium [&_a]:text-[var(--brand-doc-link)] [&_a]:underline [&_a]:decoration-[color-mix(in_srgb,var(--brand-doc-link)_40%,transparent)] [&_a]:underline-offset-2 hover:[&_a]:text-[var(--brand-hover)]';
 
 /**
  * Wraps markdown tables: visible grid lines, header row, hover on body rows, link styling.

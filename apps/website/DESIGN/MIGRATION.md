@@ -30,7 +30,7 @@ This plan is deliberately **additive-first**: new token layers are introduced *b
 | `--rush-gradient`, `--rush-gradient-accent` | **Remove (→ Brand)** | No gradients in Documentation Mode. |
 | `--success`, `--warning`, `--danger`, `--info` | **Migrate** | `--status-*` (Foundation hues) + add the `-text` AA-safe variants (`TOKENS.md` §3.4/§4.5). |
 | `--text-primary/-secondary/-muted/-subtle` | **Keep / Migrate** | Keep the names (already semantic + AA-fixed). Re-point to the warm-ink values: light `#2A1208/#4E4038/#7A6A60/#B4A79C`, dark `#F5F7FA/#D4D7DD/#99A2AF/#6B7280` (see `TOKENS.md` §4.2). |
-| `--bg-base/-card/-hover/-border` | **Migrate** | `--surface-page` (warm `#FFF9F4`)/`-card`/`-elevated` (`#F7EDE1`) + `--border-*`. Fix the page≠card distinction. |
+| `--bg-base/-card/-hover/-border` | **Migrate** | `--surface-page` (warm `#FFFCF8`)/`-card`/`-elevated` (`#F7EDE1`) + `--border-*`. Fix the page≠card distinction. |
 | `--code-bg/-header/-border`, `--code-keyword…` | **Keep** | Map to `--surface-code` + calm syntax tokens; keep the non-black, non-neon theme. |
 | `--color-fd-*` (hand-set overrides) | **Replace** | Derive from Semantic tokens via the Platform bridge (`TOKENS.md` §6). Never hand-set again. |
 | `--color-fd-muted-foreground` overrides | **Replace** | Comes from `--text-muted` through the bridge. |

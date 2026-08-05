@@ -63,8 +63,7 @@ const packageGroups = [
 export function HomeExplore() {
   return (
     <>
-      <section aria-labelledby="explore-next" className="relative bg-fd-background py-16 md:py-20">
-        <hr className="section-divider absolute inset-x-0 top-0" />
+      <section aria-labelledby="explore-next" className="relative bg-transparent py-16 md:py-20">
         <div className="container mx-auto px-4">
           <div className="mx-auto mb-10 max-w-2xl text-center">
             <h2 id="explore-next" className="section-accent mb-3 text-3xl font-bold tracking-tight md:text-4xl">
@@ -84,8 +83,8 @@ export function HomeExplore() {
                   href={step.href}
                   className={
                     isPrimary
-                      ? 'group relative rounded-2xl p-6 card-glow card-gradient-border ring-1 ring-[var(--brand-link)]/40 shadow-[0_12px_40px_-16px_var(--brand-link)] md:col-span-1 md:row-span-1 md:scale-[1.02]'
-                      : 'group rounded-2xl p-6 card-glow card-gradient-border'
+                      ? 'home-card group relative rounded-2xl p-6 ring-1 ring-[var(--brand-link)]/30 shadow-[0_12px_40px_-16px_var(--brand-link)] md:scale-[1.02]'
+                      : 'home-card group rounded-2xl p-6'
                   }
                 >
                   {isPrimary && (
@@ -115,76 +114,90 @@ export function HomeExplore() {
         </div>
       </section>
 
-      <section aria-labelledby="packages" className="relative bg-fd-muted/40 py-16 md:py-20">
-        <hr className="section-divider absolute inset-x-0 top-0" />
+      {/* Second soft band — packages as one parent surface, not floating cards on stripes */}
+      <section aria-labelledby="packages" className="relative bg-surface-band py-16 md:py-20">
         <div className="container mx-auto px-4">
-          {/* Left-aligned on desktop — breaks the all-center monotony */}
           <div className="mx-auto mb-8 max-w-6xl text-center lg:mb-10 lg:text-left">
-            <h2 id="packages" className="section-accent mb-3 text-3xl font-bold tracking-tight md:text-4xl">
+            <h2
+              id="packages"
+              className="section-accent section-accent-start mb-3 text-3xl font-bold tracking-tight md:text-4xl lg:text-left"
+            >
               Small packages. Explicit composition.
             </h2>
-            <p className="max-w-2xl text-base font-medium text-fd-foreground/70 md:text-lg lg:mx-0 mx-auto">
+            <p className="mx-auto max-w-2xl text-base font-medium text-fd-foreground/70 md:text-lg lg:mx-0">
               Install only what your application needs — start with the core, then add capabilities as your application
               grows.
             </p>
-            {/* Ecosystem spine — Core → Capabilities → Tooling */}
-            <p
-              className="mt-5 hidden items-center gap-2 text-sm text-fd-muted-foreground lg:flex"
+          </div>
+
+          {/* One ecosystem container: category rail → package cards */}
+          <div className="home-panel mx-auto max-w-6xl overflow-hidden rounded-2xl">
+            <div
+              className="flex flex-wrap items-center justify-center gap-x-1 gap-y-2 border-b border-[color-mix(in_srgb,var(--brand-link)_8%,var(--border-subtle))] px-4 py-3 sm:justify-start sm:gap-x-0 sm:px-6"
               aria-hidden="true"
             >
-              <span className="font-medium text-fd-foreground">Core</span>
-              <span className="text-fd-border">→</span>
-              <span>Class-based</span>
-              <span className="text-fd-border">→</span>
-              <span>Capabilities</span>
-              <span className="text-fd-border">→</span>
-              <span>Tooling</span>
-            </p>
-          </div>
-          <div className="mx-auto grid max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {packageGroups.map((group, index) => (
-              <section
-                key={group.title}
-                className={`rounded-2xl border border-fd-border bg-fd-card/50 p-6 ${
-                  index === 0 ? 'ring-1 ring-[var(--brand-link)]/15' : ''
-                }`}
+              {packageGroups.map((group, index) => (
+                <span key={group.title} className="flex items-center text-sm">
+                  {index > 0 ? (
+                    <span className="mx-2 hidden text-fd-border sm:inline" aria-hidden="true">
+                      ·
+                    </span>
+                  ) : null}
+                  <span
+                    className={
+                      index === 0
+                        ? 'font-semibold text-[var(--brand-link)]'
+                        : 'font-medium text-fd-muted-foreground'
+                    }
+                  >
+                    {group.title}
+                  </span>
+                </span>
+              ))}
+            </div>
+            <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-4 lg:gap-5 lg:p-8">
+              {packageGroups.map((group, index) => (
+                <section
+                  key={group.title}
+                  className={`home-card rounded-xl p-5 ${index === 0 ? 'ring-1 ring-[var(--brand-link)]/12' : ''}`}
+                >
+                  <h3 className="mb-1 text-base font-semibold tracking-tight">{group.title}</h3>
+                  <p className="mb-4 text-[11px] font-medium uppercase tracking-wider text-fd-muted-foreground/60">
+                    {index === 0 ? 'Start here' : index === 3 ? 'Dev tooling' : 'Optional'}
+                  </p>
+                  <ul className="space-y-4">
+                    {group.packages.map(([name, description]) => (
+                      <li key={name}>
+                        <a
+                          href={`https://www.npmjs.com/package/${name}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring"
+                        >
+                          <span className="block font-mono text-sm font-semibold text-[#057088] dark:text-[var(--learning-context)] group-hover:underline">
+                            {name}
+                          </span>
+                          <span className="mt-1 block text-sm leading-relaxed text-fd-muted-foreground">
+                            {description}
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+            <div className="border-t border-[color-mix(in_srgb,var(--brand-link)_6%,var(--border-subtle))] px-5 py-4 text-center sm:px-6 lg:px-8 lg:text-left">
+              <a
+                href="https://www.npmjs.com/~0xtanzim"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-fd-muted-foreground transition-colors hover:text-fd-foreground"
               >
-                <h3 className="mb-1 text-base font-semibold tracking-tight">{group.title}</h3>
-                <p className="mb-4 text-[11px] font-medium uppercase tracking-wider text-fd-muted-foreground/60">
-                  {index === 0 ? 'Start here' : index === 3 ? 'Dev tooling' : 'Optional'}
-                </p>
-                <ul className="space-y-4">
-                  {group.packages.map(([name, description]) => (
-                    <li key={name}>
-                      <a
-                        href={`https://www.npmjs.com/package/${name}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring"
-                      >
-                        <span className="block font-mono text-sm font-semibold text-[#057088] dark:text-[var(--learning-context)] group-hover:underline">
-                          {name}
-                        </span>
-                        <span className="mt-1 block text-sm leading-relaxed text-fd-muted-foreground">
-                          {description}
-                        </span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-          <div className="mt-8 text-center lg:text-left">
-            <a
-              href="https://www.npmjs.com/~0xtanzim"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm text-fd-muted-foreground transition-colors hover:text-fd-foreground"
-            >
-              View all packages on npm
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </a>
+                View all packages on npm
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </a>
+            </div>
           </div>
         </div>
       </section>

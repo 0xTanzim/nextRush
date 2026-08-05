@@ -85,7 +85,8 @@ const PAD = 'px-4 sm:px-5';
 export function HeroCodeExample() {
   return (
     <div className="w-full animate-fade-up animate-delay-500">
-      <div className="group relative overflow-hidden rounded-[12px] border border-black/[0.08] bg-[var(--code-bg)] shadow-[0_12px_36px_-12px_rgba(0,0,0,0.22)] dark:border-white/[0.08] dark:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.55)]">
+      {/* Brand tether: 2px left edge in --brand-link — not traffic lights, not success-orange */}
+      <div className="group relative overflow-hidden rounded-[12px] border border-black/[0.08] border-l-2 border-l-[var(--brand-link)] bg-[var(--code-bg)] shadow-[0_12px_36px_-12px_rgba(0,0,0,0.22)] dark:border-white/[0.08] dark:border-l-[var(--brand-link)] dark:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.55)]">
         {/* Header: name semibold · TypeScript is quiet metadata */}
         <div className={`flex items-center justify-between gap-3 border-b border-black/[0.08] bg-[var(--code-bg-header)] py-1.5 dark:border-white/[0.08] ${PAD}`}>
           <div className="min-w-0 text-left">
