@@ -19,7 +19,7 @@ export default function PackagesPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
       <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/80 px-3 py-1 text-xs font-medium text-fd-muted-foreground">
-        <Package className="size-3.5 text-[var(--rush-cyan)]" aria-hidden />
+        <Package className="size-3.5 text-[var(--learning-context)]" aria-hidden />
         {packageRegistry.length} packages
       </div>
       <h1 className="mb-4 text-3xl font-bold tracking-tight">Packages</h1>

@@ -5,25 +5,25 @@ const principles = [
     icon: Eye,
     title: 'Explicit',
     description: 'No hidden behavior',
-    colorVar: '--rush-blue',
+    colorVar: '--brand-link',
   },
   {
     icon: Layers,
     title: 'Composable',
     description: 'Add only what you need',
-    colorVar: '--rush-purple',
+    colorVar: '--learning-middleware',
   },
   {
     icon: Gauge,
     title: 'Predictable',
     description: 'Reason about every request',
-    colorVar: '--rush-cyan',
+    colorVar: '--learning-context',
   },
   {
     icon: Boxes,
     title: 'Portable',
     description: 'One codebase, every runtime',
-    colorVar: '--rush-green',
+    colorVar: '--status-success',
   },
 ] as const;
 
@@ -47,7 +47,7 @@ export function Principles() {
             return (
               <div
                 key={principle.title}
-                className="flex flex-col items-center rounded-xl border border-fd-border bg-fd-card/40 p-4 text-center transition-colors hover:border-[color-mix(in_srgb,var(--rush-blue)_35%,var(--color-fd-border))] sm:p-5"
+                className="flex flex-col items-center rounded-xl border border-fd-border bg-fd-card/40 p-4 text-center transition-colors hover:border-[color-mix(in_srgb,var(--brand-link)_35%,var(--color-fd-border))] sm:p-5"
               >
                 <div
                   className="mb-3 inline-flex size-12 items-center justify-center rounded-xl"

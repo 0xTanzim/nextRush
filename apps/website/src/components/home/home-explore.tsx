@@ -10,7 +10,7 @@ const nextSteps = [
     description: 'See how applications, routers, middleware, and adapters fit together before writing code.',
     href: DOCS_GETTING_STARTED,
     action: 'Read introduction',
-    color: '--rush-blue',
+    color: '--brand-link',
   },
   {
     icon: Layers,
@@ -18,7 +18,7 @@ const nextSteps = [
     description: 'Trace the request lifecycle, package boundaries, runtime support, and performance methodology.',
     href: DOCS_GETTING_STARTED_OVERVIEW,
     action: 'View framework map',
-    color: '--rush-cyan',
+    color: '--learning-context',
   },
   {
     icon: BookOpen,
@@ -26,7 +26,7 @@ const nextSteps = [
     description: 'Move from concepts to guides, recipes, and API reference when you know what you need.',
     href: '/docs',
     action: 'Browse documentation',
-    color: '--rush-purple',
+    color: '--learning-middleware',
   },
 ] as const;
 
@@ -85,12 +85,12 @@ export function HomeExplore() {
                   href={step.href}
                   className={
                     isPrimary
-                      ? 'group relative rounded-xl p-6 card-glow card-gradient-border ring-1 ring-[var(--rush-blue)]/40 shadow-[0_12px_40px_-16px_var(--rush-blue)] md:col-span-1 md:row-span-1 md:scale-[1.02]'
+                      ? 'group relative rounded-xl p-6 card-glow card-gradient-border ring-1 ring-[var(--brand-link)]/40 shadow-[0_12px_40px_-16px_var(--brand-link)] md:col-span-1 md:row-span-1 md:scale-[1.02]'
                       : 'group rounded-xl p-6 card-glow card-gradient-border'
                   }
                 >
                   {isPrimary && (
-                    <span className="absolute -top-3 left-6 rounded-full bg-[var(--rush-blue)] px-2.5 py-0.5 text-xs font-semibold text-white">
+                    <span className="absolute -top-3 left-6 rounded-full bg-[var(--brand-link)] px-2.5 py-0.5 text-xs font-semibold text-white">
                       Start here
                     </span>
                   )}
@@ -143,7 +143,7 @@ export function HomeExplore() {
                         rel="noopener noreferrer"
                         className="group block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring"
                       >
-                        <span className="block font-mono text-sm font-semibold text-[var(--rush-cyan)] group-hover:underline">
+                        <span className="block font-mono text-sm font-semibold text-[#057088] dark:text-[var(--learning-context)] group-hover:underline">
                           {name}
                         </span>
                         <span className="mt-1 block text-sm text-fd-muted-foreground">{description}</span>

@@ -10,10 +10,10 @@ import type { PackageStatus, PackageTypeBadge } from '@/lib/package-registry-typ
 // actual blended pixel color, T22 launch hardening. Values below are chosen
 // to clear 4.5:1 against the blended background in their respective theme.
 const TYPE_BADGE_STYLES: Record<PackageTypeBadge, string> = {
-  Core: 'bg-[var(--rush-blue)]/12 text-blue-700 dark:text-[var(--color-fd-primary)] ring-1 ring-[var(--rush-blue)]/25',
-  Middleware: 'bg-[var(--rush-cyan)]/12 text-[#057088] dark:text-[var(--rush-cyan)] ring-1 ring-[var(--rush-cyan)]/25',
-  Extension: 'bg-[var(--rush-purple)]/12 text-[var(--rush-purple)] ring-1 ring-[var(--rush-purple)]/25',
-  Adapter: 'bg-[var(--rush-green)]/12 text-[#166534] dark:text-[var(--rush-green)] ring-1 ring-[var(--rush-green)]/25',
+  Core: 'bg-[var(--learning-application)]/12 text-[#BC4E08] dark:text-[var(--color-fd-primary)] ring-1 ring-[var(--learning-application)]/25',
+  Middleware: 'bg-[var(--learning-context)]/12 text-[#057088] dark:text-[var(--learning-context)] ring-1 ring-[var(--learning-context)]/25',
+  Extension: 'bg-[var(--learning-middleware)]/12 text-[var(--learning-middleware)] ring-1 ring-[var(--learning-middleware)]/25',
+  Adapter: 'bg-[var(--learning-runtime)]/12 text-[#166534] dark:text-[var(--learning-runtime)] ring-1 ring-[var(--learning-runtime)]/25',
   // Tool badge uses --text-secondary rather than --color-fd-muted-foreground:
   // the latter is 4.31:1 against --color-fd-secondary in light mode, just
   // under the 4.5:1 WCAG AA minimum (confirmed via lighthouse a11y audit,
