@@ -52,7 +52,7 @@ export function Features() {
       <hr className="section-divider absolute inset-x-0 top-0" />
       <div className="container mx-auto px-4">
         <div className="mx-auto mb-16 max-w-2xl text-center">
-          <h2 id="framework-capabilities" className="mb-4 text-3xl font-bold md:text-4xl">
+          <h2 id="framework-capabilities" className="section-accent mb-6 text-3xl font-bold md:text-4xl">
             An explicit stack, not a magic box
           </h2>
           <p className="mb-8 text-lg text-fd-muted-foreground">
@@ -68,7 +68,7 @@ export function Features() {
             return (
               <div
                 key={feature.title}
-                className={`group rounded-xl p-6 card-glow card-gradient-border transition-transform hover:-translate-y-1${
+                className={`group rounded-2xl p-6 card-glow card-gradient-border transition-transform hover:-translate-y-1${
                   feature.emphasis ? ' ring-1 ring-[var(--brand-link)]/20' : ''
                 }`}
                 style={{ '--feature-color': color } as React.CSSProperties}
