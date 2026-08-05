@@ -381,18 +381,10 @@ kbd {
    Custom Components
    ============================================ */
 
-/* Gradient text utility (Brand Mode only — see MIGRATION.md Phase 4) */
-.gradient-text {
-  background: linear-gradient(
-    135deg,
-    var(--brand-500) 0%,
-    var(--brand-300) 40%,
-    var(--brand-100) 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+/* .gradient-text was removed here (hero-logo-solid-orange-glow): the hero H1
+   now uses solid identity orange #F16913 (AA-large-safe at 48-72px) + an
+   ambient brand wash, so this blue-era gradient-text utility had zero
+   consumers. Recover from git history if a Brand-Mode surface ever needs it. */
 
 /* .gradient-text-accent and standalone .gradient-border were removed here
    (Phase 6 of docs-design-system-rollout): confirmed zero usages anywhere in
@@ -826,6 +818,27 @@ kbd {
   opacity: 0.8;
 }
 
+/* Section heading accent — a small brand-orange underline under each home
+   section H2 (home-page-polish). Reuses the prose-h2 marker language so the
+   brand reads throughout the page without overwhelming; centered under
+   centered headings. */
+.section-accent {
+  position: relative;
+  padding-bottom: 0.45rem;
+}
+
+.section-accent::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 3rem;
+  height: 2px;
+  border-radius: 9999px;
+  background: var(--brand-link);
+}
+
 /* Dark mode sidebar — graphite surfaces, derived from Semantic tokens
    (never hand-set --color-fd-*; TOKENS.md §6). */
 .dark #nd-docs-layout aside {
@@ -1204,12 +1217,12 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 /*
  * SiteHeader (src/components/site-header.tsx) replaces Fumadocs' default navbar via
  * `nav.component` in layout.shared.tsx. Per Fumadocs' documented "Replace Navbar" guide,
- * `--fd-nav-height` must be overridden to the custom navbar's real height or Fumadocs'
- * internal sidebar/content offset math breaks. 56px matches the header's actual rendered
- * height (icon-sized controls + py-1.5 buttons) — verified visually, not guessed.
+ *  `--fd-nav-height` must be overridden to the custom navbar's real height or Fumadocs'
+ *  internal sidebar/content offset math breaks. 52px matches the header's actual rendered
+ *  height (icon-sized controls + py-1.5 buttons) — verified visually, not guessed.
  */
 :root {
-  --fd-nav-height: 56px !important;
+  --fd-nav-height: 52px !important;
 }
 
 /*
