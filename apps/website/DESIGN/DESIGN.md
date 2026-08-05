@@ -9,6 +9,16 @@ Each topic is owned by exactly one document. This file states principles; it doe
 
 ---
 
+## Versioning
+
+This design system is versioned like an API (values live in `TOKENS.md`; a change that alters a token's meaning is a versioned, breaking change per `Governance`).
+
+- **Patch** — may clarify documentation but must not redefine the visual language.
+- **Minor** — may extend the system with new components or tokens.
+- **Major** — may introduce breaking changes to the brand or visual identity.
+
+---
+
 ## Purpose
 
 NextRush documentation is a **learning environment**, not a marketing site. It exists so developers can understand, build, debug, and master the framework with the least friction. The content is the product; the interface exists to get out of its way.
@@ -30,11 +40,11 @@ NextRush runs **two visual modes** on one brand. Brand identity and documentatio
 | **Goal** | Create emotion, build recognition, communicate innovation | Reduce cognitive load, optimize reading, support learning |
 | **Applies to** | Landing, homepage, marketing, release announcements, showcase, community landing | Docs, guides, concepts, tutorials, API reference, architecture, RFCs, package reference, migration guides, changelog |
 | **Allowed** | Hero gradients, decorative illustration, expressive layout, brand storytelling, motion for delight | Neutral surfaces, surface hierarchy, typography-first layout, minimal and purposeful color |
-| **Owner** | "Electric Rush" identity | This design system |
+| **Owner** | Brand identity (see `BRAND.md`) | This design system |
 
-Electric Rush becomes the **marketing identity**. It is not deleted — it is scoped. Documentation Mode is the default for everything under `/docs/**` and the other content surfaces above.
+The brand identity (defined in `BRAND.md`) becomes the **marketing identity**. It is not deleted — it is scoped. Documentation Mode is the default for everything under `/docs/**` and the other content surfaces above.
 
-**What stays (unchanged by this system):** the NextRush logo, the brand color (blue), brand personality, the documentation's information architecture, and all learning content. Only the *presentation* of documentation evolves.
+**What stays (unchanged by this system):** the NextRush logo, the brand color (orange `#F16913`), brand personality, the documentation's information architecture, and all learning content. Only the *presentation* of documentation evolves.
 
 ### Acceptable gradient usage
 
