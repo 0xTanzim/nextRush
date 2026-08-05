@@ -42,7 +42,7 @@ Why this matters: Foundation is the only place a literal hex may appear. Semanti
 
 | Category    | Examples                                                        |
 | ----------- | --------------------------------------------------------------- |
-| `surface`   | `--surface-page`, `--surface-card`, `--surface-elevated`        |
+| `surface`   | `--surface-page`, `--surface-card`, `--surface-elevated`, `--surface-band`, `--surface-feature`, `--surface-table-head` |
 | `text`      | `--text-primary`, `--text-secondary`, `--text-muted`            |
 | `border`    | `--border-subtle`, `--border-default`, `--border-interactive`   |
 | `brand`     | `--brand-link`, `--brand-active`, `--brand-focus`               |
@@ -133,13 +133,18 @@ Adjacent layers are always visually distinct (the 1.0 draft made `page` and `car
 
 | Semantic token       | Light      | Dark (ink) | Role                                   |
 | -------------------- | ---------- | ---------- | -------------------------------------- |
-| `--surface-page`     | `#FFF9F4`  | `#0D1117`  | outermost background — warm paper      |
+| `--surface-page`     | `#FFFCF8`  | `#0D1117`  | outermost background — near-white paper |
 | `--surface-sidebar`  | `#FFFCF9`  | `#111827`  | sidebar / secondary nav                |
 | `--surface-card`     | `#FFFFFF`  | `#161B22`  | content card, the reading well         |
 | `--surface-elevated` | `#F7EDE1`  | `#1B2432`  | popover, menu, hover, inline code chip |
 | `--surface-code`     | `#FBF3EA`  | `#0A0F1C`  | code block                             |
+| `--surface-band-soft`| `#FCF5ED`  | `#101620`  | rare full-width wash, barely off-canvas |
+| `--surface-band`     | `#FAF3EA`  | `#121A26`  | warm full-width wash (Packages ecosystem) |
+| `--surface-footer`   | `#F2E7D8`  | `var(--ink-code)` | page end — documentation closes here |
+| `--surface-feature`  | `#FFF9F3`  | `color-mix(in srgb, var(--brand-500) 5%, var(--surface-card))` | DocHero / special panels — third elevation step |
+| `--surface-table-head` | `#FAF2EA` | `color-mix(in srgb, var(--brand-500) 5%, transparent)` | table header wash — reads as a real layer |
 
-Depth order (each step must read as a distinct plane): **page → sidebar → card → elevated → code**. Never place two identical surfaces adjacent.
+Depth order (each step must read as a distinct plane): **page → sidebar → card → elevated → code**. Never place two identical surfaces adjacent. Bands sit *between* page and card (`band-soft` closest to page, `band` warmer); `feature` sits between card and elevated for long-form pages; `table-head` is a subtle wash, never a stripe.
 
 ### 4.2 Text
 
@@ -169,6 +174,7 @@ Depth order (each step must read as a distinct plane): **page → sidebar → ca
 | Semantic token   | Light      | Dark       | Use                          |
 | ---------------- | ---------- | ---------- | ---------------------------- |
 | `--brand-link`   | `#BC4E08`  | `#FF8A34`  | links, current nav item      |
+| `--brand-doc-link` | `var(--brand-link)` | `#E97A35` | in-content prose/table links — reading color, softer than action orange in dark |
 | `--brand-hover`  | `#8F3D08`  | `#FFA25C`  | link/nav hover               |
 | `--brand-solid`  | `#C5530E`  | `#C5530E`  | primary button fill          |
 | `--on-brand`     | `#FFFFFF`  | `#FFFFFF`  | text/icon on `--brand-solid` |
@@ -414,7 +420,7 @@ Motion only communicates state (expand, collapse, navigate, appear). No decorati
 
 .light {
   /* Layer 2 — Semantic (roles point at Foundation) */
-  --surface-page: #FFF9F4;  --surface-card: var(--neutral-0);
+  --surface-page: #FFFCF8;  --surface-card: var(--neutral-0);
   --text-primary: #2A1208;  --text-muted: #7A6A60;
   --border-default: #EFE3D7; --border-interactive: #8A7568;
   --brand-link: #BC4E08;       --brand-focus: #DB5E10;

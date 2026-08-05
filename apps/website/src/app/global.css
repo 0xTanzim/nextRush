@@ -105,7 +105,9 @@
    --border-subtle/-default -- are documented there, not silent). Author
    component CSS against THESE tokens, never the Foundation layer. */
 .light {
-  --surface-page: #fff9f4;
+  /* Canvas: near-white paper. Hierarchy comes from cards + sparse soft bands,
+     not full-width page/band stripes (homepage surface-hierarchy pass). */
+  --surface-page: #fffcf8;
   --surface-sidebar: #fffcf9;
   --surface-card: var(--neutral-0);
   --surface-elevated: #f7ede1;
@@ -151,12 +153,29 @@
      blue stops meaning "important" by accident (feedback start1.md #9). */
   --accent-soft: var(--brand-300);
 
-  /* Section band: a surface step BETWEEN --surface-page and --surface-elevated.
-     Light mode's old white-on-white stacked cards read flat (feedback
-     start1.md #1) — alternating `.section-band` rows give the eye real depth
-     without adding a card border, satisfying "three elevation levels" via
-     spacing + wash instead of borders. Warmed to match the paper surfaces. */
-  --surface-band: #f6ecdf;
+  /* Soft band — rare full-width wash (Architecture). Barely off-canvas. */
+  --surface-band-soft: #fcf5ed;
+
+  /* Warmer band — Packages ecosystem. Still subtle, not a "stripe". */
+  --surface-band: #faf3ea;
+
+  /* Page end — documentation closes here. */
+  --surface-footer: #f2e7d8;
+
+  /* Feature / special containers (DocHero, callout panels) — between pure
+     white cards and paper canvas so long-form pages gain a third layer
+     without zebra-striping every section (docs reading-experience pass). */
+  --surface-feature: #fff9f3;
+
+  /* Table header wash — slightly warmer than card body so thead reads as a
+     real layer (not white-on-white). */
+  --surface-table-head: #faf2ea;
+
+  /* In-content documentation links. Same family as --brand-link but reserved
+     for prose/tables so dense link columns don't compete with primary CTAs
+     (buttons stay --brand-solid / full orange). Light already uses a darker
+     AA link; keep it. */
+  --brand-doc-link: var(--brand-link);
 }
 
 .dark {
@@ -205,10 +224,24 @@
      (feedback start1.md #9 — reserve saturated brand for actions). */
   --accent-soft: var(--brand-300);
 
-  /* Section band — sits between --surface-page (#0d1117) and --surface-card
-     (#161b22) so a full-width wash separates major sections by ELEVATION
-     instead of by border. Dark-mode depth gap from feedback start1.md #2. */
+  /* Soft / warm bands — ~2–3% off page, used sparingly (not every other section). */
+  --surface-band-soft: #101620;
   --surface-band: #121a26;
+
+  /* Page end — deeper than page so footer terminates the scroll. */
+  --surface-footer: var(--ink-code);
+
+  /* Feature surfaces — barely warmer than card, for DocHero / special panels. */
+  --surface-feature: color-mix(in srgb, var(--brand-500) 5%, var(--surface-card));
+
+  /* Table header — tiny brand wash (GitHub-style). Almost invisible, but
+     large tables stop feeling flat. */
+  --surface-table-head: color-mix(in srgb, var(--brand-500) 5%, transparent);
+
+  /* Softer than full brand orange for dense prose/table links so orange
+     doesn't win attention inside comparison tables (e.g. Node.js / Bun / Edge).
+     Primary buttons remain --brand-solid. */
+  --brand-doc-link: #e97a35;
 }
 
 /* Tailwind v4 alias bridge (design.md 3): `inline` keeps these reactive to
@@ -221,6 +254,9 @@
   --color-surface-card: var(--surface-card);
   --color-surface-elevated: var(--surface-elevated);
   --color-surface-code: var(--surface-code);
+  --color-surface-band: var(--surface-band);
+  --color-surface-band-soft: var(--surface-band-soft);
+  --color-surface-footer: var(--surface-footer);
   --color-text-primary: var(--ds-text-primary);
   --color-text-secondary: var(--ds-text-secondary);
   --color-text-muted: var(--ds-text-muted);
@@ -233,6 +269,9 @@
   --color-brand-hover: var(--brand-hover);
   --color-brand-solid: var(--brand-solid);
   --color-on-brand: var(--on-brand);
+  --color-brand-doc-link: var(--brand-doc-link);
+  --color-surface-feature: var(--surface-feature);
+  --color-surface-table-head: var(--surface-table-head);
 }
 
 /* Dark theme — Ink-blue-black palette with depth and visible layering */
@@ -806,25 +845,20 @@ kbd {
   animation-delay: 500ms;
 }
 
-/* Section divider — clean, minimal */
+/* Section divider — warm subtle edge from the semantic border ramp (not a
+   cold gray hairline). Full opacity so depth reads; still ~2% visual weight. */
 .section-divider {
   border: none;
   height: 1px;
-  background: var(--bg-border);
-  opacity: 0.5;
+  background: var(--border-subtle);
+  opacity: 1;
 }
 
-.light .section-divider {
-  opacity: 0.8;
-}
-
-/* Section heading accent — a small brand-orange underline under each home
-   section H2 (home-page-polish). Reuses the prose-h2 marker language so the
-   brand reads throughout the page without overwhelming; centered under
-   centered headings. */
+/* Section heading accent — brand-orange underline under home H2s. Slightly
+   thicker than a hairline so it registers as brand, not decoration noise. */
 .section-accent {
   position: relative;
-  padding-bottom: 0.45rem;
+  padding-bottom: 0.5rem;
 }
 
 .section-accent::after {
@@ -833,10 +867,52 @@ kbd {
   left: 50%;
   transform: translateX(-50%);
   bottom: 0;
-  width: 3rem;
-  height: 2px;
+  width: 3.5rem;
+  height: 3px;
   border-radius: 9999px;
   background: var(--brand-link);
+}
+
+/* Left-aligned section titles (packages): accent sits under the first words. */
+.section-accent-start::after {
+  left: 0;
+  transform: none;
+}
+
+/* Homepage elevated card — premium via warm border + almost invisible top wash
+   (not heavier shadows). Final visual freeze pass. */
+.home-card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-card) 96%, white) 0%,
+    var(--surface-card) 42%,
+    color-mix(in srgb, var(--surface-page) 28%, var(--surface-card)) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--brand-link) 7%, var(--border-default));
+  box-shadow: 0 1px 0 color-mix(in srgb, white 55%, transparent) inset;
+}
+
+.dark .home-card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-card) 100%, white 5%) 0%,
+    var(--surface-card) 100%
+  );
+  border-color: color-mix(in srgb, var(--brand-link) 9%, var(--border-default));
+  box-shadow: 0 1px 0 color-mix(in srgb, white 4%, transparent) inset;
+}
+
+/* Parent ecosystem panel (Packages) — one surface, category rail + cards. */
+.home-panel {
+  background: color-mix(in srgb, var(--surface-card) 90%, var(--surface-page));
+  border: 1px solid color-mix(in srgb, var(--brand-link) 6%, var(--border-subtle));
+  box-shadow: 0 1px 0 color-mix(in srgb, white 40%, transparent) inset;
+}
+
+.dark .home-panel {
+  background: color-mix(in srgb, var(--surface-card) 75%, transparent);
+  border-color: color-mix(in srgb, var(--brand-link) 8%, var(--border-subtle));
+  box-shadow: none;
 }
 
 /* Dark mode sidebar — graphite surfaces, derived from Semantic tokens
@@ -1049,7 +1125,9 @@ kbd {
 
 /* ============================================
    Prose tables (markdown tables not wrapped in DocTableWrap)
-   ============================================ */
+   ============================================
+   Reading-experience pass: thead uses --surface-table-head (warm wash),
+   in-table links use --brand-doc-link (softer than action brand in dark). */
 
 .prose table {
   display: block;
@@ -1063,7 +1141,7 @@ kbd {
 }
 
 .prose :where(thead th) {
-  background: color-mix(in srgb, var(--color-fd-muted) 70%, transparent);
+  background: var(--surface-table-head);
   border-bottom: 1px solid var(--color-fd-border);
   padding: 0.625rem 0.75rem;
   text-align: left;
@@ -1089,15 +1167,60 @@ kbd {
   background: color-mix(in srgb, var(--color-fd-muted) 35%, transparent);
 }
 
+/* In-content links (prose + tables): reading color, not action orange.
+   Exclude solid CTAs — .prose a beats Tailwind text-white (0,1,1 vs 0,1,0)
+   and painted brand-hover on brand-solid fill → invisible "Build your first API".
+   Heading permalink anchors (Fumadocs wraps h2/h3 in <a>) must stay body
+   text color — otherwise every section title turns orange. */
+.prose :where(a):not(.primary-cta__button):not(.path-cta__button):not([class*='doc-hero__cta']) {
+  color: var(--brand-doc-link);
+}
+
+.prose :where(a):not(.primary-cta__button):not(.path-cta__button):not([class*='doc-hero__cta']):hover {
+  color: var(--brand-hover);
+}
+
+/* Primary path CTA: prose links use the reading-link color above, so this
+   explicit class keeps the label and hover surface legible on the filled
+   brand button in both themes. */
+.prose a.path-cta__button,
+.prose a.path-cta__button:link,
+.prose a.path-cta__button:visited {
+  background: var(--brand-solid);
+  color: var(--on-brand);
+}
+
+.prose a.path-cta__button:hover,
+.prose a.path-cta__button:focus-visible {
+  background: color-mix(in srgb, var(--brand-solid) 82%, black);
+  color: var(--on-brand);
+}
+
+.prose a.path-cta__button:focus-visible {
+  outline: 2px solid var(--brand-focus);
+  outline-offset: 2px;
+}
+
+.prose :where(h1, h2, h3, h4, h5, h6) a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.prose :where(h1, h2, h3, h4, h5, h6) a:hover {
+  color: inherit;
+}
+
 .prose :where(table a) {
   font-weight: 500;
-  color: var(--brand-link);
+  color: var(--brand-doc-link);
   text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--brand-doc-link) 40%, transparent);
   text-underline-offset: 2px;
 }
 
 .prose :where(table a):hover {
   color: var(--brand-hover);
+  text-decoration-color: color-mix(in srgb, var(--brand-hover) 55%, transparent);
 }
 
 /* ============================================
@@ -1249,7 +1372,8 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
  * breathing room; the previous 24px had trimmed too far solving a
  * different problem (title-to-content spacing) and reintroduced this one.
  */
-[class*='[grid-area:toc]'] {
+[class*='[grid-area:toc]'],
+#nd-toc {
   padding-top: 4rem;
 }
 
@@ -1259,11 +1383,60 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
  * as low-emphasis chrome rather than the document's own section heading
  * (feedback/toc.md: "everything has almost equal emphasis"). Bumping weight
  * and color and adding room below it gives the TOC one clear entry point.
+ *
+ * Light vs dark diverge on purpose (docs reading-experience pass):
+ * - Light: TOC was disappearing into washed paper — stronger title + active.
+ * - Dark: TOC felt like a second layout — quieter until hovered/active.
  */
-[class*='[grid-area:toc]'] > h3 {
+[class*='[grid-area:toc]'] > h3,
+#toc-title {
   color: var(--color-fd-foreground);
   font-weight: 600;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.light [class*='[grid-area:toc]'] > h3,
+.light #toc-title {
+  color: var(--ds-text-primary);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.dark [class*='[grid-area:toc]'] > h3,
+.dark #toc-title {
+  color: var(--ds-text-muted);
+  font-weight: 500;
+}
+
+/* TOC items: light gets clearer weight + active; dark stays calm chrome. */
+.light #nd-toc a,
+.light [class*='[grid-area:toc]'] a {
+  font-weight: 450;
+  padding-block: 0.3rem;
+  line-height: 1.45;
+}
+
+.light #nd-toc a[data-active='true'],
+.light [class*='[grid-area:toc]'] a[data-active='true'] {
+  font-weight: 600;
+  color: var(--brand-link);
+}
+
+.dark #nd-toc a,
+.dark [class*='[grid-area:toc]'] a {
+  color: var(--ds-text-muted);
+  font-weight: 400;
+}
+
+.dark #nd-toc a[data-active='true'],
+.dark [class*='[grid-area:toc]'] a[data-active='true'] {
+  color: color-mix(in srgb, var(--brand-doc-link) 88%, var(--ds-text-secondary));
+  font-weight: 500;
+}
+
+.dark #nd-toc a:hover,
+.dark [class*='[grid-area:toc]'] a:hover {
+  color: var(--ds-text-secondary);
 }
 
 /* Deeper, more separated neutral levels for --color-fd-muted-foreground: no
@@ -1576,9 +1749,32 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
    accented pill button. Onboarding should end with momentum, not fade into
    navigation (feedback create-nextrush/doc2.md #3, #9: "success section is
    buried" / "missing finish CTA"). One per page; everything else stays
-   secondary so nothing competes with it. */
-.primary-cta__button {
+   secondary so nothing competes with it.
+   Label is ALWAYS --on-brand (white), including hover — same fix as
+   .doc-hero__cta--primary (create-nextrush "Build your first API" was
+   brand-orange-on-orange from .prose a:hover). */
+.prose a.primary-cta__button,
+a.primary-cta__button,
+.prose a.primary-cta__button:link,
+.prose a.primary-cta__button:visited,
+a.primary-cta__button:link,
+a.primary-cta__button:visited {
+  background: var(--brand-solid);
+  color: var(--on-brand);
   text-decoration: none;
+}
+.prose a.primary-cta__button:hover,
+.prose a.primary-cta__button:focus-visible,
+a.primary-cta__button:hover,
+a.primary-cta__button:focus-visible {
+  background: color-mix(in srgb, var(--brand-solid) 82%, black);
+  color: var(--on-brand);
+  text-decoration: none;
+}
+.prose a.primary-cta__button:focus-visible,
+a.primary-cta__button:focus-visible {
+  outline: 2px solid var(--brand-focus);
+  outline-offset: 2px;
 }
 
 /* ============================================
@@ -2025,10 +2221,60 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
    primary CTA only (start1.md #9 — blue is overused and is no longer
    meaningful as "do this"). Secondary uses a bordered ghost rather than a
    second colored fill, so the hierarchy is unambiguous. */
+/* DocHero — feature surface (third elevation step on light canvas).
+   Cards stay pure white; hero/special panels use --surface-feature so the
+   page gains depth without striping every section. */
+.light .doc-hero {
+  background: linear-gradient(
+    180deg,
+    var(--surface-card) 0%,
+    var(--surface-feature) 100%
+  );
+  border-color: color-mix(in srgb, var(--brand-link) 8%, var(--border-default));
+  box-shadow: 0 1px 0 color-mix(in srgb, white 55%, transparent) inset;
+}
+
+.dark .doc-hero {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-card) 100%, white 4%) 0%,
+    var(--surface-feature) 100%
+  );
+}
+
+/* Shared docs card elevation (opt-in). Same language as homepage .home-card:
+   warm 1px border + almost invisible top wash — not heavier shadows.
+   Prefer this over one-off bg-fd-card/40 washes so light mode gains depth
+   without a global selector fighting intentional brand-wash cards. */
+.docs-card {
+  background: linear-gradient(
+    180deg,
+    var(--surface-card) 0%,
+    color-mix(in srgb, var(--surface-feature) 55%, var(--surface-card)) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--brand-link) 7%, var(--border-default));
+  box-shadow: 0 1px 0 color-mix(in srgb, white 50%, transparent) inset;
+}
+
+.dark .docs-card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-card) 100%, white 4%) 0%,
+    var(--surface-card) 100%
+  );
+  border-color: color-mix(in srgb, var(--brand-link) 9%, var(--border-default));
+  box-shadow: 0 1px 0 color-mix(in srgb, white 4%, transparent) inset;
+}
+
+/* Fumadocs default table shell — lift off paper + warm border */
+.light .prose div.relative.overflow-auto {
+  background: linear-gradient(180deg, #ffffff 0%, #fffdfb 100%);
+  border-color: color-mix(in srgb, var(--brand-link) 7%, var(--border-default));
+}
+
 .doc-hero__cta--primary,
 .doc-hero__cta--secondary {
-  /* Override DocHero's descendant `[&_a]:font-medium [&_a]:text-[brand-link]
-     [&_a]:underline` rules (those style in-body editorial links, not CTAs). */
+  /* Override DocHero's descendant editorial-link styles (not CTAs). */
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -2036,32 +2282,52 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   border-radius: 0.5rem;
   font-size: 0.875rem;
   font-weight: 600;
-  text-decoration: none;
+  text-decoration: none !important;
   border: 1px solid transparent;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
-.doc-hero__cta--primary {
+/* Primary: solid brand fill + white label always (hover/focus/visited).
+   --brand-hover is a *text-link* tint — using it as fill + label made the
+   word "Install" disappear on hover in both themes (orange-on-orange dark,
+   brown-on-brown light). Keep fill on the solid ramp; label stays --on-brand. */
+.doc-hero a.doc-hero__cta--primary,
+.doc-hero a.doc-hero__cta--primary:link,
+.doc-hero a.doc-hero__cta--primary:visited,
+a.doc-hero__cta--primary,
+a.doc-hero__cta--primary:link,
+a.doc-hero__cta--primary:visited {
   background: var(--brand-solid);
   color: var(--on-brand);
 }
-.doc-hero__cta--primary:hover {
-  background: var(--brand-hover);
+.doc-hero a.doc-hero__cta--primary:hover,
+.doc-hero a.doc-hero__cta--primary:focus-visible,
+a.doc-hero__cta--primary:hover,
+a.doc-hero__cta--primary:focus-visible {
+  background: color-mix(in srgb, var(--brand-solid) 82%, black);
+  color: var(--on-brand);
   transform: translateY(-1px);
 }
-.doc-hero__cta--primary:focus-visible {
+.doc-hero a.doc-hero__cta--primary:focus-visible,
+a.doc-hero__cta--primary:focus-visible {
   outline: 2px solid var(--brand-focus);
   outline-offset: 2px;
 }
-.doc-hero__cta--secondary {
+.doc-hero a.doc-hero__cta--secondary,
+a.doc-hero__cta--secondary {
   background: transparent;
   color: var(--text-primary);
   border-color: var(--border-strong);
 }
-.doc-hero__cta--secondary:hover {
+.doc-hero a.doc-hero__cta--secondary:hover,
+.doc-hero a.doc-hero__cta--secondary:focus-visible,
+a.doc-hero__cta--secondary:hover,
+a.doc-hero__cta--secondary:focus-visible {
   border-color: var(--brand-link);
   background: var(--brand-wash);
+  color: var(--text-primary);
 }
-.doc-hero__cta--secondary:focus-visible {
+.doc-hero a.doc-hero__cta--secondary:focus-visible,
+a.doc-hero__cta--secondary:focus-visible {
   outline: 2px solid var(--brand-focus);
   outline-offset: 2px;
 }
@@ -2090,6 +2356,8 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   padding: 0.5rem 0;
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
+  /* Always opaque — sticky mid-scroll must fully cover cards/text beneath. */
+  background: var(--surface-page);
 }
 .act-nav__list {
   display: flex;
@@ -2102,6 +2370,8 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   padding: 0;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 1;
 }
 .act-nav__list::-webkit-scrollbar {
   display: none;
@@ -2120,14 +2390,15 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.25rem 0.6rem;
+  padding: 0.3rem 0.65rem;
   border-radius: 9999px;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-decoration: none;
-  background: transparent;
-  border: 1px solid transparent;
+  /* Opaque pill surface so rounded card tops never show through the labels */
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
   transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 .act-nav__link:hover,
@@ -2149,9 +2420,11 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   border-radius: 9999px;
   font-size: 0.65rem;
   font-weight: 700;
-  background: color-mix(in srgb, var(--text-subtle) 35%, transparent);
+  /* Fully opaque badge — was 35% transparent, so card curves "overlapped" numbers */
+  background: color-mix(in srgb, var(--surface-elevated) 85%, var(--border-default));
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 .act-nav__link:hover .act-nav__n,
 .act-nav__link:focus-visible .act-nav__n {
@@ -2160,17 +2433,31 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 }
 @media (min-width: 1024px) {
   .act-nav {
-    /* Sticky at the top of the content column on desktop only — won't fight
-       the sidebar or the right TOC. Position offset clears any sticky header
-       bar from the docs chrome (typically ~3rem). */
+    /* Sticky plate over long-page content. Solid fill + high z so philosophy
+       cards / diagrams never paint through the numbered pills. */
     position: sticky;
-    top: 1.5rem;
-    z-index: 10;
-    background: color-mix(in srgb, var(--surface-page) 88%, transparent);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    margin: 0 -0.25rem 1.5rem;
-    padding: 0.5rem 0.25rem;
+    top: 3.5rem; /* clear SiteHeader (~3rem) */
+    z-index: 30;
+    isolation: isolate;
+    background: var(--surface-page);
+    border-top: none;
+    border-bottom: 1px solid var(--border-default);
+    margin: 0 -0.75rem 1.5rem;
+    padding: 0.65rem 0.75rem 0.75rem;
+    /* Soft edge so the strip reads as chrome, not a hard cut */
+    box-shadow:
+      0 1px 0 var(--border-subtle),
+      0 8px 16px -12px color-mix(in srgb, var(--ds-text-primary) 18%, transparent);
+  }
+
+  /* Extra opaque shield under the strip (covers any subpixel bleed) */
+  .act-nav::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--surface-page);
+    z-index: -1;
+    pointer-events: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

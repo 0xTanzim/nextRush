@@ -28,4 +28,24 @@ test.describe('Getting started — layout and UX', () => {
     await expect(page.getByText('Zero core dependencies')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Why NextRush' })).toBeVisible();
   });
+
+  test('installation path CTA stays readable across themes and hover', async ({ page }) => {
+    await page.goto('/docs/getting-started/installation');
+
+    const cta = page.getByRole('link', { name: 'Use this →' });
+    const themeToggle = page.getByRole('button', { name: 'Toggle theme' }).first();
+
+    for (const theme of ['dark', 'light']) {
+      const isDark = await page.locator('html').evaluate((html) => html.classList.contains('dark'));
+      if (isDark !== (theme === 'dark')) await themeToggle.click();
+
+      await expect(cta).toHaveCSS('color', 'rgb(255, 255, 255)');
+      const baseBackground = await cta.evaluate((element) => getComputedStyle(element).backgroundColor);
+
+      await cta.hover();
+
+      const hoverBackground = await cta.evaluate((element) => getComputedStyle(element).backgroundColor);
+      expect(hoverBackground).not.toBe(baseBackground);
+    }
+  });
 });
