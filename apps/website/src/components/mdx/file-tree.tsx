@@ -73,7 +73,7 @@ function TreeEntry({
           </>
         ) : (
           <>
-            <Folder className="size-3.5 shrink-0 text-sky-400" />
+            <Folder className="size-3.5 shrink-0 text-[var(--learning-context)]" />
             <span className={highlighted ? 'text-amber-300 font-medium' : 'font-medium text-zinc-200'}>
               {node.name}
             </span>
@@ -113,7 +113,7 @@ export function FileTree({ root, files, highlight = [] }: FileTreeProps) {
     <div className="not-prose my-4 rounded-lg overflow-hidden border border-[var(--bg-border)] bg-zinc-900 dark:bg-[var(--bg-card)]">
       {/* Title bar */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--bg-border)] bg-zinc-800/80 dark:bg-zinc-800/40">
-        <FolderOpen className="size-3.5 text-sky-400" />
+        <FolderOpen className="size-3.5 text-[var(--learning-context)]" />
         <span className="text-[13px] font-medium text-zinc-200">{root}</span>
       </div>
 

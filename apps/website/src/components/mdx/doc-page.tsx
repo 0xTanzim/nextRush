@@ -249,9 +249,9 @@ const FRAMEWORK_TONE: Record<BenchmarkFrameworkId, BenchmarkTone> = {
     glow: 'shadow-[0_0_18px_color-mix(in_srgb,#E69F00_28%,transparent)]',
   },
   nextrush: {
-    bar: 'from-sky-500 to-cyan-400',
-    swatch: 'bg-sky-400',
-    glow: 'shadow-[0_0_22px_color-mix(in_srgb,var(--rush-cyan)_40%,transparent)]',
+    bar: 'from-[#F16913] to-[#DB5E10]',
+    swatch: 'bg-[#F16913]',
+    glow: 'shadow-[0_0_22px_color-mix(in_srgb,var(--brand-link)_40%,transparent)]',
   },
   fastify: {
     bar: 'from-emerald-500 to-teal-400',
@@ -353,9 +353,9 @@ export function BenchmarkBars({
       }`}
       style={{
         backgroundImage:
-          'linear-gradient(165deg, color-mix(in srgb, var(--color-fd-card) 94%, transparent), color-mix(in srgb, var(--rush-blue) 6%, var(--color-fd-card)))',
+          'linear-gradient(165deg, color-mix(in srgb, var(--color-fd-card) 94%, transparent), color-mix(in srgb, var(--brand-link) 6%, var(--color-fd-card)))',
         boxShadow:
-          '0 1px 0 0 color-mix(in srgb, white 6%, transparent), 0 28px 64px -40px color-mix(in srgb, var(--rush-blue) 35%, transparent)',
+          '0 1px 0 0 color-mix(in srgb, white 6%, transparent), 0 28px 64px -40px color-mix(in srgb, var(--brand-link) 35%, transparent)',
       }}
     >
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -390,7 +390,7 @@ export function BenchmarkBars({
               role="listitem"
               className={`grid gap-1.5 rounded-xl px-2.5 py-2 transition-colors ${
                 highlighted
-                  ? 'bg-[color-mix(in_srgb,var(--rush-cyan)_8%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--rush-cyan)_28%,var(--color-fd-border))]'
+                  ? 'bg-[color-mix(in_srgb,var(--brand-link)_8%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-link)_28%,var(--color-fd-border))]'
                   : 'hover:bg-[color-mix(in_srgb,var(--color-fd-muted)_35%,transparent)]'
               }`}
             >
@@ -416,7 +416,7 @@ export function BenchmarkBars({
                     {item.label}
                   </span>
                   {highlighted ? (
-                    <span className="hidden rounded-full bg-[color-mix(in_srgb,var(--rush-cyan)_18%,transparent)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-[var(--rush-cyan)] sm:inline">
+                    <span className="hidden rounded-full bg-[color-mix(in_srgb,var(--brand-link)_18%,transparent)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-[var(--brand-link)] sm:inline">
                       target
                     </span>
                   ) : null}
@@ -495,7 +495,7 @@ export type BenchmarkCardItem = {
 };
 
 const CARD_TONE: Record<NonNullable<BenchmarkCardItem['tone']>, string> = {
-  nextrush: 'from-sky-500 to-cyan-400',
+  nextrush: 'from-[#F16913] to-[#DB5E10]',
   baseline: 'from-amber-400 to-yellow-300',
   neutral: 'from-slate-400 to-slate-300',
   warn: 'from-orange-500 to-amber-400',
@@ -509,7 +509,7 @@ export function BenchmarkCardGrid({ items }: { items: BenchmarkCardItem[] }) {
         return (
           <div
             key={item.label}
-            className="group relative overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-5 shadow-[0_1px_0_0_color-mix(in_srgb,white_6%,transparent)] transition-all hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--rush-cyan)_32%,var(--color-fd-border))] hover:shadow-[0_16px_40px_-28px_color-mix(in_srgb,var(--rush-blue)_40%,transparent)]"
+            className="group relative overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-5 shadow-[0_1px_0_0_color-mix(in_srgb,white_6%,transparent)] transition-all hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--brand-link)_32%,var(--color-fd-border))] hover:shadow-[0_16px_40px_-28px_color-mix(in_srgb,var(--brand-link)_40%,transparent)]"
           >
             <div
               aria-hidden
@@ -517,7 +517,7 @@ export function BenchmarkCardGrid({ items }: { items: BenchmarkCardItem[] }) {
             />
             <div
               aria-hidden
-              className="absolute -right-10 -top-10 size-28 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--rush-cyan)_14%,transparent)_0%,transparent_70%)] transition-transform duration-300 group-hover:scale-125"
+              className="absolute -right-10 -top-10 size-28 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--brand-link)_14%,transparent)_0%,transparent_70%)] transition-transform duration-300 group-hover:scale-125"
             />
             <p className="relative text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
               {item.label}
@@ -607,8 +607,8 @@ export function HighlightItem({
 }) {
   const Icon = highlightIcons[icon] ?? Package;
   return (
-    <div className="flex gap-4 rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:border-[color-mix(in_srgb,var(--rush-purple)_25%,var(--color-fd-border))]">
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--rush-blue)_12%,transparent)] text-[var(--rush-blue)] ring-1 ring-[color-mix(in_srgb,var(--rush-blue)_22%,transparent)]">
+    <div className="flex gap-4 rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] p-4 transition-colors hover:border-[color-mix(in_srgb,var(--learning-middleware)_25%,var(--color-fd-border))]">
+      <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--brand-link)_12%,transparent)] text-[var(--brand-link)] ring-1 ring-[color-mix(in_srgb,var(--brand-link)_22%,transparent)]">
         <Icon className="size-5" strokeWidth={1.75} aria-hidden />
       </div>
       <div className="min-w-0">
@@ -627,7 +627,7 @@ const docTableInner =
   '[&_thead]:bg-[color-mix(in_srgb,var(--color-fd-muted)_70%,transparent)] [&_th]:border-b [&_th]:border-[var(--color-fd-border)] [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-[var(--text-primary)] ' +
   '[&_td]:border-b [&_td]:border-[var(--color-fd-border)] [&_td]:px-3 [&_td]:py-2.5 [&_td]:align-top [&_td]:text-[var(--text-secondary)] [&_td]:leading-relaxed [&_tbody_tr:last-child_td]:border-b-0 ' +
   '[&_tbody_tr:hover]:bg-[color-mix(in_srgb,var(--color-fd-muted)_35%,transparent)] [&_code]:rounded [&_code]:bg-[color-mix(in_srgb,var(--color-fd-muted)_80%,transparent)] [&_code]:px-1 [&_code]:py-px [&_code]:text-[0.85em] ' +
-  '[&_a]:font-medium [&_a]:text-[var(--rush-blue)] [&_a]:underline [&_a]:decoration-[color-mix(in_srgb,var(--rush-blue)_45%,transparent)] [&_a]:underline-offset-2 hover:[&_a]:text-[var(--rush-purple)]';
+  '[&_a]:font-medium [&_a]:text-[var(--brand-link)] [&_a]:underline [&_a]:decoration-[color-mix(in_srgb,var(--brand-link)_45%,transparent)] [&_a]:underline-offset-2 hover:[&_a]:text-[var(--learning-middleware)]';
 
 /**
  * Wraps markdown tables: visible grid lines, header row, hover on body rows, link styling.
@@ -656,7 +656,7 @@ export function DocPageOutline({ items }: { items: DocPageOutlineItem[] }) {
               className="group flex gap-3 px-4 py-3.5 transition-colors hover:bg-[color-mix(in_srgb,var(--color-fd-muted)_45%,var(--color-fd-card))] sm:items-center sm:justify-between"
             >
               <div className="min-w-0 flex-1">
-                <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--rush-blue)]">
+                <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--brand-link)]">
                   {item.title}
                 </span>
                 <span className="mt-0.5 block text-sm text-[var(--text-secondary)]">

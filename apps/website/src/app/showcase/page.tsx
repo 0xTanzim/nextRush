@@ -30,7 +30,7 @@ export default function ShowcasePage() {
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-16 sm:px-6">
       <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/80 px-3 py-1 text-xs font-medium text-fd-muted-foreground">
-        <Rocket className="size-3.5 text-[var(--rush-cyan)]" aria-hidden />
+        <Rocket className="size-3.5 text-[var(--learning-context)]" aria-hidden />
         Showcase
       </div>
       <h1 className="mb-4 text-3xl font-bold tracking-tight">Built with NextRush</h1>
@@ -65,7 +65,7 @@ export default function ShowcasePage() {
               href={entry.url}
               target="_blank"
               rel="noreferrer"
-              className="group flex flex-col rounded-xl border border-fd-border bg-fd-card p-6 shadow-sm transition-all hover:border-[color-mix(in_srgb,var(--rush-blue)_35%,var(--color-fd-border))]"
+              className="group flex flex-col rounded-xl border border-fd-border bg-fd-card p-6 shadow-sm transition-all hover:border-[color-mix(in_srgb,var(--brand-link)_35%,var(--color-fd-border))]"
             >
               <h2 className="mb-2 text-lg font-semibold text-fd-foreground group-hover:text-fd-primary">
                 {entry.name}

@@ -22,10 +22,10 @@ interface PackageGridProps {
 }
 
 const accentColors = [
-  '--rush-blue',
-  '--rush-cyan',
-  '--rush-purple',
-  '--rush-green',
+  '--brand-link',
+  '--learning-context',
+  '--learning-middleware',
+  '--status-success',
 ] as const;
 
 export function PackageCard({ name, description, install, href, npmUrl, essential, icon }: PackageCardProps) {
@@ -43,7 +43,7 @@ export function PackageCard({ name, description, install, href, npmUrl, essentia
       href={link}
       target={external ? '_blank' : undefined}
       rel={external ? 'noopener noreferrer' : undefined}
-      className="group relative block rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--card-accent)_35%,var(--color-fd-border))] hover:shadow-[0_12px_40px_-12px_color-mix(in_srgb,var(--rush-blue)_20%,transparent)] no-underline!"
+      className="group relative block rounded-xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--card-accent)_35%,var(--color-fd-border))] hover:shadow-[0_12px_40px_-12px_color-mix(in_srgb,var(--brand-link)_20%,transparent)] no-underline!"
       style={
         {
           '--card-accent': `var(${accent})`,

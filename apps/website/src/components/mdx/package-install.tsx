@@ -70,7 +70,7 @@ export function PackageInstall({ packages, dev = [] }: PackageInstallProps) {
               onClick={() => setActiveTab(p.name)}
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === p.name
-                  ? 'bg-[var(--bg-hover)] text-[var(--text-primary)] border-b-2 border-[var(--rush-blue)]'
+                  ? 'bg-[var(--bg-hover)] text-[var(--text-primary)] border-b-2 border-[var(--brand-link)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]/50'
               }`}
             >
