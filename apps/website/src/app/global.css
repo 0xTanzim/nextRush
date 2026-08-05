@@ -8,25 +8,13 @@
    ============================================ */
 
 :root {
-  /* Primary Colors */
-  --rush-blue: #3b82f6;
-  /* WCAG AA fix (T22 launch hardening): was #8b5cf6 (4.15:1 vs --bg-card,
-     just under the 4.5:1 minimum for normal text when used as TypeTable's
-     type-column text color) — confirmed via lighthouse a11y audit. #9d75f8
-     clears 5.30:1 while staying the same brand hue. */
-  --rush-purple: #9d75f8;
-  --rush-cyan: #22d3ee;
-  --rush-green: #22c55e;
-
-  /* Gradients */
-  --rush-gradient: linear-gradient(135deg, var(--rush-blue) 0%, var(--rush-purple) 100%);
-  --rush-gradient-accent: linear-gradient(135deg, var(--rush-purple) 0%, var(--rush-cyan) 100%);
-
-  /* Semantic Colors */
+  /* Semantic status colors (legacy aliases — the layered tokens in the
+     Foundation block below are canonical; these are kept for the remaining
+     pre-migration component CSS). */
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --info: #3b82f6;
+  --info: #0284c7;
 }
 
 /* ============================================
@@ -40,18 +28,15 @@
    theme-aware. Never reference a Foundation token from a component -- read
    the Semantic layer instead. */
 :root {
-  /* Brand ramp (interaction only; DESIGN.md "Brand") */
-  --brand-50: #eff6ff;
-  --brand-100: #dbeafe;
-  --brand-200: #bfdbfe;
-  --brand-300: #93c5fd;
-  --brand-400: #60a5fa;
-  --brand-500: #3b82f6;
-  --brand-600: #2563eb;
-  --brand-700: #1d4ed8;
-  --brand-800: #1e40af;
-  --brand-900: #1e3a8a;
-  --brand-950: #172554;
+  /* Brand ramp (interaction only; DESIGN.md "Brand") — lean 7-step orange
+     ramp anchored on the shipped logo #F16913 (TOKENS.md 3.1). */
+  --brand-50: #fff2e6;
+  --brand-100: #ffe0c2;
+  --brand-200: #ffc48a;
+  --brand-300: #ffa04d;
+  --brand-500: #f16913;
+  --brand-600: #db5e10;
+  --brand-700: #c5530e;
 
   /* Neutral ramp -- one canonical scale, 0 lightest -> 950 darkest, in BOTH
      themes (TOKENS.md 3.2: a theme changes which step a role points at,
@@ -69,11 +54,12 @@
   --neutral-900: #0f172a;
   --neutral-950: #020617;
 
-  /* Ink -- dark-theme surface steps (bluer than pure slate; TOKENS.md 3.3) */
-  --ink-page: #0b1120;
-  --ink-sidebar: #0e1524;
-  --ink-card: #151d2e;
-  --ink-elevated: #1e2739;
+  /* Ink -- dark-theme surface steps (graphite, warmer than pure slate;
+     TOKENS.md 3.3) */
+  --ink-page: #0d1117;
+  --ink-sidebar: #111827;
+  --ink-card: #161b22;
+  --ink-elevated: #1b2432;
   --ink-code: #0a0f1c;
 
   /* Status hues -- base (icon/border, >=3:1) + text (>=4.5:1 on white);
@@ -92,9 +78,11 @@
   --hue-experimental-base: #7c3aed;
   --hue-experimental-dark: #a78bfa;
 
-  /* Learning hues -- educational visuals only, locked map (TOKENS.md 5) */
-  --hue-learning-application-light: #2563eb;
-  --hue-learning-application-dark: #60a5fa;
+  /* Learning hues -- educational visuals only, locked map (TOKENS.md 5).
+     application = brand orange (rebrand 2.0); router stays amber so the two
+     oranges are never adjacent in one visual. */
+  --hue-learning-application-light: #f16913;
+  --hue-learning-application-dark: #ff8a34;
   --hue-learning-middleware-light: #7c3aed;
   --hue-learning-middleware-dark: #a78bfa;
   --hue-learning-router-light: #ea580c;
@@ -117,27 +105,27 @@
    --border-subtle/-default -- are documented there, not silent). Author
    component CSS against THESE tokens, never the Foundation layer. */
 .light {
-  --surface-page: #fbfcfe;
-  --surface-sidebar: #f7f9fc;
+  --surface-page: #fff9f4;
+  --surface-sidebar: #fffcf9;
   --surface-card: var(--neutral-0);
-  --surface-elevated: var(--neutral-100);
-  --surface-code: var(--neutral-50);
+  --surface-elevated: #f7ede1;
+  --surface-code: #fbf3ea;
 
-  --ds-text-primary: var(--neutral-900);
-  --ds-text-secondary: var(--neutral-700);
-  --ds-text-muted: var(--neutral-500);
-  --ds-text-subtle: var(--neutral-400);
+  --ds-text-primary: #2a1208;
+  --ds-text-secondary: #4e4038;
+  --ds-text-muted: #7a6a60;
+  --ds-text-subtle: #b4a79c;
 
-  --border-subtle: #eef2f7;
-  --border-default: var(--neutral-200);
-  --border-strong: var(--neutral-300);
-  --border-interactive: #7c8797;
+  --border-subtle: #f6ebdd;
+  --border-default: #efe3d7;
+  --border-strong: #e0ccba;
+  --border-interactive: #8a7568;
 
-  --brand-link: var(--brand-600);
-  --brand-hover: var(--brand-700);
-  --brand-solid: var(--brand-600);
+  --brand-link: #bc4e08;
+  --brand-hover: #8f3d08;
+  --brand-solid: #c5530e;
   --on-brand: #ffffff;
-  --brand-focus: var(--brand-500);
+  --brand-focus: #db5e10;
   --brand-wash: var(--brand-50);
 
   --status-success: var(--hue-success-base);
@@ -167,8 +155,8 @@
      Light mode's old white-on-white stacked cards read flat (feedback
      start1.md #1) — alternating `.section-band` rows give the eye real depth
      without adding a card border, satisfying "three elevation levels" via
-     spacing + wash instead of borders. */
-  --surface-band: #f1f5fb;
+     spacing + wash instead of borders. Warmed to match the paper surfaces. */
+  --surface-band: #f6ecdf;
 }
 
 .dark {
@@ -178,21 +166,21 @@
   --surface-elevated: var(--ink-elevated);
   --surface-code: var(--ink-code);
 
-  --ds-text-primary: #f1f5f9;
-  --ds-text-secondary: #cbd5e1;
-  --ds-text-muted: #94a3b8;
-  --ds-text-subtle: #64748b;
+  --ds-text-primary: #f5f7fa;
+  --ds-text-secondary: #d4d7dd;
+  --ds-text-muted: #99a2af;
+  --ds-text-subtle: #6b7280;
 
-  --border-subtle: #1e293b;
-  --border-default: #273449;
+  --border-subtle: #273142;
+  --border-default: #303b4c;
   --border-strong: #3a4a63;
   --border-interactive: #64748b;
 
-  --brand-link: var(--brand-400);
-  --brand-hover: var(--brand-300);
-  --brand-solid: var(--brand-600);
+  --brand-link: #ff8a34;
+  --brand-hover: #ffa25c;
+  --brand-solid: #c5530e;
   --on-brand: #ffffff;
-  --brand-focus: var(--brand-500);
+  --brand-focus: #f16913;
   --brand-wash: color-mix(in srgb, var(--brand-500) 14%, transparent);
 
   --status-success: var(--hue-success-dark);
@@ -212,15 +200,15 @@
   --learning-extension: var(--hue-learning-extension-dark);
   --learning-di: var(--hue-learning-di-dark);
 
-  /* Non-action accent decoration: in dark mode the softer blue reads as a
+  /* Non-action accent decoration: in dark mode the softer orange reads as a
      translucent wash against card surfaces rather than a saturated call
-     (feedback start1.md #9 — reserve saturated blue for actions). */
-  --accent-soft: var(--brand-400);
+     (feedback start1.md #9 — reserve saturated brand for actions). */
+  --accent-soft: var(--brand-300);
 
-  /* Section band — sits between --surface-page (#0b1120) and --surface-card
-     (#151d2e) so a full-width wash separates major sections by ELEVATION
+  /* Section band — sits between --surface-page (#0d1117) and --surface-card
+     (#161b22) so a full-width wash separates major sections by ELEVATION
      instead of by border. Dark-mode depth gap from feedback start1.md #2. */
-  --surface-band: #0e1626;
+  --surface-band: #121a26;
 }
 
 /* Tailwind v4 alias bridge (design.md 3): `inline` keeps these reactive to
@@ -337,11 +325,6 @@
      Aliased to --ds-text-subtle in Phase 3 (identical value, one source). */
   --text-subtle: var(--ds-text-subtle);
 
-  /* Light mode specific color adjustments for better contrast */
-  --rush-cyan: #0891b2;
-  --rush-blue: #2563eb;
-  --rush-purple: #7c3aed;
-
   /* Code block chrome (light) */
   --code-bg: #f8fafc;
   --code-bg-header: #f1f5f9;
@@ -398,13 +381,13 @@ kbd {
    Custom Components
    ============================================ */
 
-/* Gradient text utility */
+/* Gradient text utility (Brand Mode only — see MIGRATION.md Phase 4) */
 .gradient-text {
   background: linear-gradient(
     135deg,
-    var(--rush-blue) 0%,
-    var(--rush-purple) 40%,
-    var(--rush-cyan) 100%
+    var(--brand-500) 0%,
+    var(--brand-300) 40%,
+    var(--brand-100) 100%
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -423,7 +406,7 @@ kbd {
 
 /* Button styles */
 .btn-primary {
-  background: var(--rush-gradient);
+  background: var(--brand-solid);
   color: white;
   font-weight: 600;
   padding: 0.625rem 1.5rem;
@@ -433,7 +416,7 @@ kbd {
 }
 
 .btn-primary:hover {
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 16px rgba(197, 83, 14, 0.35);
   transform: translateY(-1px);
 }
 
@@ -546,7 +529,7 @@ kbd {
   transition: background 0.15s ease;
 }
 .code-showcase__line:hover {
-  background: color-mix(in srgb, var(--rush-blue) 7%, transparent);
+  background: color-mix(in srgb, var(--brand-link) 7%, transparent);
 }
 .code-showcase__note {
   flex-shrink: 0;
@@ -639,7 +622,7 @@ kbd {
     background: transparent;
   }
   35% {
-    background: color-mix(in srgb, var(--rush-blue) 12%, transparent);
+    background: color-mix(in srgb, var(--brand-link) 12%, transparent);
   }
   100% {
     background: transparent;
@@ -717,8 +700,8 @@ kbd {
   color: var(--text-primary);
 }
 .step-tracker__step.is-current .step-tracker__mark {
-  background: var(--rush-blue);
-  border-color: var(--rush-blue);
+  background: var(--brand-link);
+  border-color: var(--brand-link);
   color: #fff;
 }
 .step-tracker__step.is-done {
@@ -795,7 +778,7 @@ kbd {
 }
 
 .card-gradient-border:hover::before {
-  background: var(--rush-gradient);
+  background: var(--brand-solid);
 }
 
 /* Smooth fade-in animation */
@@ -843,11 +826,12 @@ kbd {
   opacity: 0.8;
 }
 
-/* Dark mode sidebar — blue-tinted surfaces for depth */
+/* Dark mode sidebar — graphite surfaces, derived from Semantic tokens
+   (never hand-set --color-fd-*; TOKENS.md §6). */
 .dark #nd-docs-layout aside {
-  --color-fd-muted: #12161f;
-  --color-fd-secondary: #1a1e29;
-  --color-fd-muted-foreground: hsla(220, 15%, 68%, 0.8);
+  --color-fd-muted: var(--surface-sidebar);
+  --color-fd-secondary: var(--ink-elevated);
+  --color-fd-muted-foreground: var(--ds-text-muted);
 }
 
 /* ============================================
@@ -881,7 +865,7 @@ kbd {
   inset-inline-start: 2px;
   width: 3px;
   border-radius: 9999px;
-  background: var(--rush-blue, #3b82f6);
+  background: var(--brand-link);
   z-index: 1;
 }
 
@@ -1031,7 +1015,7 @@ kbd {
 /* Line highlighting */
 [data-highlighted-line] {
   background: rgba(59, 130, 246, 0.15);
-  border-left: 2px solid var(--rush-blue);
+  border-left: 2px solid var(--brand-link);
   margin: 0 -1rem;
   padding: 0 1rem;
 }
@@ -1094,13 +1078,13 @@ kbd {
 
 .prose :where(table a) {
   font-weight: 500;
-  color: var(--rush-blue);
+  color: var(--brand-link);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .prose :where(table a):hover {
-  color: var(--rush-purple);
+  color: var(--brand-hover);
 }
 
 /* ============================================
@@ -1282,17 +1266,18 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   --color-fd-success: var(--success);
 }
 
-/* Accessible success FOREGROUND: --rush-green (#22c55e) is a background/graphic
+/* Accessible success FOREGROUND: --status-success is a background/graphic
    hue and fails 4.5:1 as small text on a light card. These per-mode values are
    dark-enough (light) / light-enough (dark) to clear WCAG 1.4.3 for label text
-   like the decision cards' "Best for". */
+   like the decision cards' "Best for". --accent-link-fg follows the brand
+   link token (orange). */
 .light {
   --accent-success-fg: #166534;
-  --accent-link-fg: #1d4ed8;
+  --accent-link-fg: var(--brand-link);
 }
 .dark {
   --accent-success-fg: #4ade80;
-  --accent-link-fg: #93c5fd;
+  --accent-link-fg: var(--brand-link);
 }
 
 /* ============================================
@@ -1461,14 +1446,14 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 }
 
 .mm-deepdive:hover {
-  color: var(--rush-blue);
-  border-color: color-mix(in srgb, var(--rush-blue) 45%, var(--color-fd-border));
-  background: color-mix(in srgb, var(--rush-blue) 5%, var(--color-fd-card));
+  color: var(--brand-link);
+  border-color: color-mix(in srgb, var(--brand-link) 45%, var(--color-fd-border));
+  background: color-mix(in srgb, var(--brand-link) 5%, var(--color-fd-card));
   transform: translateY(-1px);
 }
 
 .mm-deepdive:focus-visible {
-  outline: 2px solid var(--rush-blue);
+  outline: 2px solid var(--brand-link);
   outline-offset: 2px;
 }
 
@@ -1546,7 +1531,7 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 9999px;
-  background: var(--rush-blue);
+  background: var(--brand-link);
   color: #fff;
   font-size: 0.95rem;
   font-weight: 700;
@@ -1595,7 +1580,7 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   margin: 2.5rem 0;
   padding: 1.5rem;
   border-radius: 1rem;
-  background: color-mix(in srgb, var(--rush-green) 6%, var(--color-fd-card));
+  background: color-mix(in srgb, var(--status-success) 6%, var(--color-fd-card));
 }
 .success-finish > :first-child {
   margin-top: 0;
@@ -1702,15 +1687,15 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 /* Hover — lift + brand border so interactivity is obvious before the click. */
 .guide-accordion:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--rush-blue) 55%, var(--color-fd-border));
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--rush-blue) 8%, transparent);
+  border-color: color-mix(in srgb, var(--brand-link) 55%, var(--color-fd-border));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-link) 8%, transparent);
 }
 
 /* Open — border stays brand blue (matches hover) + a left accent bar and a
    faint blue wash, so the open card is distinguishable even without hover. */
 .guide-accordion--open {
-  border-color: var(--rush-blue);
-  background: color-mix(in srgb, var(--rush-blue) 5%, var(--color-fd-card));
+  border-color: var(--brand-link);
+  background: color-mix(in srgb, var(--brand-link) 5%, var(--color-fd-card));
 }
 .guide-accordion--open::before {
   content: '';
@@ -1719,7 +1704,7 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   inset-block: 0;
   width: 3px;
   border-radius: 3px;
-  background: var(--rush-blue);
+  background: var(--brand-link);
 }
 
 .guide-accordion__trigger {
@@ -1785,11 +1770,11 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
 .guide-accordion__action-label {
   font-size: 0.75rem;
   font-weight: 500;
-  color: var(--rush-blue);
+  color: var(--brand-link);
 }
 
 .guide-accordion__chevron {
-  color: var(--rush-blue);
+  color: var(--brand-link);
   transition: transform 0.2s ease-out;
 }
 .guide-accordion__chevron--open {
@@ -2320,9 +2305,9 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   background: linear-gradient(
     to bottom,
     var(--brand-link),
-    var(--rush-purple),
-    var(--rush-cyan),
-    var(--rush-green)
+    var(--learning-middleware),
+    var(--learning-context),
+    var(--status-success)
   );
   opacity: 0.55;
 }
@@ -2388,24 +2373,24 @@ aside [data-radix-scroll-area-viewport] a:has(+ div) {
   background: color-mix(in srgb, var(--brand-wash) 50%, transparent);
 }
 .prose details summary:focus-visible {
-  outline: 2px solid var(--rush-blue);
+  outline: 2px solid var(--brand-link);
   outline-offset: -2px;
 }
 .prose details:hover {
-  border-color: color-mix(in srgb, var(--rush-blue) 40%, var(--color-fd-border));
+  border-color: color-mix(in srgb, var(--brand-link) 40%, var(--color-fd-border));
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--rush-blue) 7%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--brand-link) 7%, transparent);
 }
 /* Open — brand border + left accent + faint blue wash, so an open accordion stays marked
    even after the pointer leaves (mirrors the GuideAccordion open state). */
 .prose details[open] {
-  border-color: color-mix(in srgb, var(--rush-blue) 45%, var(--color-fd-border));
-  background: color-mix(in srgb, var(--rush-blue) 4%, var(--color-fd-card));
-  box-shadow: inset 3px 0 0 var(--rush-blue);
+  border-color: color-mix(in srgb, var(--brand-link) 45%, var(--color-fd-border));
+  background: color-mix(in srgb, var(--brand-link) 4%, var(--color-fd-card));
+  box-shadow: inset 3px 0 0 var(--brand-link);
   transform: none;
 }
 .prose details[open] summary {
-  border-bottom: 1px solid color-mix(in srgb, var(--rush-blue) 25%, var(--color-fd-border));
+  border-bottom: 1px solid color-mix(in srgb, var(--brand-link) 25%, var(--color-fd-border));
 }
 .prose details > *:not(summary) {
   padding: 0.85rem 1.1rem;

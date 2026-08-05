@@ -47,24 +47,24 @@ const ICONS: Record<
 
 const ICON_BADGE: Record<IconColor, { bg: string; fg: string }> = {
   blue: {
-    bg: 'color-mix(in srgb, var(--rush-blue) 14%, transparent)',
-    fg: 'var(--rush-blue)',
+    bg: 'color-mix(in srgb, var(--brand-link) 14%, transparent)',
+    fg: 'var(--brand-link)',
   },
   purple: {
-    bg: 'color-mix(in srgb, var(--rush-purple) 16%, transparent)',
-    fg: 'var(--rush-purple)',
+    bg: 'color-mix(in srgb, var(--learning-middleware) 16%, transparent)',
+    fg: 'var(--learning-middleware)',
   },
   amber: {
-    bg: 'color-mix(in srgb, #f59e0b 16%, transparent)',
-    fg: '#d97706',
+    bg: 'color-mix(in srgb, var(--status-warning) 16%, transparent)',
+    fg: 'var(--status-warning-text)',
   },
   red: {
-    bg: 'color-mix(in srgb, #ef4444 14%, transparent)',
-    fg: '#dc2626',
+    bg: 'color-mix(in srgb, var(--status-danger) 14%, transparent)',
+    fg: 'var(--status-danger)',
   },
   green: {
-    bg: 'color-mix(in srgb, var(--rush-green) 16%, transparent)',
-    fg: 'var(--rush-green)',
+    bg: 'color-mix(in srgb, var(--status-success) 16%, transparent)',
+    fg: 'var(--status-success)',
   },
 };
 

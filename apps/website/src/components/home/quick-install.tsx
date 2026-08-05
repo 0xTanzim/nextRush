@@ -51,7 +51,7 @@ export function QuickInstall() {
                     onClick={() => setActiveTab(pm.name)}
                     className={`min-h-11 flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                       isActive
-                        ? 'border-b-2 border-[var(--rush-blue)] bg-fd-muted text-fd-foreground'
+                        ? 'border-b-2 border-[var(--brand-link)] bg-fd-muted text-fd-foreground'
                         : 'text-fd-muted-foreground hover:bg-fd-muted/50 hover:text-fd-foreground'
                     }`}
                   >
@@ -72,14 +72,14 @@ export function QuickInstall() {
             <div className="divide-y divide-fd-border" aria-live="polite">
               {steps.map((step) => (
                 <div key={step.number} className="flex items-center gap-3 p-4 sm:gap-4">
-                  <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--rush-blue)]/15 text-sm font-semibold text-[var(--rush-blue)]">
+                  <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--brand-link)]/15 text-sm font-semibold text-[var(--brand-link)]">
                     {step.number}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">
                       {step.label}
                     </p>
-                    <code className="block overflow-x-auto font-mono text-sm text-[var(--rush-cyan)]">
+                    <code className="block overflow-x-auto font-mono text-sm text-[#057088] dark:text-[var(--learning-context)]">
                       <span className="text-fd-muted-foreground">$ </span>
                       {step.command}
                     </code>
@@ -104,7 +104,7 @@ export function QuickInstall() {
                   3
                 </span>
                 <span className="text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">Visit</span>
-                <span className="text-[var(--rush-cyan)]">http://localhost:8080</span>
+                <span className="text-[#057088] dark:text-[var(--learning-context)]">http://localhost:8080</span>
                 <span className="text-[var(--code-punctuation)]" aria-hidden="true">&rarr;</span>
                 <span className="font-semibold text-[var(--success)]">✓ Hello NextRush!</span>
               </div>

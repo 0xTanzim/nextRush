@@ -44,7 +44,7 @@ export function PrimaryCTA({ href, children, label, hint, external }: PrimaryCTA
       <a
         href={href}
         {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-        className="primary-cta__button group inline-flex items-center gap-2 rounded-full bg-[var(--rush-blue)] px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-[color-mix(in_srgb,var(--rush-blue)_30%,transparent)] transition-all hover:bg-[color-mix(in_srgb,var(--rush-blue)_88%,black)] hover:shadow-xl hover:shadow-[color-mix(in_srgb,var(--rush-blue)_40%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--rush-blue)]"
+        className="primary-cta__button group inline-flex items-center gap-2 rounded-full bg-[var(--brand-solid)] px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-[color-mix(in_srgb,var(--brand-link)_30%,transparent)] transition-all hover:bg-[color-mix(in_srgb,var(--brand-link)_88%,black)] hover:shadow-xl hover:shadow-[color-mix(in_srgb,var(--brand-link)_40%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-link)]"
       >
         <span>{children}</span>
         <ArrowRight

@@ -20,7 +20,7 @@ interface FeatureGridProps {
  */
 export function Feature({ icon, title, description }: FeatureProps) {
   return (
-    <div className="p-6 rounded-xl border border-[var(--bg-border)] bg-[var(--bg-card)] hover:border-[var(--rush-blue)]/50 transition-colors">
+    <div className="p-6 rounded-xl border border-[var(--bg-border)] bg-[var(--bg-card)] hover:border-[var(--brand-link)]/50 transition-colors">
       <div className="text-3xl mb-3">{icon}</div>
       <h3 className="text-lg font-semibold mb-2 text-[var(--text-primary)]">{title}</h3>
       <p className="text-[var(--text-secondary)] text-sm">{description}</p>

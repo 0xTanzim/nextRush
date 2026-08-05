@@ -37,7 +37,7 @@ export function WizardStep({ number, title, children }: WizardStepProps) {
     <div className="flex gap-4 group">
       {/* Number circle + connector line */}
       <div className="flex-shrink-0 flex flex-col items-center w-8">
-        <div className="size-8 rounded-full bg-[var(--rush-blue)] text-white flex items-center justify-center text-sm font-bold shadow-sm">
+        <div className="size-8 rounded-full bg-[var(--brand-link)] text-white flex items-center justify-center text-sm font-bold shadow-sm">
           {number}
         </div>
         <div className="w-px flex-1 bg-[var(--bg-border)] group-last:hidden mt-1 mb-1" />
