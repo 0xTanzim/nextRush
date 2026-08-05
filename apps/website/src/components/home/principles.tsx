@@ -33,8 +33,8 @@ const principles = [
 
 export function Principles() {
   return (
-    <section aria-labelledby="framework-principles" className="relative bg-fd-background py-16 md:py-20">
-      <hr className="section-divider absolute inset-x-0 top-0" />
+    /* Same canvas — cards create separation, not a full-width wash */
+    <section aria-labelledby="framework-principles" className="relative bg-transparent py-16 md:py-20">
       <div className="container mx-auto px-4">
         <div className="mx-auto mb-10 max-w-2xl text-center md:mb-12">
           <h2 id="framework-principles" className="section-accent mb-3 text-3xl font-bold tracking-tight md:text-4xl">
@@ -51,13 +51,13 @@ export function Principles() {
             return (
               <div
                 key={principle.title}
-                className="flex flex-col rounded-xl border border-fd-border bg-fd-card/40 p-6 text-left transition-colors hover:border-[color-mix(in_srgb,var(--brand-link)_35%,var(--color-fd-border))]"
+                className="home-card flex flex-col rounded-xl p-6 text-left transition-shadow hover:shadow-[0_10px_28px_-16px_rgba(0,0,0,0.12)]"
               >
                 <div
                   className="mb-4 inline-flex size-9 items-center justify-center rounded-lg"
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
-                    border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${color} 17%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${color} 26%, transparent)`,
                   }}
                 >
                   <Icon className="size-5" style={{ color }} aria-hidden="true" />
