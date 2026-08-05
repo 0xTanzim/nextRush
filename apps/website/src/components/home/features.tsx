@@ -13,28 +13,28 @@ const features = [
     icon: Shield,
     title: 'Typed request flow',
     description: 'Context, routes, middleware, and errors share TypeScript contracts without loosening to `any`.',
-    colorVar: '--rush-blue',
+    colorVar: '--brand-link',
     emphasis: true,
   },
   {
     icon: Package,
     title: 'Small core, optional modules',
     description: 'Start with the functional core, then add middleware, streaming, or class-based composition when needed.',
-    colorVar: '--rush-purple',
+    colorVar: '--learning-middleware',
     emphasis: true,
   },
   {
     icon: Globe,
     title: 'Web-standard adapters',
     description: 'Write against Request, Response, streams, and AbortSignal; adapters carry runtime-specific details.',
-    colorVar: '--rush-cyan',
+    colorVar: '--learning-context',
     emphasis: false,
   },
   {
     icon: Puzzle,
     title: 'Class runtime when it helps',
     description: 'Controllers, modules, request scopes, guards, and lifecycle hooks remain an opt-in path.',
-    colorVar: '--rush-green',
+    colorVar: '--status-success',
     emphasis: false,
   },
   {
@@ -69,7 +69,7 @@ export function Features() {
               <div
                 key={feature.title}
                 className={`group rounded-xl p-6 card-glow card-gradient-border transition-transform hover:-translate-y-1${
-                  feature.emphasis ? ' ring-1 ring-[var(--rush-blue)]/20' : ''
+                  feature.emphasis ? ' ring-1 ring-[var(--brand-link)]/20' : ''
                 }`}
                 style={{ '--feature-color': color } as React.CSSProperties}
               >

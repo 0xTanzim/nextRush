@@ -442,7 +442,7 @@ export function Challenge({
       'text-[var(--brand-link)] bg-[color-mix(in_srgb,var(--brand-link)_10%,transparent)]',
     Advanced:
       'text-[var(--status-warning-text)] bg-[color-mix(in_srgb,var(--status-warning)_12%,transparent)]',
-    Expert: 'text-[var(--rush-purple)] bg-[color-mix(in_srgb,var(--rush-purple)_12%,transparent)]',
+    Expert: 'text-[var(--learning-middleware)] bg-[color-mix(in_srgb,var(--learning-middleware)_12%,transparent)]',
   };
   const stars: Record<typeof level, number> = { Starter: 1, Intermediate: 2, Advanced: 3, Expert: 4 };
 

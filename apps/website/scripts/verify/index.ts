@@ -14,6 +14,8 @@
  *   4. reference-match    — hand-written signatures exist in source (name-only, static)
  *   5. i18n-freshness      — localized pages older than their English source (stub until
  *                            a non-default locale is configured — see design.md D8)
+ *   6. token-check         — no raw hex in components, no hand-set --color-fd-*, no blue rush
+ *   7. token-values        — live global.css token values match DESIGN/TOKENS.md (orange spec)
  */
 
 import { dirname, join } from 'node:path';
@@ -23,11 +25,16 @@ import { checkCompile } from './compile-check.js';
 import { checkLint } from './lint-check.js';
 import { checkReferenceMatch } from './reference-match.js';
 import { checkTranslationFreshness } from './i18n-freshness-check.js';
+import { checkTokens } from './token-check.js';
+import { checkTokenValues } from './token-values.js';
 import { readMdxDocs } from './lib/fs-walk.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const contentRoot = join(__dirname, '../../content/docs');
 const packagesRoot = join(__dirname, '../../../../packages');
+const appRoot = join(__dirname, '../..');
+const srcRoot = join(appRoot, 'src');
+const cssPath = join(appRoot, 'src/app/global.css');
 
 function section(title: string): void {
   console.log('\n' + '─'.repeat(70));
@@ -80,6 +87,18 @@ async function main(): Promise<void> {
       : `  ${i18nFindings.length} translation-freshness finding(s).`
   );
   totalFindings += i18nFindings.length;
+
+  section('6. Design-token check (no raw hex in components, no hand-set fd, no blue rush)');
+  const tokenFindings = checkTokens(srcRoot, contentRoot, cssPath);
+  for (const f of tokenFindings) console.log(`  ✗ ${f.file}:${f.line} — [${f.rule}] ${f.message}`);
+  console.log(tokenFindings.length === 0 ? '  ✓ No token-usage findings.' : `  ${tokenFindings.length} token finding(s).`);
+  totalFindings += tokenFindings.length;
+
+  section('7. Token-value check (live CSS matches DESIGN/TOKENS.md orange spec)');
+  const valueFindings = checkTokenValues(cssPath);
+  for (const f of valueFindings) console.log(`  ✗ ${f.file}${f.line ? ':' + f.line : ''} — [${f.token}] ${f.message}`);
+  console.log(valueFindings.length === 0 ? '  ✓ Token values match the orange spec.' : `  ${valueFindings.length} token-value finding(s).`);
+  totalFindings += valueFindings.length;
 
   console.log('\n' + '═'.repeat(70));
   console.log(`  TOTAL FINDINGS: ${totalFindings}`);

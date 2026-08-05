@@ -34,11 +34,11 @@ export default function BlogPage() {
       <div className="relative border-b border-fd-border/80 bg-[color-mix(in_srgb,var(--color-fd-muted)_35%,var(--color-fd-background))]">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,color-mix(in_srgb,var(--rush-blue)_22%,transparent),transparent)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,color-mix(in_srgb,var(--brand-link)_22%,transparent),transparent)]"
         />
         <div className="relative mx-auto w-full max-w-4xl px-4 py-14 text-center sm:px-6 md:py-20">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/80 px-3 py-1 text-xs font-medium text-fd-muted-foreground backdrop-blur-sm">
-            <Sparkles className="size-3.5 text-[var(--rush-cyan)]" aria-hidden />
+            <Sparkles className="size-3.5 text-[var(--learning-context)]" aria-hidden />
             Blog
           </div>
           <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">
@@ -62,7 +62,7 @@ export default function BlogPage() {
               <Link
                 key={page.url}
                 href={page.url}
-                className="group flex flex-col rounded-xl border border-fd-border bg-fd-card p-6 text-left shadow-sm transition-all hover:border-[color-mix(in_srgb,var(--rush-blue)_35%,var(--color-fd-border))] hover:shadow-[0_12px_40px_-16px_color-mix(in_srgb,var(--rush-blue)_18%,transparent)]"
+                className="group flex flex-col rounded-xl border border-fd-border bg-fd-card p-6 text-left shadow-sm transition-all hover:border-[color-mix(in_srgb,var(--brand-link)_35%,var(--color-fd-border))] hover:shadow-[0_12px_40px_-16px_color-mix(in_srgb,var(--brand-link)_18%,transparent)]"
               >
                 <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-fd-muted-foreground">
                   <time dateTime={page.data.date}>{formatDate(page.data.date)}</time>

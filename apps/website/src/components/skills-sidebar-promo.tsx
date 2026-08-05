@@ -58,7 +58,7 @@ export function SkillsSidebarPromo() {
         <X className="size-3.5" aria-hidden />
       </button>
       <div className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-wider text-fd-muted-foreground">
-        <Sparkles className="size-3.5 shrink-0 text-[var(--rush-cyan)]" aria-hidden />
+        <Sparkles className="size-3.5 shrink-0 text-[var(--learning-context)]" aria-hidden />
         Agent skills
       </div>
       <Link
