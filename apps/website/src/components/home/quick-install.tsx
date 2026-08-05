@@ -28,9 +28,8 @@ export function QuickInstall() {
   ] as const;
 
   return (
-    /* Platforms → Install ≈ 64px (proof pb-16 + this pt-0 feel); full section rhythm */
-    <section aria-labelledby="install-first-app" className="relative bg-fd-muted/40 py-14 md:py-16">
-      <hr className="section-divider absolute inset-x-0 top-0" />
+    /* Same canvas as hero — elevation comes from the floating install card only */
+    <section aria-labelledby="install-first-app" className="relative bg-transparent py-14 md:py-16">
       <div className="container mx-auto px-4">
         <div className="mb-8 text-center">
           <h2 id="install-first-app" className="section-accent mb-3 text-3xl font-bold tracking-tight md:text-4xl">
@@ -42,8 +41,8 @@ export function QuickInstall() {
         </div>
 
         <div className="mx-auto max-w-[720px]">
-          <div className="overflow-hidden rounded-2xl border border-fd-border bg-fd-card code-glow">
-            <div role="group" aria-label="Package manager" className="flex border-b border-fd-border">
+          <div className="home-card overflow-hidden rounded-2xl shadow-[0_12px_40px_-20px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_40px_-18px_rgba(0,0,0,0.5)]">
+            <div role="group" aria-label="Package manager" className="flex border-b border-fd-border/80">
               {packageManagers.map((pm) => {
                 const isActive = activeTab === pm.name;
                 return (
@@ -54,8 +53,8 @@ export function QuickInstall() {
                     onClick={() => setActiveTab(pm.name)}
                     className={`min-h-11 flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                       isActive
-                        ? 'border-b-2 border-[var(--brand-link)] bg-fd-muted text-fd-foreground'
-                        : 'text-fd-muted-foreground hover:bg-fd-muted/50 hover:text-fd-foreground'
+                        ? 'border-b-2 border-[var(--brand-link)] bg-[color-mix(in_srgb,var(--brand-link)_6%,transparent)] text-fd-foreground'
+                        : 'text-fd-muted-foreground hover:bg-fd-muted/40 hover:text-fd-foreground'
                     }`}
                   >
                     <Image
@@ -72,7 +71,7 @@ export function QuickInstall() {
               })}
             </div>
 
-            <div className="divide-y divide-fd-border" aria-live="polite">
+            <div className="divide-y divide-fd-border/80" aria-live="polite">
               {steps.map((step) => (
                 <div key={step.number} className="flex items-center gap-3 p-4 sm:gap-4">
                   <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--brand-link)]/15 text-sm font-semibold text-[var(--brand-link)]">
@@ -102,13 +101,15 @@ export function QuickInstall() {
                 </div>
               ))}
 
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-[var(--code-bg-header)] px-4 py-3 font-mono text-sm sm:gap-4">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-[var(--code-bg-header)]/80 px-4 py-3 font-mono text-sm sm:gap-4">
                 <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--success)]/15 text-sm font-semibold text-[var(--success)]">
                   3
                 </span>
                 <span className="text-xs font-medium uppercase tracking-wide text-fd-muted-foreground">Visit</span>
                 <span className="text-[#057088] dark:text-[var(--learning-context)]">http://localhost:8080</span>
-                <span className="text-[var(--code-punctuation)]" aria-hidden="true">&rarr;</span>
+                <span className="text-[var(--code-punctuation)]" aria-hidden="true">
+                  &rarr;
+                </span>
                 <span className="font-semibold text-[var(--success)]">✓ Hello NextRush!</span>
               </div>
             </div>

@@ -15,9 +15,9 @@ import { QuickInstall } from '@/components/home/quick-install';
  */
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col bg-fd-background text-fd-foreground">
-      {/* Layers 1–2: identity + immediate proof (one visual unit) */}
-      <div className="relative">
+    <div className="flex min-h-screen flex-col bg-surface-page text-fd-foreground">
+      {/* Layers 1–2: identity + proof on page surface */}
+      <div className="relative bg-surface-page">
         <Hero />
         <ProofSection />
       </div>

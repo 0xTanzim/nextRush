@@ -50,7 +50,7 @@ const FOUNDATION: Record<string, string> = {
 
 /** Expected Semantic values per theme, from TOKENS.md §4. */
 const LIGHT_SEMANTIC: Record<string, string> = {
-  '--surface-page': '#FFF9F4',
+  '--surface-page': '#FFFCF8',
   '--surface-sidebar': '#FFFCF9',
   '--surface-card': 'var(--neutral-0)',
   '--surface-elevated': '#F7EDE1',
