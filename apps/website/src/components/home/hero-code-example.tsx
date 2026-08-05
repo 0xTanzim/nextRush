@@ -1,180 +1,126 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { CopyButton } from '@/components/copy-button';
 
-const codeExample = `import { createApp, createRouter, listen } from 'nextrush';
+/**
+ * Docs-style proof — compact, request→response story.
+ * Explicit architecture (createRouter + app.route). Idiomatic API is app.route, not app.use.
+ */
+const codeExample = `import { createApp, createRouter, listen } from "nextrush";
 
 const app = createApp();
-const router = createRouter();
-const PORT = Number(process.env.PORT) || 8080;
+const users = createRouter();
+users.get("/", (ctx) => ctx.json({ message: "Hello NextRush!" }));
+app.route("/users", users);
+await listen(app, 8080);`;
 
-router.get('/', (ctx) => {
-  ctx.json({ message: 'Hello NextRush!' });
-});
-
-app.route('/', router);
-await listen(app, PORT);`;
+/** Soft docs highlighting — slightly less “IDE neon” than full token saturation. */
+const soft = {
+  kw: 'text-[color-mix(in_srgb,var(--code-keyword)_88%,transparent)]',
+  fn: 'text-[color-mix(in_srgb,var(--code-function)_88%,transparent)]',
+  prop: 'text-[color-mix(in_srgb,var(--code-property)_88%,transparent)]',
+  str: 'text-[color-mix(in_srgb,var(--code-string)_88%,transparent)]',
+  num: 'text-[color-mix(in_srgb,var(--code-number)_88%,transparent)]',
+  var: 'text-[color-mix(in_srgb,var(--code-variable)_90%,transparent)]',
+  punc: 'text-[color-mix(in_srgb,var(--code-punctuation)_85%,transparent)]',
+} as const;
 
 const highlightedCode = (
   <>
-    <span className="text-[var(--code-keyword)]">import</span>
-    <span className="text-[var(--code-variable)]"> {'{ '}</span>
-    <span className="text-[var(--code-property)]">createApp</span>
-    <span className="text-[var(--code-variable)]">, </span>
-    <span className="text-[var(--code-property)]">createRouter</span>
-    <span className="text-[var(--code-variable)]">, </span>
-    <span className="text-[var(--code-property)]">listen</span>
-    <span className="text-[var(--code-variable)]"> {'}'} </span>
-    <span className="text-[var(--code-keyword)]">from</span>
-    <span className="text-[var(--code-string)]"> &apos;nextrush&apos;</span>
-    <span className="text-[var(--code-punctuation)]">;</span>
+    <span className={soft.kw}>import</span>
+    <span className={soft.var}> {'{ '}</span>
+    <span className={soft.prop}>createApp</span>
+    <span className={soft.var}>, </span>
+    <span className={soft.prop}>createRouter</span>
+    <span className={soft.var}>, </span>
+    <span className={soft.prop}>listen</span>
+    <span className={soft.var}> {'}'} </span>
+    <span className={soft.kw}>from</span>
+    <span className={soft.str}> &quot;nextrush&quot;</span>
+    <span className={soft.punc}>;</span>
     {'\n\n'}
-    <span className="text-[var(--code-keyword)]">const</span>
-    <span className="text-[var(--code-variable)]"> app = </span>
-    <span className="text-[var(--code-function)]">createApp</span>
-    <span className="text-[var(--code-punctuation)]">();</span>
+    <span className={soft.kw}>const</span>
+    <span className={soft.var}> app = </span>
+    <span className={soft.fn}>createApp</span>
+    <span className={soft.punc}>();</span>
     {'\n'}
-    <span className="text-[var(--code-keyword)]">const</span>
-    <span className="text-[var(--code-variable)]"> router = </span>
-    <span className="text-[var(--code-function)]">createRouter</span>
-    <span className="text-[var(--code-punctuation)]">();</span>
+    <span className={soft.kw}>const</span>
+    <span className={soft.var}> users = </span>
+    <span className={soft.fn}>createRouter</span>
+    <span className={soft.punc}>();</span>
     {'\n'}
-    <span className="text-[var(--code-keyword)]">const</span>
-    <span className="text-[var(--code-variable)]"> PORT = </span>
-    <span className="text-[var(--code-function)]">Number</span>
-    <span className="text-[var(--code-punctuation)]">(</span>
-    <span className="text-[var(--code-variable)]">process.</span>
-    <span className="text-[var(--code-property)]">env</span>
-    <span className="text-[var(--code-punctuation)]">.</span>
-    <span className="text-[var(--code-variable)]">PORT</span>
-    <span className="text-[var(--code-punctuation)]">) </span>
-    <span className="text-[var(--code-operator)]">||</span>
-    <span className="text-[var(--code-number)]"> 8080</span>
-    <span className="text-[var(--code-punctuation)]">;</span>
-    {'\n\n'}
-    <span className="text-[var(--code-variable)]">router.</span>
-    <span className="text-[var(--code-function)]">get</span>
-    <span className="text-[var(--code-punctuation)]">(</span>
-    <span className="text-[var(--code-string)]">&apos;/&apos;</span>
-    <span className="text-[var(--code-variable)]">, (ctx) {'=> {'}</span>
+    <span className={soft.var}>users.</span>
+    <span className={soft.fn}>get</span>
+    <span className={soft.punc}>(</span>
+    <span className={soft.str}>&quot;/&quot;</span>
+    <span className={soft.var}>, (ctx) {'=> '}ctx.</span>
+    <span className={soft.fn}>json</span>
+    <span className={soft.punc}>({'{ '}</span>
+    <span className={soft.prop}>message</span>
+    <span className={soft.punc}>: </span>
+    <span className={soft.str}>&quot;Hello NextRush!&quot;</span>
+    <span className={soft.punc}> {'}'}));</span>
     {'\n'}
-    <span className="text-[var(--code-variable)]"> ctx.</span>
-    <span className="text-[var(--code-function)]">json</span>
-    <span className="text-[var(--code-punctuation)]">({'{ '}</span>
-    <span className="text-[var(--code-property)]">message</span>
-    <span className="text-[var(--code-punctuation)]">: </span>
-    <span className="text-[var(--code-string)]">&apos;Hello NextRush!&apos;</span>
-    <span className="text-[var(--code-punctuation)]"> {'}'});</span>
+    <span className={soft.var}>app.</span>
+    <span className={soft.fn}>route</span>
+    <span className={soft.punc}>(</span>
+    <span className={soft.str}>&quot;/users&quot;</span>
+    <span className={soft.var}>, users</span>
+    <span className={soft.punc}>);</span>
     {'\n'}
-    <span className="text-[var(--code-punctuation)]">{'}'});</span>
-    {'\n\n'}
-    <span className="text-[var(--code-variable)]">app.</span>
-    <span className="text-[var(--code-function)]">route</span>
-    <span className="text-[var(--code-punctuation)]">(</span>
-    <span className="text-[var(--code-string)]">&apos;/&apos;</span>
-    <span className="text-[var(--code-variable)]">, </span>
-    <span className="text-[var(--code-variable)]">router</span>
-    <span className="text-[var(--code-punctuation)]">);</span>
-    {'\n'}
-    <span className="text-[var(--code-keyword)]">await</span>
-    <span className="text-[var(--code-variable)]"> </span>
-    <span className="text-[var(--code-function)]">listen</span>
-    <span className="text-[var(--code-punctuation)]">(</span>
-    <span className="text-[var(--code-variable)]">app</span>
-    <span className="text-[var(--code-punctuation)]">, </span>
-    <span className="text-[var(--code-variable)]">PORT</span>
-    <span className="text-[var(--code-punctuation)]">);</span>
+    <span className={soft.kw}>await</span>
+    <span className={soft.var}> </span>
+    <span className={soft.fn}>listen</span>
+    <span className={soft.punc}>(</span>
+    <span className={soft.var}>app</span>
+    <span className={soft.punc}>, </span>
+    <span className={soft.num}>8080</span>
+    <span className={soft.punc}>);</span>
   </>
 );
 
-const STATUS_STATES = [
-  {
-    key: 'started',
-    content: (
-      <>
-        <span className="text-[var(--success)]" aria-hidden="true">
-          ✓
-        </span>
-        <span className="text-fd-muted-foreground">Server started</span>
-      </>
-    ),
-  },
-  {
-    key: 'listening',
-    content: (
-      <>
-        <span className="text-[var(--success)]" aria-hidden="true">
-          ✓
-        </span>
-        <span className="text-fd-muted-foreground">Listening on</span>
-        <span className="text-[var(--code-variable)]">:8080</span>
-      </>
-    ),
-  },
-  {
-    key: 'request',
-    content: (
-      <>
-        <span className="text-[var(--success)]">GET /</span>
-        <span className="text-[var(--code-punctuation)]" aria-hidden="true">
-          &rarr;
-        </span>
-        <span className="rounded bg-[var(--success)]/15 px-1.5 py-0.5 text-xs font-semibold text-[var(--success)]">
-          200 OK
-        </span>
-        <span className="hidden text-fd-muted-foreground sm:inline">{'{ "message": "Hello NextRush!" }'}</span>
-      </>
-    ),
-  },
-] as const;
+/** Shared horizontal padding so header / code / footer share one left edge. */
+const PAD = 'px-4 sm:px-5';
 
 export function HeroCodeExample() {
-  const [index, setIndex] = useState(0);
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReduced(mq.matches);
-    const handler = (event: MediaQueryListEvent) => setReduced(event.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  useEffect(() => {
-    if (reduced) return;
-    const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % STATUS_STATES.length);
-    }, 2600);
-    return () => window.clearInterval(id);
-  }, [reduced]);
-
-  const current = reduced ? STATUS_STATES[STATUS_STATES.length - 1] : STATUS_STATES[index];
-
   return (
-    <div className="w-full max-w-3xl animate-fade-up animate-delay-500">
-      <div className="group relative overflow-hidden rounded-xl border border-[var(--code-border)] bg-[var(--code-bg)] code-glow">
-        <div className="flex items-center justify-between border-b border-[var(--code-border)] bg-[var(--code-bg-header)] px-4 py-2">
-          <div className="flex items-center gap-2">
-            <div className="flex gap-2" aria-hidden="true">
-              <span className="size-3 rounded-full bg-[var(--danger)]" />
-              <span className="size-3 rounded-full bg-[var(--warning)]" />
-              <span className="size-3 rounded-full bg-[var(--success)]" />
-            </div>
-            <span className="ml-2 font-mono text-sm text-[var(--code-punctuation)]">TypeScript</span>
-            <span className="hidden font-mono text-sm text-fd-muted-foreground sm:inline">&middot; src/index.ts</span>
+    <div className="w-full animate-fade-up animate-delay-500">
+      <div className="group relative overflow-hidden rounded-[12px] border border-black/[0.08] bg-[var(--code-bg)] shadow-[0_8px_28px_-14px_rgba(0,0,0,0.18)] dark:border-white/[0.08] dark:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.45)]">
+        {/* Header: name semibold · TypeScript is quiet metadata */}
+        <div className={`flex items-center justify-between gap-3 border-b border-black/[0.08] bg-[var(--code-bg-header)] py-1.5 dark:border-white/[0.08] ${PAD}`}>
+          <div className="min-w-0 text-left">
+            <p className="text-sm font-semibold leading-snug tracking-tight text-fd-foreground">
+              Hello, NextRush
+            </p>
+            <p className="text-[12px] font-normal leading-snug text-fd-muted-foreground/55">
+              TypeScript
+            </p>
           </div>
-          <span className="transition-opacity duration-200 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100">
+          <span className="shrink-0 transition-opacity duration-200 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100">
             <CopyButton code={codeExample} label="Copy code example" />
           </span>
         </div>
-        <pre className="overflow-x-auto p-4 text-left leading-snug" tabIndex={0}>
-          <code className="text-sm font-mono">{highlightedCode}</code>
+
+        {/* Code — tight vertical padding, same left edge as header */}
+        <pre className={`overflow-x-auto py-2 text-left leading-[1.5] sm:py-2.5 ${PAD}`} tabIndex={0}>
+          <code className="text-[13px] font-mono sm:text-sm">{highlightedCode}</code>
         </pre>
-        <div className="flex items-center gap-2 border-t border-[var(--code-border)] bg-[var(--code-bg-header)] px-4 py-2 font-mono text-sm">
-          <div key={current.key} className="flex items-center gap-2 animate-fade-in" aria-hidden="true">
-            {current.content}
-          </div>
+
+        {/* Output = the request the example serves — completes the story */}
+        <div
+          className={`flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-black/[0.08] bg-[var(--code-bg-header)] py-1.5 font-mono text-sm dark:border-white/[0.08] ${PAD}`}
+          aria-label="Example response"
+        >
+          <span className="font-medium text-fd-foreground">GET /users</span>
+          <span className="text-fd-muted-foreground/50" aria-hidden="true">
+            →
+          </span>
+          <span className="rounded bg-[var(--success)]/18 px-1.5 py-0.5 text-xs font-bold text-[var(--success)]">
+            200 OK
+          </span>
+          <span className="hidden text-fd-muted-foreground sm:inline">
+            {'{ "message": "Hello NextRush!" }'}
+          </span>
         </div>
       </div>
     </div>

@@ -29,11 +29,11 @@ const principles = [
 
 export function Principles() {
   return (
-    <section aria-labelledby="framework-principles" className="relative py-20 md:py-24">
+    <section aria-labelledby="framework-principles" className="relative bg-fd-background py-20">
       <hr className="section-divider absolute inset-x-0 top-0" />
       <div className="container mx-auto px-4">
         <div className="mx-auto mb-12 max-w-2xl text-center">
-          <h2 id="framework-principles" className="mb-3 text-3xl font-bold md:text-4xl">
+          <h2 id="framework-principles" className="section-accent mb-6 text-3xl font-bold md:text-4xl">
             Built around four principles
           </h2>
           <p className="text-lg text-fd-muted-foreground">
