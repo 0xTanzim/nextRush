@@ -1,11 +1,12 @@
 'use client';
 
 import { AskAiTrigger } from '@/components/ask-ai-trigger';
+import { Logo } from '@/components/logo';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/cn';
 import { useSearchContext } from 'fumadocs-ui/contexts/search';
 import { SidebarTrigger } from 'fumadocs-ui/layouts/docs/slots/sidebar';
-import { ChevronDown, GitFork, Menu, Moon, Search, Sun, Zap } from 'lucide-react';
+import { ChevronDown, GitFork, Menu, Moon, Search, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -114,7 +115,7 @@ export function SiteHeader({ version }: { version: string }) {
       )}
 
       <Link href="/" aria-label="NextRush home" className="me-1 inline-flex size-10 shrink-0 items-center justify-center rounded-md text-fd-foreground transition-colors hover:bg-fd-accent">
-        <Zap className="size-5 text-[#3b82f6]" aria-hidden />
+        <Logo className="size-5 shrink-0" aria-hidden />
         <span className="gradient-text ml-2 hidden sm:inline">NextRush</span>
       </Link>
 
