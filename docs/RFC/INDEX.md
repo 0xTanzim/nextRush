@@ -59,6 +59,7 @@ invent a new structure per RFC.
 | [030](runtime-adapters/030-typed-proxy-trust.md) | Typed proxy-trust boundary for client-IP resolution (`proxy: false \| number \| string[]`) | **Draft** — see ADR-0018 | runtime-adapters |
 | [031](request-data/031-context-bound-signatures.md) | Context-bound signature construction for signed cookies | **Draft** — see ADR-0019 | request-data |
 | [032](class-runtime/032-session-position.md) | `@nextrush/session` position — what the framework owns and what it defers | **Draft** — see ADR-0020, no code shipped | class-runtime |
+| [033](documentation/033-homepage-hero-proof-architecture.md) | Homepage Hero + Proof architecture — layered homepage composition (Hero communicates, Proof demonstrates) | **Proposed** | documentation |
 
 ## Note on RFC-005 (Plugin System)
 
