@@ -428,9 +428,9 @@ function Panel({
       className={`overflow-hidden rounded-2xl border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] ${className}`}
       style={{
         backgroundImage:
-          'linear-gradient(165deg, color-mix(in srgb, var(--color-fd-card) 96%, transparent), color-mix(in srgb, var(--rush-blue) 5%, var(--color-fd-card)))',
+          'linear-gradient(165deg, color-mix(in srgb, var(--color-fd-card) 96%, transparent), color-mix(in srgb, var(--brand-link) 5%, var(--color-fd-card)))',
         boxShadow:
-          '0 1px 0 0 color-mix(in srgb, white 5%, transparent), 0 24px 56px -40px color-mix(in srgb, var(--rush-blue) 30%, transparent)',
+          '0 1px 0 0 color-mix(in srgb, white 5%, transparent), 0 24px 56px -40px color-mix(in srgb, var(--brand-link) 30%, transparent)',
       }}
     >
       {(title || action) && (
@@ -463,7 +463,7 @@ function Pill({ children, active = false, onClick }: { children: ReactNode; acti
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
         active
-          ? 'border-[color-mix(in_srgb,var(--rush-cyan)_45%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--rush-cyan)_14%,transparent)] text-[var(--text-primary)]'
+          ? 'border-[color-mix(in_srgb,var(--brand-link)_45%,var(--color-fd-border))] bg-[color-mix(in_srgb,var(--brand-link)_14%,transparent)] text-[var(--text-primary)]'
           : 'border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_40%,transparent)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
       }`}
     >
@@ -498,7 +498,7 @@ function ColumnChart({
               </span>
               <div className="relative flex w-full max-w-[56px] flex-1 items-end justify-center">
                 <div
-                  className={`w-full max-w-[44px] rounded-t-lg transition-all ${isTarget ? 'ring-2 ring-[color-mix(in_srgb,var(--rush-cyan)_50%,transparent)] ring-offset-2 ring-offset-[var(--color-fd-card)]' : ''}`}
+                  className={`w-full max-w-[44px] rounded-t-lg transition-all ${isTarget ? 'ring-2 ring-[color-mix(in_srgb,var(--brand-link)_50%,transparent)] ring-offset-2 ring-offset-[var(--color-fd-card)]' : ''}`}
                   style={
                     {
                       height: `${h}%`,
@@ -552,7 +552,7 @@ function RankedBars({ rows, suffix = ' RPS' }: { rows: RankRow[]; suffix?: strin
             role="listitem"
             className={`grid gap-1 rounded-xl px-2 py-1.5 ${
               isTarget
-                ? 'bg-[color-mix(in_srgb,var(--rush-cyan)_8%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--rush-cyan)_28%,var(--color-fd-border))]'
+                ? 'bg-[color-mix(in_srgb,var(--brand-link)_8%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-link)_28%,var(--color-fd-border))]'
                 : ''
             }`}
           >
@@ -639,7 +639,7 @@ function Leaderboard({ scores }: { scores: typeof OVERALL_SCORE }) {
               key={row.id}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${
                 isTarget
-                  ? 'bg-[color-mix(in_srgb,var(--rush-cyan)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--rush-cyan)_30%,var(--color-fd-border))]'
+                  ? 'bg-[color-mix(in_srgb,var(--brand-link)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-link)_30%,var(--color-fd-border))]'
                   : 'bg-[color-mix(in_srgb,var(--color-fd-muted)_30%,transparent)]'
               }`}
             >
@@ -653,7 +653,7 @@ function Leaderboard({ scores }: { scores: typeof OVERALL_SCORE }) {
                       <span className="ml-1.5 text-[0.65rem] font-normal text-[var(--text-muted)]">baseline</span>
                     ) : null}
                     {isTarget ? (
-                      <span className="ml-1.5 rounded-full bg-[color-mix(in_srgb,var(--rush-cyan)_18%,transparent)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-300">
+                      <span className="ml-1.5 rounded-full bg-[color-mix(in_srgb,var(--brand-link)_18%,transparent)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-[#BC4E08] dark:text-[#FF8A34]">
                         target
                       </span>
                     ) : null}
@@ -901,9 +901,9 @@ function ScenarioExplorer({ visible }: { visible: Set<FrameworkId> }) {
               type="button"
               onClick={() => setActiveId(s.id)}
               aria-current={active ? 'true' : undefined}
-              className={`shrink-0 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rush-cyan)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-fd-card)] lg:w-full ${
+              className={`shrink-0 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-link)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-fd-card)] lg:w-full ${
                 active
-                  ? 'bg-[color-mix(in_srgb,var(--rush-cyan)_12%,var(--color-fd-muted))] font-semibold text-[var(--text-primary)]'
+                  ? 'bg-[color-mix(in_srgb,var(--brand-link)_12%,var(--color-fd-muted))] font-semibold text-[var(--text-primary)]'
                   : 'text-[var(--text-secondary)] hover:bg-[color-mix(in_srgb,var(--color-fd-muted)_55%,transparent)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -1049,7 +1049,7 @@ function ScenarioExplorer({ visible }: { visible: Set<FrameworkId> }) {
                   <tr
                     key={row.id}
                     className={`border-t border-[var(--color-fd-border)] ${
-                      isTarget ? 'bg-[color-mix(in_srgb,var(--rush-cyan)_6%,transparent)]' : ''
+                      isTarget ? 'bg-[color-mix(in_srgb,var(--brand-link)_6%,transparent)]' : ''
                     }`}
                   >
                     <td className="px-3 py-2">
@@ -1258,9 +1258,9 @@ export function BenchmarkDashboard() {
         className="relative overflow-hidden rounded-2xl border border-[var(--color-fd-border)] p-6 md:p-8"
         style={{
           backgroundImage:
-            'radial-gradient(ellipse 80% 60% at 100% 0%, color-mix(in srgb, var(--rush-cyan) 16%, transparent), transparent 55%), linear-gradient(160deg, var(--color-fd-card), color-mix(in srgb, var(--rush-blue) 8%, var(--color-fd-card)))',
+            'radial-gradient(ellipse 80% 60% at 100% 0%, color-mix(in srgb, var(--brand-link) 16%, transparent), transparent 55%), linear-gradient(160deg, var(--color-fd-card), color-mix(in srgb, var(--brand-link) 8%, var(--color-fd-card)))',
           boxShadow:
-            '0 1px 0 0 color-mix(in srgb, white 6%, transparent), 0 32px 80px -48px color-mix(in srgb, var(--rush-blue) 40%, transparent)',
+            '0 1px 0 0 color-mix(in srgb, white 6%, transparent), 0 32px 80px -48px color-mix(in srgb, var(--brand-link) 40%, transparent)',
         }}
       >
         <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[var(--brand-link)]">
@@ -1300,13 +1300,13 @@ export function BenchmarkDashboard() {
         <div className="mt-5 flex flex-wrap gap-2">
           <a
             href="#methodology"
-            className="inline-flex items-center rounded-full border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[color-mix(in_srgb,var(--rush-cyan)_40%,var(--color-fd-border))]"
+            className="inline-flex items-center rounded-full border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[color-mix(in_srgb,var(--brand-link)_40%,var(--color-fd-border))]"
           >
             Methodology →
           </a>
           <a
             href="https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark"
-            className="inline-flex items-center rounded-full border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[color-mix(in_srgb,var(--rush-cyan)_40%,var(--color-fd-border))]"
+            className="inline-flex items-center rounded-full border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[color-mix(in_srgb,var(--brand-link)_40%,var(--color-fd-border))]"
             target="_blank"
             rel="noreferrer"
           >
@@ -1314,7 +1314,7 @@ export function BenchmarkDashboard() {
           </a>
           <a
             href="https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark/results"
-            className="inline-flex items-center rounded-full border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[color-mix(in_srgb,var(--rush-cyan)_40%,var(--color-fd-border))]"
+            className="inline-flex items-center rounded-full border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:border-[color-mix(in_srgb,var(--brand-link)_40%,var(--color-fd-border))]"
             target="_blank"
             rel="noreferrer"
           >

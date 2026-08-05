@@ -8,10 +8,10 @@ const TK = {
   v: 'text-[var(--code-variable)]',
   s: 'text-[var(--code-string)]',
   num: 'text-[var(--code-number)]',
-  blue: 'text-[var(--rush-blue)]',
-  purple: 'text-[var(--rush-purple)]',
-  green: 'text-[var(--rush-green)]',
-  cyan: 'text-[var(--rush-cyan)]',
+  blue: 'text-[var(--brand-link)]',
+  purple: 'text-[var(--learning-middleware)]',
+  green: 'text-[var(--status-success)]',
+  cyan: 'text-[#057088] dark:text-[var(--learning-context)]',
 };
 
 const code = `import { createApp, createRouter, listen } from 'nextrush';
@@ -26,7 +26,7 @@ router.get('/', (ctx) => {
 app.route('/', router);
 await listen(app, 8080);`;
 
-const NOTE_COLORS = ['var(--rush-blue)', 'var(--rush-purple)', 'var(--rush-green)'];
+const NOTE_COLORS = ['var(--brand-link)', 'var(--learning-middleware)', 'var(--status-success)'];
 const BADGES = ['\u2460', '\u2461', '\u2462'];
 
 type Row = { h: ReactNode; note?: string; badge?: number };

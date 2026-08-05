@@ -59,8 +59,8 @@ const runtimeMeta: Record<RuntimeId, RuntimeMeta> = {
 };
 
 const statusMeta: Record<RuntimeSupportLevel, { symbol: string; text: string; color: string }> = {
-  full: { symbol: '✅', text: 'Full support', color: 'var(--rush-green)' },
-  partial: { symbol: '⚠', text: 'Partial support', color: 'var(--rush-amber, #d97706)' },
+  full: { symbol: '✅', text: 'Full support', color: 'var(--status-success)' },
+  partial: { symbol: '⚠', text: 'Partial support', color: 'var(--status-warning-text)' },
   none: { symbol: '❌', text: 'Not supported', color: 'var(--text-muted)' },
 };
 

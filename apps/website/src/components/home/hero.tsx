@@ -103,9 +103,9 @@ export function Hero() {
   return (
     <section aria-label="Why NextRush" className="relative overflow-hidden">
       <div className="absolute inset-0 -z-10">
-        <div className="absolute -top-32 left-1/4 size-[600px] rounded-full bg-[var(--rush-blue)]/15 blur-[120px] dark:bg-[var(--rush-blue)]/20" />
-        <div className="absolute right-1/3 top-0 size-[500px] rounded-full bg-[var(--rush-purple)]/10 blur-[120px] dark:bg-[var(--rush-purple)]/15" />
-        <div className="absolute -bottom-20 left-1/2 size-[400px] rounded-full bg-[var(--rush-cyan)]/8 blur-[120px] dark:bg-[var(--rush-cyan)]/10" />
+        <div className="absolute -top-32 left-1/4 size-[600px] rounded-full bg-[var(--brand-link)]/15 blur-[120px] dark:bg-[var(--brand-link)]/20" />
+        <div className="absolute right-1/3 top-0 size-[500px] rounded-full bg-[var(--learning-middleware)]/10 blur-[120px] dark:bg-[var(--learning-middleware)]/15" />
+        <div className="absolute -bottom-20 left-1/2 size-[400px] rounded-full bg-[var(--learning-context)]/8 blur-[120px] dark:bg-[var(--learning-context)]/10" />
       </div>
 
       <div className="container mx-auto px-4 py-8 md:py-10">
@@ -143,7 +143,7 @@ export function Hero() {
               {runtimeBadges.map((runtime) => (
                 <span
                   key={runtime.name}
-                  className="inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/60 px-3 py-1.5 text-sm text-fd-muted-foreground transition-transform hover:-translate-y-0.5 hover:border-[var(--rush-blue)]/40"
+                  className="inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/60 px-3 py-1.5 text-sm text-fd-muted-foreground transition-transform hover:-translate-y-0.5 hover:border-[var(--brand-link)]/40"
                 >
                   <Image src={runtime.icon} alt="" width={16} height={16} className="size-4" aria-hidden="true" />
                   {runtime.name}
@@ -156,7 +156,7 @@ export function Hero() {
                 <strong className="font-semibold text-fd-foreground">Zero</strong> runtime deps
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-fd-border bg-fd-card/40 px-3 py-1 text-xs text-fd-muted-foreground">
-                <Package className="size-3.5 text-[var(--rush-purple)]" aria-hidden="true" />
+                <Package className="size-3.5 text-[var(--learning-middleware)]" aria-hidden="true" />
                 <strong className="font-semibold text-fd-foreground">MIT</strong> licensed
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-fd-border bg-fd-card/40 px-3 py-1 text-xs text-fd-muted-foreground">
@@ -170,7 +170,7 @@ export function Hero() {
           <div className="mb-2 flex flex-col gap-2 sm:flex-row animate-fade-up animate-delay-400">
             <Link
               href={DOCS_GETTING_STARTED}
-              className="btn-primary inline-flex items-center justify-center gap-2 text-lg transition-shadow hover:shadow-[0_0_24px_-4px_var(--rush-blue)]"
+              className="btn-primary inline-flex items-center justify-center gap-2 text-lg transition-shadow hover:shadow-[0_0_24px_-4px_var(--brand-link)]"
             >
               Get started
               <ArrowRight className="size-5" aria-hidden="true" />

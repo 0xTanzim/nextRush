@@ -58,7 +58,7 @@ export function TypeTable({ title, types }: TypeTableProps) {
                 className={index % 2 === 0 ? 'bg-[var(--bg-base)]' : 'bg-[var(--bg-card)]/50'}
               >
                 <td className="px-4 py-3 border-b border-[var(--bg-border)]">
-                  <code className="font-mono text-[var(--rush-cyan)]">
+                  <code className="font-mono text-[#057088] dark:text-[var(--learning-context)]">
                     {name}
                     {def.optional && (
                       <span className="text-[var(--text-muted)]">?</span>
@@ -66,7 +66,7 @@ export function TypeTable({ title, types }: TypeTableProps) {
                   </code>
                 </td>
                 <td className="px-4 py-3 border-b border-[var(--bg-border)]">
-                  <code className="font-mono text-[var(--rush-purple)] text-xs px-1.5 py-0.5 rounded bg-[var(--rush-purple)]/10">
+                  <code className="font-mono text-[var(--learning-middleware)] text-xs px-1.5 py-0.5 rounded bg-[var(--learning-middleware)]/10">
                     {def.type}
                   </code>
                   {def.default && (
