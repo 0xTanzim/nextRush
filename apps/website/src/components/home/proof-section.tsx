@@ -16,7 +16,8 @@ const trustItems = [
 export function ProofSection() {
   return (
     <section aria-labelledby="hello-nextrush-heading" className="relative">
-      <div className="container mx-auto px-4 pb-14 md:pb-16">
+      {/* Tighter bottom so Install follows without a huge gap */}
+      <div className="container mx-auto px-4 pb-8 md:pb-10">
         <div className="mx-auto flex w-full max-w-[800px] flex-col items-center text-center">
           {/* Quiet entry — no decorative center dot */}
           <div className="mb-3 flex w-full max-w-[12rem] items-center" aria-hidden="true">

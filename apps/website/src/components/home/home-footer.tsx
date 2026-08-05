@@ -47,7 +47,7 @@ function isInternalLink(href: string): boolean {
 
 export function HomeFooter() {
   return (
-    <footer className="relative bg-fd-background py-20">
+    <footer className="relative bg-fd-background py-14 md:py-16">
       <hr className="section-divider absolute inset-x-0 top-0" />
       <div className="container mx-auto px-4">
         <div className="mx-auto grid max-w-6xl gap-10 sm:grid-cols-2 lg:grid-cols-4">

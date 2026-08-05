@@ -4,62 +4,77 @@ const principles = [
   {
     icon: Eye,
     title: 'Explicit',
-    description: 'No hidden behavior',
+    description: 'Every behavior is declared in your code—no magic hooks, no hidden middleware.',
+    keyword: 'No surprises',
     colorVar: '--brand-link',
   },
   {
     icon: Layers,
     title: 'Composable',
-    description: 'Add only what you need',
+    description: 'Start with a small core. Add routers, middleware, and modules only when you need them.',
+    keyword: 'Opt-in surface',
     colorVar: '--learning-middleware',
   },
   {
     icon: Gauge,
     title: 'Predictable',
-    description: 'Reason about every request',
+    description: 'Trace any request from adapter to response without guessing framework behavior.',
+    keyword: 'Reasonable paths',
     colorVar: '--learning-context',
   },
   {
     icon: Boxes,
     title: 'Portable',
-    description: 'One codebase, every runtime',
+    description: 'One application model across Node.js, Bun, Deno, and Edge—adapters own the rest.',
+    keyword: 'Runtime free',
     colorVar: '--status-success',
   },
 ] as const;
 
 export function Principles() {
   return (
-    <section aria-labelledby="framework-principles" className="relative bg-fd-background py-20">
+    <section aria-labelledby="framework-principles" className="relative bg-fd-background py-16 md:py-20">
       <hr className="section-divider absolute inset-x-0 top-0" />
       <div className="container mx-auto px-4">
-        <div className="mx-auto mb-12 max-w-2xl text-center">
-          <h2 id="framework-principles" className="section-accent mb-6 text-3xl font-bold md:text-4xl">
+        <div className="mx-auto mb-10 max-w-2xl text-center md:mb-12">
+          <h2 id="framework-principles" className="section-accent mb-3 text-3xl font-bold tracking-tight md:text-4xl">
             Built around four principles
           </h2>
-          <p className="text-lg text-fd-muted-foreground">
+          <p className="text-base font-medium text-fd-foreground/70 md:text-lg">
             Every decision optimizes for clarity, composability, and long-term maintainability.
           </p>
         </div>
-        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
           {principles.map((principle) => {
             const Icon = principle.icon;
             const color = `var(${principle.colorVar})`;
             return (
               <div
                 key={principle.title}
-                className="flex flex-col items-center rounded-xl border border-fd-border bg-fd-card/40 p-4 text-center transition-colors hover:border-[color-mix(in_srgb,var(--brand-link)_35%,var(--color-fd-border))] sm:p-5"
+                className="flex flex-col rounded-xl border border-fd-border bg-fd-card/40 p-6 text-left transition-colors hover:border-[color-mix(in_srgb,var(--brand-link)_35%,var(--color-fd-border))]"
               >
                 <div
-                  className="mb-3 inline-flex size-12 items-center justify-center rounded-xl"
+                  className="mb-4 inline-flex size-9 items-center justify-center rounded-lg"
                   style={{
                     backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
                     border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
                   }}
                 >
-                  <Icon className="size-6" style={{ color }} aria-hidden="true" />
+                  <Icon className="size-5" style={{ color }} aria-hidden="true" />
                 </div>
-                <h3 className="mb-1 text-lg font-semibold">{principle.title}</h3>
-                <p className="text-sm text-fd-muted-foreground">{principle.description}</p>
+                <h3 className="mb-2 text-lg font-semibold tracking-tight">{principle.title}</h3>
+                <p className="mb-4 flex-1 text-sm leading-relaxed text-fd-muted-foreground">
+                  {principle.description}
+                </p>
+                <span
+                  className="inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-medium tracking-wide"
+                  style={{
+                    color,
+                    backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`,
+                  }}
+                >
+                  {principle.keyword}
+                </span>
               </div>
             );
           })}

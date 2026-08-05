@@ -85,7 +85,7 @@ const PAD = 'px-4 sm:px-5';
 export function HeroCodeExample() {
   return (
     <div className="w-full animate-fade-up animate-delay-500">
-      <div className="group relative overflow-hidden rounded-[12px] border border-black/[0.08] bg-[var(--code-bg)] shadow-[0_8px_28px_-14px_rgba(0,0,0,0.18)] dark:border-white/[0.08] dark:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.45)]">
+      <div className="group relative overflow-hidden rounded-[12px] border border-black/[0.08] bg-[var(--code-bg)] shadow-[0_12px_36px_-12px_rgba(0,0,0,0.22)] dark:border-white/[0.08] dark:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.55)]">
         {/* Header: name semibold · TypeScript is quiet metadata */}
         <div className={`flex items-center justify-between gap-3 border-b border-black/[0.08] bg-[var(--code-bg-header)] py-1.5 dark:border-white/[0.08] ${PAD}`}>
           <div className="min-w-0 text-left">
@@ -101,9 +101,9 @@ export function HeroCodeExample() {
           </span>
         </div>
 
-        {/* Code — tight vertical padding, same left edge as header */}
+        {/* Code — +1px type scale, same left edge as header */}
         <pre className={`overflow-x-auto py-2 text-left leading-[1.5] sm:py-2.5 ${PAD}`} tabIndex={0}>
-          <code className="text-[13px] font-mono sm:text-sm">{highlightedCode}</code>
+          <code className="text-sm font-mono">{highlightedCode}</code>
         </pre>
 
         {/* Output = the request the example serves — completes the story */}
