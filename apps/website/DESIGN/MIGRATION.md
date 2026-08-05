@@ -4,7 +4,7 @@
 - **Status:** Plan (no code migrated yet — design documents first, per ADR Phase 1)
 - **Owns:** the audit of the current `apps/website/src/app/global.css` and the incremental, non-breaking rollout. Values live in `TOKENS.md`; rules in `DESIGN.md`/`DESIGN_PLAYBOOK.md`.
 
-This plan is deliberately **additive-first**: new token layers are introduced *before* anything consumes them, Electric Rush is *scoped* (not deleted) into Brand Mode, and every phase is independently shippable and revertible. Nothing here is a big-bang rewrite.
+This plan is deliberately **additive-first**: new token layers are introduced *before* anything consumes them, the orange brand identity (see `BRAND.md`) is *scoped* (not deleted) into Brand Mode, and every phase is independently shippable and revertible. Nothing here is a big-bang rewrite.
 
 ---
 
@@ -25,12 +25,12 @@ This plan is deliberately **additive-first**: new token layers are introduced *b
 
 | Current | Verdict | Target |
 | ------- | ------- | ------ |
-| `--rush-blue` | **Migrate** | `--brand-600`/`--brand-400` (Foundation) → `--brand-link` (Semantic). Brand hue unchanged. |
+| `--rush-blue` | **Migrate** | `--brand-600`/`--brand-700` (Foundation) → `--brand-link` (Semantic). Brand hue becomes orange `#F16913`; link = `#BC4E08` light / `#FF8A34` dark (AA). |
 | `--rush-purple`, `--rush-cyan`, `--rush-green` | **Migrate / Remove (→ Brand)** | Map to `--learning-*` + `--status-*` where they carry meaning; decorative uses go to Brand Mode. |
 | `--rush-gradient`, `--rush-gradient-accent` | **Remove (→ Brand)** | No gradients in Documentation Mode. |
 | `--success`, `--warning`, `--danger`, `--info` | **Migrate** | `--status-*` (Foundation hues) + add the `-text` AA-safe variants (`TOKENS.md` §3.4/§4.5). |
-| `--text-primary/-secondary/-muted/-subtle` | **Keep / Migrate** | Keep the names (already semantic + AA-fixed). Re-point values to the canonical ramp; note the dark **secondary** shifts `#94A3B8 → #CBD5E1` and dark muted takes `#94A3B8` (a real step-up, see `TOKENS.md` §4.2). |
-| `--bg-base/-card/-hover/-border` | **Migrate** | `--surface-page/-card/-elevated` + `--border-*`. Fix the page≠card distinction. |
+| `--text-primary/-secondary/-muted/-subtle` | **Keep / Migrate** | Keep the names (already semantic + AA-fixed). Re-point to the warm-ink values: light `#2A1208/#4E4038/#7A6A60/#B4A79C`, dark `#F5F7FA/#D4D7DD/#99A2AF/#6B7280` (see `TOKENS.md` §4.2). |
+| `--bg-base/-card/-hover/-border` | **Migrate** | `--surface-page` (warm `#FFF9F4`)/`-card`/`-elevated` (`#F7EDE1`) + `--border-*`. Fix the page≠card distinction. |
 | `--code-bg/-header/-border`, `--code-keyword…` | **Keep** | Map to `--surface-code` + calm syntax tokens; keep the non-black, non-neon theme. |
 | `--color-fd-*` (hand-set overrides) | **Replace** | Derive from Semantic tokens via the Platform bridge (`TOKENS.md` §6). Never hand-set again. |
 | `--color-fd-muted-foreground` overrides | **Replace** | Comes from `--text-muted` through the bridge. |
@@ -77,7 +77,7 @@ Point `--color-fd-*` at Semantic tokens (`TOKENS.md` §6) and remove the decorat
 Component-by-component (`doc-page.tsx`, `mental-model.tsx`, `page-actions.tsx`, tables, callouts…), swap literals/`--rush-*` for Semantic tokens and drop gradient/glow utility usage on docs surfaces. One small PR per component. **Done-condition per PR:** no literal hex remains in the touched component; playbook checklist passes.
 
 ### Phase 4 — Mode boundary
-Scope the Electric Rush utilities (`.gradient-*`, `.glow*`, `.dot-grid`, `.noise-overlay`, blobs) to Brand-Mode routes only (`(home)`, `showcase`, `community`, blog) via a wrapper class/layout; ensure they no longer resolve on `/docs/**`. **Done-condition:** grep shows zero Brand-Mode utility usage under docs layout; home page visually unchanged.
+Scope the brand utilities (`.gradient-*`, `.glow*`, `.dot-grid`, `.noise-overlay`, blobs) to Brand-Mode routes only (`(home)`, `showcase`, `community`, blog) via a wrapper class/layout; ensure they no longer resolve on `/docs/**`. **Done-condition:** grep shows zero Brand-Mode utility usage under docs layout; home page visually unchanged.
 
 ### Phase 5 — Learning colors
 Implement the locked learning map (`TOKENS.md` §5) in the mental-model component, concept badges, and diagrams — always icon + label. **Done-condition:** every concept renders its locked color+icon identically across intro page, lifecycle diagram, and concept badge.

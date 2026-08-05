@@ -1,8 +1,9 @@
-import { ArrowRight, GitFork, Globe, Package, ShieldCheck, Star, Zap } from 'lucide-react';
+import { ArrowRight, GitFork, Globe, Package, ShieldCheck, Star } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { CopyButton } from '@/components/copy-button';
 import { HeroCodeExample } from '@/components/home/hero-code-example';
+import { Logo } from '@/components/logo';
 import { DOCS_GETTING_STARTED } from '@/lib/docs-links';
 
 const runtimeBadges = [
@@ -121,7 +122,7 @@ export function Hero() {
           </div>
 
           <div className="mb-4 flex items-center gap-2.5 animate-fade-up animate-delay-100">
-            <Zap className="size-7 text-[var(--rush-blue)] md:size-10" aria-hidden="true" />
+            <Logo className="size-7 md:size-10" aria-hidden="true" />
             <h1 className="text-5xl font-bold gradient-text md:text-7xl">NextRush</h1>
           </div>
 

@@ -194,7 +194,7 @@ Every page type uses the same language; the recipe sets width, surfaces, and whi
 
 | Page type | Mode | Default width | Signature components |
 | --------- | ---- | ------------- | -------------------- |
-| Landing / home | **Brand** | full | hero (Electric Rush), feature grid, CTA |
+| Landing / home | **Brand** | full | hero (brand identity — `BRAND.md`), feature grid, CTA |
 | Learn / Start | Docs | technical | hero, mental-model visual, next-steps journey |
 | Guide | Docs | technical | steps, code, callouts, related links |
 | Tutorial | Docs | technical | steps, code groups, checkpoints |
@@ -209,7 +209,7 @@ Every page type uses the same language; the recipe sets width, surfaces, and whi
 | Migration guide | Docs | technical | before/after code, callouts, checklist |
 | 404 / Search results | Docs | technical | the state patterns above |
 
-Rule: **Brand-Mode surfaces may express Electric Rush; every Docs-Mode surface follows this playbook exactly.** The boundary is the route, not the author's mood.
+Rule: **Brand-Mode surfaces may express the brand identity (see `BRAND.md`); every Docs-Mode surface follows this playbook exactly.** The boundary is the route, not the author's mood.
 
 ---
 
