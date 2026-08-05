@@ -32,7 +32,7 @@ export function Hero() {
           <div className="relative mb-6 flex items-center gap-3 animate-fade-up animate-delay-100">
             <div
               aria-hidden
-              className="absolute -inset-x-6 -inset-y-4 -z-10 rounded-full bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--brand-500)_14%,transparent)_0%,transparent_70%)]"
+              className="absolute -inset-x-8 -inset-y-5 -z-10 rounded-full bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--brand-500)_20%,transparent)_0%,transparent_68%)]"
             />
             <Logo className="size-9 md:size-14" aria-hidden="true" />
             <h1 className="text-5xl font-bold text-[#F16913] md:text-6xl">NextRush</h1>

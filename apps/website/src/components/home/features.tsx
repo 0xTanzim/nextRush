@@ -44,48 +44,74 @@ const features = [
     colorVar: '--danger',
     emphasis: false,
   },
-];
+] as const;
 
 export function Features() {
   return (
-    <section aria-labelledby="framework-capabilities" className="relative bg-fd-muted/40 py-24">
+    <section aria-labelledby="framework-capabilities" className="relative bg-fd-muted/40 py-16 md:py-24">
       <hr className="section-divider absolute inset-x-0 top-0" />
       <div className="container mx-auto px-4">
-        <div className="mx-auto mb-16 max-w-2xl text-center">
-          <h2 id="framework-capabilities" className="section-accent mb-6 text-3xl font-bold md:text-4xl">
+        {/* Hero element of the section: the pipeline, then supporting cards */}
+        <div className="mx-auto mb-10 max-w-2xl text-center md:mb-12">
+          <h2
+            id="framework-capabilities"
+            className="section-accent mb-3 text-3xl font-bold tracking-tight md:text-4xl"
+          >
             An explicit stack, not a magic box
           </h2>
-          <p className="mb-8 text-lg text-fd-muted-foreground">
+          <p className="text-base font-medium text-fd-foreground/70 md:text-lg">
             Keep the request path understandable and add capabilities only where they solve a real application need.
+          </p>
+        </div>
+
+        <div className="mx-auto mb-12 max-w-4xl rounded-2xl border border-fd-border bg-fd-card/50 px-4 py-6 sm:px-6">
+          <p className="mb-4 text-center text-xs font-medium uppercase tracking-[0.1em] text-fd-muted-foreground/70">
+            Request lifecycle
           </p>
           <RequestLifecycle />
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => {
             const Icon = feature.icon;
             const color = `var(${feature.colorVar})`;
             return (
               <div
                 key={feature.title}
-                className={`group rounded-2xl p-6 card-glow card-gradient-border transition-transform hover:-translate-y-1${
-                  feature.emphasis ? ' ring-1 ring-[var(--brand-link)]/20' : ''
-                }`}
+                className={
+                  feature.emphasis
+                    ? 'group rounded-2xl border border-[color-mix(in_srgb,var(--brand-link)_22%,var(--color-fd-border))] bg-fd-card p-6 shadow-[0_10px_32px_-18px_rgba(0,0,0,0.18)] transition-transform hover:-translate-y-0.5 dark:shadow-[0_10px_32px_-18px_rgba(0,0,0,0.45)]'
+                    : 'group rounded-2xl border border-fd-border/80 bg-fd-card/40 p-6 transition-colors hover:border-fd-border'
+                }
                 style={{ '--feature-color': color } as React.CSSProperties}
               >
                 <div
-                  className={`mb-4 inline-flex items-center justify-center rounded-xl ${
-                    feature.emphasis ? 'size-16' : 'size-14'
+                  className={`mb-4 inline-flex items-center justify-center rounded-lg ${
+                    feature.emphasis ? 'size-11' : 'size-9'
                   }`}
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${color} ${feature.emphasis ? 18 : 12}%, transparent)`,
-                    border: `1px solid color-mix(in srgb, ${color} ${feature.emphasis ? 26 : 22}%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${color} ${feature.emphasis ? 16 : 10}%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${color} ${feature.emphasis ? 24 : 16}%, transparent)`,
                   }}
                 >
-                  <Icon className={feature.emphasis ? 'size-8' : 'size-7'} style={{ color }} aria-hidden="true" />
+                  <Icon className={feature.emphasis ? 'size-5' : 'size-4'} style={{ color }} aria-hidden="true" />
                 </div>
-                <h3 className="mb-2 text-xl font-semibold">{feature.title}</h3>
-                <p className="text-fd-muted-foreground">{feature.description}</p>
+                <h3
+                  className={`mb-2 tracking-tight ${
+                    feature.emphasis ? 'text-lg font-semibold' : 'text-base font-semibold text-fd-foreground/90'
+                  }`}
+                >
+                  {feature.title}
+                </h3>
+                <p
+                  className={
+                    feature.emphasis
+                      ? 'text-sm leading-relaxed text-fd-muted-foreground'
+                      : 'text-sm leading-relaxed text-fd-muted-foreground/85'
+                  }
+                >
+                  {feature.description}
+                </p>
               </div>
             );
           })}
