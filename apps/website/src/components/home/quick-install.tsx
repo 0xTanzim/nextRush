@@ -29,14 +29,16 @@ export function QuickInstall() {
 
   return (
     /* Platforms → Install ≈ 64px (proof pb-16 + this pt-0 feel); full section rhythm */
-    <section aria-labelledby="install-first-app" className="relative bg-fd-muted/40 py-16 md:py-20">
+    <section aria-labelledby="install-first-app" className="relative bg-fd-muted/40 py-14 md:py-16">
       <hr className="section-divider absolute inset-x-0 top-0" />
       <div className="container mx-auto px-4">
-        <div className="mb-10 text-center">
-          <h2 id="install-first-app" className="section-accent mb-4 text-3xl font-bold md:text-4xl">
+        <div className="mb-8 text-center">
+          <h2 id="install-first-app" className="section-accent mb-3 text-3xl font-bold tracking-tight md:text-4xl">
             Install your first app
           </h2>
-          <p className="text-lg text-fd-muted-foreground">Three commands. One running server.</p>
+          <p className="text-base font-medium text-fd-foreground/70 md:text-lg">
+            Three commands. One running server.
+          </p>
         </div>
 
         <div className="mx-auto max-w-[720px]">

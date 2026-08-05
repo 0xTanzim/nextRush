@@ -1,7 +1,6 @@
 import { ArrowRight, BookOpen, Layers, Rocket } from 'lucide-react';
 import Link from 'next/link';
 import { DOCS_GETTING_STARTED, DOCS_GETTING_STARTED_OVERVIEW } from '@/lib/docs-links';
-import { RequestLifecycle } from '@/components/home/request-lifecycle';
 
 const nextSteps = [
   {
@@ -64,14 +63,14 @@ const packageGroups = [
 export function HomeExplore() {
   return (
     <>
-      <section aria-labelledby="explore-next" className="relative bg-fd-background py-24">
+      <section aria-labelledby="explore-next" className="relative bg-fd-background py-16 md:py-20">
         <hr className="section-divider absolute inset-x-0 top-0" />
         <div className="container mx-auto px-4">
-          <div className="mx-auto mb-12 max-w-2xl text-center">
-            <h2 id="explore-next" className="section-accent mb-6 text-3xl font-bold md:text-4xl">
+          <div className="mx-auto mb-10 max-w-2xl text-center">
+            <h2 id="explore-next" className="section-accent mb-3 text-3xl font-bold tracking-tight md:text-4xl">
               Choose your next step
             </h2>
-            <p className="text-lg text-fd-muted-foreground">
+            <p className="text-base font-medium text-fd-foreground/70 md:text-lg">
               Learn the model first, then move into architecture or task-focused documentation.
             </p>
           </div>
@@ -116,24 +115,44 @@ export function HomeExplore() {
         </div>
       </section>
 
-      <section aria-labelledby="packages" className="relative bg-fd-muted/40 py-28">
+      <section aria-labelledby="packages" className="relative bg-fd-muted/40 py-16 md:py-20">
         <hr className="section-divider absolute inset-x-0 top-0" />
         <div className="container mx-auto px-4">
-          <div className="mx-auto mb-10 max-w-3xl text-center lg:mb-8 lg:max-w-none lg:text-left">
-            <h2 id="packages" className="section-accent mb-6 text-3xl font-bold md:text-4xl">
+          {/* Left-aligned on desktop — breaks the all-center monotony */}
+          <div className="mx-auto mb-8 max-w-6xl text-center lg:mb-10 lg:text-left">
+            <h2 id="packages" className="section-accent mb-3 text-3xl font-bold tracking-tight md:text-4xl">
               Small packages. Explicit composition.
             </h2>
-            <p className="text-lg text-fd-muted-foreground">
-              Install only what your application needs — start with the core, then add capabilities as your application grows.
+            <p className="max-w-2xl text-base font-medium text-fd-foreground/70 md:text-lg lg:mx-0 mx-auto">
+              Install only what your application needs — start with the core, then add capabilities as your application
+              grows.
+            </p>
+            {/* Ecosystem spine — Core → Capabilities → Tooling */}
+            <p
+              className="mt-5 hidden items-center gap-2 text-sm text-fd-muted-foreground lg:flex"
+              aria-hidden="true"
+            >
+              <span className="font-medium text-fd-foreground">Core</span>
+              <span className="text-fd-border">→</span>
+              <span>Class-based</span>
+              <span className="text-fd-border">→</span>
+              <span>Capabilities</span>
+              <span className="text-fd-border">→</span>
+              <span>Tooling</span>
             </p>
           </div>
-          <div className="mb-12 rounded-2xl border border-fd-border bg-fd-card/40 px-4 py-6">
-            <RequestLifecycle />
-          </div>
           <div className="mx-auto grid max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {packageGroups.map((group) => (
-              <section key={group.title} className="rounded-2xl p-5 card-glow card-gradient-border">
-                <h3 className="mb-4 text-lg font-semibold">{group.title}</h3>
+            {packageGroups.map((group, index) => (
+              <section
+                key={group.title}
+                className={`rounded-2xl border border-fd-border bg-fd-card/50 p-6 ${
+                  index === 0 ? 'ring-1 ring-[var(--brand-link)]/15' : ''
+                }`}
+              >
+                <h3 className="mb-1 text-base font-semibold tracking-tight">{group.title}</h3>
+                <p className="mb-4 text-[11px] font-medium uppercase tracking-wider text-fd-muted-foreground/60">
+                  {index === 0 ? 'Start here' : index === 3 ? 'Dev tooling' : 'Optional'}
+                </p>
                 <ul className="space-y-4">
                   {group.packages.map(([name, description]) => (
                     <li key={name}>
@@ -146,7 +165,9 @@ export function HomeExplore() {
                         <span className="block font-mono text-sm font-semibold text-[#057088] dark:text-[var(--learning-context)] group-hover:underline">
                           {name}
                         </span>
-                        <span className="mt-1 block text-sm text-fd-muted-foreground">{description}</span>
+                        <span className="mt-1 block text-sm leading-relaxed text-fd-muted-foreground">
+                          {description}
+                        </span>
                       </a>
                     </li>
                   ))}
@@ -154,7 +175,7 @@ export function HomeExplore() {
               </section>
             ))}
           </div>
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center lg:text-left">
             <a
               href="https://www.npmjs.com/~0xtanzim"
               target="_blank"
