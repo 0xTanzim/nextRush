@@ -44,7 +44,7 @@ function ThemeToggle() {
       type="button"
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
       aria-label="Toggle theme"
-      className="inline-flex size-10 items-center justify-center rounded-md text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
+      className="inline-flex size-9 items-center justify-center rounded-md text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
     >
       {mounted && resolvedTheme === 'dark' ? (
         <Sun className="size-4" aria-hidden />
@@ -104,30 +104,36 @@ export function SiteHeader({ version }: { version: string }) {
   const isDocsRoute = pathname.startsWith('/docs');
 
   return (
-    <header className="[grid-area:header] sticky top-0 z-40 flex h-[var(--fd-nav-height)] items-center gap-1.5 overflow-x-hidden border-b border-fd-border bg-fd-background/95 px-3 backdrop-blur-sm supports-backdrop-filter:bg-fd-background/60 sm:px-4">
-      {isDocsRoute && (
-        <SidebarTrigger
-          className="-ms-1 me-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-md text-fd-muted-foreground hover:bg-fd-accent hover:text-fd-accent-foreground lg:hidden"
-          aria-label="Open sidebar"
-        >
-          <Menu className="size-5" aria-hidden />
-        </SidebarTrigger>
-      )}
+    <header className="[grid-area:header] sticky top-0 z-40 grid h-[var(--fd-nav-height)] grid-cols-[auto_1fr_auto] items-center gap-2 overflow-x-hidden border-b border-fd-border/70 bg-fd-background/85 px-3 backdrop-blur-md supports-backdrop-filter:bg-fd-background/60 sm:px-4">
+      {/* Zone 1 — logo + sidebar trigger (left) */}
+      <div className="flex min-w-0 items-center gap-1">
+        {isDocsRoute && (
+          <SidebarTrigger
+            className="-ms-1 me-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-md text-fd-muted-foreground hover:bg-fd-accent hover:text-fd-accent-foreground lg:hidden"
+            aria-label="Open sidebar"
+          >
+            <Menu className="size-5" aria-hidden />
+          </SidebarTrigger>
+        )}
 
-      <Link href="/" aria-label="NextRush home" className="me-1 inline-flex size-10 shrink-0 items-center justify-center rounded-md text-fd-foreground transition-colors hover:bg-fd-accent">
-        <Logo className="size-5 shrink-0" aria-hidden />
-        <span className="gradient-text ml-2 hidden sm:inline">NextRush</span>
-      </Link>
+        <Link href="/" aria-label="NextRush home" className="inline-flex shrink-0 items-center gap-2.5 rounded-md text-fd-foreground transition-colors hover:bg-fd-accent">
+          <Logo className="size-5 shrink-0" aria-hidden />
+          <span className="hidden text-sm font-semibold tracking-tight text-fd-foreground sm:inline">
+            NextRush
+          </span>
+        </Link>
 
-      <MobileNavMenu pathname={pathname} version={version} />
+        <MobileNavMenu pathname={pathname} version={version} />
+      </div>
 
-      <nav aria-label="Site navigation" className="ms-2 hidden min-w-0 items-center gap-1 xl:flex">
+      {/* Zone 2 — primary navigation (center anchor) */}
+      <nav aria-label="Site navigation" className="hidden min-w-0 items-center justify-center gap-0.5 xl:flex">
         {NAV_LINKS.map((link) => (
           <Link
             key={link.href}
             href={link.href}
             className={cn(
-              'inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors',
+              'inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
               isActive(pathname, link.href)
                 ? 'relative text-fd-primary after:absolute after:inset-x-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-fd-primary'
                 : 'text-fd-muted-foreground hover:text-fd-foreground'
@@ -138,27 +144,28 @@ export function SiteHeader({ version }: { version: string }) {
         ))}
       </nav>
 
-      <div className="ms-auto flex min-w-0 shrink items-center gap-1.5 sm:gap-2">
+      {/* Zone 3 — actions (right, one group) */}
+      <div className="flex min-w-0 shrink items-center justify-end gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={() => setOpenSearch(true)}
-          className="inline-flex h-10 items-center gap-2 rounded-md border border-fd-border bg-fd-card px-3 text-sm text-fd-muted-foreground transition-colors hover:border-fd-foreground/30 hover:text-fd-foreground"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-fd-border bg-fd-card px-2 text-sm text-fd-muted-foreground transition-colors hover:border-fd-foreground/30 hover:text-fd-foreground"
         >
           <Search className="size-4" aria-hidden />
-          <span className="hidden sm:inline">Search docs</span>
+          <span className="hidden xl:inline">Search</span>
         </button>
         <Link
           href="https://github.com/0xTanzim/nextrush"
           target="_blank"
           rel="noreferrer"
           aria-label="GitHub"
-          className="hidden size-10 items-center justify-center rounded-md text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground sm:inline-flex"
+          className="hidden size-9 items-center justify-center rounded-md text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground sm:inline-flex"
         >
           <GitFork className="size-4" aria-hidden />
         </Link>
         <ThemeToggle />
         <AskAiTrigger />
-        <span className="hidden min-h-10 items-center rounded-md border border-fd-border px-2 text-xs font-medium text-fd-muted-foreground sm:inline-flex">
+        <span className="hidden min-h-9 items-center rounded-md border border-fd-border px-2 text-xs font-medium text-fd-muted-foreground sm:inline-flex">
           v{version}
         </span>
       </div>

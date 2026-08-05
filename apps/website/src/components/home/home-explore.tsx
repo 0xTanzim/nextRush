@@ -64,11 +64,11 @@ const packageGroups = [
 export function HomeExplore() {
   return (
     <>
-      <section aria-labelledby="explore-next" className="relative py-24">
+      <section aria-labelledby="explore-next" className="relative bg-fd-background py-24">
         <hr className="section-divider absolute inset-x-0 top-0" />
         <div className="container mx-auto px-4">
           <div className="mx-auto mb-12 max-w-2xl text-center">
-            <h2 id="explore-next" className="mb-4 text-3xl font-bold md:text-4xl">
+            <h2 id="explore-next" className="section-accent mb-6 text-3xl font-bold md:text-4xl">
               Choose your next step
             </h2>
             <p className="text-lg text-fd-muted-foreground">
@@ -85,8 +85,8 @@ export function HomeExplore() {
                   href={step.href}
                   className={
                     isPrimary
-                      ? 'group relative rounded-xl p-6 card-glow card-gradient-border ring-1 ring-[var(--brand-link)]/40 shadow-[0_12px_40px_-16px_var(--brand-link)] md:col-span-1 md:row-span-1 md:scale-[1.02]'
-                      : 'group rounded-xl p-6 card-glow card-gradient-border'
+                      ? 'group relative rounded-2xl p-6 card-glow card-gradient-border ring-1 ring-[var(--brand-link)]/40 shadow-[0_12px_40px_-16px_var(--brand-link)] md:col-span-1 md:row-span-1 md:scale-[1.02]'
+                      : 'group rounded-2xl p-6 card-glow card-gradient-border'
                   }
                 >
                   {isPrimary && (
@@ -116,23 +116,23 @@ export function HomeExplore() {
         </div>
       </section>
 
-      <section aria-labelledby="packages" className="relative bg-fd-muted/40 py-24">
+      <section aria-labelledby="packages" className="relative bg-fd-muted/40 py-28">
         <hr className="section-divider absolute inset-x-0 top-0" />
         <div className="container mx-auto px-4">
           <div className="mx-auto mb-10 max-w-3xl text-center lg:mb-8 lg:max-w-none lg:text-left">
-            <h2 id="packages" className="mb-4 text-3xl font-bold md:text-4xl">
+            <h2 id="packages" className="section-accent mb-6 text-3xl font-bold md:text-4xl">
               Small packages. Explicit composition.
             </h2>
             <p className="text-lg text-fd-muted-foreground">
               Install only what your application needs — start with the core, then add capabilities as your application grows.
             </p>
           </div>
-          <div className="mb-12 rounded-xl border border-fd-border bg-fd-card/40 px-4 py-6">
+          <div className="mb-12 rounded-2xl border border-fd-border bg-fd-card/40 px-4 py-6">
             <RequestLifecycle />
           </div>
           <div className="mx-auto grid max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {packageGroups.map((group) => (
-              <section key={group.title} className="rounded-xl p-5 card-glow card-gradient-border">
+              <section key={group.title} className="rounded-2xl p-5 card-glow card-gradient-border">
                 <h3 className="mb-4 text-lg font-semibold">{group.title}</h3>
                 <ul className="space-y-4">
                   {group.packages.map(([name, description]) => (
