@@ -1,6 +1,6 @@
-import { Zap } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Logo } from '@/components/logo';
 
 const runtimeLinks = [
   { name: 'Node.js', icon: '/icons/nodejs.svg', href: '/docs/getting-started' },
@@ -60,7 +60,7 @@ export function HomeFooter() {
         <div className="mx-auto grid max-w-6xl gap-10 sm:grid-cols-2 lg:grid-cols-6">
           <div className="lg:col-span-1">
             <div className="mb-3 flex items-center gap-2">
-              <Zap className="size-5 text-[var(--rush-blue)]" aria-hidden="true" />
+              <Logo className="size-5 shrink-0" aria-hidden="true" />
               <span className="font-bold">NextRush</span>
             </div>
             <p className="text-sm text-fd-muted-foreground">

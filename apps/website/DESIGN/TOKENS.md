@@ -59,16 +59,16 @@ Foundation tokens keep numeric scales (`--brand-600`, `--neutral-100`). Semantic
 
 These are theme-independent primitives. They are referenced *only* by the Semantic layer.
 
-### 3.1 Brand (blue — the one interaction hue, unchanged from Electric Rush)
+### 3.1 Brand (orange — the one interaction hue, anchored on the shipped logo `#F16913`)
+
+> The 2.0 rebrand replaced the blue Electric Rush ramp with the orange ramp below. `#F16913` (500) matches the logo mark; 600/700 are the user-approved hover/active steps; 50–300 are light tints derived from 500. The ramp is deliberately lean — a documentation site doesn't need an 11-step brand scale. Semantic roles that need AA text contrast (link, hover) use dedicated darker shades beyond the ramp (see §4.4).
 
 | Token         | Value     | Token         | Value     |
 | ------------- | --------- | ------------- | --------- |
-| `--brand-50`  | `#EFF6FF` | `--brand-500` | `#3B82F6` |
-| `--brand-100` | `#DBEAFE` | `--brand-600` | `#2563EB` |
-| `--brand-200` | `#BFDBFE` | `--brand-700` | `#1D4ED8` |
-| `--brand-300` | `#93C5FD` | `--brand-800` | `#1E40AF` |
-| `--brand-400` | `#60A5FA` | `--brand-900` | `#1E3A8A` |
-|               |           | `--brand-950` | `#172554` |
+| `--brand-50`  | `#FFF2E6` | `--brand-500` | `#F16913` |
+| `--brand-100` | `#FFE0C2` | `--brand-600` | `#DB5E10` |
+| `--brand-200` | `#FFC48A` | `--brand-700` | `#C5530E` |
+| `--brand-300` | `#FFA04D` |               |           |
 
 ### 3.2 Neutral (one canonical slate ramp, `50` = lightest → `950` = darkest, in **both** themes)
 
@@ -83,16 +83,16 @@ These are theme-independent primitives. They are referenced *only* by the Semant
 | `--neutral-300`| `#CBD5E1` | `--neutral-900`| `#0F172A` |
 | `--neutral-400`| `#94A3B8` | `--neutral-950`| `#020617` |
 
-### 3.3 Ink (dark-theme surface steps — bluer than pure slate, for a calm ink feel)
+### 3.3 Ink (dark-theme surface steps — graphite, warmer than pure slate, for a calm deep feel)
 
-Dark surfaces need finer steps than the slate ramp gives, so they live as their own primitives.
+Dark surfaces need finer steps than the slate ramp gives, so they live as their own primitives. Adopted from the 2.0 rebrand draft (was cool-slate `#0B1120…`).
 
 | Token         | Value     | Used for (dark)     |
 | ------------- | --------- | ------------------- |
-| `--ink-page`  | `#0B1120` | page background     |
-| `--ink-sidebar`| `#0E1524`| sidebar             |
-| `--ink-card`  | `#151D2E` | card / content well |
-| `--ink-elevated`| `#1E2739`| popover, hover, inline code |
+| `--ink-page`  | `#0D1117` | page background     |
+| `--ink-sidebar`| `#111827`| sidebar             |
+| `--ink-card`  | `#161B22` | card / content well |
+| `--ink-elevated`| `#1B2432`| popover, hover, inline code |
 | `--ink-code`  | `#0A0F1C` | code block          |
 
 ### 3.4 Status hues (foundation)
@@ -113,7 +113,7 @@ See [§5 Learning colors](#5-learning-colors) for the rules. Raw values only her
 
 | Concept       | light     | dark      |
 | ------------- | --------- | --------- |
-| application   | `#2563EB` | `#60A5FA` |
+| application   | `#F16913` | `#FF8A34` |
 | middleware    | `#7C3AED` | `#A78BFA` |
 | router        | `#EA580C` | `#FB923C` |
 | context       | `#0891B2` | `#22D3EE` |
@@ -133,11 +133,11 @@ Adjacent layers are always visually distinct (the 1.0 draft made `page` and `car
 
 | Semantic token       | Light      | Dark (ink) | Role                                   |
 | -------------------- | ---------- | ---------- | -------------------------------------- |
-| `--surface-page`     | `#FBFCFE`  | `#0B1120`  | outermost background                   |
-| `--surface-sidebar`  | `#F7F9FC`  | `#0E1524`  | sidebar / secondary nav                |
-| `--surface-card`     | `#FFFFFF`  | `#151D2E`  | content card, the reading well         |
-| `--surface-elevated` | `#F1F5F9`  | `#1E2739`  | popover, menu, hover, inline code chip |
-| `--surface-code`     | `#F8FAFC`  | `#0A0F1C`  | code block                             |
+| `--surface-page`     | `#FFF9F4`  | `#0D1117`  | outermost background — warm paper      |
+| `--surface-sidebar`  | `#FFFCF9`  | `#111827`  | sidebar / secondary nav                |
+| `--surface-card`     | `#FFFFFF`  | `#161B22`  | content card, the reading well         |
+| `--surface-elevated` | `#F7EDE1`  | `#1B2432`  | popover, menu, hover, inline code chip |
+| `--surface-code`     | `#FBF3EA`  | `#0A0F1C`  | code block                             |
 
 Depth order (each step must read as a distinct plane): **page → sidebar → card → elevated → code**. Never place two identical surfaces adjacent.
 
@@ -145,22 +145,22 @@ Depth order (each step must read as a distinct plane): **page → sidebar → ca
 
 | Semantic token     | Light      | Dark       | Use                                        |
 | ------------------ | ---------- | ---------- | ------------------------------------------ |
-| `--text-primary`   | `#0F172A`  | `#F1F5F9`  | headings, body                             |
-| `--text-secondary` | `#334155`  | `#CBD5E1`  | supporting body, text on tinted surfaces   |
-| `--text-muted`     | `#64748B`  | `#94A3B8`  | metadata, captions — **on page/card only** |
-| `--text-subtle`    | `#94A3B8`  | `#64748B`  | **non-text only** — dividers, disabled, decorative |
-| `--text-link`      | `#2563EB`  | `#60A5FA`  | links (= `--brand-link`)                   |
+| `--text-primary`   | `#2A1208`  | `#F5F7FA`  | headings, body                             |
+| `--text-secondary` | `#4E4038`  | `#D4D7DD`  | supporting body, text on tinted surfaces   |
+| `--text-muted`     | `#7A6A60`  | `#99A2AF`  | metadata, captions — **on page/card only** |
+| `--text-subtle`    | `#B4A79C`  | `#6B7280`  | **non-text only** — dividers, disabled, decorative |
+| `--text-link`      | `#BC4E08`  | `#FF8A34`  | links (= `--brand-link`)                   |
 
-> **Contrast rule that bites:** `--text-muted` passes AA on `--surface-page`/`--surface-card` but **fails on `--surface-elevated`** in light mode (4.34:1). On any tinted surface, step up to `--text-secondary`. `--text-subtle` never carries meaning — it is decoration or disabled state, and always has a non-color backup (§7).
+> **Contrast rule that bites:** `--text-muted` passes AA on `--surface-page`/`--surface-card` but **still fails on `--surface-elevated`** in light mode (4.47:1 — warm paper improved it from 4.34 but not past 4.5). On any tinted surface, step up to `--text-secondary`. `--text-subtle` never carries meaning — it is decoration or disabled state, and always has a non-color backup (§7).
 
 ### 4.3 Borders
 
 | Semantic token        | Light     | Dark      | Use                                              |
 | --------------------- | --------- | --------- | ------------------------------------------------ |
-| `--border-subtle`     | `#EEF2F7` | `#1E293B` | hairline reinforcement, table row dividers        |
-| `--border-default`    | `#E2E8F0` | `#273449` | card / section edges (reinforcement, not sole cue) |
-| `--border-strong`     | `#CBD5E1` | `#3A4A63` | emphasis dividers                                 |
-| `--border-interactive`| `#7C8797` | `#64748B` | **form controls, toggles** — meets 3:1 (WCAG 1.4.11) |
+| `--border-subtle`     | `#F6EBDD` | `#273142` | hairline reinforcement, table row dividers        |
+| `--border-default`    | `#EFE3D7` | `#303B4C` | card / section edges (reinforcement, not sole cue) |
+| `--border-strong`     | `#E0CCBA` | `#3A4A63` | emphasis dividers                                 |
+| `--border-interactive`| `#8A7568` | `#64748B` | **form controls, toggles** — meets 3:1 (WCAG 1.4.11) |
 
 > **Depth is not a border.** A `--border-default` hairline is ~1.2:1 against a white card — it cannot be the *sole* signal that something is a group or a control (it fails WCAG 1.4.11's 3:1). Grouping is carried by **surface delta + spacing** first; the border only reinforces. Only a real interactive control (input, checkbox) needs a boundary a user must find — those use `--border-interactive`, which is verified ≥3:1.
 
@@ -168,12 +168,16 @@ Depth order (each step must read as a distinct plane): **page → sidebar → ca
 
 | Semantic token   | Light      | Dark       | Use                          |
 | ---------------- | ---------- | ---------- | ---------------------------- |
-| `--brand-link`   | `#2563EB`  | `#60A5FA`  | links, current nav item      |
-| `--brand-hover`  | `#1D4ED8`  | `#93C5FD`  | link/nav hover               |
-| `--brand-solid`  | `#2563EB`  | `#2563EB`  | primary button fill          |
+| `--brand-link`   | `#BC4E08`  | `#FF8A34`  | links, current nav item      |
+| `--brand-hover`  | `#8F3D08`  | `#FFA25C`  | link/nav hover               |
+| `--brand-solid`  | `#C5530E`  | `#C5530E`  | primary button fill          |
 | `--on-brand`     | `#FFFFFF`  | `#FFFFFF`  | text/icon on `--brand-solid` |
-| `--brand-focus`  | `#3B82F6`  | `#3B82F6`  | focus ring (≥3:1 on page)    |
-| `--brand-wash`   | `#EFF6FF`  | `color-mix(in srgb, var(--brand-500) 14%, transparent)` | selected/active nav background |
+| `--brand-focus`  | `#DB5E10`  | `#F16913`  | focus ring (≥3:1 on page)    |
+| `--brand-wash`   | `#FFF2E6`  | `color-mix(in srgb, var(--brand-500) 14%, transparent)` | selected/active nav background |
+
+> **Why `--brand-solid` is `#C5530E`, not `#F16913`:** the identity orange fails AA for white text (3.10:1). The active-step `#C5530E` holds 4.55:1 with white (`--on-brand`) in both themes, so small primary buttons stay accessible while `#F16913` remains the identity/fill/large-text hue.
+>
+> **Why the text roles sit outside the ramp:** `--brand-link` (`#BC4E08`) and `--brand-hover` (`#8F3D08`) are dedicated shades darker than the ramp's `700` step, because AA-normal text on light surfaces demands more darkness than the interaction steps provide (4.96:1 / 7.40:1 on card). The ramp stays lean; these two are the only out-of-ramp brand values.
 
 Brand color appears only for interaction and current-location. It never fills a hero, tints a card for decoration, or colors an icon that isn't a link. (Enforced by `DESIGN.md` §"Brand".)
 
@@ -206,7 +210,7 @@ A framework's concepts become *recognizable* when each one keeps one immutable c
 
 | Concept     | Hue     | Icon pairing (never color-alone) |
 | ----------- | ------- | -------------------------------- |
-| Application | blue    | box / layers                     |
+| Application | orange  | box / layers                     |
 | Middleware  | violet  | layers / arrows                  |
 | Router      | amber   | signpost / route                 |
 | Context     | cyan    | package / dot                    |
@@ -218,7 +222,9 @@ A framework's concepts become *recognizable* when each one keeps one immutable c
 2. A single visual uses **≤ 5** learning hues. More than that is a rainbow — split the diagram.
 3. **Never color-alone.** Every learning color is paired with an icon and a text label, so it survives colorblindness and grayscale print.
 4. The map is **immutable.** `Router` is amber in the intro mental model, the request-lifecycle sequence diagram, and its concept-page badge — identically. Reassigning a concept's color is a versioned breaking change to this file.
-5. `--learning-application` is the brand blue by design (the Application *is* the core). It only ever appears inside a diagram, never as interactive text, so it can't be mistaken for a link.
+5. `--learning-application` is the brand orange by design (the Application *is* the core). It only ever appears inside a diagram, never as interactive text, so it can't be mistaken for a link.
+
+> **Rebrand note (2.0):** `application` moved blue → brand orange (`#F16913` light / `#FF8A34` dark) with the orange rebrand, aligning the core concept with the logo. `router` amber was deliberately kept — two different oranges in the same diagram would be confusing. This reassignment is itself versioned: any diagram is updated with the rest of the rebrand.
 
 > **Reconciliation note:** an earlier page review suggested middleware=green / router=purple ad hoc. This file overrides that with the locked map above, because green is reserved for `success` + the `runtime` concept (a semantic collision), and consistency across every surface matters more than any one page's local choice. The Introduction page's per-step colors follow *this* table.
 
@@ -258,44 +264,52 @@ Fumadocs renders from `--color-fd-*`. The design system **never hand-sets those*
 
 Ratios below were computed with the WCAG relative-luminance formula. AA thresholds: **4.5:1** normal text, **3:1** large text (≥24px, or ≥19px bold) and UI components/graphical objects (1.4.11).
 
-### Light
+### Light (warm paper)
 
 | Pair                                   | Ratio    | Threshold | Result |
 | -------------------------------------- | -------- | --------- | ------ |
-| text-primary `#0F172A` on card         | 17.85:1  | 4.5       | ✅     |
-| text-secondary `#334155` on card       | 10.35:1  | 4.5       | ✅     |
-| text-muted `#64748B` on card           | 4.76:1   | 4.5       | ✅     |
-| text-muted `#64748B` on page           | 4.64:1   | 4.5       | ✅     |
-| text-muted `#64748B` on **elevated**   | 4.34:1   | 4.5       | ❌ → use `--text-secondary` on tinted |
-| text-secondary on elevated             | 9.45:1   | 4.5       | ✅     |
-| text-subtle `#94A3B8` on card          | 2.56:1   | 4.5       | ⚠️ non-text only |
-| brand-link `#2563EB` on card           | 5.17:1   | 4.5       | ✅     |
-| brand-hover `#1D4ED8` on card          | 6.70:1   | 4.5       | ✅     |
-| on-brand `#FFFFFF` on brand-solid      | 5.17:1   | 4.5       | ✅     |
+| text-primary `#2A1208` on card         | 17.67:1  | 4.5       | ✅     |
+| text-secondary `#4E4038` on card       | 9.93:1   | 4.5       | ✅     |
+| text-muted `#7A6A60` on card           | 5.17:1   | 4.5       | ✅     |
+| text-muted `#7A6A60` on page           | 4.96:1   | 4.5       | ✅     |
+| text-muted `#7A6A60` on **elevated**   | 4.47:1   | 4.5       | ❌ → use `--text-secondary` on tinted |
+| text-secondary on elevated             | 8.59:1   | 4.5       | ✅     |
+| text-subtle `#B4A79C` on card          | 2.35:1   | 4.5       | ⚠️ non-text only |
+| brand-link `#BC4E08` on card           | 4.96:1   | 4.5       | ✅     |
+| brand-link `#BC4E08` on page           | 4.75:1   | 4.5       | ✅     |
+| brand-hover `#8F3D08` on card          | 7.40:1   | 4.5       | ✅     |
+| on-brand `#FFFFFF` on brand-solid `#C5530E` | 4.55:1 | 4.5     | ✅     |
+| brand-focus `#DB5E10` on page          | 3.58:1   | 3 (UI)    | ✅     |
+| identity `#F16913` on card             | 3.10:1   | 4.5 text / 3 large | ⚠️ identity/large-text only |
+| identity `#F16913` on page             | 2.97:1   | 3 large   | ⚠️ large-text only; not small |
+| border-interactive `#8A7568` on card   | 4.35:1   | 3 (UI)    | ✅     |
+| border-strong `#E0CCBA` on card        | 1.55:1   | 3 (UI)    | ⚠️ reinforcement only |
+| border-default `#EFE3D7` on card       | 1.26:1   | 3 (UI)    | ⚠️ reinforcement only |
 | status-danger `#DC2626` text on card   | 4.83:1   | 4.5       | ✅     |
 | status-experimental `#7C3AED` on card  | 5.70:1   | 4.5       | ✅     |
 | success **base** `#16A34A` on card     | 3.30:1   | 4.5 text / 3 icon | text ❌ → `-text` `#15803D` (5.02); icon ✅ |
 | info **base** `#0284C7` on card        | 4.10:1   | 4.5 text / 3 icon | text ❌ → `-text` `#0369A1` (5.93); icon ✅ |
 | warning-text `#B45309` on card         | 5.02:1   | 4.5       | ✅     |
-| border-default `#E2E8F0` on card       | 1.23:1   | 3 (UI)    | ⚠️ reinforcement only |
-| border-interactive `#7C8797` on card   | 3.64:1   | 3 (UI)    | ✅     |
-| focus-ring `#3B82F6` on page           | 3.58:1   | 3         | ✅     |
 
-### Dark
+### Dark (graphite)
 
 | Pair                                   | Ratio    | Threshold | Result |
 | -------------------------------------- | -------- | --------- | ------ |
-| text-primary `#F1F5F9` on card         | 15.37:1  | 4.5       | ✅     |
-| text-secondary `#CBD5E1` on card       | 11.34:1  | 4.5       | ✅     |
-| text-muted `#94A3B8` on card           | 6.57:1   | 4.5       | ✅     |
-| text-muted `#94A3B8` on elevated       | 5.83:1   | 4.5       | ✅ (ok on tinted in dark) |
-| text-subtle `#64748B` on card          | 3.54:1   | 4.5       | ⚠️ non-text only (doubles as functional border ≥3:1) |
-| brand-link `#60A5FA` on card           | 6.62:1   | 4.5       | ✅     |
-| status-success `#22C55E` on card       | 7.39:1   | 4.5       | ✅     |
-| status-danger `#F87171` on card        | 6.09:1   | 4.5       | ✅     |
-| status-info `#38BDF8` on card          | 7.86:1   | 4.5       | ✅     |
-| border-interactive `#64748B` on card   | 3.54:1   | 3 (UI)    | ✅     |
-| focus-ring `#3B82F6` on page           | 5.12:1   | 3         | ✅     |
+| text-primary `#F5F7FA` on card         | 16.12:1  | 4.5       | ✅     |
+| text-secondary `#D4D7DD` on card       | 12.00:1  | 4.5       | ✅     |
+| text-muted `#99A2AF` on card           | 6.71:1   | 4.5       | ✅     |
+| text-muted `#99A2AF` on elevated       | 6.05:1   | 4.5       | ✅ (ok on tinted in dark) |
+| text-subtle `#6B7280` on card          | 3.58:1   | 4.5       | ⚠️ non-text only (doubles as functional border ≥3:1) |
+| brand-link `#FF8A34` on card           | 7.36:1   | 4.5       | ✅     |
+| brand-hover `#FFA25C` on card          | 8.71:1   | 4.5       | ✅     |
+| on-brand `#FFFFFF` on brand-solid `#C5530E` | 4.55:1 | 4.5     | ✅ (same fill both themes) |
+| brand-focus `#F16913` on page          | 6.10:1   | 3 (UI)    | ✅     |
+| status-success `#22C55E` on card       | 7.59:1   | 4.5       | ✅     |
+| status-danger `#F87171` on card        | 6.25:1   | 4.5       | ✅     |
+| status-info `#38BDF8` on card          | 8.07:1   | 4.5       | ✅     |
+| border-interactive `#64748B` on card   | 3.63:1   | 3 (UI)    | ✅     |
+| learning router `#FB923C` on card      | 7.64:1   | 4.5       | ✅     |
+| learning application `#FF8A34` on page | 8.05:1   | 4.5       | ✅     |
 
 **Standing exceptions (by design, documented so an audit doesn't re-flag them):**
 - `--text-subtle` is decoration/disabled only and always has a non-color backup — it is not required to meet 4.5.
@@ -393,25 +407,25 @@ Motion only communicates state (expand, collapse, navigate, appear). No decorati
 ```css
 :root {
   /* Layer 1 — Foundation (theme-independent primitives) */
-  --brand-600: #2563EB;  --brand-400: #60A5FA;  /* …full ramps… */
+  --brand-600: #DB5E10;  --brand-700: #C5530E;  /* …full ramps… */
   --neutral-0: #FFFFFF;  --neutral-900: #0F172A; /* … */
-  --ink-card: #151D2E;   /* … */
+  --ink-page: #0D1117;   --ink-card: #161B22;   /* … */
 }
 
 .light {
   /* Layer 2 — Semantic (roles point at Foundation) */
-  --surface-page: #FBFCFE;  --surface-card: var(--neutral-0);
-  --text-primary: var(--neutral-900);  --text-muted: var(--neutral-500);
-  --border-default: var(--neutral-200); --border-interactive: #7C8797;
-  --brand-link: var(--brand-600);       --brand-focus: var(--brand-500);
+  --surface-page: #FFF9F4;  --surface-card: var(--neutral-0);
+  --text-primary: #2A1208;  --text-muted: #7A6A60;
+  --border-default: #EFE3D7; --border-interactive: #8A7568;
+  --brand-link: #BC4E08;       --brand-focus: #DB5E10;
   /* Layer 3 — Platform bridge (§6) */
   --color-fd-card: var(--surface-card); /* … */
 }
 
 .dark {
   --surface-page: var(--ink-page);  --surface-card: var(--ink-card);
-  --text-primary: #F1F5F9;          --text-muted: #94A3B8;
-  --brand-link: var(--brand-400);   /* … */
+  --text-primary: #F5F7FA;          --text-muted: #99A2AF;
+  --brand-link: #FF8A34;   /* … */
   --color-fd-card: var(--surface-card); /* … */
 }
 ```
