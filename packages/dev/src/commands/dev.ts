@@ -160,6 +160,11 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
   // Only Node + explicit paths uses `--watch-path`; that's the case the fallback guards.
   const nodeUsesWatchPath = targetRuntime === 'node' && explicitWatchPaths.length > 0;
 
+  // Deno loads the project's .env at process start — gated on existence so a
+  // user who deletes .env doesn't hit `--env-file`'s missing-file error. Deno's --env-file
+  // does NOT overwrite existing process env, so the injected PORT/NODE_ENV below still win.
+  const denoEnvFile = targetRuntime === 'deno' && existsSync(resolvePath(cwd, '.env')) ? '.env' : undefined;
+
   const spawnWith = async (
     watchPathsForArgs: string[]
   ): Promise<{ child: SpawnResult; command: string }> => {
@@ -170,7 +175,8 @@ export async function dev(entry?: string, options: DevOptions = {}): Promise<Spa
       options.inspect,
       options.inspectPort,
       denoPermissions,
-      warnUnsupported
+      warnUnsupported,
+      denoEnvFile
     );
     const spawned = await spawn(built.command, built.args, { cwd, env, stdio: 'inherit' });
     return { child: spawned, command: built.command };

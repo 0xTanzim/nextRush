@@ -20,6 +20,9 @@ declare const __FALLBACK_VERSIONS__: Record<string, string> | undefined;
  * never defined). Mirrors the current workspace's real major-version split so tests can
  * exercise the offline path without a build. The published CLI always uses the build-time
  * map injected by `tsup.config.ts` — this is never shipped as the primary source.
+ *
+ * Toolchain deps (dotenv/typescript/vitest/@types/node) are NOT probed — the manifest's
+ * `toolchain` policy single-sources them, so they have no entry here.
  */
 const DEV_FALLBACK_VERSIONS: Record<string, string> = {
   nextrush: '^3.1.0',
@@ -87,10 +90,33 @@ async function fetchLatestVersion(pkg: string, registry: string): Promise<string
  * shared timeout budget; a package whose probe fails or times out falls back to ITS OWN
  * entry in the build-time fallback map — never another package's resolved/fallback value.
  *
+ * With `{ offline: true }` (the `--offline` flag), NO registry request is made at all: every
+ * emitted range comes directly from the embedded per-package fallback map. The caller reports
+ * `offline: true` so both human and JSON output can state that the ranges are offline
+ * fallback ranges (design decision 4 — acquisition by `npm create` is a separate, prior step).
+ *
  * @param packageNames - every `@nextrush/*` (or `nextrush`) package name to resolve.
- * @returns a map of package name to a caret version range, e.g. `"^1.0.0"`.
+ * @param options.offline - skip all registry probes and use the embedded fallback map.
+ * @returns the resolved ranges plus an `offline` annotation for result rendering.
  */
-export async function resolveVersions(packageNames: readonly string[]): Promise<Map<string, string>> {
+export async function resolveVersions(
+  packageNames: readonly string[],
+  options: { offline?: boolean } = {}
+): Promise<{ versions: Map<string, string>; offline: boolean }> {
+  if (options.offline) {
+    const fallback = new Map<string, string>();
+    for (const pkg of packageNames) {
+      const range = FALLBACK_VERSIONS[pkg];
+      if (!range) {
+        throw new Error(
+          `Unable to resolve a version for package "${pkg}" in offline mode: no fallback entry exists for it. This usually means a new package was added to the scaffolder without adding it to the fallback map in tsup.config.ts.`
+        );
+      }
+      fallback.set(pkg, range);
+    }
+    return { versions: fallback, offline: true };
+  }
+
   const registry = resolveRegistry();
   const results = await Promise.all(
     packageNames.map(async (pkg) => {
@@ -108,5 +134,5 @@ export async function resolveVersions(packageNames: readonly string[]): Promise<
     })
   );
 
-  return new Map(results);
+  return { versions: new Map(results), offline: false };
 }

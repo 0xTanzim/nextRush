@@ -65,4 +65,25 @@ describe('generated package.json carries production-ready metadata (task 5.2)', 
 
     expect(pkg.packageManager).toMatch(/^pnpm@\d+\.\d+\.\d+$/);
   });
+
+  it('includes a toolchain-sourced dotenv dependency for node/bun projects (the generated app owns .env loading)', () => {
+    seedAllPackageVersions('^3.0.0');
+    for (const runtime of ['node', 'bun'] as const) {
+      const files = generateProject(createOptions({ runtime }));
+      const pkg = JSON.parse(files.get('package.json')!) as {
+        dependencies: Record<string, string>;
+      };
+      // dotenv single-sources from create-nextrush's own devDependencies (manifest toolchain policy)
+      expect(pkg.dependencies['dotenv']).toBe('^17.4.2');
+    }
+  });
+
+  it('omits dotenv for deno projects (native Deno.env, no loader dependency)', () => {
+    seedAllPackageVersions('^3.0.0');
+    const files = generateProject(createOptions({ runtime: 'deno' }));
+    const pkg = JSON.parse(files.get('package.json')!) as {
+      dependencies: Record<string, string>;
+    };
+    expect(pkg.dependencies['dotenv']).toBeUndefined();
+  });
 });

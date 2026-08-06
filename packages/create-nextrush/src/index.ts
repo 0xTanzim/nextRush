@@ -1,23 +1,32 @@
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
 
 import * as p from '@clack/prompts';
 
-import { parseArgs, printHelp } from './cli.js';
+import { CliInputError, parseArgs, printHelp } from './cli.js';
 import { MIN_NODE_MAJOR, NEXTRUSH_VERSION } from './constants.js';
-import { generateProject } from './generator.js';
-import { validatePackageManager } from './installer.js';
+import { preflightRuntimeBinary, validatePackageManager } from './installer.js';
 import { resolveVersions } from './npm-version.js';
 import { runPrompts } from './prompts.js';
+import { resolveScaffoldPlan } from './plan.js';
+import { createSuccessResult, renderInputError, renderSuccess, requestedJsonOutput } from './result.js';
 import { getAllPossiblePackageNames } from './templates/index.js';
+import type { PackageManagerSource } from './utils.js';
 import {
   getInstallArgv,
   getInstallCommandLabel,
   getRunCommand,
+  getStartCommand,
   isDirectoryEmpty,
+  resolvePackageManagerWithSource,
   writeFiles,
 } from './utils.js';
+import type { ParsedArgs, Runtime } from './types.js';
 import { setVersionMap } from './version-store.js';
+
+/** Resolves the package-manager provenance for display in the completion output (F-09). */
+function resolvePackageManagerSource(args: ParsedArgs, runtime: Runtime): PackageManagerSource {
+  return resolvePackageManagerWithSource(runtime, args.packageManager).source;
+}
 
 /** Checks the running Node.js version against the framework floor (fixes F-05). */
 function assertSupportedNodeVersion(): void {
@@ -72,19 +81,22 @@ async function main(): Promise<void> {
     return;
   }
 
-  p.intro('create-nextrush');
+  if (!args.json) p.intro('create-nextrush');
 
   // Version probing is gated on install: a --no-install offline scaffold never uses the
   // resolved ranges for anything but display, so skip the network round-trip entirely
   // (fixes F-18 — Doherty Threshold: no dead wait when nothing will be installed).
+  // `--offline` (design decision 4) skips probes even when install is on; every emitted
+  // range then comes from the embedded fallback map and the result states so.
+  const { versions, offline } = await resolveVersions(getAllPossiblePackageNames(), {
+    offline: args.offline,
+  });
+  setVersionMap(versions);
+
   if (args.install) {
-    const s = p.spinner();
-    s.start('Checking latest versions...');
-    const versions = await resolveVersions(getAllPossiblePackageNames());
-    setVersionMap(versions);
-    s.stop(`Using nextrush ${versions.get('nextrush') ?? NEXTRUSH_VERSION}`);
-  } else {
-    setVersionMap(await resolveVersions(getAllPossiblePackageNames()));
+    const s = !args.json ? p.spinner() : undefined;
+    s?.start('Checking latest versions...');
+    s?.stop(`Using nextrush ${versions.get('nextrush') ?? NEXTRUSH_VERSION}`);
   }
 
   const options = await runPrompts(args);
@@ -93,28 +105,70 @@ async function main(): Promise<void> {
     return;
   }
 
-  const targetDir = resolve(options.directory);
-  await confirmNonEmptyTargetOrExit(options.directory, targetDir);
+  const plan = resolveScaffoldPlan(options);
 
-  const s = p.spinner();
-  s.start('Scaffolding project...');
-  const files = generateProject(options);
-  writeFiles(targetDir, files);
-  s.stop('Project scaffolded.');
+  if (args.dryRun) {
+    renderSuccess(createSuccessResult(plan, true, offline), args.json);
+    return;
+  }
+
+  await confirmNonEmptyTargetOrExit({
+    directoryLabel: options.directory,
+    targetDir: plan.targetDir,
+    nonInteractive: args.yes || args.json || !process.stdin.isTTY,
+    overwrite: args.overwrite,
+    json: args.json,
+  });
+
+  const s = !args.json ? p.spinner() : undefined;
+  s?.start('Scaffolding project...');
+  const executionResult = createSuccessResult(plan, false, offline);
+  writeFiles(plan.targetDir, plan.files);
+  s?.stop('Project scaffolded.');
+
+  if (args.json) {
+    renderSuccess(executionResult, true);
+    return;
+  }
 
   finishScaffold({
-    targetDir,
+    targetDir: plan.targetDir,
     directory: options.directory,
     packageManager: options.packageManager,
+    runtime: options.runtime,
+    pmSource: resolvePackageManagerSource(args, options.runtime),
+    skipRuntimeCheck: args.skipRuntimeCheck,
     git: options.git,
     install: options.install,
-    verificationUrl: getVerificationUrl(options.style),
+    verificationUrl: plan.verificationUrl,
   });
 }
 
 /** Shared: warn and confirm before scaffolding into a non-empty directory. */
-async function confirmNonEmptyTargetOrExit(directoryLabel: string, targetDir: string): Promise<void> {
+async function confirmNonEmptyTargetOrExit(input: {
+  directoryLabel: string;
+  targetDir: string;
+  nonInteractive: boolean;
+  overwrite: boolean;
+  json: boolean;
+}): Promise<void> {
+  const { directoryLabel, targetDir, nonInteractive, overwrite, json } = input;
   if (isDirectoryEmpty(targetDir)) return;
+
+  if (overwrite) {
+    if (!json) p.log.warn(`Directory "${directoryLabel}" is not empty; generated files may be replaced.`);
+    return;
+  }
+
+  if (nonInteractive) {
+    throw new CliInputError({
+      // Stable automation code (ADR-0024): machine-readable, never auto-overwrites.
+      code: 'TARGET_DIRECTORY_NOT_EMPTY',
+      message: `Target directory "${directoryLabel}" is not empty.`,
+      remediation:
+        'No files were changed. Choose an empty directory, or rerun with --overwrite after reviewing the planned files.',
+    });
+  }
 
   const shouldContinue = await p.confirm({
     message: `Directory "${directoryLabel}" is not empty. Continue anyway?`,
@@ -132,12 +186,20 @@ function finishScaffold(input: {
   targetDir: string;
   directory: string;
   packageManager: Parameters<typeof getInstallArgv>[0];
+  runtime: Runtime;
+  pmSource: PackageManagerSource;
+  skipRuntimeCheck: boolean;
   git: boolean;
   install: boolean;
   verificationUrl: string;
 }): void {
-  const { targetDir, directory, packageManager, git, install, verificationUrl } = input;
+  const { targetDir, directory, packageManager, runtime, pmSource, skipRuntimeCheck, git, install, verificationUrl } =
+    input;
   const s = p.spinner();
+
+  // Provenance (F-09): state how the package manager was chosen so machine and human
+  // readers alike can tell `--pm` from an environment guess.
+  console.log(`\nUsing ${packageManager} package manager (${pmSource}).\n`);
 
   if (git) {
     s.start('Initializing git repository...');
@@ -160,6 +222,18 @@ function finishScaffold(input: {
 
   let installSkipped = false;
   if (install) {
+    // Local runtime preflight (F-08): before an install/run, a selected bun/deno runtime
+    // must be on PATH or we give actionable guidance; `--skip-runtime-check` opts out for
+    // remote/container targets.
+    if (!skipRuntimeCheck) {
+      const preflight = preflightRuntimeBinary(runtime);
+      if (!preflight.ok && preflight.guidance) {
+        console.warn(`\n${preflight.guidance}\n`);
+        p.cancel('Dependency installation aborted — install the runtime or skip the check.');
+        return;
+      }
+    }
+
     const validation = validatePackageManager(packageManager);
     if (!validation.ok && validation.guidance) {
       console.error(`\n${validation.guidance}\n`);
@@ -197,19 +271,22 @@ function finishScaffold(input: {
   }
   nextSteps.push(`${runCmd} dev`);
   nextSteps.push(`# then open ${verificationUrl}`);
+  nextSteps.push('');
+  nextSteps.push('Production validation:');
+  nextSteps.push(`${runCmd} build && ${getStartCommand(packageManager)}`);
+  nextSteps.push('# then open the health endpoint and check https://nextrush.dev/docs/production');
 
   p.note(nextSteps.join('\n'), 'Next steps');
   p.outro('Happy coding with NextRush!');
 }
 
-/** The URL to open to verify the scaffolded app is running, for the selected style (fixes F-15). */
-function getVerificationUrl(style: 'functional' | 'class-based' | 'full'): string {
-  if (style === 'functional') return 'http://localhost:8080/health';
-  if (style === 'class-based') return 'http://localhost:8080/api/health';
-  return 'http://localhost:8080/health';
-}
-
 main().catch((error: unknown) => {
+  if (error instanceof CliInputError) {
+    renderInputError(error.toPayload(), requestedJsonOutput(process.argv));
+    process.exitCode = 1;
+    return;
+  }
+
   p.cancel('An unexpected error occurred.');
   if (error instanceof Error) {
     console.error(error.message);

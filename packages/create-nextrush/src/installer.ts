@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-import type { PackageManager } from './types.js';
+import type { PackageManager, Runtime } from './types.js';
 
 /** Result of validating a package manager before running the install. */
 export interface InstallValidation {
@@ -9,6 +9,49 @@ export interface InstallValidation {
   readonly skipInstall?: boolean;
   /** When `ok` is false, a friendly, actionable message printed before install is attempted. */
   readonly guidance?: string;
+}
+
+/** The binary each generated runtime needs on PATH for a LOCAL install/run (F-08). */
+export const RUNTIME_BINARY: Record<Runtime, string> = {
+  node: 'node',
+  bun: 'bun',
+  deno: 'deno',
+};
+
+/** Result of the local runtime-binary preflight. */
+export interface RuntimePreflight {
+  readonly ok: boolean;
+  /** Actionable install/remoting guidance when the binary is missing. */
+  readonly guidance?: string;
+}
+
+/**
+ * Preflights a locally-targeted runtime before an install/run action: the selected runtime's
+ * binary must be on PATH, or the CLI explains how to install it (or to skip the check when
+ * the project targets another machine — the caller decides whether to consult this).
+ *
+ * Only bun/deno are checked: the CLI itself is running on Node, so `node` is always present.
+ */
+export function preflightRuntimeBinary(runtime: Runtime): RuntimePreflight {
+  if (runtime === 'node') { // capability-exempt: this CLI itself runs on Node, so the 'node' binary is always present; the check targets the GENERATED project's runtime
+    return { ok: true };
+  }
+
+  const binary = RUNTIME_BINARY[runtime];
+  try {
+    execFileSync(binary, ['--version'], { stdio: ['ignore', 'ignore', 'pipe'] });
+    return { ok: true };
+  } catch {
+    // capability-exempt: per-runtime install URL for the GENERATED project's runtime (user choice)
+    const installUrl = runtime === 'bun' ? 'https://bun.sh' : 'https://deno.land';
+    return {
+      ok: false,
+      guidance:
+        `The selected ${runtime} runtime is not available on this machine.\n` +
+        `Install it from ${installUrl}, or run create-nextrush with --no-install and ` +
+        `--skip-runtime-check to scaffold for a remote/container target.`,
+    };
+  }
 }
 
 /**

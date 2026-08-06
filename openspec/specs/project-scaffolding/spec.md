@@ -11,9 +11,7 @@ developer's first NextRush project is guaranteed to be. It owns the scaffolder a
 contract; the toolchain that a generated project *invokes* (`@nextrush/dev`: build, dev server,
 generators) is owned by the `dev-tooling` capability, which this capability depends on but does not
 restate.
-
 ## Requirements
-
 ### Requirement: Generated projects install with fully resolvable dependency versions
 `create-nextrush` SHALL resolve the version of every `@nextrush/*` and framework dependency it emits
 from that package's own registry entry, never by using one package's version as a proxy for another.
@@ -166,3 +164,213 @@ verify the running app; and the version probe is not performed when no install w
 #### Scenario: Completion output is branded correctly and points to a URL
 - **WHEN** scaffolding completes
 - **THEN** the outro uses `NextRush` (correct casing) and the next steps include the URL to open (e.g. the health endpoint) for the selected style
+
+### Requirement: Every scaffold style generates a unified configuration module
+A generated project of ANY style (`functional`, `class-based`, or `full`) SHALL emit a centralized
+`src/config/index.ts` as the single source of truth for application configuration. Application code
+(entrypoint, routes, controllers, services) MUST NOT read environment variables directly; it SHALL
+import the generated `config` module instead. The module SHALL expose the same shape on every
+runtime: `{ port: number, host: string, nodeEnv: 'development' | 'production' | 'test' }`.
+
+#### Scenario: Class-based and full styles get a config module
+- **WHEN** a `class-based` or `full` project is generated for any runtime
+- **THEN** its `src/config/index.ts` exists, its entrypoint imports `config` (not inline `process.env`), and the generated `package.json` contains no reference to a PORT constant outside the config module
+
+#### Scenario: The config module shape is consistent across runtimes
+- **WHEN** a functional project is generated for `node`, `bun`, or `deno`
+- **THEN** each `src/config/index.ts` exposes the same `{ port, host, nodeEnv }` surface, with only the environment-access implementation differing (`process.env` for node/bun, `Deno.env.get` for deno)
+
+### Requirement: Generated environment files match the selected runtime
+A generated project SHALL emit environment files appropriate to its runtime. Node and Bun projects
+SHALL emit both `.env` (with working defaults `HOST=0.0.0.0`, `PORT=8080`, `NODE_ENV=development`)
+and a committed `.env.example` (with empty values documenting the variables). Deno projects SHALL
+emit `.env.example` only and MUST NOT generate a `.env` file by default (Deno uses native
+`Deno.env`).
+
+#### Scenario: Node and Bun projects get .env and .env.example
+- **WHEN** a `node` or `bun` project is generated
+- **THEN** the file map contains `.env` with `HOST=0.0.0.0`, `PORT=8080`, `NODE_ENV=development`, and `.env.example` with empty `HOST=`/`PORT=`/`NODE_ENV=` entries
+
+#### Scenario: Deno projects get .env.example only
+- **WHEN** a `deno` project is generated
+- **THEN** the file map contains `.env.example` and does not contain `.env`
+
+#### Scenario: The .env file is never committed
+- **WHEN** a project is generated and its `.gitignore` is inspected
+- **THEN** `.env` (and `.env.local`, `.env.*.local`) are listed, so a git-initialized project never stages the generated `.env`
+
+### Requirement: Runtime-appropriate .env loading is owned by the generated application
+The generated application SHALL own environment-file loading so behavior is identical in development
+and production (where `@nextrush/dev` is not present). For Node and Bun, the generated entrypoint
+SHALL begin with `import 'dotenv/config'` as its FIRST import, before any module that reads
+configuration, and the generated `package.json` SHALL include a `dotenv` dependency. Deno SHALL NOT
+import `dotenv` and SHALL NOT include it as a dependency.
+
+#### Scenario: Node and Bun entrypoints load .env first
+- **WHEN** a `node` or `bun` project's entrypoint is inspected
+- **THEN** `import 'dotenv/config'` is the first statement and appears before the `config` import
+
+#### Scenario: Deno entrypoints use native environment access
+- **WHEN** a `deno` project's entrypoint and `package.json` are inspected
+- **THEN** the entrypoint contains no `dotenv` import and `package.json` has no `dotenv` dependency
+
+### Requirement: The dotenv dependency is resolved through the version pipeline
+The `dotenv` dependency emitted into a generated Node/Bun `package.json` SHALL be resolved by the
+same per-package version pipeline as every framework dependency: it MUST be included in the set of
+package names probed against the registry (`getAllPossiblePackageNames`), read via the version store
+(`getPackageRange`), and MUST have a build-time-injected fallback range sourced from
+`create-nextrush`'s own devDependencies (mirroring the `typescript`/`vitest` single-sourcing pattern)
+so offline generation still emits a resolvable range. The template MUST NOT hardcode a `dotenv`
+version.
+
+#### Scenario: dotenv is resolved like any other dependency
+- **WHEN** a Node/Bun project is generated with the registry reachable
+- **THEN** its `dotenv` range is the live-resolved latest version, and the template source contains no hardcoded `dotenv` version literal
+
+#### Scenario: Offline generation still emits a resolvable dotenv range
+- **WHEN** a Node/Bun project is generated with the registry unreachable
+- **THEN** the emitted `dotenv` range comes from the build-time fallback (sourced from `create-nextrush`'s own devDependencies) and resolves against a real published version once connectivity returns
+
+### Requirement: The generated server honors the configured host
+The generated entrypoint SHALL forward `config.host` to the runtime's server start call so the
+`HOST` environment variable is actually honored (all supported adapters expose a canonical `host`
+option). A generated project MUST NOT silently ignore a configured `HOST`.
+
+#### Scenario: HOST is forwarded to the server
+- **WHEN** a generated project's entrypoint is inspected for any runtime
+- **THEN** the server start call passes `config.host` (or the adapter's `host` option) rather than omitting it, so `HOST=127.0.0.1` in `.env` binds the intended interface
+
+### Requirement: Generated config parsing normalizes environment edge cases
+The generated `config` module SHALL handle malformed environment values deterministically instead of
+silently misbehaving: an empty, non-numeric, zero, or missing `PORT` SHALL resolve to the default
+port; a negative or overflow port SHALL be rejected to the default; an empty or unknown `NODE_ENV`
+SHALL resolve to the development default and SHALL be coerced to the `'development' |
+'production' | 'test'` union so downstream checks (e.g. error-handler stack traces) never see an
+unexpected value.
+
+#### Scenario: Malformed PORT values fall back to the default
+- **WHEN** `PORT` is `''`, `abc`, `0`, `-1`, or an out-of-range integer in the environment
+- **THEN** the generated `config.port` is the default `8080` (not `NaN`, `0`, a negative number, or an overflow), and the server starts on the default port
+
+#### Scenario: A valid PORT is honored
+- **WHEN** `PORT` is a positive integer within the valid port range
+- **THEN** `config.port` equals that value
+
+#### Scenario: Empty or unknown NODE_ENV falls back and is coerced
+- **WHEN** `NODE_ENV` is `''` or a value outside `development`/`production`/`test`
+- **THEN** `config.nodeEnv` is the `'development'` default (never an empty string or an unexpected literal), so error-handler behavior is deterministic
+
+### Requirement: Generated documentation describes the environment setup accurately
+The generated project `README.md` SHALL document the runtime-specific environment behavior
+accurately: which environment files are generated (`.env`/`.env.example` vs `.env.example` only),
+that `.env` is gitignored and `.env.example` is committed, and how to configure `PORT`/`HOST`/
+`NODE_ENV`. The README's structure listing SHALL reflect the emitted files (including any generated
+environment files) and MUST NOT list files that are not generated.
+
+#### Scenario: The README documents environment files and runtime differences
+- **WHEN** a generated project's README is inspected for any runtime
+- **THEN** it names the environment files actually generated for that runtime, states `.env` is gitignored (`.env.example` is committed), and its structure section matches the emitted file map (no phantom files)
+
+### Requirement: The dev toolchain's injected environment takes precedence in development
+The generated application SHALL behave consistently under `nextrush dev` even though the dev
+toolchain injects `PORT` and `NODE_ENV` into the spawned child's environment. Because the entrypoint
+loads `dotenv` non-overriding, an explicitly injected `PORT`/`NODE_ENV` from `@nextrush/dev` SHALL
+take precedence over `.env` values in development; this precedence SHALL be documented in the
+generated README so a developer changing `.env` knows to also change the dev command or the
+`nextrush.config.ts` dev port rather than expecting `.env` alone to win under `nextrush dev`.
+
+#### Scenario: Dev-injected PORT wins over .env under nextrush dev
+- **WHEN** a Node/Bun project runs under `nextrush dev` with `PORT=9090` in `.env`
+- **THEN** the dev toolchain's injected `PORT` (default 8080, or the configured dev port) wins and the app binds that port, matching the documented precedence rather than silently contradicting `.env`
+
+#### Scenario: Production start honors .env
+- **WHEN** the same project is started via `node dist/index.js` or `bun dist/index.js` with `PORT=9090` in `.env`
+- **THEN** the app binds port 9090, because the generated application owns `.env` loading and no toolchain injection is present
+
+### Requirement: Every emitted dependency is declared in a single dependency manifest
+`create-nextrush` SHALL declare every dependency it can emit in a single dependency manifest (a
+TypeScript registry, not JSON). The set of package names probed by the version resolver
+(`getAllPossiblePackageNames`) and the dependency sets written into a generated `package.json`
+(`getDependencies`) SHALL be derived from that manifest, never maintained as separate manual lists.
+The manifest SHALL record, per dependency: `scope` (`dependency` or `devDependency`), the `runtimes`
+and `templates` it applies to, and its resolution policy.
+
+#### Scenario: Adding a dependency requires one declaration
+- **WHEN** a new dependency is introduced to the scaffolder
+- **THEN** declaring it once in the dependency manifest is sufficient for it to appear in the probed package-name set, the generated `package.json` for the matching `{runtime, template}`, and the resolution pipeline — no separate edits to `getDependencies`, `getAllPossiblePackageNames`, or a fallback map are required
+
+#### Scenario: The manifest derives the probed package set
+- **WHEN** `getAllPossiblePackageNames` is called
+- **THEN** it returns exactly the set of manifest keys (plus any packages only referenced indirectly), and this set stays in sync with the manifest automatically
+
+### Requirement: Third-party and workspace packages resolve identically
+`create-nextrush` SHALL treat third-party packages (e.g. `dotenv`) and workspace `@nextrush/*`
+packages identically in the resolution pipeline: both are declared in the dependency manifest, both
+are probed against the registry, and both fall back to a per-package fallback range. There SHALL be
+no special-case fallback map for third-party packages.
+
+#### Scenario: A third-party package falls back per-package
+- **WHEN** the registry is unreachable for a third-party manifest dependency (e.g. `dotenv`)
+- **THEN** it falls back to ITS OWN declared fallback range (sourced from the manifest), exactly like a workspace package — not a shared scalar, not a special-cased map
+
+#### Scenario: No hardcoded version literals in templates
+- **WHEN** a generated `package.json` is produced for any `{style, runtime, middleware}`
+- **THEN** every dependency range comes from the resolution pipeline (manifest + resolver), and no template source contains a hardcoded version literal for any manifest dependency
+
+### Requirement: The generated runtime floor is derived from a single runtime policy
+`create-nextrush` SHALL derive the generated project's `engines.node` floor and the `@types/node`
+major cap from a single runtime-policy value (e.g. `SUPPORTED_NODE_LTS`), not from a hardcoded
+literal embedded in the generator. Moving the supported Node floor to a future LTS SHALL require
+changing only that policy value; every newly generated project follows it automatically.
+
+#### Scenario: Changing the runtime policy updates generated engines
+- **WHEN** the runtime-policy value changes (e.g. from Node 22 to a future LTS)
+- **THEN** newly generated projects emit the new `engines.node` floor and align the `@types/node` cap, with no template edits
+
+#### Scenario: The policy is a single source of truth
+- **WHEN** the scaffolder's `engines.node` emission and `@types/node` cap are inspected
+- **THEN** both derive from the same runtime-policy value (no independent hardcoded constants)
+
+### Requirement: Every runtime generates the same environment file layout
+A generated project of ANY runtime (`node`, `bun`, or `deno`) SHALL emit both `.env` (with working
+defaults `HOST=0.0.0.0`, `PORT=8080`, `NODE_ENV=development`) and a committed `.env.example` (empty
+values). The project layout MUST NOT differ by runtime — the runtime difference is the loading
+mechanism, not the file set.
+
+#### Scenario: Deno projects get a .env file too
+- **WHEN** a `deno` project is generated
+- **THEN** its file map contains `.env` (with `HOST=0.0.0.0`, `PORT=8080`, `NODE_ENV=development`) AND `.env.example`, matching the node/bun layout
+
+#### Scenario: The .env file is gitignored for every runtime
+- **WHEN** a `deno` project is generated and its `.gitignore` is inspected
+- **THEN** `.env` is listed, so a git-initialized Deno project never stages the generated `.env`
+
+### Requirement: Deno loads .env via --env-file in the production start script
+The generated Deno `start` script SHALL load the project's `.env` file via Deno's `--env-file=.env`
+flag (alongside the existing scoped permissions), so production `deno run dist/index.js` honors
+`.env` without a `dotenv` dependency. The generated Deno config module SHALL continue to read
+`Deno.env.get(...)`.
+
+#### Scenario: Deno production start honors .env
+- **WHEN** a Deno project's generated `start` script is inspected
+- **THEN** it is `deno run --allow-net --allow-read --allow-env --env-file=.env dist/index.js` (or equivalent scoped permissions + `--env-file=.env`), and the config module still uses `Deno.env.get`
+
+#### Scenario: Deno gets no dotenv dependency or import
+- **WHEN** a Deno project is generated
+- **THEN** its `package.json` has no `dotenv` dependency and its entrypoint has no `import 'dotenv/config'`
+
+### Requirement: The dev toolchain loads .env for Deno projects
+`@nextrush/dev` SHALL pass `--env-file=.env` (when the file is present) when spawning the Deno dev
+server and Deno build, so `nextrush dev` and `nextrush build` load `.env` for Deno projects the same
+way Node/Bun projects load it via their entrypoint `dotenv` import. Because `--env-file` does not
+overwrite existing process environment variables, an explicitly injected `PORT`/`NODE_ENV` from the
+toolchain SHALL still take precedence in dev (matching the Node/Bun documented behavior).
+
+#### Scenario: nextrush dev loads .env for a Deno project
+- **WHEN** `@nextrush/dev` spawns a Deno dev server for a project with a `.env` file
+- **THEN** the spawn arguments include `--env-file=.env` (or the equivalent), so `Deno.env.get('PORT')` reflects `.env` values not already set in the process environment
+
+#### Scenario: Toolchain-injected env still wins in Deno dev
+- **WHEN** the dev toolchain injects `PORT`/`NODE_ENV` and a `.env` file also sets them
+- **THEN** the injected values take precedence (existing process env is not overwritten by `--env-file`), matching the documented Node/Bun dev behavior
+

@@ -27,6 +27,8 @@
 - 3 project styles: functional routes, class-based controllers with DI, or both combined
 - 3 target runtimes: Node.js, Bun, Deno - each gets the correct adapter import and scripts
 - Every emitted `@nextrush/*` dependency is resolved from its own npm registry entry at scaffold time, never proxied through another package's version
+- Strict automation contract: unknown/missing/invalid flags fail non-zero, with `--dry-run`, `--json`, `--offline`, and a safe, explicit `--overwrite` policy (ADR-0024)
+- Opt-in production preset (`--preset production`), governed task-oriented example (`--example secure-api`), and pnpm workspace mode (`--workspace`)
 
 ## The problem
 
@@ -121,6 +123,12 @@ and installs dependencies with your detected package manager.
 - **Live dependency resolution** - every emitted `@nextrush/*` (and `nextrush` itself) version
   is probed against the npm registry at scaffold time; a failed probe falls back to a
   build-time-pinned version for that package only, never another package's fallback
+- **Offline mode** - `--offline` skips registry probes entirely and resolves every package from
+  the embedded fallback ranges, with the run annotated as offline in both human and JSON output
+- **Manifest-driven dependencies** - every dependency is declared once in a typed dependency
+  manifest; toolchain packages (`typescript`, `vitest`, `dotenv`, `@types/node`) single-source
+  from `create-nextrush`'s own devDependencies, and the generated `engines.node` floor derives
+  from a single runtime policy
 
 **Developer experience**
 - **Non-interactive mode** - every prompt has a corresponding flag, so CI/scripting never
@@ -195,6 +203,74 @@ Swaps the entrypoint's server import for the matching adapter package and adjust
 generated `package.json` scripts (Bun runs the CLI via `bun nextrush dev`; Deno runs it via
 `deno run` with an explicit, minimal permission set - never a blanket `-A`).
 
+Every runtime generates the same environment layout (`.env` + `.env.example` + a centralized
+`src/config/index.ts`). Node/Bun load `.env` via `dotenv` (first import); Deno loads it via
+`--env-file=.env` in the generated `start` script and through the dev toolchain.
+
+### Non-interactive / CI with strict input validation
+
+The CLI is strict: an unknown option, a missing option value, or an invalid enum value fails
+with a non-zero exit and an actionable message — it never silently falls back to a default.
+```bash
+pnpm create nextrush my-api --yes --runtime nodee     # fails: INVALID_RUNTIME, exit 1
+pnpm create nextrush my-api --typo                    # fails: UNKNOWN_OPTION, exit 1
+pnpm create nextrush my-api --style functional --runtime node --middleware api --pm pnpm --yes
+```
+
+### Dry run (validate without side effects)
+
+`--dry-run` validates all input and prints the resolved plan — target path, planned files,
+package-manager/Git actions, and verification URL — without writing files, running install, or
+touching the registry beyond its selected resolution mode.
+
+```bash
+pnpm create nextrush my-api --dry-run --style functional --runtime node --yes
+```
+
+### Machine-readable results (`--json`)
+
+`--json` emits exactly one schema-versioned JSON document on stdout (no interactive decoration)
+and a non-zero exit on failure, making the CLI consumable from CI and platform tooling.
+
+```bash
+pnpm create nextrush my-api --json --yes
+pnpm create nextrush my-api --json --runtime bogus    # {"schemaVersion":1,"ok":false,"error":{...}}
+```
+
+Success includes `schemaVersion`, `ok`, `dryRun`, `offline`, the resolved `project`, and a
+`files` list annotating each write as `create` or `replace`. Errors carry a stable `code`,
+`message`, and `remediation`. See the public contract in
+[`ADR-0024`](../../docs/adr/ADR-0024-create-nextrush-strict-automation-contract.md).
+
+### Target conflicts are safe by default
+
+A non-empty target never overwrites by default. Interactive mode asks for confirmation
+(default: no). In `--yes`/non-TTY/`--json` mode a non-empty target without `--overwrite` exits
+non-zero with the stable `TARGET_DIRECTORY_NOT_EMPTY` code and states that no files changed.
+`--overwrite` is a separate, explicit, documented opt-in that warns before writing and reports
+written/replaced files. `--yes` never implies overwrite.
+
+### Offline generation
+
+`--offline` skips all registry probes after `create-nextrush` is locally available and resolves
+every emitted dependency range from the embedded fallback map; both human and JSON output state
+that the ranges are offline fallback ranges. Note that downloading `create-nextrush` itself
+through `npm create` is a separate, earlier network step.
+
+### Extra layers: production preset, examples, workspace mode
+
+- **`--preset production`** adds an opt-in production-service layer: `.editorconfig`, VS Code
+  recommendations, `eslint.config.mjs`, a `.github/workflows/ci.yml` CI job, a multi-stage
+  `Dockerfile` + `.dockerignore`, and `docs/production.md` — all referencing the generated
+  scripts and `/health` endpoint. The base starter stays unchanged when the preset is off.
+- **`--example secure-api`** scaffolds a governed task-oriented example: a minimal bearer-token
+  guarded `src/routes/secure.routes.ts` plus its unit test, maintained and verified on the same
+  runtime/style matrix as the base starter.
+- **`--workspace`** places the project inside a detected pnpm workspace with an `apps/*` glob,
+  reporting the resolved `apps/<name>` destination, package name, and policy; unsupported
+  workspace layouts fail with actionable guidance rather than guessing.
+
+
 ### Scaffold without prompts, git, or install
 
 ```bash
@@ -217,6 +293,14 @@ entire public surface is the command-line interface documented below.
 | `--git` | | - | `true` | Initialize a git repository and create an initial commit |
 | `--no-git` | | - | - | Skip git initialization |
 | `--yes` | `-y` | - | `false` | Accept all defaults, skip interactive prompts |
+| `--dry-run` | | - | `false` | Validate input and print the resolved scaffold plan (target, files, verification URL) without writing or running anything |
+| `--overwrite` | | - | `false` | Allow scaffolding into a non-empty target directory (replaces generated files only) |
+| `--offline` | | - | `false` | Skip registry lookups; resolve every package from the embedded fallback ranges |
+| `--json` | | - | `false` | Emit one machine-readable result document on stdout |
+| `--skip-runtime-check` | | - | `false` | Skip the local runtime-binary preflight (remote/container targets) |
+| `--preset` | | `production` | - | Add the opt-in production-service preset (editor, lint, CI, Docker, ops docs) |
+| `--example` | | `secure-api` | - | Scaffold a governed task-oriented example |
+| `--workspace` | | - | `false` | Place the project in a detected pnpm workspace (`apps/<name>`) |
 | `--version` | `-v` | - | - | Print the CLI version |
 | `--help` | `-h` | - | - | Print usage |
 
@@ -281,6 +365,33 @@ affected by a failed git/install step.
 
 </details>
 
+<details>
+<summary><strong>Invalid / unknown / missing option values fail with exit 1</strong></summary>
+
+**Cause:** the CLI is strict by contract (ADR-0024). A typo like `--runtime nodee`, an option
+that needs a value (`--style` with nothing after it), or an unsupported flag such as `--typo`
+exits non-zero rather than silently selecting a default.
+
+**Fix:** the message names the offending input, lists the valid values where applicable, and
+points to `--help`. Re-run with a corrected command. The strict behavior is deliberate — see the
+CLI migration note for the change from silent success to non-zero failures.
+
+</details>
+
+<details>
+<summary><strong>Target directory is not empty (non-interactive)</strong></summary>
+
+**Cause:** in `--yes`, non-TTY, or `--json` mode a non-empty target directory is a safe,
+machine-detectable failure: no files are changed and the CLI exits non-zero with the stable code
+`TARGET_DIRECTORY_NOT_EMPTY`.
+
+**Fix:** choose an empty directory, or explicitly opt in with `--overwrite` after reviewing the
+planned files. `--yes` never implies overwrite; `--overwrite` warns before replacing generated
+files and reports written/replaced paths.
+
+</details>
+
+## FAQ
 ## FAQ
 
 **Can I skip the interactive prompts?**
@@ -295,8 +406,13 @@ The CLI itself requires Node.js `>=22` to run (it uses Node's `child_process` an
 directly). The *generated project* can target Bun or Deno via `--runtime bun` / `--runtime deno`.
 
 **What if my target directory is not empty?**
-The CLI asks for confirmation before writing into a non-empty directory; declining cancels the
-scaffold with no files written.
+Interactive mode asks for confirmation before writing (default: no). In `--yes`/non-TTY/`--json`
+mode the CLI fails with a stable `TARGET_DIRECTORY_NOT_EMPTY` error and exits non-zero, changing
+no files. Pass `--overwrite` to explicitly replace generated files — `--yes` never overwrites.
+
+**How do I validate before writing, or consume the result in CI?**
+Use `--dry-run` to print the resolved plan without side effects, or `--json` to emit one
+schema-versioned result/error document on stdout (see [ADR-0024](../../docs/adr/ADR-0024-create-nextrush-strict-automation-contract.md)).
 
 ---
 

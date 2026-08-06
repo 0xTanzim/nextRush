@@ -144,7 +144,10 @@ export function Repository(): LegacyClassDecorator {
   Deno.serve({ port, hostname: '127.0.0.1' }, () => new Response('ok'));
   return {};
 }
-export function serve(app: unknown, options?: unknown): Promise<unknown> {
+export function serve(app: unknown, options?: { port?: number; host?: string }): Promise<unknown> {
+  // The generated entrypoint now calls serve(app, { port, host }) — start a real server
+  // so the boot test proves the app stays alive and answers /health under Deno.
+  Deno.serve({ port: options?.port ?? 8080, hostname: options?.host ?? '127.0.0.1' }, () => new Response('ok'));
   return Promise.resolve({});
 }
 `,

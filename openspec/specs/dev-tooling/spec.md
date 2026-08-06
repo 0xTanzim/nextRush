@@ -9,9 +9,7 @@ build cache, type-declaration emission, the cross-runtime loader-resolution stra
 toolchain's diagnostics and verification bar. This capability defines what the tooling guarantees a
 developer across Node, Bun, and Deno — observable behavior that must hold identically where a
 runtime supports it, and degrade with an actionable message where it does not.
-
 ## Requirements
-
 ### Requirement: Production build is correct and metadata-emitting on every supported runtime
 `nextrush build` SHALL, on each supported runtime (Node, Bun, Deno), transform every discovered
 TypeScript source file to a correct output file with decorator metadata emitted (so DI resolves at
@@ -172,3 +170,19 @@ to a safe maximum) rather than a hardcoded constant, verified by measurement bef
 #### Scenario: Concurrency reflects available parallelism
 - **WHEN** `nextrush build` runs on a multi-core host
 - **THEN** the number of concurrent transforms is derived from available parallelism (capped, e.g. at 8), not fixed at a constant
+
+### Requirement: The Deno dev/build spawn loads the project .env file
+`@nextrush/dev` SHALL pass `--env-file=.env` to the Deno binary when spawning the dev server or
+build for a Deno project, when a `.env` file exists in the project directory. This makes
+`nextrush dev`/`nextrush build` load `.env` for Deno projects, matching how Node/Bun projects load it
+via the generated entrypoint's `dotenv` import. The flag MUST be added to the scoped permission set
+(`--allow-net --allow-read --allow-env`), never with blanket `-A`.
+
+#### Scenario: Deno dev spawn includes --env-file
+- **WHEN** `buildDevArgs` builds arguments for a `deno` runtime with a `.env` file present
+- **THEN** the args include `--env-file=.env` alongside the scoped `--allow-*` permissions
+
+#### Scenario: Existing process env is not overwritten
+- **WHEN** a Deno dev/build spawn runs with `--env-file=.env` and the process environment already has a variable also present in `.env`
+- **THEN** the existing process value is preserved (Deno's `--env-file` does not overwrite), so toolchain-injected `PORT`/`NODE_ENV` still win in dev
+

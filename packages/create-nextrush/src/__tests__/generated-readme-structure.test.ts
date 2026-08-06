@@ -40,6 +40,18 @@ describe('generated README structure matches the emitted FileMap exactly (task 5
         expect(readme).toContain(path);
       }
 
+      // The README's structure listing also reflects root-level env files actually emitted
+      // (no phantom .env for Deno, which gets .env.example only).
+      const emittedEnvFiles = [...files.keys()].filter((p) => p === '.env' || p === '.env.example');
+      for (const path of emittedEnvFiles) {
+        expect(readme).toContain(path);
+      }
+      if (files.has('.env')) {
+        expect(readme).toContain('.env');
+      } else {
+        expect(readme).not.toContain('\n.env\n');
+      }
+
       // The specific regression this test exists to catch: no phantom file that was
       // never emitted (e.g. `not-found.ts`, which the `full` style never generates).
       expect(readme).not.toContain('not-found.ts');

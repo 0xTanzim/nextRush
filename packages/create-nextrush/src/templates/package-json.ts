@@ -5,21 +5,32 @@ import {
   MIDDLEWARE_PACKAGE_NAMES,
   MIN_NODE_MAJOR,
 } from '../constants.js';
+import {
+  dependencyManifest,
+  getManifestPackageNames,
+  type ManifestEntry,
+} from '../dependency-manifest.js';
 import { getPackageRange } from '../version-store.js';
 import type { DependencySet, MiddlewarePreset, PackageManager, ProjectOptions, Runtime } from '../types.js';
 
 /**
- * Every `@nextrush/*` package name across ALL offered styles/runtimes/middleware presets —
- * used at CLI startup so the CLI can resolve every version it might need up front, before the
- * user's answers are known (task 3.2).
+ * Every package name the CLI must resolve up front, before the user's answers are known.
+ *
+ * Derived from the dependency manifest plus the multi-package middleware/adapter
+ * presets — a new manifest dependency is probed automatically, with no separate list to
+ * keep in sync. Only `'latest-compatible'` entries are probed: `'toolchain'` entries
+ * (typescript/vitest/@types/node/dotenv) single-source from `create-nextrush`'s own
+ * devDependencies, and pinned literals (e.g. reflect-metadata `>=0.2.0`) are resolved by
+ * the manifest directly — neither needs a registry probe.
  */
 export function getAllPossiblePackageNames(): string[] {
-  const names = new Set<string>([
-    'nextrush',
-    '@nextrush/dev',
-    '@nextrush/types',
-    '@nextrush/class',
-  ]);
+  const names = new Set<string>(getManifestPackageNames());
+  // Non-probed entries: `toolchain` and pinned literals are resolved by the manifest.
+  for (const [pkgName, entry] of Object.entries(dependencyManifest)) {
+    if (entry.resolve !== 'latest-compatible') {
+      names.delete(pkgName);
+    }
+  }
   for (const preset of Object.keys(MIDDLEWARE_PACKAGE_NAMES) as MiddlewarePreset[]) {
     for (const pkgName of MIDDLEWARE_PACKAGE_NAMES[preset]) {
       names.add(pkgName);
@@ -31,21 +42,43 @@ export function getAllPossiblePackageNames(): string[] {
   return [...names];
 }
 
-/** Resolves the dependency sets for a project configuration. */
+/** Resolves a manifest entry's version range, applying its `resolve` policy.
+ *
+ * `'latest-compatible'` reads the probed per-package range; `'toolchain'` reads the
+ * build-time-injected single-sourced range (typescript/vitest/@types/node from
+ * `create-nextrush`'s own devDependencies); a literal is a pinned contract returned as-is. */
+function resolveManifestRange(pkgName: string, entry: ManifestEntry): string {
+  switch (entry.resolve) {
+    case 'latest-compatible':
+      return getPackageRange(pkgName);
+    case 'toolchain':
+      return getToolchainRange(pkgName as 'typescript' | 'vitest' | 'dotenv' | '@types/node');
+    default:
+      // A pinned literal contract (e.g. reflect-metadata `>=0.2.0`) — declared, not buried.
+      return entry.resolve;
+  }
+}
+
+/** Returns true when a manifest entry applies to the given project options. */
+function manifestEntryApplies(entry: ManifestEntry, options: ProjectOptions): boolean {
+  if (entry.runtimes && !entry.runtimes.includes(options.runtime)) return false;
+  if (entry.templates && !entry.templates.includes(options.style)) return false;
+  return true;
+}
+
+/** Resolves the dependency sets for a project configuration, evaluating the manifest. */
 export function getDependencies(options: ProjectOptions): DependencySet {
-  const dependencies: Record<string, string> = {
-    nextrush: getPackageRange('nextrush'),
-  };
+  const dependencies: Record<string, string> = {};
+  const devDependencies: Record<string, string> = {};
 
-  const needsReflectMetadata = options.style === 'class-based' || options.style === 'full';
-
-  // reflect-metadata is auto-imported by the nextrush meta-package's `nextrush/class` subpath,
-  // but we keep it as an explicit dependency so it's resolvable. `@nextrush/class` itself is an
-  // OPTIONAL peer dependency of `nextrush` (framework-composition-integrity) — a class-based or
-  // full project must add it explicitly, or `nextrush/class` fails to resolve.
-  if (needsReflectMetadata) {
-    dependencies['reflect-metadata'] = '>=0.2.0';
-    dependencies['@nextrush/class'] = getPackageRange('@nextrush/class');
+  for (const [pkgName, entry] of Object.entries(dependencyManifest)) {
+    if (!manifestEntryApplies(entry, options)) continue;
+    const range = resolveManifestRange(pkgName, entry);
+    if (entry.scope === 'dependency') {
+      dependencies[pkgName] = range;
+    } else {
+      devDependencies[pkgName] = range;
+    }
   }
 
   // Middleware packages — each resolved to its OWN version, never a shared proxy range.
@@ -56,34 +89,14 @@ export function getDependencies(options: ProjectOptions): DependencySet {
   const adapterDeps = getAdapterPackages()[options.runtime];
   Object.assign(dependencies, adapterDeps);
 
-  const devDependencies: Record<string, string> = {
-    '@nextrush/dev': getPackageRange('@nextrush/dev'),
-    '@nextrush/types': getPackageRange('@nextrush/types'),
-    typescript: getToolchainRange('typescript'),
-    vitest: getVitestRange(),
-  };
-
-  // @types/node is Node-specific — Deno ships its own global types (via `deno.json` lib +
-  // its native type system), and installing `@types/node` would inject Node's `process` /
-  // `Buffer` globals into a Deno project and conflict with Deno's own globals.
-  // capability-exempt: scaffolding tool emits runtime-specific project files from user choice,
-  // not the executing runtime. `options.runtime` is a scaffold-time decision.
-  if (options.runtime !== 'deno') {
-    devDependencies['@types/node'] = getToolchainRange('@types/node');
-  }
-
   return { dependencies, devDependencies };
-}
-
-/** Resolves the generated project's `vitest` devDependency from the scaffolder's own pinned version. */
-function getVitestRange(): string {
-  return typeof __VITEST_RANGE__ !== 'undefined' ? __VITEST_RANGE__ : '^3.0.0';
 }
 
 declare const __VITEST_RANGE__: string;
 
 declare const __TYPESCRIPT_RANGE__: string;
 declare const __TYPES_NODE_RANGE__: string;
+declare const __DOTENV_RANGE__: string;
 
 /**
  * Single-sources the generated project's `typescript`/`@types/node` versions with the
@@ -97,9 +110,17 @@ declare const __TYPES_NODE_RANGE__: string;
  * that mismatch is exactly what F-07 found (`@types/node ^26` against an `engines >=22`
  * floor).
  */
-function getToolchainRange(pkg: 'typescript' | '@types/node'): string {
+function getToolchainRange(pkg: 'typescript' | 'vitest' | 'dotenv' | '@types/node'): string {
   if (pkg === 'typescript') {
-    return typeof __TYPESCRIPT_RANGE__ !== 'undefined' ? __TYPESCRIPT_RANGE__ : '^5.0.0';
+    // Dev-mode fallback mirrors create-nextrush's OWN devDependency (build-time injection
+    // in tsup.config.ts reads the same value) — never a stale independent literal.
+    return typeof __TYPESCRIPT_RANGE__ !== 'undefined' ? __TYPESCRIPT_RANGE__ : '^6.0.3';
+  }
+  if (pkg === 'vitest') {
+    return typeof __VITEST_RANGE__ !== 'undefined' ? __VITEST_RANGE__ : '^4.1.10';
+  }
+  if (pkg === 'dotenv') {
+    return typeof __DOTENV_RANGE__ !== 'undefined' ? __DOTENV_RANGE__ : '^17.4.2';
   }
 
   const rawRange = typeof __TYPES_NODE_RANGE__ !== 'undefined' ? __TYPES_NODE_RANGE__ : `^${MIN_NODE_MAJOR.toString()}.0.0`;
@@ -198,7 +219,9 @@ export function getRuntimeScripts(runtime: Runtime): {
       return {
         dev: 'deno run --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys --unstable-sloppy-imports npm:nextrush dev',
         build: 'deno run --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys --unstable-sloppy-imports npm:nextrush build',
-        start: 'deno run --allow-net --allow-read --allow-env dist/index.js',
+        // Load the project's .env at process start — Deno's --env-file does NOT
+        // overwrite existing process env, so shell-provided PORT/NODE_ENV still win in prod.
+        start: 'deno run --allow-net --allow-read --allow-env --env-file=.env dist/index.js',
         test,
       };
     case 'node':
