@@ -35,6 +35,8 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0020](ADR-0020-session-position.md) | `@nextrush/session`: documented position, implementation deferred to a future RFC | Proposed | `docs/RFC/class-runtime/032-session-position.md` |
 | [ADR-0021](ADR-0021-fast-property-request-containers.md) | Fast-property request containers derived from a shared null-prototype base (`ctx.params`/`query`/`headers`) | Accepted · Shipped | — |
 | [ADR-0022](ADR-0022-design-token-architecture-orange-identity.md) | Layered design-token architecture & orange `#F16913` identity (warm-paper/graphite), CI-enforced | Accepted · Shipped | — |
+| [ADR-0023](ADR-0023-scaffolder-dx-environment-manifest-deno.md) | Scaffolder DX architecture — unified env config (`.env`/`.env.example`/`config` for all runtimes), declarative dependency manifest + single runtime policy, Deno `--env-file` parity | Accepted | `docs/RFC/scaffolding/034-environment-configuration-scaffolding.md` (consolidates 035, 036) |
+| [ADR-0024](ADR-0024-create-nextrush-strict-automation-contract.md) | `create-nextrush` strict automation contract — versioned JSON result/error schema (`schemaVersion` 1, stable codes + remediation), `--dry-run`/`--json`, explicit destructive `--overwrite` policy (never implied by `--yes`), non-zero `TARGET_DIRECTORY_NOT_EMPTY` | Accepted | `docs/RFC/scaffolding/021-project-scaffolding-capability.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

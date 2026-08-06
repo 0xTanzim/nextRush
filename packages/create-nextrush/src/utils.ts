@@ -65,6 +65,11 @@ export function getRunCommand(pm: PackageManager): string {
   }
 }
 
+/** Returns the production start command for a package manager (e.g. `npm start`). */
+export function getStartCommand(pm: PackageManager): string {
+  return pm === 'npm' ? 'npm start' : `${getRunCommand(pm)} start`;
+}
+
 /** Detects the preferred package manager from the environment. */
 export function detectPackageManager(): PackageManager {
   const userAgent = process.env.npm_config_user_agent ?? '';
@@ -77,6 +82,34 @@ export function detectPackageManager(): PackageManager {
   // branches on which JS runtime is executing.
   if (userAgent.startsWith('bun')) return 'bun';
   return 'npm';
+}
+
+/** How the resolved package manager was chosen — the observable provenance (F-09). */
+export type PackageManagerSource = 'explicit' | 'detected' | 'runtime-policy';
+
+/**
+ * Resolves the package manager together with its provenance, so the CLI can state
+ * "Using pnpm (detected)" before install (task 2.5 / F-09).
+ *
+ * - `explicit`: the caller passed `--pm`.
+ * - `runtime-policy`: the bun runtime implies the bun package manager.
+ * - `detected`: inferred from the invoking environment (`npm_config_user_agent`).
+ */
+export function resolvePackageManagerWithSource(
+  runtime: 'node' | 'bun' | 'deno',
+  explicit?: PackageManager
+): { packageManager: PackageManager; source: PackageManagerSource } {
+  if (explicit) {
+    return { packageManager: explicit, source: 'explicit' };
+  }
+
+  // capability-exempt: 'bun' here identifies the PACKAGE MANAGER implied by a scaffold-time
+  // runtime choice, not a capability decision in this CLI's own request path.
+  if (runtime === 'bun') {
+    return { packageManager: 'bun', source: 'runtime-policy' };
+  }
+
+  return { packageManager: detectPackageManager(), source: 'detected' };
 }
 
 /** Converts a directory name to a valid package name. */
