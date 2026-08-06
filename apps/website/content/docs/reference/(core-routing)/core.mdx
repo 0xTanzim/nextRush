@@ -226,6 +226,53 @@ router.use('/posts', postsRouter);
 app.route('/', router);
 ```
 
+### The app-owned router (`app.router`)
+
+`app.route(path, router)` mounts a router you created. `app.router` is the opposite: the **router the app owns**, the one `app.get()`, `app.post()`, and the other verb methods delegate to. `@nextrush/core` only gives you one if you pass it — `createApp({ router: createRouter() })` — while `createApp()` from the `nextrush` meta-package injects a default.
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+
+const router = createRouter();
+router.redirect('/old', '/new', 301); // router-only feature
+
+const app = createApp({ router }); // the router becomes app.router
+app.get('/hello', (ctx) => ctx.json({ ok: true })); // delegates to app.router
+```
+
+Reach for the router directly only when you need a feature the app methods do not expose — `group()`, `redirect()`, `allowedMethods()`, `getRoutes()`, `reset()`. Those live on the Router API, documented in [`@nextrush/router`](/docs/reference/router):
+
+```typescript
+import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
+
+const router = createRouter();
+router.group('/admin', [
+  async (ctx) => {
+    if (!ctx.get('Authorization')) {
+      ctx.status = 401;
+      ctx.json({ error: 'Unauthorized' });
+      return;
+    }
+    await ctx.next();
+  },
+], (admin) => {
+  admin.get('/users', (ctx) => ctx.json([])); // GET /admin/users, guarded
+});
+
+const app = createApp({ router });
+```
+
+When you only have the app instance — inside an extension or a registrar — the same handle is the `app.router` property. TypeScript types it as optional (`Router | undefined`), so assert it once (`app.router!`) where the meta-package's `createApp()` guarantee applies.
+
+| Member                | Kind     | Purpose                                                                |
+| --------------------- | -------- | ---------------------------------------------------------------------- |
+| `app.route(path, r)`  | method   | Mount a *separate* router at a path prefix                              |
+| `app.router`          | property | The app-owned router — verb methods delegate to it; Router-only features live here |
+
+If you never need Router-only features, `app.router` stays invisible: `createApp()` from `nextrush` provides one, and `app.get()` / `app.route()` cover registration.
+
 ### Two Syntax Styles
 
 Both work identically—use whichever you prefer:
@@ -511,7 +558,7 @@ app.setErrorHandler(errorHandler);
 | `app.extensionCount`           | `number`                          | Count of registered extensions                                                                    |
 | `app.options`                  | `ApplicationOptions`              | Readonly configuration                                                                            |
 | `app.logger`                   | `Logger`                          | Readonly logger instance                                                                          |
-| `app.router`                   | `Router \| undefined`             | The app-owned router, if one was configured                                                       |
+| `app.router`                   | `Router \| undefined`             | The app-owned router, if one was configured. Verb methods (`app.get`, …) delegate to it; Router-only features (groups, redirects, 405 handling) live here — see [`@nextrush/router`](/docs/reference/router) |
 | `app.container`                | `Container \| undefined`          | The app-owned DI container, if one was configured                                                 |
 
 ### compose()

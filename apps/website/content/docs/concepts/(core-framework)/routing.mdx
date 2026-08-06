@@ -86,6 +86,40 @@ listen(app, 8080);
 
 A `Router` is a self-contained bundle of routes you build in one place and mount wherever you need it. That is the whole model: build small routers, compose them.
 
+## Two names, one router: `app.route()` vs `app.router`
+
+The names look like they belong together, and that is exactly the trap. One is a verb you call; the other is a noun — the app's own route table.
+
+- **`app.route(prefix, router)`** mounts a router you built somewhere else. It is how you compose: build a feature router, hand it to the app, and every route lands under the prefix.
+- **`app.router`** is the router the app owns. `app.get()`, `app.post()`, and the other verb methods delegate to it, so `app.get('/health', ...)` really means `app.router.get('/health', ...)`. `createApp()` from `nextrush` gives the app one automatically.
+
+```ts
+import { createApp, createRouter } from 'nextrush';
+
+const app = createApp(); // app.router exists — app.get() works immediately
+app.get('/health', (ctx) => ctx.json({ ok: true })); // lives on app.router
+
+const users = createRouter(); // a separate router
+users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
+app.route('/users', users); // mounted under /users
+```
+
+You rarely need to name `app.router` yourself. Reach for it only when a feature you want lives on the router rather than on the app — prefix-scoped groups, redirects, 405 handling, or route-table introspection. The clean way is to keep the handle from creation, so the two names never collide:
+
+```ts
+import { createApp, createRouter } from 'nextrush';
+
+const router = createRouter();
+router.redirect('/old', '/new', 301); // a router-only feature
+
+const app = createApp({ router }); // the same router becomes app.router
+app.get('/health', (ctx) => ctx.json({ ok: true })); // app.get delegates to it
+```
+
+The full router-only API — `group`, `redirect`, `allowedMethods`, `getRoutes`, `reset` — is in the [`@nextrush/router` reference](/docs/reference/router).
+
+**The one-line distinction:** `app.get()` writes the app's own routes, `app.route()` mounts a feature router, and `app.router` is the property those verb methods delegate to — keep its handle from `createApp({ router })` and the names stop being ambiguous.
+
 ## How it works
 
 **Example** — register a static route and a dynamic one on the same router:
@@ -218,6 +252,7 @@ router.get('/users/:id', (ctx) => {
 
 - **Registering the same method and path twice.** *Why it happens:* two features register `/users` independently. *Correct approach:* register each method/path once — different methods on one path are fine. *If ignored:* the router throws at startup, so you catch it immediately rather than shipping a shadowed route.
 - **Forgetting to mount the router.** *Why it happens:* `createRouter()` builds a router, but nothing matches until `app.route(prefix, router)`. *Correct approach:* mount every router. *If ignored:* the routes silently return 404 with no error.
+- **Confusing `app.route()` with `app.router`.** *Why it happens:* the names sit side by side and both involve a router. *Correct approach:* `app.route(prefix, router)` mounts a router you built; `app.router` is the property `app.get()` writes to. *If ignored:* you reach for the property when you meant to mount, and the route never lands where you expected.
 - **Putting a wildcard mid-path.** *Why it happens:* expecting `/*/files` to match a prefix. *Correct approach:* `*` captures the rest of the URL, so it belongs at the end (`/files/*`). *If ignored:* the route matches far more — or less — than you intended.
 
 ## Key takeaways
@@ -227,6 +262,7 @@ router.get('/users/:id', (ctx) => {
 - Static routes resolve through an O(1) hash map; dynamic routes walk the trie in O(k).
 - Parameters and wildcards are captured during the traversal, into `ctx.params`.
 - A captured parameter is untrusted input — validate it before use.
+- `app.route(prefix, router)` mounts a feature router; `app.router` is the app-owned router `app.get()` delegates to — keep its handle from `createApp({ router })` for router-only features.
 
 ## Continue learning
 
