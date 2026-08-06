@@ -168,12 +168,12 @@ describe('generateProject', () => {
       expect(repo).not.toContain('class TodoStore');
     });
 
-    it('uses createApp, createRouter, listen imports', () => {
+    it('uses createApp, createRouter, serve imports', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
       expect(entry).toContain('createApp');
       expect(entry).toContain('createRouter');
-      expect(entry).toContain('listen');
+      expect(entry).toContain('serve');
       expect(entry).toContain("from 'nextrush'");
     });
 
@@ -181,7 +181,7 @@ describe('generateProject', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
       expect(entry).toContain("import { config } from './config/index.js';");
-      expect(entry).toContain('await listen(app, config.port);');
+      expect(entry).toContain('await serve(app, { port: config.port, host: config.host });');
       expect(entry).not.toContain('const PORT =');
     });
 
@@ -226,18 +226,18 @@ describe('generateProject', () => {
       expect(health).toContain('getHealthStatus');
     });
 
-    it('uses adapter-bun listen import for bun runtime', () => {
+    it('uses adapter-bun serve import for bun runtime', () => {
       const files = generateProject(createOptions({ style: 'functional', runtime: 'bun' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain("import { listen } from '@nextrush/adapter-bun'");
+      expect(entry).toContain("import { serve } from '@nextrush/adapter-bun'");
     });
 
-    it('reads the port from config, not an inline constant', () => {
+    it('reads the port from config, not an inline constant, and forwards host', () => {
       const files = generateProject(createOptions({ style: 'functional' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('await listen(app, config.port);');
+      expect(entry).toContain('await serve(app, { port: config.port, host: config.host });');
       const configFile = files.get('src/config/index.ts')!;
-      expect(configFile).toContain('Number(process.env.PORT ?? 8080)');
+      expect(configFile).toContain('process.env.PORT');
     });
 
     it('uses a cross-runtime uptime in the health service pure function', () => {
@@ -293,8 +293,9 @@ describe('generateProject', () => {
     it('uses simple PORT declaration in class-based entrypoint', () => {
       const files = generateProject(createOptions({ style: 'class-based' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
-      expect(entry).toContain('await listen(app, PORT);');
+      expect(entry).toContain("import { config } from './config/index.js';");
+      expect(entry).toContain('await serve(app, { port: config.port, host: config.host });');
+      expect(entry).not.toContain('const PORT = Number(process.env.PORT) || 8080;');
     });
 
     it('uses @Controller and @Get decorators', () => {
@@ -376,12 +377,12 @@ describe('generateProject', () => {
       expect(files.has('src/middleware/error-handler.ts')).toBe(true);
     });
 
-    it('uses listen instead of serve', () => {
+    it('uses serve with host instead of a bare listen', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('await listen(app, PORT)');
-      expect(entry).not.toContain('serve(');
-      expect(entry).not.toContain('onListen');
+      expect(entry).toContain('await serve(app, { port: config.port, host: config.host });');
+      expect(entry).not.toContain('await listen(app, PORT)');
+      expect(entry).not.toContain('const PORT =');
     });
 
     it('imports the error handler', () => {
@@ -423,10 +424,12 @@ describe('generateProject', () => {
       expect(handler).toContain('error instanceof HttpError ? error.status : 500');
     });
 
-    it('entrypoint uses simple PORT declaration', () => {
+    it('entrypoint uses config-based serve with host', () => {
       const files = generateProject(createOptions({ style: 'full' }));
       const entry = files.get('src/index.ts')!;
-      expect(entry).toContain('const PORT = Number(process.env.PORT) || 8080;');
+      expect(entry).toContain("import { config } from './config/index.js';");
+      expect(entry).toContain('await serve(app, { port: config.port, host: config.host });');
+      expect(entry).not.toContain('const PORT = Number(process.env.PORT) || 8080;');
     });
 
     it('wires the root module with registerModule instead of filesystem discovery', () => {
@@ -512,7 +515,10 @@ describe('generateProject', () => {
 
       expect(pkg.scripts.dev).toContain('npm:nextrush dev');
       expect(pkg.scripts.build).toContain('npm:nextrush build');
-      expect(pkg.scripts.start).toBe('deno run --allow-net --allow-read --allow-env dist/index.js');
+      // start loads .env via --env-file, scoped permissions, no -A
+      expect(pkg.scripts.start).toBe(
+        'deno run --allow-net --allow-read --allow-env --env-file=.env dist/index.js'
+      );
 
       for (const script of [pkg.scripts.dev, pkg.scripts.build, pkg.scripts.start]) {
         expect(script).not.toContain('@latest');
@@ -588,31 +594,33 @@ describe('generateProject', () => {
   describe('file counts', () => {
     it('functional minimal generates correct number of files', () => {
       const files = generateProject(createOptions({ style: 'functional', middleware: 'minimal' }));
-      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts,
-      // config/index.ts, lib/types.ts, middleware/logger.ts,
+      // tsconfig, package.json, README, .gitignore, .env, .env.example, env.d.ts,
+      // src/index.ts, config/index.ts, lib/types.ts, middleware/logger.ts,
       // routes/health.routes.ts, routes/todos.routes.ts,
       // services/health.service.ts, services/todos.service.ts,
       // services/__tests__/health.service.test.ts, services/__tests__/todos.service.test.ts,
       // repositories/todos.repository.ts, repositories/__tests__/todos.repository.test.ts
-      expect(files.size).toBe(17);
+      expect(files.size).toBe(19);
     });
 
     it('class-based generates correct number of files', () => {
       const files = generateProject(createOptions({ style: 'class-based', middleware: 'minimal' }));
-      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts, src/app.module.ts,
+      // tsconfig, package.json, README, .gitignore, .env, .env.example, env.d.ts,
+      // src/index.ts, src/config/index.ts, src/app.module.ts,
       // modules/health/{health.module,health.controller,health.service}.ts,
       // modules/todos/{todos.module,todos.controller,todos.service,todos.repository}.ts,
       // modules/todos/__tests__/{todos.service,todos.controller}.test.ts
-      expect(files.size).toBe(16);
+      expect(files.size).toBe(19);
     });
 
     it('full generates correct number of files', () => {
       const files = generateProject(createOptions({ style: 'full', middleware: 'minimal' }));
-      // tsconfig, package.json, README, .gitignore, env.d.ts, src/index.ts, src/app.module.ts,
+      // tsconfig, package.json, README, .gitignore, .env, .env.example, env.d.ts,
+      // src/index.ts, src/config/index.ts, src/app.module.ts,
       // modules/hello/hello.module.ts, modules/hello/hello.controller.ts,
       // modules/hello/hello.service.ts, modules/hello/__tests__/hello.service.test.ts,
       // routes/health.ts, middleware/error-handler.ts
-      expect(files.size).toBe(13);
+      expect(files.size).toBe(16);
     });
 
     it('git flag does not affect file count', () => {

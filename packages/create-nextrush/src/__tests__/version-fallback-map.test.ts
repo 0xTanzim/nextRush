@@ -25,7 +25,7 @@ describe('offline fallback map (task 2.3)', () => {
   it('falls back to a PER-PACKAGE map — @nextrush/dev fallback differs from nextrush fallback', async () => {
     const { resolveVersions } = await import('../npm-version.js');
 
-    const versions = await resolveVersions(['nextrush', '@nextrush/dev', '@nextrush/adapter-deno']);
+    const { versions } = await resolveVersions(['nextrush', '@nextrush/dev', '@nextrush/adapter-deno']);
 
     const nextrushFallback = versions.get('nextrush');
     const devFallback = versions.get('@nextrush/dev');
@@ -45,7 +45,7 @@ describe('offline fallback map (task 2.3)', () => {
   it('every fallback entry is itself a resolvable-shaped semver range', async () => {
     const { resolveVersions } = await import('../npm-version.js');
 
-    const versions = await resolveVersions(['nextrush', '@nextrush/dev', '@nextrush/rate-limit']);
+    const { versions } = await resolveVersions(['nextrush', '@nextrush/dev', '@nextrush/rate-limit']);
 
     for (const [pkgName, range] of versions) {
       expect(range, `${pkgName} fallback range "${range}" is not a valid semver range`).toMatch(

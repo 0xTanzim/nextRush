@@ -1,6 +1,6 @@
 import { MIDDLEWARE_IMPORTS, MIDDLEWARE_SETUP } from '../constants.js';
 import type { FileMap, ProjectOptions } from '../types.js';
-import { getRuntimeEntrypointImports } from './shared.js';
+import { generateConfig, getRuntimeEntrypointImports } from './shared.js';
 
 /**
  * Generates a functional-style NextRush project — a professional, production-grade
@@ -37,7 +37,7 @@ function generateEntrypoint(options: ProjectOptions): string {
 
   const lines: string[] = [];
 
-  lines.push(...getRuntimeEntrypointImports(options.runtime, 'listen', ['errorHandler']));
+  lines.push(...getRuntimeEntrypointImports(options.runtime, 'serve', ['errorHandler']));
 
   if (middlewareImports) {
     lines.push(middlewareImports);
@@ -72,45 +72,10 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push("app.route('/health', healthRouter);");
   lines.push("app.route('/todos', todosRouter);");
   lines.push('');
-  lines.push('await listen(app, config.port);');
+  lines.push('await serve(app, { port: config.port, host: config.host });');
   lines.push('');
 
   return lines.join('\n');
-}
-
-function generateConfig(options: ProjectOptions): string {
-  // capability-exempt: scaffolder emits a runtime-specific env-reading snippet for the GENERATED project's config; not a capability decision in this CLI's own request path
-  if (options.runtime === 'deno') {
-    return `/** Centralized environment configuration.
- *
- * Read each variable once, convert its type, and provide a default — don't
- * scatter Deno.env.get calls across route handlers. Fail fast on missing
- * required values at startup, not deep in a request handler.
- *
- * @see https://nextrush.dev/docs/production/configuration
- */
-export const config = {
-  port: Number(Deno.env.get('PORT') ?? 8080),
-  host: Deno.env.get('HOST') ?? '0.0.0.0',
-  nodeEnv: Deno.env.get('NODE_ENV') ?? 'development',
-};
-`;
-  }
-
-  return `/** Centralized environment configuration.
- *
- * Read each variable once, convert its type, and provide a default — don't
- * scatter process.env reads across route handlers. Fail fast on missing
- * required values at startup, not deep in a request handler.
- *
- * @see https://nextrush.dev/docs/production/configuration
- */
-export const config = {
-  port: Number(process.env.PORT ?? 8080),
-  host: process.env.HOST ?? '0.0.0.0',
-  nodeEnv: process.env.NODE_ENV ?? 'development',
-};
-`;
 }
 
 function generateTypes(): string {

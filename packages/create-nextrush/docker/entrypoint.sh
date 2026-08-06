@@ -6,20 +6,28 @@ set -euo pipefail
 # Exercises the REAL package-manager entrypoints — `npm create`, `pnpm create`,
 # `yarn create`, `bun create` — plus the Deno path, against a local verdaccio
 # registry that serves the packed create-nextrush tarball. For each manager ×
-# generated-runtime combination it then installs, builds, tests, starts the dev
-# server, and curls the health endpoint. Any failure aborts non-zero so the
-# offending manager/runtime is reported loudly.
+# generated-runtime × style × middleware combination it then installs, builds,
+# tests, starts the dev server, and curls the health endpoint. Any failure
+# aborts non-zero and retains the generated project directory + logs so the
+# offending combination is reproducible (task 5.1/5.2 — design decision 7).
 #
 # Env:
 #   PM_LIST      space-separated managers (default: npm pnpm yarn bun)
 #   RUNTIME_LIST space-separated generated runtimes (default: node bun deno)
+#   STYLE_LIST   space-separated styles (default: functional class-based full)
+#   MW_LIST      space-separated middleware presets (default: minimal api full)
 #   PORT         port for the health probe (default: 8080)
 
 PM_LIST="${PM_LIST:-npm pnpm yarn bun}"
 RUNTIME_LIST="${RUNTIME_LIST:-node bun deno}"
+STYLE_LIST="${STYLE_LIST:-functional class-based full}"
+MW_LIST="${MW_LIST:-minimal api full}"
 PORT="${PORT:-8080}"
 TARBALL="${1:-/work/create-nextrush.tgz}"
 REGISTRY="http://127.0.0.1:4873"
+ARTIFACTS="/work/artifacts"
+rm -rf "$ARTIFACTS"
+mkdir -p "$ARTIFACTS"
 
 echo "=== starting local registry (verdaccio) ==="
 rm -rf /work/verdaccio/storage
@@ -66,7 +74,9 @@ run_create() {
   local pm="$1"
   local dir="$2"
   local runtime="$3"
-  local args=(--yes --style functional --middleware api --no-git --no-install --runtime "$runtime")
+  local style="$4"
+  local middleware="$5"
+  local args=(--yes --style "$style" --middleware "$middleware" --no-git --no-install --runtime "$runtime")
 
   case "$pm" in
     npm)
@@ -102,9 +112,17 @@ check_health() {
   local url="http://127.0.0.1:${PORT}/health"
   local server_pid=""
 
+  # Clean up the spawned server and its children inline (NOT via a global EXIT trap,
+  # which would clobber the registry-cleanup trap). A leftover server on the shared
+  # port would make the next cell fail with EADDRINUSE (task 5.4 matrix finding).
+  cleanup_server() {
+    local pid="$1"
+    kill "$pid" 2>/dev/null || true
+    pkill -P "$pid" 2>/dev/null || true
+  }
+
   (cd "$dir" && eval "$start_cmd") &
   server_pid=$!
-  trap 'if [ -n "${server_pid:-}" ]; then kill "$server_pid" 2>/dev/null || true; fi' EXIT
 
   local ok=""
   for _ in $(seq 1 40); do
@@ -115,19 +133,13 @@ check_health() {
     sleep 1
   done
 
+  cleanup_server "$server_pid"
+
   if [ -z "$ok" ]; then
     echo "FAIL: $start_cmd health endpoint did not respond on ${url}" >&2
-    if [ -n "${server_pid:-}" ]; then
-      kill "$server_pid" 2>/dev/null || true
-    fi
-    trap - EXIT
     return 1
   fi
   echo "PASS: $start_cmd health endpoint responded on ${url}"
-  if [ -n "${server_pid:-}" ]; then
-    kill "$server_pid" 2>/dev/null || true
-  fi
-  trap - EXIT
   return 0
 }
 
@@ -161,35 +173,57 @@ install_build_test() {
   return 0
 }
 
+# Retains the generated project and a per-cell log on failure so the offending
+# combination is reproducible (task 5.1 — design decision 7).
+retain_failure() {
+  local dir="$1"
+  local cell="$2"
+  local log="$3"
+  mkdir -p "$ARTIFACTS/$cell"
+  cp -r "$dir" "$ARTIFACTS/$cell/project" 2>/dev/null || true
+  cp "$log" "$ARTIFACTS/$cell/run.log" 2>/dev/null || true
+}
+
 for pm in $PM_LIST; do
   for runtime in $RUNTIME_LIST; do
-    echo "=== [$pm × $runtime] create ==="
-    dir="/work/app-$pm-$runtime"
-    rm -rf "$dir"
-    mkdir -p "$dir"
+    for style in $STYLE_LIST; do
+      for middleware in $MW_LIST; do
+        cell="$pm-$runtime-$style-$middleware"
+        log="/work/log-$cell.txt"
+        echo "=== [$cell] create ==="
+        dir="/work/app-$cell"
+        rm -rf "$dir"
+        mkdir -p "$dir"
 
-    run_create "$pm" "$dir" "$runtime"
-    cd "$dir/my-api"
+        if ! run_create "$pm" "$dir" "$runtime" "$style" "$middleware" 2>&1 | tee "$log"; then
+          echo "FAIL: $cell create" >&2
+          retain_failure "$dir" "$cell" "$log"
+          exit 1
+        fi
+        cd "$dir/my-api" || { echo "FAIL: $cell scaffold did not produce my-api" >&2; retain_failure "$dir" "$cell" "$log"; exit 1; }
 
-    echo "=== [$pm × $runtime] install/build/test ==="
-    if ! install_build_test "$dir/my-api" "$pm" "$runtime"; then
-      echo "FAIL: $pm × $runtime install/build/test" >&2
-      exit 1
-    fi
+        echo "=== [$cell] install/build/test ==="
+        if ! install_build_test "$dir/my-api" "$pm" "$runtime" 2>&1 | tee -a "$log"; then
+          echo "FAIL: $cell install/build/test" >&2
+          retain_failure "$dir" "$cell" "$log"
+          exit 1
+        fi
 
-    echo "=== [$pm × $runtime] dev server + health ==="
-    case "$pm" in
-      npm) check_health "$dir/my-api" "npm run start" ;;
-      pnpm) check_health "$dir/my-api" "pnpm start" ;;
-      yarn) check_health "$dir/my-api" "yarn start" ;;
-      bun) check_health "$dir/my-api" "bun run start" ;;
-    esac
+        echo "=== [$cell] dev server + health ==="
+        case "$pm" in
+          npm) check_health "$dir/my-api" "npm run start" ;;
+          pnpm) check_health "$dir/my-api" "pnpm start" ;;
+          yarn) check_health "$dir/my-api" "yarn start" ;;
+          bun) check_health "$dir/my-api" "bun run start" ;;
+        esac || { echo "FAIL: $cell health" >&2; retain_failure "$dir" "$cell" "$log"; exit 1; }
 
-    cd /work
-    echo "=== [$pm × $runtime] OK ==="
+        cd /work
+        echo "=== [$cell] OK ==="
+      done
+    done
   done
 done
 
 kill "$REGISTRY_PID" 2>/dev/null || true
 trap - EXIT
-echo "ALL PACKAGE MANAGERS × RUNTIMES PASSED"
+echo "ALL PACKAGE MANAGERS × RUNTIMES × STYLES × MIDDLEWARE PASSED"

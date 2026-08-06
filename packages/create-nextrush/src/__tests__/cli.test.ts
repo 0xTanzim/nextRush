@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseArgs } from '../cli.js';
+import { CliInputError, parseArgs } from '../cli.js';
 
 describe('parseArgs', () => {
   it('parses directory as positional argument', () => {
     const result = parseArgs(['node', 'create-nextrush', 'my-app']);
     expect(result.directory).toBe('my-app');
+  });
+
+  it('accepts the `--` end-of-options separator passed by npm/pnpm create wrappers', () => {
+    // The canonical `npm create nextrush my-app -- --yes` form may forward a bare `--`.
+    // It is a separator, not an unknown option (task 5.4 matrix finding).
+    const result = parseArgs(['node', 'create-nextrush', 'my-app', '--', '--yes']);
+    expect(result.directory).toBe('my-app');
+    expect(result.yes).toBe(true);
   });
 
   it('parses --style flag', () => {
@@ -132,34 +140,86 @@ describe('parseArgs', () => {
     expect(result.version).toBe(false);
   });
 
-  it('ignores invalid style values', () => {
-    const result = parseArgs(['node', 'create-nextrush', '--style', 'invalid']);
-    expect(result.style).toBeUndefined();
+  it.each([
+    ['--style', 'invalid', 'INVALID_STYLE'],
+    ['--runtime', 'invalid', 'INVALID_RUNTIME'],
+    ['--middleware', 'invalid', 'INVALID_MIDDLEWARE'],
+    ['--pm', 'invalid', 'INVALID_PACKAGE_MANAGER'],
+  ])('rejects an invalid %s value', (flag, value, code) => {
+    expect(() => parseArgs(['node', 'create-nextrush', flag, value])).toThrowError(CliInputError);
+    try {
+      parseArgs(['node', 'create-nextrush', flag, value]);
+    } catch (error) {
+      expect(error).toMatchObject({ code });
+    }
   });
 
-  it('ignores invalid runtime values', () => {
-    const result = parseArgs(['node', 'create-nextrush', '--runtime', 'invalid']);
-    expect(result.runtime).toBeUndefined();
+  it.each(['--style', '--runtime', '--middleware', '--pm'])('rejects a missing %s value', (flag) => {
+    expect(() => parseArgs(['node', 'create-nextrush', flag])).toThrowError(CliInputError);
   });
 
-  it('ignores invalid middleware values', () => {
-    const result = parseArgs(['node', 'create-nextrush', '--middleware', 'invalid']);
-    expect(result.middleware).toBeUndefined();
+  it('rejects unknown flags instead of silently continuing', () => {
+    expect(() => parseArgs(['node', 'create-nextrush', '--unknown'])).toThrowError(
+      expect.objectContaining({ code: 'UNKNOWN_OPTION' })
+    );
   });
 
-  it('ignores invalid pm values', () => {
-    const result = parseArgs(['node', 'create-nextrush', '--pm', 'invalid']);
-    expect(result.packageManager).toBeUndefined();
+  it('parses automation flags', () => {
+    const result = parseArgs(['node', 'create-nextrush', 'my-app', '--yes', '--json', '--dry-run']);
+    expect(result).toMatchObject({ directory: 'my-app', yes: true, json: true, dryRun: true });
   });
 
-  it('ignores unknown flags', () => {
-    const result = parseArgs(['node', 'create-nextrush', '--unknown']);
-    expect(result.directory).toBeUndefined();
-    expect(result.style).toBeUndefined();
+  it('parses the overwrite and offline flags', () => {
+    const result = parseArgs(['node', 'create-nextrush', '--overwrite', '--offline']);
+    expect(result).toMatchObject({ overwrite: true, offline: true });
   });
 
-  it('does not treat unknown flag values as directory when directory is set', () => {
-    const result = parseArgs(['node', 'create-nextrush', 'my-app', '--unknown', 'value']);
-    expect(result.directory).toBe('my-app');
+  it('parses --preset production', () => {
+    const result = parseArgs(['node', 'create-nextrush', '--preset', 'production']);
+    expect(result.preset).toBe('production');
+  });
+
+  it('rejects an invalid --preset value', () => {
+    expect(() => parseArgs(['node', 'create-nextrush', '--preset', 'staging'])).toThrowError(
+      expect.objectContaining({ code: 'INVALID_PRESET' })
+    );
+  });
+
+  it('parses --example secure-api', () => {
+    const result = parseArgs(['node', 'create-nextrush', '--example', 'secure-api']);
+    expect(result.example).toBe('secure-api');
+  });
+
+  it('rejects an invalid --example value', () => {
+    expect(() => parseArgs(['node', 'create-nextrush', '--example', 'todo'])).toThrowError(
+      expect.objectContaining({ code: 'INVALID_EXAMPLE' })
+    );
+  });
+
+  it('parses --workspace', () => {
+    const result = parseArgs(['node', 'create-nextrush', '--workspace']);
+    expect(result.workspace).toBe(true);
+  });
+
+  it('parses --skip-runtime-check', () => {
+    const result = parseArgs(['node', 'create-nextrush', '--skip-runtime-check']);
+    expect(result.skipRuntimeCheck).toBe(true);
+  });
+
+  it('rejects an option value that looks like a flag', () => {
+    expect(() => parseArgs(['node', 'create-nextrush', '--style', '--json'])).toThrowError(
+      expect.objectContaining({ code: 'MISSING_OPTION_VALUE' })
+    );
+  });
+
+  it('rejects a second positional argument', () => {
+    expect(() => parseArgs(['node', 'create-nextrush', 'a', 'b'])).toThrowError(
+      expect.objectContaining({ code: 'UNEXPECTED_POSITIONAL' })
+    );
+  });
+
+  it('CliInputError exposes a stable payload for automation output', () => {
+    const error = new CliInputError({ code: 'E_X', message: 'm', remediation: 'r' });
+    expect(error.toPayload()).toEqual({ code: 'E_X', message: 'm', remediation: 'r' });
   });
 });

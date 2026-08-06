@@ -13,8 +13,17 @@ export const DEFAULT_STYLE: Style = 'functional';
 export const DEFAULT_RUNTIME: Runtime = 'node';
 export const DEFAULT_MIDDLEWARE: MiddlewarePreset = 'api';
 
-/** Framework Node.js engine floor — single-sourced across the CLI preflight and generated manifest. */
-export const MIN_NODE_MAJOR = 22;
+/** Single runtime-policy value: the generated `engines.node` floor and the `@types/node`
+ * major cap both derive from this — a future LTS bump is a one-line change here. */
+export const runtimePolicy = {
+  node: {
+    /** Minimum supported Node major (Active LTS line). */
+    minMajor: 22,
+  },
+} as const;
+
+/** Backwards-compatible alias for the CLI preflight check (reads the same policy value). */
+export const MIN_NODE_MAJOR: number = runtimePolicy.node.minMajor;
 
 /** Package names for each middleware preset tier — the single source of truth for both
  * dependency resolution (task 3.3) and version-map construction. */
