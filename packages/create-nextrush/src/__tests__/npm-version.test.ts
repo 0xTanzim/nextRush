@@ -55,7 +55,7 @@ describe('per-package version resolution (task 2.2)', () => {
   it('resolves each package from its OWN registry entry — @nextrush/dev never gets nextrush\'s range', async () => {
     const { resolveVersions } = await import('../npm-version.js');
 
-    const versions = await resolveVersions([
+    const { versions } = await resolveVersions([
       'nextrush',
       '@nextrush/cors',
       '@nextrush/dev',
@@ -77,7 +77,7 @@ describe('per-package version resolution (task 2.2)', () => {
   it('resolves a scoped package on a different major line independently of an unscoped one', async () => {
     const { resolveVersions } = await import('../npm-version.js');
 
-    const versions = await resolveVersions(['nextrush', '@nextrush/adapter-bun']);
+    const { versions } = await resolveVersions(['nextrush', '@nextrush/adapter-bun']);
 
     expect(versions.get('@nextrush/adapter-bun')).toBe('^1.0.0');
     expect(versions.get('nextrush')).toBe('^3.1.0');

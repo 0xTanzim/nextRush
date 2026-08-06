@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
  * the same testing shape `public-surface.test.ts` already uses for this file.
  */
 const indexSource = readFileSync(fileURLToPath(new URL('../index.ts', import.meta.url)), 'utf-8');
+const planSource = readFileSync(fileURLToPath(new URL('../plan.ts', import.meta.url)), 'utf-8');
 
 describe('CLI onboarding is coherent and honest (task 6.5)', () => {
   it('F-14: outro uses correct NextRush branding (capital R), not "Nextrush"', () => {
@@ -18,9 +19,9 @@ describe('CLI onboarding is coherent and honest (task 6.5)', () => {
   });
 
   it('F-15: next steps include the URL to open for the selected style', () => {
-    expect(indexSource).toContain('getVerificationUrl');
-    expect(indexSource).toMatch(/localhost:8080\/health/);
-    expect(indexSource).toMatch(/localhost:8080\/api\/health/);
+    expect(planSource).toContain('getVerificationUrl');
+    expect(planSource).toMatch(/localhost:8080\/health/);
+    expect(planSource).toMatch(/localhost:8080\/api\/health/);
   });
 
   it('F-18: the version probe is gated on install (skipped when --no-install)', () => {

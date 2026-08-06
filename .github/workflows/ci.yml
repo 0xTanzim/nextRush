@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Scheduled published-artifact proof (task 5.3 — design decision 7): the hermetic
+  # per-PR matrix stays fast; the Docker matrix (real package managers × runtimes ×
+  # styles × middleware against the packed tarball) runs nightly and on demand.
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
 
 # Align JS action runtime with Node 24 (see https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/ )
 env:
@@ -191,3 +197,42 @@ jobs:
 
           cleanup
           trap - EXIT
+
+  # T005 (elevate-scaffolding-dx / task 5.3): the published-artifact proof. Where the
+  # per-PR `create-nextrush-install-matrix` verifies emitted ranges against workspace
+  # versions hermetically, this job exercises the REAL packed tarball in Docker — real
+  # package managers (npm/pnpm/yarn/bun), real runtimes (node/deno/bun), and every
+  # style × middleware cell — install, build, test, start, and health-check. Scheduled
+  # nightly (and on-demand) so drift in the npm registry, runtime binaries, or the
+  # packaged CLI surfaces before it reaches users; failures retain the generated
+  # project and per-cell logs as artifacts (design decision 7).
+  create-nextrush-published-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Build workspace packages the packed artifact resolves against
+        run: pnpm --filter "create-nextrush..." build
+
+      - name: Pack create-nextrush into the harness registry image
+        working-directory: packages/create-nextrush
+        run: |
+          set -euo pipefail
+          pnpm pack --pack-destination docker
+          mv docker/create-nextrush-*.tgz docker/create-nextrush.tgz
+
+      - name: Run the published-artifact matrix (pm × runtime × style × middleware)
+        working-directory: packages/create-nextrush/docker
+        run: ./run-matrix.sh
+
+      - name: Upload retained failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: create-nextrush-matrix-failures
+          path: packages/create-nextrush/docker/artifacts/**
+          if-no-files-found: ignore

@@ -1,8 +1,9 @@
 import { MIDDLEWARE_IMPORTS, MIDDLEWARE_SETUP } from '../constants.js';
 import type { FileMap, ProjectOptions } from '../types.js';
 import {
-    getPortDeclaration,
+    generateConfig,
     getRuntimeEntrypointImports,
+    getServerStartLine,
 } from './shared.js';
 
 /**
@@ -17,6 +18,7 @@ export function generateFull(options: ProjectOptions): FileMap {
   const files: FileMap = new Map();
 
   files.set('src/index.ts', generateEntrypoint(options));
+  files.set('src/config/index.ts', generateConfig(options));
   files.set('src/app.module.ts', generateAppModule());
   files.set('src/modules/hello/hello.module.ts', generateHelloModule());
   files.set('src/modules/hello/hello.controller.ts', generateHelloController());
@@ -31,13 +33,14 @@ export function generateFull(options: ProjectOptions): FileMap {
 function generateEntrypoint(options: ProjectOptions): string {
   const middlewareImports = MIDDLEWARE_IMPORTS[options.middleware];
   const middlewareSetup = MIDDLEWARE_SETUP[options.middleware];
-  const portDecl = getPortDeclaration(options.runtime);
+  const serverStartLine = getServerStartLine();
 
   const lines: string[] = [];
 
-  lines.push(...getRuntimeEntrypointImports(options.runtime, 'listen'));
+  lines.push(...getRuntimeEntrypointImports(options.runtime, 'serve'));
   lines.push("import { registerModule } from 'nextrush/class';");
   lines.push("import { AppModule } from './app.module.js';");
+  lines.push("import { config } from './config/index.js';");
 
   if (middlewareImports) {
     lines.push(middlewareImports);
@@ -48,7 +51,6 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push('');
   lines.push('const router = createRouter();');
   lines.push('const app = createApp({ router });');
-  lines.push(portDecl);
   lines.push('');
   lines.push('// Error handling (first middleware — catches all downstream errors)');
   lines.push('app.use(errorHandler());');
@@ -66,7 +68,7 @@ function generateEntrypoint(options: ProjectOptions): string {
   lines.push('// Wire the root module — registers the whole module graph in one call');
   lines.push("await registerModule(app, AppModule, { prefix: '/api' });");
   lines.push('');
-  lines.push('await listen(app, PORT);');
+  lines.push(serverStartLine);
   lines.push('');
 
   return lines.join('\n');
