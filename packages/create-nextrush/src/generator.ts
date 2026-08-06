@@ -2,10 +2,13 @@ import {
   generateClassBased,
   generateDenoJson,
   generateEnvDts,
+  generateEnvFiles,
+  generateExampleFiles,
   generateFull,
   generateFunctional,
   generateGitignore,
   generatePackageJson,
+  generatePresetFiles,
   generateReadme,
   generateTsconfig,
   generateYarnrc,
@@ -25,6 +28,12 @@ export function generateProject(options: ProjectOptions): FileMap {
   files.set('src/env.d.ts', generateEnvDts(options));
   files.set('.gitignore', generateGitignore());
 
+  // Environment files (`.env` + `.env.example` for EVERY runtime — the layout is
+  // runtime-agnostic); the generated app owns `.env` loading.
+  for (const envFile of generateEnvFiles()) {
+    files.set(envFile.path, envFile.content);
+  }
+
   // Yarn Berry (v4) defaults to PnP, which would leave a generated project without a
   // materialized `node_modules` — pin `nodeLinker: node-modules` so its scripts
   // (nextrush dev/build, vitest) work out of the box like every other manager.
@@ -43,6 +52,17 @@ export function generateProject(options: ProjectOptions): FileMap {
   // Style-specific source files
   const styleFiles = generateStyleFiles(options);
   for (const [path, content] of styleFiles) {
+    files.set(path, content);
+  }
+
+  // Opt-in production-service preset (design decision 6) — additive; the base starter
+  // file map is unchanged when the preset is not selected.
+  for (const [path, content] of generatePresetFiles(options)) {
+    files.set(path, content);
+  }
+
+  // Governed task-oriented examples compose through the same template path.
+  for (const [path, content] of generateExampleFiles(options)) {
     files.set(path, content);
   }
 

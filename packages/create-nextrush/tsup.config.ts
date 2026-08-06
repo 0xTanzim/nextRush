@@ -63,8 +63,12 @@ export default defineConfig({
   define: {
     __VERSION__: JSON.stringify(OWN_PKG_JSON.version),
     __FALLBACK_VERSIONS__: JSON.stringify(FALLBACK_VERSIONS),
-    __TYPESCRIPT_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['typescript'] ?? '^5.0.0'),
+    __TYPESCRIPT_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['typescript'] ?? '^6.0.3'),
     __TYPES_NODE_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['@types/node'] ?? '^22.0.0'),
-    __VITEST_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['vitest'] ?? '^3.0.0'),
+    __VITEST_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['vitest'] ?? '^4.1.10'),
+    // Third-party `dotenv` fallback for generated Node/Bun projects — single-sourced from
+    // this package's own devDependencies (dotenv is not a workspace package, so it can't
+    // join PACKAGE_VERSION_SOURCES). Mirrors the typescript/vitest single-sourcing pattern.
+    __DOTENV_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['dotenv'] ?? '^17.4.2'),
   },
 });

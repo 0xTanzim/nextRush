@@ -296,7 +296,8 @@ export function buildDevArgs(
   inspect?: boolean,
   inspectPort?: number,
   denoPermissions?: string[],
-  onWarnUnsupported?: () => void
+  onWarnUnsupported?: () => void,
+  denoEnvFile?: string
 ): { command: string; args: string[] } {
   switch (runtime) {
     case 'bun': {
@@ -323,6 +324,10 @@ export function buildDevArgs(
           // sloppy-imports). Same flag the framework's own conformance runner uses.
           '--unstable-sloppy-imports',
           ...permissions,
+          // Load the project's .env at process start — Deno's --env-file does
+          // NOT overwrite existing process env, so toolchain-injected PORT/NODE_ENV still
+          // win in dev, matching Node/Bun. The caller passes this only when the file exists.
+          ...(denoEnvFile ? [`--env-file=${denoEnvFile}`] : []),
           ...(inspect ? [`--inspect=${String(inspectPort ?? 9229)}`] : []),
           entry,
         ],
