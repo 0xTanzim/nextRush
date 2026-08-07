@@ -126,8 +126,100 @@ class UserController {
 }
 ```
 
-For guards, interceptors, filters, parameter transforms, and custom decorators, see the docs-site
-Decorators reference.
+### Controller options
+
+`@Controller` accepts either a path string or an options object:
+
+```ts
+@Controller({ path: '/users', version: 'v1', tags: ['users'] })
+class UserController {}
+```
+
+| Option | Meaning |
+| ------ | ------- |
+| `path` | Base path prefix. Omitted → derived from the class name (`UserController` → `/user`). |
+| `version` | API version prefix — `'v1'` mounts every route under `/v1/users`. |
+| `middleware` | `MiddlewareRef[]` — middleware applied to every route on this controller. |
+| `tags` | `string[]` — documentation grouping tags. |
+
+### Route options
+
+Every route decorator accepts a path string, an options object, or both:
+
+```ts
+@Get('/search', { description: 'Search users', deprecated: false })
+@Post('/bulk', { statusCode: 201 })
+@Get('/:id', { middleware: [CacheMiddleware] })
+```
+
+| Option | Meaning |
+| ------ | ------- |
+| `path` | Route path (joined to the controller prefix). Default `/`. |
+| `statusCode` | Success status for this route (overridden by `@HttpCode` when both are set). |
+| `description` | Route description (docs/OpenAPI metadata). |
+| `deprecated` | Marks the route deprecated (docs/OpenAPI metadata). |
+| `middleware` | `MiddlewareRef[]` — middleware applied only to this route, after controller middleware. |
+
+`@All(path)` registers a single any-method route, matched by every standard HTTP verb.
+
+### Parameter transforms
+
+`@Param`, `@Query`, `@Body`, and `@Header` accept a second options argument for transforms,
+defaults, and required checks. Which options are available depends on the source:
+
+| Export | Options | Default `required` | Other optionals |
+| ------ | ------- | ------------------ | --------------- |
+| `@Body` | `required`, `transform` | `true` | — |
+| `@Param` | `required`, `transform`, `defaultValue` | `true` | — |
+| `@Query` | `required`, `transform`, `defaultValue` | `false` | — |
+| `@Header` | `required`, `defaultValue` | `false` | no `transform` |
+
+```ts
+@Get('/:id')
+findOne(@Param('id', { transform: Number }) id: number) {}
+
+@Get()
+findAll(
+  @Query('page', { defaultValue: 1, transform: Number }) page: number,
+  @Query('q', { transform: (s) => s.toLowerCase() }) q?: string
+) {}
+
+@Post()
+create(@Body({ transform: validateCreateUser }) data: CreateUserDto) {}
+```
+
+- `transform: (value) => value` — applied to the extracted value before injection; sync or
+  async (`Number`, `parseInt`, a validator returning the sanitized value, …).
+- `defaultValue` — used when the source is absent (only where the table lists it).
+- `required` — force an optional source to reject a missing value with `MissingParameterError`
+  (400) instead of injecting `undefined`. Body/param default to required; query/header default
+  to optional.
+
+`@Body()` injects the whole parsed body; `@Body('email')` injects one field. `@Param()`,
+`@Query()`, and `@Header()` with no argument inject the whole source object.
+
+### Custom parameter decorators
+
+`createCustomParamDecorator(extractor, options?)` builds a reusable parameter decorator:
+
+```ts
+import { createCustomParamDecorator } from 'nextrush/class';
+
+const UserAgent = createCustomParamDecorator(
+  (ctx) => ctx.get('user-agent'),
+  { required: true }
+);
+
+@Controller('/api')
+class ApiController {
+  @Get()
+  handle(@UserAgent ua: string) {}
+}
+```
+
+The extractor receives the `Context` and returns the value (sync or `Promise`). Options mirror
+`@Param`'s (single `extractor` first, then `{ transform?, required? }`): transforms apply to the
+extracted value, and `required: true` throws `MissingParameterError` when the router is empty.
 
 ## Registering controllers
 
@@ -185,6 +277,15 @@ export class UserController {
   }
 }
 ```
+
+## Guards, interceptors, and error mapping
+
+`@UseGuard`, `@UseInterceptor`, and `@Catch`/`@UseFilter` each have their own page, with the
+full contract, ordering, and common pitfalls:
+
+- [Guards](Guards) — yes/no access checks that run before the handler
+- [Interceptors](Interceptors) — wrap the handler to shape its input/output
+- [Exception Filters](Exception-Filters) — map a thrown error to a response for a route
 
 ## Next steps
 

@@ -18,6 +18,9 @@
 - [Controllers & Decorators](Controllers-and-Decorators)
 - [Dependency Injection](Dependency-Injection)
 - [Modules](Modules)
+- [Guards](Guards)
+- [Interceptors](Interceptors)
+- [Exception Filters](Exception-Filters)
 - [Extensions](Extensions)
 - [Streaming](Streaming)
 
