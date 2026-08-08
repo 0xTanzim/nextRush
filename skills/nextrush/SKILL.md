@@ -416,7 +416,7 @@ extensions: @nextrush/websocket  @nextrush/events
 7. `ctx.runtime === 'node'` false on Lambda/edge adapters — use `ctx.platform`.
 8. Next.js mount mismatch: routes registered without the `/api` prefix the URL has (or vice versa) → 404 + dev warning from `handle()`.
 9. WebSocket needs both `app.use(wss.upgrade())` **and** `wss.attach(server)`.
-10. `validate()` throws `ValidationError` (422) — needs `errorHandler`.
+10. `validate()` throws `ValidationError` (400) — needs `errorHandler`.
 11. Do not double-import `reflect-metadata` (class package already loads it).
 12. Edge: no filesystem, no long sockets; prefer SSE over WS.
 
