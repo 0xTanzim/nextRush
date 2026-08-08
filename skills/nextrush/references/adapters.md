@@ -33,7 +33,7 @@ import { serve, listen, createHandler } from 'nextrush';
 
 const server = await serve(app, {
   port: 8080,
-  hostname: '0.0.0.0',
+  host: '0.0.0.0',          // option is `host`, not `hostname`
   onListen: () => console.log('ready'),
   onError: (err) => console.error(err),
 });
@@ -117,9 +117,9 @@ Serverless Tier-1 handlers set `platform` explicitly. Do not assume Lambda ⇒ `
 ```typescript
 function createMyHandler(app: Application) {
   return async (nativeReq: MyReq): Promise<MyRes> => {
-    const request = toWebRequest(nativeReq);
-    const response = await app.handle(request);
-    return fromWebResponse(response);
+    const ctx = buildContext(nativeReq);   // adapter's job: build a standard Context
+    await app.callback()(ctx);             // run the composed pipeline — NOT `app.handle(request)`
+    return fromWebResponse(ctx.getResponse());
   };
 }
 ```

@@ -91,11 +91,25 @@ const app = createApp();
 export const handler = createLambdaHandler(app);
 ```
 
-### Class + DI
+### Class + DI (module-first)
 
 ```typescript
-import { Controller, Get, Service, registerControllers } from 'nextrush/class';
-await registerControllers(app, { root: './src', prefix: '/api' });
+import { Controller, Get, Module, registerModule } from 'nextrush/class';
+
+@Controller('/users')
+class UsersController {
+  @Get()
+  list() { return [{ id: 1, name: 'Ada' }]; }
+}
+
+@Module({ controllers: [UsersController] })
+class UsersModule {}
+
+@Module({ imports: [UsersModule] })
+class AppModule {}
+
+await registerModule(app, AppModule);
+// or flat discovery: await registerControllers(app, { root: './src', prefix: '/api' });
 ```
 
 ### Scaffold
@@ -124,8 +138,8 @@ pnpm create nextrush my-api
 9. Shared app code destined for edge: **no `node:*` / `fs` / `Buffer`**.
 10. Packages are **ESM-only**. Prefer `pnpm`.
 11. Validation: `@nextrush/validation` + Zod at the boundary; failures need `errorHandler`.
-12. Tests: `@nextrush/testing` (`createTestModule`) for class modules; `app.handle(new Request(...))`
-    for functional.
+12. Tests: `@nextrush/testing` (`createTestModule`) for class modules; `app.callback()` with a mock
+    `Context` (or `serve(app, { port: 0 })` + `fetch`) for functional — **there is no `app.handle()`**.
 
 ---
 
