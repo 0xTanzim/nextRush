@@ -39,6 +39,7 @@ nextrush g s user-profile # service
 nextrush g mw logger      # middleware (functional)
 nextrush g guard auth
 nextrush g r products     # functional route module
+nextrush g m billing      # class feature module (compose into an AppModule)
 nextrush generate adapter # scaffold a custom runtime adapter
 nextrush codemod          # automated migrations
 ```
@@ -50,6 +51,7 @@ nextrush codemod          # automated migrations
 | middleware | mw | `src/middleware/<name>.ts` |
 | guard | g | `src/guards/<name>.guard.ts` |
 | route | r | `src/routes/<name>.ts` |
+| module | m | `src/modules/<name>.module.ts` |
 
 ## package.json scripts (typical scaffold)
 

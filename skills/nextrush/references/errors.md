@@ -20,7 +20,7 @@ import {
   BadGatewayError,          // 502
   ServiceUnavailableError,  // 503
   GatewayTimeoutError,      // 504
-  ValidationError,          // 422 (Zod validation)
+  ValidationError,          // 400 (structured issues)
 } from 'nextrush';
 ```
 
@@ -116,10 +116,10 @@ app.use(async (ctx, next) => {
     await next();
   } catch (err) {
     if (err instanceof ValidationError) {
-      ctx.status = 422;
+      ctx.status = 400;
       ctx.json({
         error: 'Validation failed',
-        issues: err.issues,    // Zod issues array
+        issues: err.issues,    // structured ValidationIssue[]
       });
       return;
     }
@@ -139,8 +139,8 @@ try {
   validate(schema)(ctx, async () => {});
 } catch (err) {
   if (err instanceof ValidationError) {
-    err.issues  // ZodError issues
-    err.status  // 422
+    err.issues  // structured ValidationIssue[] (non-empty)
+    err.status  // 400
     err.code    // 'VALIDATION_ERROR'
   }
 }
