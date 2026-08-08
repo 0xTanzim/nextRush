@@ -290,7 +290,11 @@ full contract, ordering, and common pitfalls:
 ## Next steps
 
 - [Dependency Injection](Dependency-Injection) — how the container assembles and scopes the graph
+- [Request Scope](Request-Scope) — per-request services and scope bubbling
 - [Modules](Modules) — group a feature's controllers and providers behind one declaration
+- [Discovery](Discovery) — auto-discovering controllers instead of hand-listing them
+- [Lifecycle](Lifecycle) — `onInit`/`onShutdown` hooks on services in the graph
+- [Diagnostics](Diagnostics) — introspection report for your registered routes and providers
 - [Extensions](Extensions) — long-lived app-scoped services
 - [Streaming](Streaming) — respond in chunks (text / SSE / NDJSON)
 - Class guide: https://0xtanzim.github.io/nextRush/docs/guides/api-development
