@@ -136,6 +136,31 @@ beforeEach(() => container.reset());
 Because the global container is a singleton, the test runner must not interleave container
 mutation across cases — NextRush's own suite runs vitest sequentially for this reason.
 
+## Registering providers with a module
+
+In a module-first app, providers are declared on a `@Module` and wired by an `AppModule`:
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { Module, registerModule } from 'nextrush/class';
+
+@Module({
+  controllers: [UserController],
+  providers: [UserService, UserRepository, DatabaseConfig],
+})
+class UsersModule {}
+
+@Module({ imports: [UsersModule] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule);
+await listen(app, 8080);
+```
+
+`registerModule` registers every module's providers into one container, then hands the controllers
+to the same `registerControllers` pipeline. See [Modules](Modules).
+
 ## Next steps
 
 - [Controllers and Decorators](Controllers-and-Decorators) — what resolves from this container
