@@ -17,7 +17,11 @@
 
 - [Controllers & Decorators](Controllers-and-Decorators)
 - [Dependency Injection](Dependency-Injection)
+- [Request Scope](Request-Scope)
 - [Modules](Modules)
+- [Lifecycle](Lifecycle)
+- [Discovery](Discovery)
+- [Diagnostics](Diagnostics)
 - [Guards](Guards)
 - [Interceptors](Interceptors)
 - [Exception Filters](Exception-Filters)

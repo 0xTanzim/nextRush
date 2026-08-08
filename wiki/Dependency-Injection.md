@@ -89,6 +89,8 @@ class RequestLogger {}
 
 `@Config` classes are always singletons regardless of options.
 
+> **Request scope bubbles.** A class whose declared scope is `'request'` (or that transitively depends on one) is resolved fresh per HTTP request — so a singleton controller depending on a request-scoped service is automatically promoted to request scope instead of caching one request's instance forever. See [Request Scope](Request-Scope) for how and when this happens.
+
 ## Resolving
 
 The framework resolves controller dependencies automatically, but you can resolve by hand:
