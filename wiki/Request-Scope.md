@@ -38,6 +38,24 @@ class OrdersController {      // singleton by default
 }
 ```
 
+```ts
+import { createApp } from 'nextrush';
+import { Module, registerModule } from 'nextrush/class';
+
+// Wire it as a module — request scope bubbles through the graph the same way:
+@Module({
+  controllers: [OrdersController],
+  providers: [RequestStore],
+})
+class OrdersModule {}
+
+@Module({ imports: [OrdersModule] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule);
+```
+
 If `OrdersController` stays a singleton, the container creates it **once** and it caches one request's `RequestStore` forever — every later request sees the first request's data. That is a correctness bug, not a performance one.
 
 So the class runtime **bubbles request scope**: a class is effectively request-scoped if its declared scope is `'request'` **or if any transitive dependency class is effectively request-scoped**. In the example above, `OrdersController` is promoted to request scope automatically, so it resolves fresh per request and never caches a stale `RequestStore`.

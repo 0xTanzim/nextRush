@@ -30,6 +30,30 @@ class Database implements OnInit, OnShutdown {
 
 Both may be sync or async and are awaited.
 
+Register the service through a module — the hooks run for services reachable from your
+controllers:
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { Controller, Get, Module, registerModule } from 'nextrush/class';
+
+@Controller('/users')
+class UsersController {
+  constructor(private db: Database) {}   // injecting Database keeps it in the reachable graph
+  @Get() list() { return { ok: true }; }
+}
+
+@Module({ controllers: [UsersController], providers: [Database] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule);   // Database.onInit() runs at app.ready()
+await listen(app, 8080);                // app.close() runs Database.onShutdown()
+```
+
+A service's hooks fire only if it is reachable from a registered controller (directly or as a
+transitive dependency), because the registrar collects hooks by walking that graph.
+
 ## When the hooks run
 
 `registerControllers` / `registerModule` collects every instance in the reachable service graph that implements a hook and bridges it into the application lifecycle via one internal [Extension](Extensions):
