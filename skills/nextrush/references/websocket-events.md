@@ -88,14 +88,14 @@ In-process typed event bus as a NextRush **Extension** (not middleware).
 
 ```typescript
 import { createApp } from 'nextrush';
-import { createEventsExtension } from '@nextrush/events';
+import { events } from '@nextrush/events';   // the Extension; createEvents() is the standalone factory
 
 type AppEvents = {
   'user.created': { id: string; email: string };
   'order.paid': { orderId: string; cents: number };
 };
 
-const app = createApp().extend(createEventsExtension<AppEvents>());
+const app = createApp().extend(events<AppEvents>());
 await app.ready();
 
 app.events.on('user.created', async (payload) => {
