@@ -6,6 +6,8 @@
 
 ## What NextRush looks like
 
+Two layers, one core. **Functional** — small and explicit:
+
 ```ts
 import { createApp, listen } from 'nextrush';
 
@@ -19,6 +21,31 @@ await listen(app, 8080);
 ```
 
 Handlers write through the [`Context`](Core-Concepts) — no returned `Response` objects, no hidden global state.
+
+**Class-based — module-first** for larger apps that prefer controllers and DI. Declare a feature as a `@Module`, compose features into an `AppModule`, and `registerModule` wires the whole graph:
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { Controller, Get, Module, registerModule } from 'nextrush/class';
+
+@Controller('/users')
+class UsersController {
+  @Get()
+  list() { return [{ id: 1, name: 'Ada' }]; }
+}
+
+@Module({ controllers: [UsersController] })
+class UsersModule {}
+
+@Module({ imports: [UsersModule] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule);
+await listen(app, 8080);
+```
+
+Same `app`, same runtime — the class layer just declares routes and dependencies instead of wiring them by hand. See [Controllers & Decorators](Controllers-and-Decorators) and [Modules](Modules).
 
 ## Why NextRush
 

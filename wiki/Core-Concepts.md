@@ -81,6 +81,22 @@ NextRush exposes two paradigms over the same core:
 - **Functional core** (`nextrush`) — `createApp`, `createRouter`, `compose`, `listen`, HTTP errors, and typed `Middleware`/`Context`. This is what this page uses.
 - **Class runtime** (`nextrush/class`) — `Controller`, `Get`, `@Service()`, DI, guards. Built on the same `Application`; see [Controllers-and-Decorators](Controllers-and-Decorators) and [Dependency-Injection](Dependency-Injection).
 
+A class-based app composes features into an `AppModule` and registers them with one call:
+
+```ts
+import { createApp } from 'nextrush';
+import { Module, registerModule } from 'nextrush/class';
+
+@Module({ controllers: [UserController] })   // a feature owns controllers + providers
+class UsersModule {}
+
+@Module({ imports: [UsersModule] })          // the root — compose every feature
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule);
+```
+
 Same application code runs unchanged on Node, Bun, Deno, and edge — only the [adapter](Adapters) differs.
 
 ## Minimal runnable app

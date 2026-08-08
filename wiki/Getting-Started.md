@@ -95,7 +95,7 @@ Prefer controllers and dependency injection? The class runtime is a registrar on
 
 ```ts
 import { createApp, listen } from 'nextrush';
-import { Controller, Get, registerControllers } from 'nextrush/class';
+import { Controller, Get, Module, registerModule } from 'nextrush/class';
 
 @Controller('/users')
 class UserController {
@@ -105,8 +105,15 @@ class UserController {
   }
 }
 
+// Module-first: the feature lives in a module, the app composes modules.
+@Module({ controllers: [UserController] })
+class UsersModule {}
+
+@Module({ imports: [UsersModule] })
+class AppModule {}
+
 const app = createApp();
-await registerControllers(app, { controllers: [UserController] });
+await registerModule(app, AppModule);
 await listen(app, 8080);
 ```
 
