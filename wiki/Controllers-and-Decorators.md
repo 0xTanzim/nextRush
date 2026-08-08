@@ -47,7 +47,7 @@ you use `nextrush/class`. Build class apps with `nextrush dev` / `nextrush build
 
 ```ts
 import { createApp, listen } from 'nextrush';
-import { Controller, Get, Post, Param, Body, Service, registerControllers } from 'nextrush/class';
+import { Controller, Get, Post, Param, Body, Service, Module, registerModule } from 'nextrush/class';
 
 @Service() // singleton, one instance shared
 class UserService {
@@ -75,16 +75,24 @@ class UserController {
   create(@Body() data: { name: string }) { return this.users.create(data); }
 }
 
+// Module-first: the feature owns its controller and provider...
+@Module({ controllers: [UserController], providers: [UserService] })
+class UsersModule {}
+
+@Module({ imports: [UsersModule] })
+class AppModule {}
+
 const app = createApp();
-await registerControllers(app, { controllers: [UserController] });
+await registerModule(app, AppModule);
 
 await listen(app, 8080);
 ```
 
 Nobody writes `new` or reads `ctx` by hand. `@Controller` marks the class an HTTP controller
 (and DI-resolvable), the constructor declares its dependency, `@Param('id')` extracts the route
-param, and `registerControllers` registers and builds all routes — eagerly resolving every
-controller once at boot so a broken dependency fails here, not as a first-request 500.
+param, and `registerModule` walks the module graph, registers the module's providers, and builds
+all routes — eagerly resolving every controller once at boot so a broken dependency fails here,
+not as a first-request 500.
 
 ## Decorator reference
 
@@ -223,8 +231,9 @@ extracted value, and `required: true` throws `MissingParameterError` when the ro
 
 ## Registering controllers
 
-`registerControllers(app, options)` is a plain `async` registrar you `await` once before starting
-the server:
+A **module-first** app wires a whole graph in one call with `registerModule(app, AppModule)` — see
+[Modules](Modules). `registerControllers` is the underlying registrar both paths share; you `await`
+it once before starting the server:
 
 ```ts
 import { createApp, listen } from 'nextrush';
