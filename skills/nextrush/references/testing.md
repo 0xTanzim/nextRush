@@ -79,19 +79,23 @@ Nothing touches a real container until `.compile()`.
 
 ## Functional apps (no class)
 
-Drive the app with Web Request directly:
+There is **no `app.handle()`**. Integration-test the whole pipeline in-process with
+`app.callback()` — the composed handler adapters run — driven by a mock `Context` (the same
+`createMockContext` helper shape the Wiki Testing page builds):
 
 ```typescript
 import { createApp } from 'nextrush';
 
 const app = createApp();
 app.get('/ping', (ctx) => ctx.json({ pong: true }));
-await app.ready?.();
 
-const res = await app.handle(new Request('http://localhost/ping'));
-expect(res.status).toBe(200);
-expect(await res.json()).toEqual({ pong: true });
+const handler = app.callback();   // middleware + routing + error boundary, no socket
+const ctx = createMockContext({ method: 'GET', path: '/ping' });
+await handler(ctx);
+expect(ctx.json).toHaveBeenCalledWith({ pong: true });
 ```
+
+For real HTTP, use `serve(app, { port: 0 })` (ephemeral port) and `fetch`.
 
 ## Rules
 
