@@ -47,6 +47,24 @@ class AdminController {
 }
 ```
 
+```ts
+import { createApp } from 'nextrush';
+import { Module, registerModule } from 'nextrush/class';
+
+// Wire AdminController and the class guard through an AppModule:
+@Module({
+  controllers: [AdminController],
+  providers: [AuthService, AdminGuard],
+})
+class AdminModule {}
+
+@Module({ imports: [AdminModule] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule);
+```
+
 A class guard declares its collaborators as constructor parameters and the container injects
 them, exactly as for a [service](Dependency-Injection). It is resolved from the container **per
 request**.
