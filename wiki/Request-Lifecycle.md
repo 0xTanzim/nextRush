@@ -52,6 +52,22 @@ For a `GET /users/42` on a server at `localhost:8080`:
 
 5. **The adapter writes the response** (~3–4 ms). After the onion unwinds, the adapter serializes `ctx` back into a native response. If nothing in the pipeline responded, it sends a fallback: `{ "error": "Not Found" }` for a 404, otherwise an empty body with the current `ctx.status`.
 
+## The class-based handler: a pipeline within the handler stage
+
+In a class-based app the same five stages run unchanged — but the **handler** stage (step 4) is
+itself a pipeline. When a controller route matches, the runtime runs, in order:
+
+```text
+guards → resolve controller → inject params → interceptors (outer→inner) → method → unwrap → exception filters
+```
+
+Each of those has its own page: [Guards](Guards) gate before the method, [Interceptors](Interceptors)
+wrap it, and [Exception Filters](Exception-Filters) map a thrown error — all inside the same
+middleware onion and the same error boundary. What a functional app spells out as inline middleware
+(auth, validation, response shaping) is, in the class layer, declared as guards and interceptors on
+controller routes. See [Controllers & Decorators](Controllers-and-Decorators) and
+[Modules](Modules) for how those routes are declared and registered.
+
 ## What this means in practice
 
 ```ts
