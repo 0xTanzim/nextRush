@@ -68,7 +68,7 @@ export default createNetlifyHandler(app);
 ```typescript
 import { createFetchHandler } from '@nextrush/adapter-edge';
 export default { fetch: createFetchHandler(app, { timeout: 24_000 }) };
-// createHandler is an alias of createFetchHandler
+// createHandler is a deprecated alias of createFetchHandler — use createFetchHandler
 ```
 
 ### Edge options
