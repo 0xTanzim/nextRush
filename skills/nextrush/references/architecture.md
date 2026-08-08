@@ -73,7 +73,7 @@ Adapters only differ in: IP resolution, runtime id, `sendStream` plumbing, host 
 Every adapter must:
 
 1. Convert host request → Web `Request` (or already is)
-2. Call `app.handle` / fetch engine
+2. Run `app.callback()(ctx)` — the composed middleware + routing + error pipeline
 3. Convert Web `Response` → host response
 4. Pass conformance suite (`packages/adapters/conformance`)
 
