@@ -41,6 +41,24 @@ class UsersController {
 }
 ```
 
+```ts
+import { createApp } from 'nextrush';
+import { Module, registerModule } from 'nextrush/class';
+
+// Wire the controller and filter through an AppModule:
+@Module({
+  controllers: [UsersController],
+  providers: [NotFoundFilter],
+})
+class UsersModule {}
+
+@Module({ imports: [UsersModule] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule);
+```
+
 - `catch(error, ctx)` receives the thrown error and the request `Context`, and **produces the
   response by mutating `ctx`** — set `ctx.status`, `ctx.set(name, value)`, and send the body with
   `ctx.json(...)` / `ctx.send(...)`.

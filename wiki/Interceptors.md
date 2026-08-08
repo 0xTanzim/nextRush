@@ -45,6 +45,24 @@ class OrdersController {
 }
 ```
 
+```ts
+import { createApp } from 'nextrush';
+import { Module, registerModule } from 'nextrush/class';
+
+// Wire the controller and interceptor through an AppModule:
+@Module({
+  controllers: [OrdersController],
+  providers: [Logger, WrapInterceptor],
+})
+class OrdersModule {}
+
+@Module({ imports: [OrdersModule] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule);
+```
+
 - `intercept(ctx, next)` receives the same request `Context` the handler gets (`@nextrush/types`)
   — read `method`, `path`, `params`, `query`, `headers`, `body`, `state`, `get(name)`.
 - `next()` invokes the rest of the chain to the inside and **resolves to the handler's return
