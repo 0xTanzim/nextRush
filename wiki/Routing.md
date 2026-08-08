@@ -96,6 +96,31 @@ Mounting a router at a prefix is just a middleware push — `app.route(prefix, r
 - Creating a router but never mounting it → routes silently 404.
 - Putting a wildcard mid-path → matches far more (or less) than intended.
 
+## Class-based routing
+
+The same routes can be declared with decorators on a controller and registered through a module. `@Controller('/users')` plus `@Get('/:id')` replace `users.get('/:id', ...)`; the underlying segment-trie router is identical:
+
+```ts
+import { createApp } from 'nextrush';
+import { Controller, Get, Param, Module, registerModule } from 'nextrush/class';
+
+@Controller('/users')
+class UsersController {
+  @Get('/:id')
+  show(@Param('id') id: string) {
+    return { id };
+  }
+}
+
+@Module({ controllers: [UsersController] })
+class AppModule {}
+
+const app = createApp();
+await registerModule(app, AppModule);
+```
+
+Controller-level prefixes, route decorators, and params all map to the same router features — see [Controllers & Decorators](Controllers-and-Decorators) and [Modules](Modules).
+
 ## Runnable example
 
 ```ts
