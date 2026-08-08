@@ -37,7 +37,11 @@ Handlers write through the [`Context`](Core-Concepts) — no returned `Response`
 - [Error Handling](Error-Handling) — error hierarchy and handlers
 - [Controllers & Decorators](Controllers-and-Decorators) — the class-based layer
 - [Dependency Injection](Dependency-Injection) — the container and scopes
-- [Modules](Modules) — grouping a feature behind one declaration
+- [Request Scope](Request-Scope) — per-request services and scope bubbling
+- [Modules](Modules) — an `AppModule` composing feature modules
+- [Lifecycle](Lifecycle) — `onInit` / `onShutdown` boot and shutdown hooks
+- [Discovery](Discovery) — auto-discovering controllers
+- [Diagnostics](Diagnostics) — introspection report for your routes and providers
 - [Extensions](Extensions) — long-lived app-scoped services
 - [Streaming](Streaming) — text, SSE, and NDJSON responses
 - [Request Lifecycle](Request-Lifecycle) — how a request flows through the pipeline
