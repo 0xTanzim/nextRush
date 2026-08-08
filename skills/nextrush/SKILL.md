@@ -372,7 +372,8 @@ Deeper diagrams & package hierarchy: `references/architecture.md`.
 9. **Do not import Node APIs into shared app code** destined for edge.
 10. **ESM-only** packages — use `"type": "module"`.
 11. **OpenAPI**: attach `endpoint({...})` + `validate(schema)`; mount `openapi({ router })`.
-12. **Test with `@nextrush/testing`** for class modules; use `app.handle(new Request(...))` for functional.
+12. **Test with `@nextrush/testing`** for class modules; `app.callback()` with a mock `Context` for
+    functional (no `app.handle()`).
 
 Expanded checklist: `references/best-practices.md`.
 

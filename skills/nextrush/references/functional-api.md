@@ -22,10 +22,19 @@ interface ApplicationOptions {
 ### Application Methods
 
 ```typescript
-app.use(middleware: Middleware): void              // register global middleware
-app.route(path: string, router: Router): void      // mount sub-router at path
-app.handle(request: Request): Promise<Response>    // process a request (adapter hook)
-app.ready(): Promise<void>                         // signal app is ready (triggers lifecycle)
+app.use(...middleware: Middleware[]): this         // register global middleware
+app.route(path: string, router: Router): this      // mount sub-router at path
+app.get/post/put/patch/delete/head/all(path, ...entries): this // verbs on the app-owned router
+app.setErrorHandler(handler: ErrorHandler): this   // replace the error boundary
+app.extend(extension): this                        // queue an Extension (setup runs at ready())
+app.ready(): Promise<this>                         // boot extensions + mount router, freeze config
+app.callback(): (ctx: Context) => Promise<void>    // the composed handler (adapters + tests run this)
+app.close(options?): Promise<Error[]>              // teardown (onShutdown hooks / close hooks)
+```
+
+> There is **no `app.handle(request)`**. The request path is `app.callback()`: adapters build a
+> `Context` from the native request and run `callback()(ctx)`. Use `callback()` the same way in
+> tests (see `references/testing.md`).
 ```
 
 ## Router
@@ -41,7 +50,8 @@ const router = createRouter(options?);
 ```typescript
 interface RouterOptions {
   prefix?: string;        // base path for all routes
-  strict?: boolean;       // strict trailing slash matching (default: false)
+  caseSensitive?: boolean; // static-segment case matching (default: false)
+  strict?: boolean;       // strict trailing-slash matching (default: false)
 }
 ```
 
@@ -124,7 +134,7 @@ import { serve, listen, type ServeOptions, type ServerInstance } from 'nextrush'
 // serve() — recommended, full control
 const server = await serve(app, {
   port: 8080,
-  hostname: '0.0.0.0',
+  host: '0.0.0.0',        // note: the option is `host`, not `hostname`
   onListen: () => console.log('Ready'),
   onError: (err) => console.error('Server error:', err),
 });
@@ -152,7 +162,9 @@ ContentType.JSON        // 'application/json'
 ContentType.HTML        // 'text/html'
 ContentType.TEXT        // 'text/plain'
 ContentType.FORM        // 'application/x-www-form-urlencoded'
-ContentType.MULTIPART (renamed to FORM_DATA in @nextrush/form-data)   // 'multipart/form-data'
+ContentType.MULTIPART      // 'multipart/form-data'
+ContentType.XML            // 'application/xml'
+ContentType.OCTET_STREAM   // 'application/octet-stream'
 ```
 
 ## Middleware Type
@@ -167,9 +179,22 @@ type Next = () => Promise<void>;
 ```typescript
 import type { Extension, ExtensionContext } from 'nextrush';
 
-// Extensions add capabilities to the context (e.g., WebSocket, server-sent events)
-interface Extension {
-  name: string;
-  install(ctx: ExtensionContext): void | Promise<void>;
+interface Extension<TDecorated = Record<string, never>> {
+  name: string;                        // unique — collision detection
+  needs?: readonly string[];           // other extensions that must be registered first
+  setup(ctx: ExtensionContext): void | Promise<void>;  // runs at app.ready(), in registration order
+  destroy?(): void | Promise<void>;    // runs at app.close(), in reverse registration order
+}
+
+interface ExtensionContext {
+  app: ExtensionHost;
+  logger: Logger;
+  container?: Container;               // present only on class/DI apps
+  env: 'development' | 'production' | 'test';
+  decorate(name: string, value: unknown): void;  // attach app.<name> (throws on collision)
 }
 ```
+
+There is **no `install()` hook** — an extension attaches state via `setup()` + `decorate()` and tears
+it down via `destroy()`. The generic `TDecorated` types `app.<decoration>`; chain in one expression
+(`const app = createApp().extend(x)`) so the inferred type is kept.

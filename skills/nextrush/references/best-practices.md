@@ -56,7 +56,7 @@ Recommended order:
 - Shared code: Web APIs only
 - Platform secrets: bindings / env injection at adapter edge
 - Feature flags: capabilities or `ctx.platform`, never `runtime === 'node'` guesses on serverless
-- Test critical paths under conformance or at least `app.handle(Request)` 
+- Test critical paths under conformance or via `app.callback()` 
 
 ## Serverless / edge
 
@@ -104,5 +104,5 @@ app.use(bodyParser({ limit: '1mb' }));
 - Put `listen()` inside Next.js route handlers
 - Import `fs` into edge-targeted shared modules
 - Skip `errorHandler`
-- Mock the world instead of using `@nextrush/testing` / `app.handle`
+- Mock the world instead of using `@nextrush/testing` / `app.callback`
 - Create a second competing framework layer on top of NextRush
