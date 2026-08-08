@@ -64,6 +64,23 @@ function c(ctx: Context, user: unknown) {
 }
 ```
 
+## In class-based controllers
+
+Controllers throw the same typed errors, and the framework still owns the response. Attach an [Exception Filter](Exception-Filters) to localize the mapping to a controller or route:
+
+```ts
+import { Controller, Get, Param } from 'nextrush/class';
+import { NotFoundError } from 'nextrush';
+
+@Controller('/users')
+class UsersController {
+  @Get('/:id')
+  show(@Param('id') id: string): never {
+    throw new NotFoundError(`No user ${id}`); // → 404, same shape as the functional path
+  }
+}
+```
+
 ## Factory functions
 
 Create errors without `new`. `createError` is re-exported by `nextrush`; the per-status factories come from `@nextrush/errors`:
