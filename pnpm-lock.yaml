@@ -271,6 +271,9 @@ importers:
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
+      zbsearch:
+        specifier: ^3.3.4
+        version: 3.3.4
       zod:
         specifier: catalog:tooling
         version: 4.4.3

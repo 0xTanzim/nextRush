@@ -1,16 +1,8 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".changeset/**"
-      - "packages/**"
-      - "pnpm-lock.yaml"
-      - "package.json"
-      - "CHANGELOG.md"
-      - ".github/workflows/release.yml"
+  # Publishing is intentionally an explicit operator action. Never publish
+  # packages as a side effect of pushing to main.
   workflow_dispatch:
 
 env:

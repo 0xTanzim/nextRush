@@ -1,15 +1,9 @@
 name: Docs (GitHub Pages)
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "apps/website/**"
-      - "scripts/docs/**"
-      - "pnpm-lock.yaml"
-      - "package.json"
-      - ".github/workflows/docs-pages.yml"
+  # Cloudflare Pages is the automatic production docs deployment. Keep this
+  # workflow available for an explicit GitHub Pages build without duplicating
+  # every docs deployment and paying for two Linux runners.
   workflow_dispatch:
 
 env:
@@ -45,7 +39,7 @@ jobs:
           NEXTRUSH_REPO_BRANCH: main
           NEXTRUSH_DOCS_BASE_PATH: /${{ github.event.repository.name }}
           NEXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-        run: pnpm turbo build --filter=website
+        run: pnpm turbo run build --filter=website...
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

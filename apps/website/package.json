@@ -32,6 +32,7 @@
     "react": "catalog:web",
     "react-dom": "catalog:web",
     "tailwind-merge": "^3.6.0",
+    "zbsearch": "^3.3.4",
     "zod": "catalog:tooling"
   },
   "devDependencies": {
