@@ -18,5 +18,5 @@
     "@types/react-dom": "catalog:web",
     "typescript": "catalog:tooling"
   },
-  "version": null
+  "version": "0.0.1"
 }
