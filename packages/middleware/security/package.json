@@ -26,8 +26,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nextrush/core": "workspace:^",
     "@nextrush/cookies": "workspace:^",
+    "@nextrush/core": "workspace:^",
     "@nextrush/csrf": "workspace:^",
     "@nextrush/helmet": "workspace:^",
     "@nextrush/rate-limit": "workspace:^",
@@ -36,9 +36,9 @@
   "devDependencies": {
     "@nextrush/adapter-node": "workspace:^",
     "@nextrush/router": "workspace:^",
-    "tsup": "^8.5.1",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
+    "tsup": "catalog:tooling",
+    "typescript": "catalog:tooling",
+    "vitest": "catalog:testing"
   },
   "keywords": [
     "nextrush",
