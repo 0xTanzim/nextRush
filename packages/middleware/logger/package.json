@@ -43,14 +43,14 @@
     "directory": "packages/middleware/logger"
   },
   "dependencies": {
-    "@nextrush/log": "^0.2.1",
+    "@nextrush/log": "^0.3.0",
     "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
     "@nextrush/core": "workspace:*",
-    "tsup": "^8.5.1",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
+    "tsup": "catalog:tooling",
+    "typescript": "catalog:tooling",
+    "vitest": "catalog:testing"
   },
   "peerDependencies": {
     "@nextrush/core": "workspace:^"

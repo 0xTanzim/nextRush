@@ -84,7 +84,7 @@
     "@nextrush/adapter-nextjs": "workspace:*",
     "@nextrush/class": "workspace:*",
     "@nextrush/di": "workspace:*",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "catalog:runtime"
   },
   "peerDependenciesMeta": {
     "@nextrush/adapter-nextjs": {
@@ -108,9 +108,9 @@
     "@nextrush/cors": "workspace:*",
     "@nextrush/di": "workspace:*",
     "@nextrush/helmet": "workspace:*",
-    "reflect-metadata": "^0.2.2",
-    "tsup": "^8.5.1",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
+    "reflect-metadata": "catalog:runtime",
+    "tsup": "catalog:tooling",
+    "typescript": "catalog:tooling",
+    "vitest": "catalog:testing"
   }
 }

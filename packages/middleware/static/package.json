@@ -56,8 +56,8 @@
     "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
-    "fast-check": "3.23.2",
-    "typescript": "^6.0.3"
+    "fast-check": "catalog:testing",
+    "typescript": "catalog:tooling"
   },
   "peerDependencies": {
     "@nextrush/core": "workspace:^"
