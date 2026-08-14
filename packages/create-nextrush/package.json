@@ -66,9 +66,9 @@
     "@clack/prompts": "^1.7.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.5",
+    "@types/node": "^26.1.2",
     "dotenv": "^17.4.2",
-    "tsup": "^8.5.1",
+    "tsup": "catalog:tooling",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }

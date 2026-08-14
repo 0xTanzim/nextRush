@@ -31,10 +31,10 @@
     "@nextrush/types": "workspace:*"
   },
   "devDependencies": {
-    "tsup": "^8.5.1",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.10",
-    "zod": "^4.4.3"
+    "tsup": "catalog:tooling",
+    "typescript": "catalog:tooling",
+    "vitest": "catalog:testing",
+    "zod": "catalog:tooling"
   },
   "keywords": [
     "nextrush",

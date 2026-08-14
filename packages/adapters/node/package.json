@@ -34,8 +34,8 @@
     "@nextrush/types": "workspace:*"
   },
   "devDependencies": {
-    "tsup": "^8.5.1",
-    "typescript": "^6.0.3"
+    "tsup": "catalog:tooling",
+    "typescript": "catalog:tooling"
   },
   "keywords": [
     "nextrush",
