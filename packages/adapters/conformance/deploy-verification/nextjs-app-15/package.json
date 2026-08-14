@@ -6,17 +6,17 @@
     "build": "next build"
   },
   "dependencies": {
-    "next": "^15.1.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "@nextrush/adapter-nextjs": "workspace:*",
+    "next": "catalog:web",
     "nextrush": "workspace:*",
-    "@nextrush/adapter-nextjs": "workspace:*"
+    "react": "catalog:web",
+    "react-dom": "catalog:web"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "typescript": "^6.0.3"
+    "@types/node": "catalog:node",
+    "@types/react": "catalog:web",
+    "@types/react-dom": "catalog:web",
+    "typescript": "catalog:tooling"
   },
   "version": null
 }

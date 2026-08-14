@@ -13,10 +13,10 @@
     "@nextrush/openapi": "workspace:*",
     "@nextrush/validation": "workspace:*",
     "nextrush": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "catalog:tooling"
   },
   "devDependencies": {
-    "tsx": "^4.23.1",
-    "typescript": "^6.0.3"
+    "tsx": "catalog:tooling",
+    "typescript": "catalog:tooling"
   }
 }
