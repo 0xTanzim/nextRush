@@ -101,6 +101,9 @@ jobs:
   # `pnpm verify` above) into "the generator produces an INSTALLABLE output" — the exact gap
   # that let F-01 ship (report/scaffolding/scaffolding-cli-review.md).
   create-nextrush-install-matrix:
+    # Keep the full generated-install matrix on PRs and explicit manual runs;
+    # the core CI job already validates pushes to main.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -126,6 +129,9 @@ jobs:
   # release. Scoped to the dev/build CLI fixture only — not the full monorepo suite (see
   # design.md D4) — to bound CI cost and the blast radius of platform-runner flakiness.
   dev-cli-cross-platform:
+    # Windows/macOS runners are substantially more expensive than Linux. Run
+    # this compatibility proof explicitly rather than on every main push.
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
