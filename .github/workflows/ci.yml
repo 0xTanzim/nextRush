@@ -5,11 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # Scheduled published-artifact proof (task 5.3 — design decision 7): the hermetic
-  # per-PR matrix stays fast; the Docker matrix (real package managers × runtimes ×
-  # styles × middleware against the packed tarball) runs nightly and on demand.
-  schedule:
-    - cron: "23 3 * * *"
+  # The published-artifact proof is intentionally manual-only. Running the full
+  # Docker/package-manager/runtime matrix nightly launched every CI job and caused
+  # repeated failed runner usage without providing useful signal.
   workflow_dispatch:
 
 # Align JS action runtime with Node 24 (see https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/ )
@@ -207,6 +205,8 @@ jobs:
   # packaged CLI surfaces before it reaches users; failures retain the generated
   # project and per-cell logs as artifacts (design decision 7).
   create-nextrush-published-matrix:
+    # Run this expensive published-artifact proof only when explicitly requested.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
