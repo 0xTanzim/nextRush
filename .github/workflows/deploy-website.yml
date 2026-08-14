@@ -40,7 +40,7 @@ jobs:
           NEXTRUSH_REPO_BRANCH: main
           NEXTRUSH_DOCS_BASE_PATH: ""
           NEXT_PUBLIC_SITE_URL: https://nextrush.dev
-        run: pnpm turbo build --filter=website
+        run: pnpm turbo run build --filter=website...
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
