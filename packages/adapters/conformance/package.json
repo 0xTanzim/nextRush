@@ -26,6 +26,7 @@
     "@nextrush/adapter-nextjs": "workspace:^",
     "@nextrush/adapter-node": "workspace:^",
     "@nextrush/adapter-serverless": "workspace:^",
+    "@nextrush/cookies": "workspace:^",
     "@nextrush/core": "workspace:^",
     "@nextrush/errors": "workspace:^",
     "@nextrush/router": "workspace:^",

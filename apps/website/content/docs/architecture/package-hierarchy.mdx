@@ -381,6 +381,8 @@ graph LR
     controllers --> class_pkg
     controllers --> di
     cookies --> types
+    cookies --> runtime
+    cookies --> errors
     core --> errors
     core --> types
     cors --> types
@@ -447,7 +449,7 @@ diagram, since a hand-arranged diagram can hide exactly this kind of detail:
 - **@nextrush/body-parser** `3.1.0` → @nextrush/types
 - **@nextrush/class** `3.1.0` → @nextrush/core, @nextrush/di, @nextrush/errors, @nextrush/router, @nextrush/types [external: reflect-metadata]
 - **@nextrush/compression** `3.1.0` → @nextrush/types
-- **@nextrush/cookies** `1.0.0` → @nextrush/types
+- **@nextrush/cookies** `1.0.0` → @nextrush/errors, @nextrush/runtime, @nextrush/types
 - **@nextrush/core** `3.1.0` → @nextrush/errors, @nextrush/types
 - **@nextrush/cors** `3.1.0` → @nextrush/types
 - **@nextrush/csrf** `1.0.0` → @nextrush/types

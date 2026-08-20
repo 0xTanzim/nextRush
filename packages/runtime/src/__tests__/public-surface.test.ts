@@ -98,6 +98,10 @@ describe('Public API surface (runtime exports)', () => {
       'normalizeStartupError',
       'ServerStartError',
 
+      // Uninitialized capability stubs (RFC-034)
+      'UNINITIALIZED_COOKIES',
+      'UNINITIALIZED_SIGNED_COOKIES',
+
       // Web response builder
       'assertHeaderSafe',
       'isBodylessResponse',

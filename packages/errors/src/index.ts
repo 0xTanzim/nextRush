@@ -9,6 +9,9 @@
 // Base classes
 export { HttpError, NextRushError, getHttpStatusMessage } from './base';
 
+// Capability diagnostics
+export { CapabilityNotInitializedError } from './capability';
+
 // Header validation
 export { HeaderValidationError } from './header-validation';
 

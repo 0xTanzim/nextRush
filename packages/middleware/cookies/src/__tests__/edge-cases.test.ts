@@ -14,6 +14,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { UNINITIALIZED_COOKIES } from '@nextrush/runtime';
 import { MAX_COOKIES_PER_DOMAIN } from '../constants.js';
 import { cookies, secureOptions, sessionOptions, signedCookies } from '../middleware.js';
 import { parseCookies } from '../parser.js';
@@ -47,6 +48,7 @@ function createMockContext(cookieHeader?: string) {
     params: {},
     status: 200,
     state,
+    cookies: UNINITIALIZED_COOKIES,
     raw: {
       req: {},
       res: {
@@ -102,7 +104,8 @@ function createMockContextWithoutRaw(cookieHeader?: string) {
     params: {},
     status: 200,
     state,
-    raw: { req: {} },
+    cookies: UNINITIALIZED_COOKIES,
+    raw: { req: {}, res: {} },
     json: vi.fn(),
     send: vi.fn(),
     html: vi.fn(),
@@ -901,6 +904,7 @@ describe('signed cookie middleware full flow', () => {
       await signedApi.set('auth', 'user123');
     });
 
+    await cookies()(setCtx as never, createNext());
     await setMiddleware(setCtx as never, setNext);
 
     const setCookieHeader = setCtx._responseHeaders['set-cookie'] as string[];
@@ -913,6 +917,7 @@ describe('signed cookie middleware full flow', () => {
     const getCtx = createMockContext(`auth=${cookieValue}`);
     const getMiddleware = signedCookies({ secret });
 
+    await cookies()(getCtx as never, createNext());
     await getMiddleware(getCtx as never, createNext());
 
     const signedApi = getCtx.state.signedCookies as SignedCookieContext;
@@ -932,6 +937,7 @@ describe('signed cookie middleware full flow', () => {
       await api.set('token', 'valid');
     });
 
+    await cookies()(setCtx as never, createNext());
     await middleware(setCtx as never, setNext);
 
     // Tamper
@@ -941,6 +947,7 @@ describe('signed cookie middleware full flow', () => {
 
     // Verify
     const getCtx = createMockContext(`token=${tampered}`);
+    await cookies()(getCtx as never, createNext());
     await middleware(getCtx as never, createNext());
 
     const api = getCtx.state.signedCookies as SignedCookieContext;
@@ -952,6 +959,7 @@ describe('signed cookie middleware full flow', () => {
     const middleware = signedCookies({ secret: 'secret' });
     const ctx = createMockContext();
 
+    await cookies()(ctx as never, createNext());
     await middleware(ctx as never, createNext());
 
     const api = ctx.state.signedCookies as SignedCookieContext;
@@ -968,6 +976,7 @@ describe('signed cookie middleware full flow', () => {
       api.delete('session');
     });
 
+    await cookies()(ctx as never, createNext());
     await middleware(ctx as never, next);
 
     const setCookie = ctx._responseHeaders['set-cookie'] as string[];

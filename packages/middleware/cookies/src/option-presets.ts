@@ -14,7 +14,7 @@ import type { CookieOptions } from './types.js';
  *
  * @example
  * ```typescript
- * ctx.state.cookies?.set('session', value, secureOptions({ maxAge: 86400 }));
+ * ctx.cookies.set('session', value, secureOptions({ maxAge: 86400 }));
  * ```
  */
 export function secureOptions(options: CookieOptions = {}): CookieOptions {
@@ -33,7 +33,7 @@ export function secureOptions(options: CookieOptions = {}): CookieOptions {
  *
  * @example
  * ```typescript
- * ctx.state.cookies?.set('session', value, sessionOptions());
+ * ctx.cookies.set('session', value, sessionOptions());
  * ```
  */
 export function sessionOptions(options: CookieOptions = {}): CookieOptions {

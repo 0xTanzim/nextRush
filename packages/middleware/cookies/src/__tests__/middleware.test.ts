@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import { UNINITIALIZED_COOKIES } from '@nextrush/runtime';
 import { cookies, secureOptions, sessionOptions, signedCookies } from '../middleware';
 import type { CookieContext } from '../middleware-types';
 
@@ -24,6 +25,7 @@ function createMockContext(cookieHeader?: string) {
     params: {},
     status: 200,
     state,
+    cookies: UNINITIALIZED_COOKIES,
     raw: {
       req: {},
       res: {
@@ -247,6 +249,7 @@ describe('signedCookies middleware', () => {
     const ctx = createMockContext();
     const next = createNext();
 
+    await cookies()(ctx as never, createNext());
     await middleware(ctx as never, next);
 
     expect(ctx.state.signedCookies).toBeDefined();
@@ -261,6 +264,7 @@ describe('signedCookies middleware', () => {
       await signedApi.set('session', 'abc123');
     });
 
+    await cookies()(ctx as never, createNext());
     await middleware(ctx as never, next);
 
     const setCookie = ctx._responseHeaders['set-cookie'] as string[];
@@ -273,6 +277,7 @@ describe('signedCookies middleware', () => {
     const ctx = createMockContext('session=tampered.invalidsignature');
     const next = createNext();
 
+    await cookies()(ctx as never, createNext());
     await middleware(ctx as never, next);
 
     const signedApi = ctx.state.signedCookies as {
@@ -291,6 +296,7 @@ describe('signedCookies middleware', () => {
       signedApi.delete('session');
     });
 
+    await cookies()(ctx as never, createNext());
     await middleware(ctx as never, next);
 
     const setCookie = ctx._responseHeaders['set-cookie'] as string[];
@@ -383,6 +389,7 @@ describe('CK-4: signed cookie read-after-write', () => {
       readBack = await api.get('user');
     });
 
+    await cookies()(ctx as never, createNext());
     await middleware(ctx as never, next);
     expect(readBack).toBe('john');
   });
@@ -397,6 +404,7 @@ describe('CK-9: multiple Cookie request headers', () => {
       method: 'GET',
       headers: { cookie: ['a=1', 'b=2'] },
       state,
+      cookies: UNINITIALIZED_COOKIES,
       get: (field: string) => (field.toLowerCase() === 'cookie' ? undefined : undefined),
       set: vi.fn(),
     };

@@ -59,6 +59,19 @@ export {
 } from './context';
 
 // ============================================================================
+// Cookie Capability Contracts (RFC-034) — implemented by @nextrush/cookies
+// ============================================================================
+
+export {
+  type CookieCapability,
+  type CookieOptions,
+  type CookiePriority,
+  type ParsedCookies,
+  type SameSiteValue,
+  type SignedCookieCapability,
+} from './cookies';
+
+// ============================================================================
 // Adapter Context Contracts (F-13) — additive supersets of Context
 // ============================================================================
 

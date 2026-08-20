@@ -248,3 +248,242 @@ resolve the request early.
 - **THEN** each caller's continuation runs exactly once, and no caller observes another caller's
   continuation or ordering
 
+### Requirement: `ctx.cookies` is a first-class, always-present Context capability
+
+The `Context` contract SHALL expose `cookies` as a required (never optional, never `undefined`)
+property typed as the cookie capability: `get`, `set`, `delete`, `all`, `has`, and a nested `signed`
+sub-capability with `get`, `set`, `delete`. The property MUST exist on every context built by every
+adapter (Node, Bun, Deno, Edge) before any cookie middleware runs, and merely reading or inspecting
+the property MUST NOT throw. The capability is activated when the `cookies()` middleware runs; the
+type system MUST require no cast for `ctx.cookies.get/set/delete/all/has`.
+
+#### Scenario: The capability exists on every adapter before any middleware runs
+- **WHEN** a request context is built by the Node, Bun, Deno, or Edge adapter and no cookie middleware has run
+- **THEN** `ctx.cookies` is a defined object on all four adapters and reading the property does not throw
+
+#### Scenario: The type is never optional
+- **WHEN** application code accesses `ctx.cookies` under strict TypeScript
+- **THEN** the type is non-optional, and `ctx.cookies.get('x')` typechecks without a cast or optional chaining
+
+#### Scenario: Inspecting the uninitialized capability is safe
+- **WHEN** application code logs or inspects `ctx.cookies` (e.g. `console.log(ctx.cookies)`) without the cookie middleware
+- **THEN** no error is thrown; only invoking an operation (see the diagnostic requirement) throws
+
+### Requirement: Uninitialized cookie operations throw an actionable diagnostic
+
+When no `cookies()` middleware has run for the request, every operation on `ctx.cookies` —
+`get`, `set`, `delete`, `all`, `has`, and every `signed` operation — SHALL throw a
+`CapabilityNotInitializedError` (a `NextRushError`) whose `code` is `COOKIES_NOT_INITIALIZED`
+and whose `message` answers four things: WHAT was called, WHY the capability is unavailable,
+HOW to fix it (register `cookies()`), and WHERE to learn more (the cookies reference docs). The
+error SHALL carry HTTP status `500` and `expose: false`, and MUST never serialize installation
+instructions or internal paths to the client.
+
+#### Scenario: get() throws the diagnostic when cookies() never ran
+- **WHEN** a handler calls `ctx.cookies.get('session')` and no cookie middleware ran for the request
+- **THEN** it throws `CapabilityNotInitializedError` with `code === 'COOKIES_NOT_INITIALIZED'`
+
+#### Scenario: set() throws the diagnostic when cookies() never ran
+- **WHEN** a handler calls `ctx.cookies.set('a', 'b')` and no cookie middleware ran for the request
+- **THEN** it throws `CapabilityNotInitializedError` with `code === 'COOKIES_NOT_INITIALIZED'`
+
+#### Scenario: delete(), all(), and has() throw the diagnostic when cookies() never ran
+- **WHEN** a handler calls `ctx.cookies.delete('a')`, `ctx.cookies.all()`, or `ctx.cookies.has('a')` with no cookie middleware
+- **THEN** each call throws `CapabilityNotInitializedError` with `code === 'COOKIES_NOT_INITIALIZED'`
+
+#### Scenario: The diagnostic names the called operation and the fix
+- **WHEN** `ctx.cookies.get('session')` throws the diagnostic
+- **THEN** the message includes the operation that was called (e.g. `ctx.cookies.get("session")`), states that no cookie middleware ran, shows the fix (`import { cookies } from '@nextrush/cookies'; app.use(cookies());`), lists likely causes (not registered, registered after the route, conditionally skipped), and includes the docs URL
+
+#### Scenario: The diagnostic is a developer error, never client-visible
+- **WHEN** the diagnostic error propagates to the framework error handler
+- **THEN** the client response is a generic 500 with `expose: false` and contains none of the diagnostic's message text
+
+#### Scenario: The same diagnostic fires when the middleware was registered after the route
+- **WHEN** the middleware chain for the request runs without the cookie middleware (e.g. it is registered after a route that already handled the request)
+- **THEN** any cookie operation in that handler throws the same `COOKIES_NOT_INITIALIZED` diagnostic
+
+### Requirement: The signed sub-capability has its own activation and diagnostic
+
+The `signed` member of `ctx.cookies` SHALL start uninitialized and be activated only by the
+`signedCookies()` middleware. Using a `signed` operation when `cookies()` ran but `signedCookies()`
+did not SHALL throw `CapabilityNotInitializedError` with `code === 'SIGNED_COOKIES_NOT_INITIALIZED'`.
+Running `signedCookies()` when `cookies()` never ran SHALL throw the `COOKIES_NOT_INITIALIZED`
+diagnostic naming `cookies()` as the prerequisite.
+
+#### Scenario: signed.get() throws when signedCookies() never ran
+- **WHEN** `cookies()` is registered but `signedCookies()` is not, and a handler awaits `ctx.cookies.signed.get('user')`
+- **THEN** it throws `CapabilityNotInitializedError` with `code === 'SIGNED_COOKIES_NOT_INITIALIZED'`
+
+#### Scenario: signed.set() and signed.delete() throw when signedCookies() never ran
+- **WHEN** a handler calls `ctx.cookies.signed.set('u', 'v')` or `ctx.cookies.signed.delete('u')` with only `cookies()` registered
+- **THEN** each throws `CapabilityNotInitializedError` with `code === 'SIGNED_COOKIES_NOT_INITIALIZED'`
+
+#### Scenario: signedCookies() without cookies() fails at request time with the prerequisite named
+- **WHEN** `signedCookies()` is registered but `cookies()` is not, and a request arrives
+- **THEN** the request throws `CapabilityNotInitializedError` with `code === 'COOKIES_NOT_INITIALIZED'` and a message stating that `signedCookies` requires `cookies()` to be registered first
+
+### Requirement: `cookies()` activates the capability with unchanged parsing semantics
+
+The `cookies()` middleware SHALL activate `ctx.cookies` with a per-request cookie store that
+parses the incoming `Cookie` header exactly once, joins repeated Cookie headers with `; `,
+applies RFC 6265 first-occurrence-wins for duplicate names, URL-decodes values (retaining the raw
+value when decoding fails), strips CRLF/control characters, enforces the 50-cookie parse cap, and
+distinguishes an empty value (`name=`) from a missing cookie. A custom `decode` option SHALL be
+re-sanitized after decoding, and a decode failure SHALL be recorded in observable state rather
+than throwing.
+
+#### Scenario: get() returns the parsed value after activation
+- **WHEN** a request carries `Cookie: session=abc; theme=dark` and `cookies()` is registered
+- **THEN** `ctx.cookies.get('session')` returns `'abc'` and `ctx.cookies.get('theme')` returns `'dark'`
+
+#### Scenario: The header is parsed once per request
+- **WHEN** a handler calls `ctx.cookies.get('a')`, `get('b')`, and `get('c')` in sequence
+- **THEN** the raw Cookie header is read and parsed exactly once for the request, and all three values are served from the same parse
+
+#### Scenario: Repeated Cookie headers are joined before parsing
+- **WHEN** the runtime surfaces the Cookie header as an array (e.g. `['a=1', 'b=2']`)
+- **THEN** both `a` and `b` are parsed as if the header were `a=1; b=2`
+
+#### Scenario: Duplicate names resolve first-occurrence-wins
+- **WHEN** the header is `session=first; session=second`
+- **THEN** `ctx.cookies.get('session')` returns `'first'`
+
+#### Scenario: An empty value is distinguishable from a missing cookie
+- **WHEN** the header is `empty=` (no `missing` cookie)
+- **THEN** `ctx.cookies.get('empty')` returns `''`, `ctx.cookies.has('empty')` returns `true`, and `ctx.cookies.get('missing')` returns `undefined`
+
+#### Scenario: The 50-cookie cap bounds parsing
+- **WHEN** the header contains more than 50 distinct cookie names
+- **THEN** only the first 50 distinct names are present in `ctx.cookies.all()`
+
+#### Scenario: Read-after-write is visible within the same request
+- **WHEN** a handler calls `ctx.cookies.set('a', '1')` and then `ctx.cookies.get('a')`
+- **THEN** `get('a')` returns `'1'` without re-reading the request header
+
+#### Scenario: delete() removes the value from the request's cookie set
+- **WHEN** a handler parses `Cookie: a=1`, then calls `ctx.cookies.delete('a')` and `ctx.cookies.has('a')`
+- **THEN** `has('a')` returns `false` and `get('a')` returns `undefined`
+
+### Requirement: `set()`/`delete()` preserve eager Set-Cookie emission and security hardening
+
+After activation, `set()` SHALL serialize and emit the `Set-Cookie` header immediately (in the same
+call), and repeated `set()` calls SHALL accumulate multiple `Set-Cookie` headers without collapsing
+into one comma-separated value. `delete()` SHALL emit an expiring cookie (epoch expiry, `Max-Age=0`).
+All existing security semantics SHALL be preserved: `secure: 'auto'` resolution (emit `Secure`
+except on plaintext loopback), `__Secure-`/`__Host-` prefix enforcement, CRLF/control-character
+sanitization, a 4096-byte size limit that throws, `maxAge < 0` rejection, and `SameSite=None`
+requiring `Secure`. A non-string value passed to `set()` SHALL be sanitized to an empty cookie
+value without throwing (existing documented behavior, unchanged).
+
+#### Scenario: set() emits the Set-Cookie header immediately
+- **WHEN** a handler calls `ctx.cookies.set('a', '1', { httpOnly: true })` and then sends a response
+- **THEN** the response carries exactly one `Set-Cookie` header for `a` with `HttpOnly`, emitted at set() time (not deferred)
+
+#### Scenario: Multiple set() calls accumulate distinct Set-Cookie headers
+- **WHEN** a handler calls `set('a', '1')` and `set('b', '2')`
+- **THEN** the response carries two distinct `Set-Cookie` headers (one for `a`, one for `b`), not one comma-joined value
+
+#### Scenario: delete() emits an expiring cookie with matching scope
+- **WHEN** a handler calls `ctx.cookies.delete('session', { path: '/' })`
+- **THEN** the response `Set-Cookie` for `session` has an epoch `Expires` and `Max-Age=0` with `Path=/`
+
+#### Scenario: secure: 'auto' emits Secure except on plaintext loopback
+- **WHEN** a cookie is set with no explicit `secure` option on a plaintext `127.0.0.1`/`localhost` request
+- **THEN** the emitted cookie has no `Secure` attribute; on any other request (TLS, trusted forwarded https, non-loopback plaintext) `Secure` is emitted
+
+#### Scenario: __Host- prefix constraints are enforced at set() time
+- **WHEN** `set('__Host-a', '1', { domain: 'example.com' })` or with `path` other than `/` or without `secure` resolving true
+- **THEN** a `SecurityError` is thrown naming the violated constraint
+
+#### Scenario: An oversized cookie throws
+- **WHEN** `set()` produces a serialized cookie longer than 4096 bytes
+- **THEN** a `RangeError` is thrown and no `Set-Cookie` header is emitted for it
+
+#### Scenario: SameSite=None without Secure is rejected
+- **WHEN** `set('a', '1', { sameSite: 'none' })` resolves to a non-secure cookie
+- **THEN** a `SecurityError` is thrown
+
+#### Scenario: A negative maxAge is rejected
+- **WHEN** `set('a', '1', { maxAge: -1 })` is called
+- **THEN** a `RangeError` is thrown
+
+#### Scenario: A non-string value becomes an empty cookie value without throwing
+- **WHEN** `set('a', { token: 'x' })` (an object) or `set('a', undefined)` is called
+- **THEN** the emitted cookie value is the empty string, no exception is thrown, and the behavior matches the pre-existing `ctx.state.cookies` semantics
+
+### Requirement: `ctx.state.cookies` remains a working deprecated alias for one release
+
+The deprecated `ctx.state.cookies` and `ctx.state.signedCookies` SHALL be attached alongside
+`ctx.cookies` during the deprecation window, behave identically to the new property, and emit a
+warning at most once per process. The warning MUST point to `ctx.cookies` as the replacement.
+
+#### Scenario: The alias serves the same store
+- **WHEN** `cookies()` is registered and a handler uses `ctx.state.cookies.get('a')` after `ctx.cookies.set('a', '1')`
+- **THEN** `ctx.state.cookies.get('a')` returns `'1'` (same store, same read-after-write)
+
+#### Scenario: The deprecation warning is emitted once per process
+- **WHEN** multiple requests run through the cookie middleware
+- **THEN** exactly one deprecation warning about `ctx.state.cookies` is emitted for the process lifetime
+
+#### Scenario: The warning names the replacement
+- **WHEN** the deprecation warning is emitted
+- **THEN** the message points to `ctx.cookies` and the cookies reference docs
+
+### Requirement: `signedCookies()` activation preserves signing, verification, and rotation semantics
+
+The `signedCookies()` middleware SHALL activate `ctx.cookies.signed` with the existing signing
+contract: `set()` signs the value (name-bound HMAC-SHA256 with issue time), `get()` verifies and
+returns the original value or `undefined` — indistinguishably for missing, malformed, tampered,
+name-mismatched, or expired signatures. Verification SHALL try the current secret first, then each
+previous secret in order, with at most 10 previous secrets accepted (more SHALL throw at
+configuration time). `acceptLegacySignatures` SHALL enable the legacy value-only format as a
+fallback with a once-per-process warning.
+
+#### Scenario: signed.set() then signed.get() round-trips within the request
+- **WHEN** `await ctx.cookies.signed.set('user', 'u1')` is followed by `await ctx.cookies.signed.get('user')` in the same request
+- **THEN** `get` returns `'u1'`
+
+#### Scenario: A tampered signed cookie returns undefined
+- **WHEN** a client sends a signed cookie whose value was modified after signing
+- **THEN** `await ctx.cookies.signed.get('user')` returns `undefined`
+
+#### Scenario: A value signed under one name does not verify under another
+- **WHEN** a signature issued for cookie name `tier` is presented as the value of cookie `role`
+- **THEN** `await ctx.cookies.signed.get('role')` returns `undefined`
+
+#### Scenario: Rotation verifies current first, then previous keys in order
+- **WHEN** a cookie was signed with an old secret and verification is configured with a new current secret plus `previousSecrets: [old]`
+- **THEN** `get` verifies successfully using the previous key, and new `set()` calls sign with the current key
+
+#### Scenario: More than 10 previous secrets are rejected at configuration time
+- **WHEN** `signedCookies({ secret, previousSecrets: [ ...11 entries ] })` is constructed
+- **THEN** a configuration-time error is thrown
+
+#### Scenario: Legacy signatures are accepted only behind the explicit flag
+- **WHEN** a value in the pre-RFC-031 format (`value.signature`) is presented
+- **THEN** `get` returns `undefined` by default and returns the value only when `acceptLegacySignatures: true`, emitting a once-per-process warning
+
+### Requirement: The cookie capability is identical across all adapters with no allocation regression
+
+The activated and uninitialized cookie behaviors SHALL be observable-identical on Node, Bun, Deno,
+and Edge, pinned by the conformance suite. The uninitialized capability SHALL be a process-shared
+object so a request that never touches cookies allocates no per-request cookie object, and the
+initialized path SHALL allocate the same single store object it allocates today.
+
+#### Scenario: Uninitialized behavior is identical across adapters
+- **WHEN** the conformance suite exercises a handler using `ctx.cookies` without the middleware on Node, Bun, Deno, and Edge
+- **THEN** each adapter throws the same `COOKIES_NOT_INITIALIZED` error with the same code and message shape
+
+#### Scenario: Activated behavior is identical across adapters
+- **WHEN** the conformance suite exercises `set`/`get`/`delete`/`all`/`has` and `signed` operations with the middleware on all four adapters
+- **THEN** observable responses (headers, multiple Set-Cookie accumulation, parsed values) are identical
+
+#### Scenario: The uninitialized path allocates nothing per request
+- **WHEN** requests that never access cookies run under allocation instrumentation
+- **THEN** no per-request cookie-related object is allocated (the uninitialized capability is shared)
+
+#### Scenario: The activated path allocates no more than before
+- **WHEN** requests that use cookies run under allocation instrumentation
+- **THEN** the per-request allocation count for the cookie store is unchanged from the pre-change baseline
+

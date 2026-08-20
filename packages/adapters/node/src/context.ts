@@ -15,6 +15,7 @@ import {
   METHODS_WITHOUT_BODY,
   NULL_PROTO,
   resolveClientIp,
+  UNINITIALIZED_COOKIES,
 } from '@nextrush/runtime';
 import {
   runNDJSONStream,
@@ -26,6 +27,7 @@ import type {
     AdapterContext,
     BodySource,
     ContextState,
+    CookieCapability,
     HttpMethod,
     IncomingHeaders,
     NDJSONStreamWriter,
@@ -167,6 +169,14 @@ export class NodeContext implements AdapterContext {
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
   status = 200;
+  /**
+   * First-class cookie capability (RFC-034). Constructed as the shared
+   * uninitialized stub; the `cookies()` middleware activates it by
+   * reassigning this field to the per-request store. The field is declared
+   * here (not added by the middleware) so activation is a value write to an
+   * existing slot rather than a hidden-class transition.
+   */
+  cookies: CookieCapability = UNINITIALIZED_COOKIES;
 
   /**
    * HP-5: the request/response are held as private fields; the public

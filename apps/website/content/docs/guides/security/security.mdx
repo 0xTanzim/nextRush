@@ -165,6 +165,12 @@ app.use(
   using cookies or auth headers.
 </Callout>
 
+<Callout type="info" title="Cookie-based auth across origins">
+  `credentials: true` is only half of the cookie flow — the browser also discards `Set-Cookie`
+  from a cross-origin response unless the client fetch sends `credentials: 'include'`. See
+  [Cookies](/docs/reference/cookies) for the full flow.
+</Callout>
+
 See [CORS API Reference](/docs/reference/cors) for all options.
 
 ---

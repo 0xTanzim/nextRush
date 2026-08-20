@@ -19,7 +19,7 @@
  *
  * app.get('/login', async (ctx) => {
  *   // Set a cookie
- *   ctx.state.cookies.set('session', 'user-session-id', {
+ *   ctx.cookies.set('session', 'user-session-id', {
  *     httpOnly: true,
  *     secure: true,
  *     maxAge: 86400 // 1 day
@@ -29,13 +29,13 @@
  *
  * app.get('/profile', async (ctx) => {
  *   // Read a cookie
- *   const session = ctx.state.cookies.get('session');
+ *   const session = ctx.cookies.get('session');
  *   ctx.json({ session });
  * });
  *
  * app.get('/logout', async (ctx) => {
  *   // Delete a cookie
- *   ctx.state.cookies.delete('session');
+ *   ctx.cookies.delete('session');
  *   ctx.json({ success: true });
  * });
  * ```

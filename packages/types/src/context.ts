@@ -13,6 +13,7 @@
  */
 
 import type { HttpMethod, IncomingHeaders, RawHttp, ResponseBody } from './http';
+import type { CookieCapability } from './cookies';
 import type { BodySource, PlatformId, Runtime } from './runtime';
 import type {
   NDJSONStreamWriter,
@@ -362,6 +363,26 @@ export interface Context {
    * ```
    */
   state: ContextState;
+
+  /**
+   * Cookie capability (RFC-034).
+   *
+   * Always present on every context; the `cookies()` middleware activates it
+   * by replacing the uninitialized slot with a per-request cookie store.
+   * Before activation, every operation throws `CapabilityNotInitializedError`
+   * (`@nextrush/errors`) — property access itself never throws.
+   *
+   * @example
+   * ```typescript
+   * app.use(cookies());
+   *
+   * app.get('/login', (ctx) => {
+   *   ctx.cookies.set('session', 'abc', { httpOnly: true, maxAge: 86400 });
+   *   const session = ctx.cookies.get('session');
+   * });
+   * ```
+   */
+  cookies: CookieCapability;
 
   // =========================================================================
   // RAW ACCESS

@@ -11,12 +11,14 @@
  */
 
 import type { Context, Middleware } from '@nextrush/types';
+import type { CookieCapability, CookieOptions, ParsedCookies } from '@nextrush/types';
+import { UNINITIALIZED_SIGNED_COOKIES } from '@nextrush/runtime';
 import type { CookieContext, CookieMiddlewareOptions } from './middleware-types.js';
 import { parseCookies } from './parser.js';
 import { createDeleteCookie, serializeCookie } from './serializer.js';
 import { resolveSecureOption } from './secure-resolution.js';
-import type { CookieOptions, ParsedCookies } from './types.js';
 import { sanitizeCookieValue } from './validation.js';
+import { warnCookieDecodeFailedOnce, warnStateCookiesDeprecatedOnce } from './deprecation.js';
 
 export { secureOptions, sessionOptions } from './option-presets.js';
 export { signedCookies } from './signed-middleware.js';
@@ -24,8 +26,10 @@ export { signedCookies } from './signed-middleware.js';
 /**
  * Create cookie middleware.
  *
- * Parses incoming cookies and provides `ctx.state.cookies` for
- * getting, setting, and deleting cookies.
+ * Activates the first-class `ctx.cookies` capability: parses incoming
+ * cookies and provides a typed, per-request store for getting, setting, and
+ * deleting cookies. Also attaches the deprecated `ctx.state.cookies` alias
+ * for one release cycle (RFC-034).
  *
  * Security Features:
  * - CRLF injection prevention
@@ -48,16 +52,16 @@ export { signedCookies } from './signed-middleware.js';
  *
  * app.use(async (ctx) => {
  *   // Get a cookie
- *   const session = ctx.state.cookies?.get('session');
+ *   const session = ctx.cookies.get('session');
  *
  *   // Set a cookie (defaults: HttpOnly + SameSite=Lax + Path=/ + Secure auto)
- *   ctx.state.cookies?.set('theme', 'dark', {
+ *   ctx.cookies.set('theme', 'dark', {
  *     maxAge: 86400,
  *     httpOnly: true
  *   });
  *
  *   // Delete a cookie
- *   ctx.state.cookies?.delete('old-cookie');
+ *   ctx.cookies.delete('old-cookie');
  *
  *   ctx.json({ session });
  * });
@@ -84,15 +88,14 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
           parsed[name] = sanitizeCookieValue(decoded);
         } catch {
           // Custom decode failed — retain the parser-sanitized value.
-          // Record failure for observability without disrupting request flow.
-          ctx.state.cookieDecodeErrors ??= [];
-          (ctx.state.cookieDecodeErrors as string[]).push(name);
+          warnCookieDecodeFailedOnce(name);
         }
       }
     }
 
-    // Create cookie context
-    const cookieContext: CookieContext = {
+    // Create cookie context. `signed` starts as the shared uninitialized stub;
+    // the signedCookies() middleware activates it (RFC-034).
+    const cookieContext: CookieCapability & CookieContext = {
       get(name: string): string | undefined {
         return parsed[name];
       },
@@ -130,10 +133,17 @@ export function cookies(options: CookieMiddlewareOptions = {}): Middleware {
       has(name: string): boolean {
         return Object.hasOwn(parsed, name);
       },
+
+      signed: UNINITIALIZED_SIGNED_COOKIES,
     };
 
-    // Add to state
+    // Activate the first-class capability (RFC-034): a value write to the
+    // slot every adapter constructs, not a property addition.
+    ctx.cookies = cookieContext;
+
+    // Deprecated alias for one release cycle (dev-only warning, once per process).
     ctx.state.cookies = cookieContext;
+    warnStateCookiesDeprecatedOnce();
 
     // Continue to next middleware. Set-Cookie headers were already written
     // eagerly at set()/delete() time, so nothing to flush here.

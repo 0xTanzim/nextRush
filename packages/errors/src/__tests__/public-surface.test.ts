@@ -25,6 +25,9 @@ describe('Public API surface (runtime exports)', () => {
       // Header validation
       'HeaderValidationError',
 
+      // Capability diagnostics
+      'CapabilityNotInitializedError',
+
       // Central error-code registry
       'ERROR_CODES',
       'GENERIC_ERROR_CODE',

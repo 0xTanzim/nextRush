@@ -161,6 +161,8 @@ listen(app, 8080);
 - **Output:** set `ctx.status`, then send with `ctx.json()`, `ctx.send()`, `ctx.html()`, or `ctx.redirect()`; add headers with `ctx.set()`. NextRush picks the `Content-Type`, sets `Content-Length`, and suppresses the body for `HEAD`/`204`/`304` responses on its own.
 - **Shared:** `ctx.state` is a plain object the whole pipeline reads and writes, and `ctx.next()` passes control to the next middleware. Sharing through `ctx.state` is what [middleware](/docs/concepts/middleware) uses to move data forward without a new object.
 
+A fourth, smaller group is **framework capabilities** — first-class members with defined semantics, activated by specific middleware. The first is [`ctx.cookies`](/docs/reference/cookies) (activated by `cookies()`/`signedCookies()`). Unlike `ctx.state` keys, a capability is typed on `Context` and always exists: before its middleware runs, operations throw an actionable `CapabilityNotInitializedError` instead of silently being `undefined`. The rule of thumb (RFC-034): stable HTTP/framework capability → `ctx.<capability>`; arbitrary request-scoped data → `ctx.state`.
+
 You never wire any of this yourself. The adapter constructs `ctx` from the platform's real request and serializes the response back — how that construction differs per runtime is the [adapter's job](/docs/architecture/adapters), not the handler's.
 
 ## Typical use cases

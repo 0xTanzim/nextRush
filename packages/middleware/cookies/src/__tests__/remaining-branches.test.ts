@@ -11,10 +11,12 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Context, Middleware } from '@nextrush/types';
+import { UNINITIALIZED_COOKIES } from '@nextrush/runtime';
 import { serializeCookie } from '../serializer.js';
 import { resolveSecureOption } from '../secure-resolution.js';
 import { splitLegacyFormat, splitNewFormat } from '../signing-message.js';
 import { signedCookies } from '../signed-middleware.js';
+import { cookies as cookiesMiddleware } from '../middleware.js';
 import type { SignedCookieContext } from '../middleware-types.js';
 
 describe('normalizeSameSite boolean forms', () => {
@@ -115,15 +117,24 @@ describe('signedCookies middleware: array-valued Cookie header (CK-9 parity)', (
       method: 'GET',
       headers: { cookie: ['a=1', 'b=2'] },
       state,
+      // RFC-034: signedCookies() requires an activated ctx.cookies parent.
+      cookies: UNINITIALIZED_COOKIES,
       get: () => undefined,
       set: () => undefined,
     } as unknown as Context;
 
+    // Activate the parent capability the way the real chain does.
+    await cookiesMiddleware()(ctx, async () => {
+      /* no-op next */
+    });
     await middleware(ctx, async () => {
       /* no-op next */
     });
 
+    // After activation, the signed store lives on the capability (and the
+    // deprecated state alias mirrors it).
     const api = state.signedCookies as SignedCookieContext;
+    expect(ctx.cookies.signed).toBe(api);
     // Neither value is a valid signed format, so both resolve to undefined —
     // this exercises the array-join parse path, not signature verification.
     await expect(api.get('a')).resolves.toBeUndefined();

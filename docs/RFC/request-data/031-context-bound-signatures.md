@@ -278,8 +278,9 @@ await ctx.state.signedCookies.set('tier', 'premium');
 const value = await ctx.state.signedCookies.get('tier');
 
 // After — same call shape; the middleware threads the name internally
-await ctx.state.signedCookies.set('tier', 'premium', { maxAge: 3600 });
-const value = await ctx.state.signedCookies.get('tier'); // rejects if replayed as another cookie's value
+// (via the first-class ctx.cookies.signed capability, RFC-034)
+await ctx.cookies.signed.set('tier', 'premium', { maxAge: 3600 });
+const value = await ctx.cookies.signed.get('tier'); // rejects if replayed as another cookie's value
 ```
 
 ---

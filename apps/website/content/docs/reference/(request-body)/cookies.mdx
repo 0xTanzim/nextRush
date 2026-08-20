@@ -34,17 +34,19 @@ app.use(cookies());
 
 app.use(async (ctx) => {
   // Read a cookie
-  const session = ctx.state.cookies.get('session');
+  const session = ctx.cookies.get('session');
 
-  // Set a cookie (secure defaults: httpOnly, sameSite=lax, path=/)
-  ctx.state.cookies.set('session', 'user-123', {
-    secure: true,
+  // Set a cookie (secure defaults: httpOnly, sameSite=lax, path=/, secure='auto')
+  ctx.cookies.set('session', 'user-123', {
     maxAge: 86400,
   });
 
   ctx.json({ session });
 });
 ```
+
+`ctx.cookies` is fully typed — no casts. Using it without the middleware throws an
+actionable `CapabilityNotInitializedError` instead of a TypeError.
 
 ---
 
@@ -53,10 +55,13 @@ app.use(async (ctx) => {
 With default options, `cookies()` applies these defaults to every cookie you set:
 
 - `httpOnly: true` — blocks JavaScript access via `document.cookie`
-- `sameSite: 'lax'` — prevents CSRF on cross-origin POST requests
+- `sameSite: 'lax'` — limits cross-site cookie transmission and provides baseline CSRF mitigation (not complete protection; see [@nextrush/csrf](/docs/reference/csrf))
 - `path: '/'` — scopes the cookie to the entire domain
+- `secure: 'auto'` — emits `Secure` on every request except plaintext loopback (`localhost`/`127.0.0.1`/`::1`). This is the same as `secure: true` in production behind HTTPS, and it is **not** `false` in dev — see [Setting cookies on HTTP](#setting-cookies-on-http).
 
 Values are URL-decoded and sanitized (CRLF characters stripped) during parsing.
+
+`set()` and `delete()` write the `Set-Cookie` header **immediately**, in the same call — NextRush commits the response the moment the handler sends a body, so there is no later "flush cookies" step. The cookie is also readable through `get()` for the rest of the same request.
 
 ---
 
@@ -65,13 +70,13 @@ Values are URL-decoded and sanitized (CRLF characters stripped) during parsing.
 ```ts
 app.use(async (ctx) => {
   // Get a single cookie
-  const token = ctx.state.cookies.get('token');
+  const token = ctx.cookies.get('token');
 
   // Get all parsed cookies
-  const all = ctx.state.cookies.all();
+  const all = ctx.cookies.all();
 
   // Check if a cookie exists
-  const hasSession = ctx.state.cookies.has('session');
+  const hasSession = ctx.cookies.has('session');
 
   ctx.json({ token, all, hasSession });
 });
@@ -83,11 +88,11 @@ app.use(async (ctx) => {
 
 ```ts
 app.use(async (ctx) => {
-  // Uses secure defaults (httpOnly, sameSite=lax, path=/)
-  ctx.state.cookies.set('name', 'value');
+  // Uses secure defaults (httpOnly, sameSite=lax, path=/, secure='auto')
+  ctx.cookies.set('name', 'value');
 
   // Override specific options
-  ctx.state.cookies.set('session', 'user-123', {
+  ctx.cookies.set('session', 'user-123', {
     httpOnly: true,
     secure: true,
     sameSite: 'strict',
@@ -113,13 +118,14 @@ app.use(async (ctx) => {
       default: 'true',
     },
     secure: {
-      type: 'boolean',
-      description: 'Send only over HTTPS. Required for SameSite=None and cookie prefixes.',
-      default: 'false',
+      type: "'auto' | boolean",
+      description:
+        'Emit the Secure attribute. "auto" (default) emits it except on plaintext loopback (localhost/127.0.0.1). Explicit true emits it always; explicit false suppresses it. Required for SameSite=None and cookie prefixes.',
+      default: "'auto'",
     },
     sameSite: {
       type: "'strict' | 'lax' | 'none' | boolean",
-      description: 'CSRF protection level',
+      description: 'Baseline CSRF mitigation by limiting cross-site transmission (not complete protection)',
       default: "'lax'",
     },
     maxAge: {
@@ -151,16 +157,22 @@ app.use(async (ctx) => {
   }}
 />
 
+<Callout type="warn" title="maxAge is in seconds, not milliseconds">
+  `maxAge: 604800` is 7 days. A common bug is passing milliseconds
+  (`maxAge: 1000 * 60 * 60 * 24 * 7` = 604800000), which the middleware floors to
+  `Max-Age=604800000` — a cookie that effectively never expires.
+</Callout>
+
 ---
 
 ## Deleting Cookies
 
 ```ts
 app.use(async (ctx) => {
-  ctx.state.cookies.delete('session');
+  ctx.cookies.delete('session');
 
   // Path and domain must match the original cookie
-  ctx.state.cookies.delete('session', {
+  ctx.cookies.delete('session', {
     path: '/',
     domain: '.example.com',
   });
@@ -185,7 +197,7 @@ import { cookies, secureOptions } from '@nextrush/cookies';
 app.use(cookies());
 
 app.use(async (ctx) => {
-  ctx.state.cookies.set('auth', 'token', secureOptions({ maxAge: 86400 }));
+  ctx.cookies.set('auth', 'token', secureOptions({ maxAge: 86400 }));
 });
 ```
 
@@ -201,7 +213,7 @@ import { cookies, sessionOptions } from '@nextrush/cookies';
 app.use(cookies());
 
 app.use(async (ctx) => {
-  ctx.state.cookies.set('session', 'user-123', sessionOptions());
+  ctx.cookies.set('session', 'user-123', sessionOptions());
 });
 ```
 
@@ -211,11 +223,13 @@ Produces: `httpOnly: true`, `sameSite: 'lax'`, `path: '/'`. No `maxAge` or `expi
 
 ## Signed Cookies
 
-Prevent cookie tampering with HMAC-SHA256 signatures. Signed cookies use a separate middleware and a separate context property.
+Prevent cookie tampering with HMAC-SHA256 signatures. Signed cookies are a sub-capability of
+`ctx.cookies` — `signedCookies()` requires `cookies()` to be registered first.
 
 ```ts
-import { signedCookies } from '@nextrush/cookies';
+import { cookies, signedCookies } from '@nextrush/cookies';
 
+app.use(cookies());
 app.use(
   signedCookies({
     secret: process.env.COOKIE_SECRET!,
@@ -224,10 +238,10 @@ app.use(
 
 app.use(async (ctx) => {
   // Set a signed cookie (async)
-  await ctx.state.signedCookies.set('user', 'user-123', { httpOnly: true });
+  await ctx.cookies.signed.set('user', 'user-123', { httpOnly: true });
 
   // Get and verify a signed cookie (async)
-  const user = await ctx.state.signedCookies.get('user');
+  const user = await ctx.cookies.signed.get('user');
   // Returns undefined if the signature is invalid or the cookie is missing
 
   ctx.json({ user });
@@ -251,6 +265,7 @@ The signing secret must be kept secure and rotated periodically.
 Provide previous secrets to verify cookies signed with older keys during rotation:
 
 ```ts
+app.use(cookies());
 app.use(
   signedCookies({
     secret: process.env.COOKIE_SECRET_NEW!,
@@ -259,7 +274,8 @@ app.use(
 );
 ```
 
-New cookies are signed with `secret`. Verification tries `secret` first, then each entry in `previousSecrets` in order.
+New cookies are signed with `secret`. Verification tries `secret` first, then each entry in
+`previousSecrets` in order. At most 10 previous secrets are accepted.
 
 ---
 
@@ -335,17 +351,104 @@ Manual cookie signing without the middleware:
 ```ts
 import { signCookie, unsignCookie, unsignCookieWithRotation } from '@nextrush/cookies';
 
-const signed = await signCookie('value', 'secret-key');
-// 'value.BASE64_SIGNATURE'
+const signed = await signCookie('token', 'value', 'secret-key');
+// 'value.issuedAt.SIGNATURE'
 
-const value = await unsignCookie(signed, 'secret-key');
-// 'value' or undefined if tampered
+const value = await unsignCookie('token', signed, 'secret-key');
+// 'value' or undefined if tampered/expired
 
-const rotated = await unsignCookieWithRotation(signed, {
+const rotated = await unsignCookieWithRotation('token', signed, {
   current: 'new-key',
   previous: ['old-key'],
 });
 ```
+
+The first argument to every sign/unsign function is the **cookie name** — the signature
+is bound to it (SEC-07), so a value signed for one cookie cannot be replayed under another.
+
+---
+
+## Typing
+
+`ctx.cookies` is fully typed on `Context` (RFC-034) — no casts, no `?.`, no `if` guards:
+
+```ts
+app.use(cookies());
+
+app.post('/login', (ctx) => {
+  ctx.cookies.set('token', 'abc123', { httpOnly: true, maxAge: 604800 });
+  const token = ctx.cookies.get('token'); // string | undefined
+  ctx.json({ ok: true });
+});
+```
+
+Signed cookies live under the same capability with their own typed surface:
+
+```ts
+app.use(cookies());
+app.use(signedCookies({ secret: process.env.COOKIE_SECRET! }));
+
+app.get('/me', async (ctx) => {
+  const userId = await ctx.cookies.signed.get('userId'); // string | undefined
+  ctx.json({ userId });
+});
+```
+
+### The capability is always present — activation is the middleware's job
+
+Before `cookies()` runs, `ctx.cookies` exists but every operation throws
+`CapabilityNotInitializedError` (`code: 'COOKIES_NOT_INITIALIZED'`) with a WHAT/WHY/HOW/WHERE
+diagnostic. `ctx.cookies.signed` throws `SIGNED_COOKIES_NOT_INITIALIZED` until
+`signedCookies()` runs, and `signedCookies()` without `cookies()` fails loudly at request time.
+
+<Callout type="warn" title="Deprecated: ctx.state.cookies">
+  `ctx.state.cookies` / `ctx.state.signedCookies` still work as aliases for one release cycle
+  (with a once-per-process warning), and are removed in the next major. Migrate to
+  `ctx.cookies` / `ctx.cookies.signed`.
+</Callout>
+
+## Serving a frontend on another origin (SPA)
+
+Cookies are per-origin. When your frontend (`http://localhost:5173`) calls the API
+(`http://localhost:8080`) — or any two different ports/hosts — the browser treats them as
+cross-origin, and `Set-Cookie` from the response is **silently discarded** unless both sides
+opt in:
+
+```ts
+// 1. Server — enable credentials with an explicit origin (NOT '*'):
+import { cors } from '@nextrush/cors';
+
+app.use(
+  cors({
+    origin: 'http://localhost:5173',
+    credentials: true, // emits Access-Control-Allow-Credentials: true
+  })
+);
+app.use(cookies());
+```
+
+```ts
+// 2. Client — the fetch must include credentials:
+fetch('http://localhost:8080/auth/login', {
+  method: 'POST',
+  credentials: 'include', // sends + stores cookies cross-origin
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, password }),
+});
+```
+
+Both are required — missing either one means the browser never stores the cookie.
+
+Three more things that trip people up:
+
+- **`httpOnly` cookies never appear in `document.cookie`** — check DevTools →
+  Application → Cookies instead. That's the feature, not a bug.
+- **`SameSite` is about site, not origin.** `'strict'` blocks the cookie on any cross-site
+  request (a different registrable domain), including top-level navigations. `'lax'`
+  (the default) allows it on top-level GET navigations. For API calls from a different
+  site you need `'lax'`/`'none'` + `Secure`, never `'strict'`.
+- **A missing `credentials: 'include'` fails silently** — no error, the browser does not
+  store the cookie. It's the first thing to check.
 
 ---
 
@@ -355,35 +458,80 @@ const rotated = await unsignCookieWithRotation(signed, {
 
 ```ts
 // Wrong — returns a Promise, not the value
-const userId = ctx.state.signedCookies.get('userId');
+const userId = ctx.cookies.signed.get('userId');
 
 // Correct
-const userId = await ctx.state.signedCookies.get('userId');
+const userId = await ctx.cookies.signed.get('userId');
+```
+
+### Passing a non-string value to `set()` — silently stores an empty cookie
+
+```ts
+// ❌ Wrong — an object (or number, or undefined) becomes '' with NO error.
+// The browser stores an empty 'token=' cookie and it looks like nothing happened.
+cookiesApi.set('token', loginResult.token, { httpOnly: true });
+
+// ✅ Correct — pass a string. If the value is nested, pass the specific field.
+cookiesApi.set('token', loginResult.token.accessToken, { httpOnly: true });
+```
+
+`sanitizeCookieValue()` returns `''` for anything that isn't a string, so the middleware
+never throws — the failure is a silent empty cookie. If a cookie "doesn't appear" in the
+browser, check the response's `Set-Cookie` header (e.g. `curl -i`) and confirm the value
+is actually non-empty.
+
+### Setting secure cookies on HTTP
+
+```ts
+// The default is secure: 'auto' — Secure is emitted EXCEPT on plaintext loopback
+// (localhost/127.0.0.1/::1). So in local dev over http://localhost this works fine.
+cookiesApi.set('session', 'value', { maxAge: 3600 }); // ok on localhost
+
+// ❌ Browser drops Secure cookies on plaintext http:// for any NON-loopback host
+// (LAN IP, Docker, a .local hostname). It fails closed to Secure, by design.
+cookiesApi.set('session', 'value', { secure: true }); // dropped on http://192.168.1.10:8080
+```
+
+On a real deployment, serve over HTTPS and let the default `'auto'` emit `Secure`. Only
+reach for an explicit `secure: false` when you have a specific reason — it overrides the
+safe default.
+
+### Calling `cookies()` but reading `signedCookies` (or vice versa)
+
+```ts
+// ❌ cookies() alone does NOT activate ctx.cookies.signed — it throws
+// SIGNED_COOKIES_NOT_INITIALIZED.
+app.use(cookies());
+await ctx.cookies.signed.get('user'); // CapabilityNotInitializedError
+
+// ✅ signedCookies() activates ctx.cookies.signed — but requires cookies() first.
+app.use(cookies());
+app.use(signedCookies({ secret: process.env.COOKIE_SECRET! }));
+await ctx.cookies.signed.get('user');
 ```
 
 ### Using SameSite=None without Secure
 
 ```ts
 // Browsers reject this combination
-ctx.state.cookies.set('cross', 'value', { sameSite: 'none' });
+ctx.cookies.set('cross', 'value', { sameSite: 'none' });
 
 // Correct
-ctx.state.cookies.set('cross', 'value', { sameSite: 'none', secure: true });
-```
-
-### Setting secure cookies on HTTP
-
-```ts
-// Browser ignores the cookie on plain HTTP
-ctx.state.cookies.set('session', 'value', { secure: true });
+ctx.cookies.set('cross', 'value', { sameSite: 'none', secure: true });
 ```
 
 ---
 
 ## Troubleshooting
 
-**Cookie not appearing in the browser:**
-Check that `secure: true` cookies are served over HTTPS. On localhost, most browsers allow `secure` cookies only on `https://localhost`.
+**Cookie not appearing in the browser — work through this checklist:**
+
+1. `Set-Cookie` present in the response? Check with `curl -i http://localhost:8080/login -X POST ...` — if the header is missing, the handler never ran `set()`.
+2. Is the value non-empty? Passing an object/number/`undefined` silently produces an empty cookie (see [Common Mistakes](#passing-a-non-string-value-to-set--silently-stores-an-empty-cookie)).
+3. Cross-origin? Both `credentials: 'include'` on the fetch **and** `cors({ credentials: true, origin: '<exact origin>' })` on the server are required, or the browser discards `Set-Cookie` (see [Serving a frontend on another origin](#serving-a-frontend-on-another-origin-spa)).
+4. Is it `secure` on plaintext HTTP for a **non-loopback** host (LAN IP, Docker, `.local`)? Browsers drop those. On `localhost` HTTP, `'auto'` handles it.
+5. Is it `SameSite=Strict` and the request is cross-site (different registrable domain)? `'strict'` means the browser never sends it on cross-site requests.
+6. `httpOnly`? Then it won't show in `document.cookie` — look in DevTools → Application → Cookies.
 
 **Signed cookie returns `undefined`:**
 The signature verification failed. Confirm the secret matches the one used to sign the cookie. If you rotated keys, pass the old keys in `previousSecrets`.
@@ -391,10 +539,36 @@ The signature verification failed. Confirm the secret matches the one used to si
 **`SecurityError: Cookie with __Host- prefix must have Path set to "/"`:**
 `__Host-` prefixed cookies require `secure: true`, `path: '/'`, and no `domain` attribute. Use `createHostPrefixCookie()` to handle these constraints automatically.
 
+**`CapabilityNotInitializedError` (code `COOKIES_NOT_INITIALIZED`):**
+The cookie middleware has not run for this request — it is not registered, is registered after
+this route, or is conditionally skipped. Register `app.use(cookies())` before the routes that use
+cookies. `SIGNED_COOKIES_NOT_INITIALIZED` means `signedCookies()` has not run (and
+`signedCookies()` requires `cookies()` first).
+
+---
+
+## Migration: `ctx.state.cookies` → `ctx.cookies`
+
+```ts
+// Before (deprecated — works for one release with a once-per-process warning)
+const session = ctx.state.cookies.get('session');
+ctx.state.cookies.set('session', value, { httpOnly: true });
+await ctx.state.signedCookies.get('user');
+const cookieApi = ctx.state.cookies as CookieContext; // the old unknown-type cast
+
+// After
+const session = ctx.cookies.get('session');
+ctx.cookies.set('session', value, { httpOnly: true });
+await ctx.cookies.signed.get('user'); // fully typed — no cast needed
+```
+
+The `ctx.state.cookies` / `ctx.state.signedCookies` aliases are removed in the next major
+release.
+
 ---
 
 ## Related
 
-- [Middleware Overview](/docs/reference) — All middleware packages
-- [@nextrush/helmet](/docs/reference/helmet) — Security headers
-- [@nextrush/rate-limit](/docs/reference/rate-limit) — Rate limiting
+- [@nextrush/cors](/docs/reference/cors) — cross-origin cookies need `credentials: true` here
+- [Security guide — CORS](/docs/guides/security/security#cors) — credentials/wildcard rules
+- [CORS for a multi-tenant SaaS API](/docs/recipes/authentication/cors-multi-tenant) — dynamic origin allowlists with cookies

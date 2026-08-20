@@ -11,7 +11,7 @@
 
 |  |  |
 | --- | --- |
-| **Purpose** | Parse, set, delete, and HMAC-sign cookies through a `ctx.state.cookies` / `ctx.state.signedCookies` API |
+| **Purpose** | Parse, set, delete, and HMAC-sign cookies through the first-class `ctx.cookies` / `ctx.cookies.signed` API |
 | **Package type** | Middleware |
 | **Status** | Stable |
 | **Included in `nextrush`?** | No -- standalone install. Not re-exported from `nextrush` or `nextrush/class`. |
@@ -23,7 +23,7 @@
 
 ## Highlights
 
-- Zero runtime dependencies (a types-only dependency on `@nextrush/types`, erased at build)
+- Zero third-party dependencies -- framework-internal only (`@nextrush/types`, `@nextrush/runtime` for the shared uninitialized stub, `@nextrush/errors` for the capability diagnostic)
 - ESM-only, tree-shakable, side-effect-free (`sideEffects: false`)
 - Fully typed, strict TypeScript, zero `any`
 - RFC 6265 name/value validation plus `__Secure-`/`__Host-` prefix rule enforcement, CRLF header-injection stripping, and a curated public-suffix-domain guard -- hardened parsing, not bare string splitting
@@ -90,7 +90,7 @@ const app = createApp();
 app.use(cookies());
 
 app.get('/login', (ctx) => {
-  ctx.state.cookies.set('session', 'user-session-id', {
+  ctx.cookies.set('session', 'user-session-id', {
     httpOnly: true,
     secure: true,
     maxAge: 86400, // 1 day
@@ -99,14 +99,20 @@ app.get('/login', (ctx) => {
 });
 
 app.get('/profile', (ctx) => {
-  const session = ctx.state.cookies.get('session');
+  const session = ctx.cookies.get('session');
   ctx.json({ session });
 });
 
 listen(app, 8080);
 ```
 
-`cookies()` parses the incoming `Cookie` header once per request and attaches `get`/`set`/`delete`/`all`/`has` on `ctx.state.cookies`. `set()`/`delete()` write the `Set-Cookie` header immediately, in the same call -- there is nothing to flush later.
+`cookies()` parses the incoming `Cookie` header once per request and activates the first-class
+`ctx.cookies` capability (`get`/`set`/`delete`/`all`/`has`). `set()`/`delete()` write the
+`Set-Cookie` header immediately, in the same call -- there is nothing to flush later.
+
+`ctx.cookies` is always present on the context: before the middleware runs, operations throw an
+actionable `CapabilityNotInitializedError` (`COOKIES_NOT_INITIALIZED`) instead of an opaque
+TypeError. `ctx.state.cookies` remains a deprecated alias for one release cycle.
 
 ## Capabilities
 
@@ -128,7 +134,7 @@ listen(app, 8080);
 - Signing proves the value was not modified since it was signed and was issued for this exact cookie name; it does not hide the value -- a signed cookie's contents remain readable by anyone with cookie access
 
 **Developer experience**
-- Zero runtime dependencies beyond `@nextrush/types`
+- Zero third-party dependencies beyond the framework-internal `@nextrush/types`/`@nextrush/runtime`/`@nextrush/errors`
 - `secureOptions()` / `sessionOptions()` helper presets for common attribute combinations
 - Fully typed, zero `any`; edge-safe (no `node:` imports anywhere in the package)
 
@@ -137,11 +143,11 @@ listen(app, 8080);
 `cookies()` and `signedCookies()` are two separate middleware, not one with a flag -- `cookies()` gives you a plain read/write API, `signedCookies()` gives you the same shape but every `set()` signs and every `get()` verifies. Both write `Set-Cookie` the instant `set()`/`delete()` is called, because NextRush's response commits as soon as a handler sends a body -- there is no later "flush cookies" step to depend on.
 
 ```text
-request --> cookies() --> parseCookies(header) --> ctx.state.cookies.{get,set,delete,all,has}
+request --> cookies() --> parseCookies(header) --> ctx.cookies.{get,set,delete,all,has}
                                                           |
                                                           +-- set()/delete() --> ctx.set('Set-Cookie', ...) immediately
 
-request --> signedCookies({ secret }) --> ctx.state.signedCookies.{get,set,delete}
+request --> signedCookies({ secret }) --> ctx.cookies.signed.{get,set,delete}
                                                 |
                                                 +-- get() --> unsignCookieWithRotation() --> value or undefined (tampered/missing)
 ```
@@ -164,12 +170,12 @@ import { cookies } from '@nextrush/cookies';
 app.use(cookies());
 
 app.get('/theme', (ctx) => {
-  ctx.state.cookies.set('theme', 'dark', { maxAge: 86400 });
+  ctx.cookies.set('theme', 'dark', { maxAge: 86400 });
   ctx.json({ ok: true });
 });
 
 app.get('/logout', (ctx) => {
-  ctx.state.cookies.delete('session');
+  ctx.cookies.delete('session');
   ctx.json({ ok: true });
 });
 ```
@@ -177,17 +183,18 @@ app.get('/logout', (ctx) => {
 ### Sign and verify a tamper-sensitive cookie
 
 ```ts
-import { signedCookies } from '@nextrush/cookies';
+import { cookies, signedCookies } from '@nextrush/cookies';
 
+app.use(cookies()); // signedCookies requires the parent capability
 app.use(signedCookies({ secret: process.env.COOKIE_SECRET! }));
 
 app.get('/set-role', async (ctx) => {
-  await ctx.state.signedCookies.set('role', 'admin', { httpOnly: true });
+  await ctx.cookies.signed.set('role', 'admin', { httpOnly: true });
   ctx.json({ ok: true });
 });
 
 app.get('/check-role', async (ctx) => {
-  const role = await ctx.state.signedCookies.get('role');
+  const role = await ctx.cookies.signed.get('role');
   if (role === undefined) {
     // Missing, or the client edited the value -- both look identical here.
     ctx.status = 401;
@@ -222,7 +229,7 @@ const header = createHostPrefixCookie('session', 'abc123', { httpOnly: true });
 ```ts
 import { secureOptions } from '@nextrush/cookies';
 
-ctx.state.cookies.set('session', value, secureOptions({ maxAge: 86400 }));
+ctx.cookies.set('session', value, secureOptions({ maxAge: 86400 }));
 // httpOnly: true, secure: true, sameSite: 'strict', path: '/', maxAge: 86400
 ```
 
@@ -232,8 +239,8 @@ The sealed public surface (ADR-0005).
 
 | Export | Signature | Since | Stability | Description |
 | ------ | --------- | ----- | --------- | ----------- |
-| `cookies` | `(options?: CookieMiddlewareOptions) => Middleware` | 1.0.0 | Stable | The plain cookie middleware factory. Attaches `ctx.state.cookies`. |
-| `signedCookies` | `(options: SignedCookieMiddlewareOptions) => Middleware` | 1.0.0 | Stable | The HMAC-signed cookie middleware factory. Attaches `ctx.state.signedCookies`. Throws if `secret` is missing. |
+| `cookies` | `(options?: CookieMiddlewareOptions) => Middleware` | 1.0.0 | Stable | The plain cookie middleware factory. Attaches `ctx.cookies`. |
+| `signedCookies` | `(options: SignedCookieMiddlewareOptions) => Middleware` | 1.0.0 | Stable | The HMAC-signed cookie middleware factory. Attaches `ctx.cookies.signed`. Throws if `secret` is missing. |
 | `secureOptions` / `sessionOptions` | `(options?: CookieOptions) => CookieOptions` | 1.0.0 | Stable | Attribute presets -- strict/secure and session-lifetime, respectively. |
 | `serializeCookie` | `(name, value, options?) => string` | 1.0.0 | Stable | Builds a validated `Set-Cookie` string. Throws `SecurityError`/`RangeError` on invalid input. |
 | `createDeleteCookie` | `(name, options?) => string` | 1.0.0 | Stable | Builds a `Set-Cookie` string that expires the named cookie. |
@@ -331,7 +338,14 @@ Every default below is read directly from `src/constants.ts` and `src/types.ts`.
 </details>
 
 <details>
-<summary><strong>Only some of the cookies sent by the client show up in `ctx.state.cookies.all()`</strong></summary>
+<summary><strong>`set('name', value)` stores an empty cookie (value is `''`) and throws no error</strong></summary>
+
+**Cause:** a non-string value -- an object, a number, `undefined` -- is passed to `set()`. `sanitizeCookieValue()` returns `''` for anything that isn't a string, so the browser receives `name=; Path=/` and stores an empty cookie. No exception is thrown, which makes this look like "nothing happened." A classic case is passing a whole API response object instead of a single string field (e.g. `loginResult.token` instead of `loginResult.token.accessToken`). **Fix:** always pass a string -- `String(value)` if you must coerce -- and if a cookie still "doesn't appear" in the browser, inspect the response's `Set-Cookie` header (e.g. `curl -i`) to confirm the value is actually non-empty.
+
+</details>
+
+<details>
+<summary><strong>Only some of the cookies sent by the client show up in `ctx.cookies.all()`</strong></summary>
 
 **Cause:** `parseCookies()` stops once it has captured `maxCookies` (default 50) distinct names, and per RFC 6265 the *first* occurrence of a duplicate name wins -- later same-named pairs in the header are ignored, not merged. **Fix:** if you control the client, avoid sending more distinct cookie names than you need; if you need a specific override, pass `{ maxCookies: <n> }` to `parseCookies()` directly (the `cookies()`/`signedCookies()` middleware do not currently expose this as a top-level option).
 
