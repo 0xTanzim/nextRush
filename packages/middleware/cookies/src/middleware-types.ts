@@ -2,9 +2,10 @@
  * @nextrush/cookies - Middleware Option and Context Types
  *
  * `CookieMiddlewareOptions`, `SignedCookieMiddlewareOptions`, and the
- * `ctx.state.cookies` / `ctx.state.signedCookies` context extension
- * interfaces. Split out of `types.ts` to keep that file under the
- * file-size ceiling.
+ * capability context interfaces backing `ctx.cookies` /
+ * `ctx.cookies.signed` (RFC-034), plus the deprecated `ctx.state.*` alias
+ * shapes. Split out of `types.ts` to keep that file under the file-size
+ * ceiling.
  *
  * @packageDocumentation
  */

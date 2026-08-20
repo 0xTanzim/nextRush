@@ -60,6 +60,7 @@ invent a new structure per RFC.
 | [031](request-data/031-context-bound-signatures.md) | Context-bound signature construction for signed cookies | **Draft** — see ADR-0019 | request-data |
 | [032](class-runtime/032-session-position.md) | `@nextrush/session` position — what the framework owns and what it defers | **Draft** — see ADR-0020, no code shipped | class-runtime |
 | [033](documentation/033-homepage-hero-proof-architecture.md) | Homepage Hero + Proof architecture — layered homepage composition (Hero communicates, Proof demonstrates) | **Proposed** | documentation |
+| [034](request-data/034-cookies-first-class-context-capability.md) | `@nextrush/cookies` — first-class `ctx.cookies` context capability | **Accepted** | request-data |
 
 ## Note on RFC-005 (Plugin System)
 

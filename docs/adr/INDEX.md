@@ -37,6 +37,7 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0022](ADR-0022-design-token-architecture-orange-identity.md) | Layered design-token architecture & orange `#F16913` identity (warm-paper/graphite), CI-enforced | Accepted · Shipped | — |
 | [ADR-0023](ADR-0023-scaffolder-dx-environment-manifest-deno.md) | Scaffolder DX architecture — unified env config (`.env`/`.env.example`/`config` for all runtimes), declarative dependency manifest + single runtime policy, Deno `--env-file` parity | Accepted | `docs/RFC/scaffolding/034-environment-configuration-scaffolding.md` (consolidates 035, 036) |
 | [ADR-0024](ADR-0024-create-nextrush-strict-automation-contract.md) | `create-nextrush` strict automation contract — versioned JSON result/error schema (`schemaVersion` 1, stable codes + remediation), `--dry-run`/`--json`, explicit destructive `--overwrite` policy (never implied by `--yes`), non-zero `TARGET_DIRECTORY_NOT_EMPTY` | Accepted | `docs/RFC/scaffolding/021-project-scaffolding-capability.md` |
+| [ADR-0025](ADR-0025-first-class-ctx-cookies-capability.md) | First-class `ctx.cookies` context capability (typed, always-present, actionable `CapabilityNotInitializedError`; `ctx.state.cookies` deprecated) | Accepted | `docs/RFC/request-data/034-cookies-first-class-context-capability.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

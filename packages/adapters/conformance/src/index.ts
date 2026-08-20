@@ -34,6 +34,7 @@ export type {
 // The reusable suite (run these against your driver)
 export {
   defineConformanceSuite,
+  defineCookieConformance,
   defineRequestConformance,
   defineResponseConformance,
   defineRuntimeConformance,

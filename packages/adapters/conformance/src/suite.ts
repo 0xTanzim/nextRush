@@ -20,6 +20,7 @@
  */
 
 import type { Application } from '@nextrush/core';
+import { cookies } from '@nextrush/cookies';
 import { expect, it } from '@nextrush/adapter-conformance/test-primitives';
 import type { ConformanceDriver } from './drivers/types';
 import { json } from './support';
@@ -478,8 +479,81 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
  * The full cross-adapter conformance suite for one driver — request + response
  * + runtime behaviors. External adapter authors wrap this in a `describe`.
  */
+/**
+ * Cookie capability behaviors (RFC-034): the uninitialized diagnostic and the
+ * activated store must be observable-identical on every adapter.
+ */
+export function defineCookieConformance(driver: ConformanceDriver): void {
+  it('#20 cookies: uninitialized ctx.cookies throws the diagnostic on every adapter', async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        try {
+          ctx.cookies.get('session');
+          ctx.json({ reached: true });
+        } catch {
+          ctx.json({ reached: false });
+        }
+      });
+    });
+    const body = json<{ reached: boolean }>(res);
+    expect(body.reached).toBe(false);
+  });
+
+  it('#21 cookies: activation parses the Cookie header identically', async () => {
+    const res = await driver.dispatch((app) => {
+      app.use(cookies());
+      app.use((ctx) => {
+        ctx.json({ a: ctx.cookies.get('a'), b: ctx.cookies.get('b') });
+      });
+    }, { headers: { cookie: 'a=1; b=2' } });
+    const body = json<{ a: string; b: string }>(res);
+    expect(body.a).toBe('1');
+    expect(body.b).toBe('2');
+  });
+
+  it('#22 cookies: set() accumulates multiple Set-Cookie headers', async () => {
+    const res = await driver.dispatch((app) => {
+      app.use(cookies());
+      app.use((ctx) => {
+        ctx.cookies.set('a', '1', { httpOnly: true });
+        ctx.cookies.set('b', '2', { httpOnly: true });
+        ctx.json({ ok: true });
+      });
+    });
+    const setCookies = res.setCookies();
+    expect(setCookies.some((c) => c.startsWith('a=1'))).toBe(true);
+    expect(setCookies.some((c) => c.startsWith('b=2'))).toBe(true);
+  });
+
+  it('#23 cookies: delete() emits an expiring cookie with matching scope', async () => {
+    const res = await driver.dispatch((app) => {
+      app.use(cookies());
+      app.use((ctx) => {
+        ctx.cookies.delete('session', { path: '/' });
+        ctx.json({ ok: true });
+      });
+    }, { headers: { cookie: 'session=x' } });
+    const setCookies = res.setCookies();
+    expect(setCookies.some((c) => c.startsWith('session=') && c.includes('Max-Age=0'))).toBe(true);
+  });
+
+  it('#24 cookies: read-after-write is visible in the same request', async () => {
+    const res = await driver.dispatch((app) => {
+      app.use(cookies());
+      app.use((ctx) => {
+        ctx.cookies.set('a', '1');
+        ctx.json({ a: ctx.cookies.get('a'), has: ctx.cookies.has('a') });
+      });
+    });
+    const body = json<{ a: string; has: boolean }>(res);
+    expect(body.a).toBe('1');
+    expect(body.has).toBe(true);
+  });
+}
+
 export function defineConformanceSuite(driver: ConformanceDriver): void {
   defineRequestConformance(driver);
   defineResponseConformance(driver);
   defineRuntimeConformance(driver);
+  defineCookieConformance(driver);
 }

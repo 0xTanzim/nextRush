@@ -85,4 +85,9 @@ ctx.throw(400, 'invalid');
 
 ## Cookies
 
-Only after `@nextrush/cookies` middleware — then cookie helpers attach per that package's API (see middleware.md).
+`ctx.cookies` is a first-class, fully typed capability present on every context
+(RFC-034) — no casts, no `?.`. Before `cookies()` runs, property access is safe but
+every operation throws `CapabilityNotInitializedError` with a WHAT/WHY/HOW/WHERE
+diagnostic. Signed cookies live at `ctx.cookies.signed`, activated by `signedCookies()`
+(which requires `cookies()` first). The `ctx.state.cookies` /
+`ctx.state.signedCookies` aliases are deprecated — see middleware.md.

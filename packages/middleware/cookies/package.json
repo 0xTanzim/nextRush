@@ -50,6 +50,8 @@
   },
   "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/cookies#readme",
   "dependencies": {
+    "@nextrush/errors": "workspace:^",
+    "@nextrush/runtime": "workspace:^",
     "@nextrush/types": "workspace:^"
   },
   "devDependencies": {

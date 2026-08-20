@@ -24,7 +24,7 @@
 - **Cookie serialization** — building a valid, security-hardened `Set-Cookie` string, including `__Secure-`/`__Host-` prefix rule enforcement
 - **Cookie signing** — HMAC-SHA256 sign/verify for tamper detection, with key-rotation fallback
 - **Validation** — RFC 6265 name/value rules, CRLF/control-character stripping, domain/path/public-suffix checks, size limits
-- **The `ctx.state.cookies` / `ctx.state.signedCookies` request-scoped API**
+- **The first-class `ctx.cookies` / `ctx.cookies.signed` capability (RFC-034)** — activated by this package's middleware; `ctx.state.cookies` / `ctx.state.signedCookies` remain as deprecated aliases for one release cycle
 
 **This package does NOT own:**
 
@@ -48,7 +48,7 @@ The package intentionally does not:
 Must remain:
 
 - **Runtime-independent** — zero `node:*` imports; signing uses only the Web Crypto API (`crypto.subtle`) and standard globals (`TextEncoder`, `btoa`, `atob`), identical on Node, Bun, Deno, and Edge
-- **Zero third-party dependency** — a types-only dependency on `@nextrush/types`
+- **Zero third-party dependency** — types-only `@nextrush/types` plus framework-internal `@nextrush/runtime` (the shared uninitialized stub) and `@nextrush/errors` (the capability diagnostic)
 - **ESM-only** — no CommonJS build
 - **Fail-secure on ambiguity** — a missing, malformed, or unverifiable signed value returns `undefined`, never a partially-trusted value
 - **Public API sealed** — the exported surface is semver-guarded (ADR-0005), locked by `__tests__/public-surface.test.ts`
@@ -66,14 +66,15 @@ flowchart TB
 ```
 
 > [!IMPORTANT]
-> Imports flow **downward only**. `@nextrush/cookies` imports from `@nextrush/types` only, and
-> MUST NOT be imported by `types`, `errors`, `core`, `router`, `class`, or any adapter
-> (project-rules §1). It sits at the middleware layer as a leaf: nothing in the framework core
-> depends on it — an application opts in by calling `app.use(cookies())` or
+> Imports flow **downward only**. `@nextrush/cookies` imports from `@nextrush/types`,
+> `@nextrush/runtime` (the shared uninitialized cookie stub), and `@nextrush/errors` (the
+> capability diagnostic) only, and MUST NOT be imported by `types`, `errors`, `core`, `router`,
+> `class`, or any adapter (project-rules §1). It sits at the middleware layer as a leaf: nothing
+> in the framework core depends on it — an application opts in by calling `app.use(cookies())` or
 > `app.use(signedCookies(...))`.
 
 **Dependency rules:**
-- **Allowed:** `cookies → types`
+- **Allowed:** `cookies → types`, `cookies → runtime`, `cookies → errors`
 - **Forbidden:** `cookies → core / router / class / adapters / any other middleware package`
 
 ---
@@ -84,7 +85,9 @@ The package splits into five independent concerns that compose rather than coupl
 
 `middleware.ts` and `signed-middleware.ts` are the only two modules that touch `Context`. Between them they wire the other five concerns into two middleware factories — `cookies()` for plain read/write access, `signedCookies()` for the same shape with signing interposed on every `get()`/`set()`. The two are separate functions in separate files, not one function with a `signed: true` flag, because a signed cookie's `get()`/`set()` are necessarily `async` (they call into `crypto.subtle`), while a plain cookie's are not — merging them into one API would force every consumer to `await` even when no signing is happening.
 
-The most consequential design decision in the package is *when* `Set-Cookie` gets written. NextRush's response commits as soon as a handler calls `ctx.json()`/`ctx.send()`/etc — there is no post-handler "flush headers" phase this middleware can hook into after the fact. So `set()` and `delete()` on both `ctx.state.cookies` and `ctx.state.signedCookies` call `ctx.set('Set-Cookie', ...)` immediately, inside the same synchronous (or awaited) call, rather than deferring to a buffered array written out after `next()`. The middleware's own `await next()` at the end exists to let downstream handlers run and call `set()`/`delete()` themselves — it does not defer or batch anything this middleware itself wrote.
+Per RFC-034, the two factories **activate** the first-class `ctx.cookies` capability rather than attaching to `ctx.state`: `cookies()` replaces the context's shared uninitialized stub (wired by `@nextrush/runtime` into every adapter) with the per-request store, and `signedCookies()` replaces the store's `signed` sub-slot — first asserting `cookies()` ran (otherwise it throws `COOKIES_NOT_INITIALIZED`). `ctx.state.cookies` / `ctx.state.signedCookies` remain as deprecated aliases with a once-per-process warning, removed next major.
+
+The most consequential design decision in the package is *when* `Set-Cookie` gets written. NextRush's response commits as soon as a handler calls `ctx.json()`/`ctx.send()`/etc — there is no post-handler "flush headers" phase this middleware can hook into after the fact. So `set()` and `delete()` on both `ctx.cookies` and `ctx.cookies.signed` call `ctx.set('Set-Cookie', ...)` immediately, inside the same synchronous (or awaited) call, rather than deferring to a buffered array written out after `next()`. The middleware's own `await next()` at the end exists to let downstream handlers run and call `set()`/`delete()` themselves — it does not defer or batch anything this middleware itself wrote.
 
 ### Design principles
 
@@ -94,6 +97,7 @@ The most consequential design decision in the package is *when* `Set-Cookie` get
 4. **Validation is layered: predicate functions for checking, throwing functions for enforcing.** `validateCookieName`/`validateDomain`/etc. return a `ValidationResult` for callers that want to inspect all errors; `validateCookieOptions`/`validateCookiePrefix` wrap the same checks and throw a `SecurityError` on the first failure — `serializeCookie()` uses only the throwing versions, so a caller cannot accidentally construct an invalid cookie by ignoring a boolean return value. Both forms check `secure` for exact `true`, never truthiness — an unresolved `secure: 'auto'` must never satisfy a hard Secure requirement (see `secure-resolution.ts`).
 5. **Read-after-write is consistent within a single request.** `cookies()`'s `set()`/`delete()` mutate the in-memory `parsed` object in addition to writing the header, so a handler that calls `set('x', 'y')` and then `get('x')` later in the same request sees `'y'`, not the pre-request value — even though the actual header the browser receives is unaffected by this in-memory update.
 6. **`secure: 'auto'` fails closed, not open.** `resolveSecureOption()` emits `Secure` unless the request is demonstrably plaintext loopback; an untrusted `X-Forwarded-Proto: https` claim on a plaintext non-loopback request never suppresses `Secure` (SEC-08) — the function has exactly one path that returns `false`, every other path (including "don't know") returns `true`.
+7. **Activation is a reference swap, failure is a diagnostic, never a TypeError.** `ctx.cookies` always exists (every adapter constructs with the shared frozen stub from `@nextrush/runtime`); the middleware activates it with one assignment. Before activation, operations throw `CapabilityNotInitializedError` (`COOKIES_NOT_INITIALIZED` / `SIGNED_COOKIES_NOT_INITIALIZED`) with a WHAT/WHY/HOW/WHERE message — property access never throws, so inspecting `ctx.cookies` is always safe.
 
 ---
 
@@ -102,7 +106,7 @@ The most consequential design decision in the package is *when* `Set-Cookie` get
 ```text
 src/
 ├── index.ts               # Public API barrel (exports only, no implementation)
-├── types.ts                # CookieOptions, SameSiteValue, CookiePriority, ParsedCookies — wire-facing types only
+├── types.ts                # Re-exports CookieOptions, SameSiteValue, CookiePriority, ParsedCookies from @nextrush/types (RFC-034)
 ├── middleware-types.ts       # CookieMiddlewareOptions, SignedCookieMiddlewareOptions, CookieContext, SignedCookieContext
 ├── constants.ts               # DEFAULT_COOKIE_OPTIONS, size/length limits, prefixes, HMAC config, COMMON_PUBLIC_SUFFIXES
 ├── parser.ts                   # parseCookies, getCookie, hasCookie, getCookieNames
@@ -114,19 +118,21 @@ src/
 ├── options-validation.ts               # validateCookieOptions() — the throwing aggregate serializeCookie() calls
 ├── secure-resolution.ts                 # secure: 'auto' per-request resolution (SEC-08)
 ├── option-presets.ts                     # secureOptions(), sessionOptions()
+├── deprecation.ts                           # warnStateCookiesDeprecatedOnce() — the ctx.state.cookies alias warning (RFC-034)
 ├── signing.ts                              # signCookie, unsignCookie, unsignCookieWithRotation, timingSafeEqual, clearKeyCache
 ├── signing-message.ts                       # Length-prefixed context-bound message construction + legacy-format split (RFC-031)
 ├── signing-codec.ts                           # base64url encoding + HMAC verify plumbing, split out of signing.ts
-├── middleware.ts                                # cookies() — the plain-cookie middleware factory
-└── signed-middleware.ts                           # signedCookies() — the HMAC-signed middleware factory
+├── middleware.ts                                # cookies() — activates ctx.cookies (the plain-cookie middleware factory)
+└── signed-middleware.ts                           # signedCookies() — activates ctx.cookies.signed (requires cookies() first)
 ```
 
 ### Module responsibilities
 
 | Module | Responsibility (the one thing it owns) |
 | ------ | -------------------------------------- |
-| `types.ts` | The wire-facing option/data contracts (`CookieOptions`, `SameSiteValue`, `ParsedCookies`) — no logic. |
-| `middleware-types.ts` | The middleware option and `ctx.state.*` context-extension contracts — no logic. |
+| `types.ts` | Re-exports the wire-facing option/data contracts from `@nextrush/types` (`CookieOptions`, `SameSiteValue`, `ParsedCookies`) — no logic. |
+| `middleware-types.ts` | The middleware option and capability context contracts (`CookieContext`, `SignedCookieContext`) — no logic. |
+| `deprecation.ts` | The once-per-process `ctx.state.cookies` deprecation warning (RFC-034). |
 | `constants.ts` | Every literal default, size limit, and HMAC parameter, in one place. |
 | `parser.ts` | Turning a `Cookie` header string into a plain object — no serialization, no signing. |
 | `serializer.ts` | Turning a name/value/options triple into a valid `Set-Cookie` string — calls into validation, never signing. |
@@ -227,10 +233,10 @@ sequenceDiagram
     Client->>MW: GET /check-role\n(Cookie: role=<value>.<sig>)
     MW->>Parse: parseCookies(ctx.headers.cookie)
     Parse-->>MW: parsed { role: "<value>.<sig>" }
-    MW->>MW: ctx.state.signedCookies = { get, set, delete }
+    MW->>MW: ctx.cookies.signed = { get, set, delete }
     MW->>Handler: await next()
 
-    Handler->>Verify: await ctx.state.signedCookies.get('role')
+    Handler->>Verify: await ctx.cookies.signed.get('role')
     Verify->>Verify: unsignCookie('role', parsed.role, keys.current)\nbinds verification to the 'role' name
     Verify->>Crypto: importKey(current secret) [cached after first use]
     Crypto-->>Verify: CryptoKey
@@ -252,7 +258,7 @@ sequenceDiagram
         end
     end
 
-    Handler->>Sign: await ctx.state.signedCookies.set('role', 'admin')
+    Handler->>Sign: await ctx.cookies.signed.set('role', 'admin')
     Sign->>Crypto: importKey(current secret) [cache hit if already imported]
     Crypto-->>Sign: CryptoKey
     Sign->>Crypto: crypto.subtle.sign(HMAC, key, value)
@@ -271,7 +277,7 @@ The ordering a reader would otherwise get wrong: **`get()` tries `keys.current` 
 | ----- | ------------- | ----- |
 | `parsed` (closure inside `cookiesMiddleware`/`signedCookiesMiddleware`) | The request's parsed `Cookie` header, mutated in place by `set()`/`delete()` for read-after-write consistency | per request |
 | `KEY_CACHE` (module-level `Map` in `signing.ts`) | Up to 10 imported `CryptoKey` objects, keyed by secret string | app — shared across every `signedCookies()` instance and every request in the process |
-| `Context` (owned by `core`) | Response headers (`Set-Cookie`, appended per call), `ctx.state.cookies` / `ctx.state.signedCookies` | per request |
+| `Context` (owned by `core`) | Response headers (`Set-Cookie`, appended per call), the `ctx.cookies` / `ctx.cookies.signed` capability (RFC-034) and the deprecated `ctx.state.cookies` / `ctx.state.signedCookies` aliases | per request |
 | Client's cookie store | The (possibly signed) cookie value itself | per browser/client — outlives any single request |
 
 There is no per-request mutable state shared *across* requests — `parsed` is recreated fresh on every request via a new call to `parseCookies()`. `KEY_CACHE` is the one piece of app-scoped state, bounded (`MAX_CACHED_KEYS = 10`) with FIFO eviction (the same shape as `@nextrush/csrf`'s equivalent cache).
@@ -337,7 +343,7 @@ parseCookies()  -- RFC 6265 split + CRLF/control-char sanitization         <- th
 unsignCookie() / unsignCookieWithRotation()  -- HMAC signature check       <- only for cookies read via signedCookies()
    │                                              (plain cookies() never verifies anything)
    ▼
-application code reading ctx.state.cookies / ctx.state.signedCookies       <- trust boundary this package enforces ends here
+application code reading ctx.cookies / ctx.cookies.signed                    <- trust boundary this package enforces ends here
 ```
 
 For plain `cookies()`, every value returned by `get()`/`all()` is attacker-controlled input that has only been *sanitized* (CRLF/control characters stripped), never *verified* — the application is responsible for treating it accordingly (e.g. not trusting a plain cookie for authorization decisions). For `signedCookies()`, a value that survives `get()` is additionally *proven* to have been produced by a holder of `secret` (or a `previousSecrets` entry) — but it is still not confidential; the boundary this package enforces is integrity, not disclosure control.
@@ -346,7 +352,7 @@ For plain `cookies()`, every value returned by `get()`/`all()` is attacker-contr
 
 **Supported extension points:**
 
-- **`decode`** (on `cookies()`) — the sanctioned way to customize value decoding beyond `decodeURIComponent`; the result is always re-sanitized for CRLF regardless of what the custom function returns.
+- **`decode`** (on `cookies()`) — the sanctioned way to customize value decoding beyond `decodeURIComponent`; the result is always re-sanitized for CRLF regardless of what the custom function returns. If the custom function throws, the parser-sanitized value is retained, the request continues, and a once-per-process warning (see `deprecation.ts`) makes the degraded decode observable.
 - **`previousSecrets`** (on `signedCookies()`) — the sanctioned way to support key rotation without this package taking a dependency on any specific secret-management system.
 - **The exported low-level primitives** (`signCookie`, `unsignCookie`, `parseCookies`, `serializeCookie`, the validators) — exposed specifically so advanced integrations can build a custom middleware shape without re-implementing RFC 6265 handling or the crypto.
 

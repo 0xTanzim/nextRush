@@ -125,18 +125,26 @@ app.use(compression({
 ## cookies — `@nextrush/cookies`
 
 ```typescript
-import { cookies } from '@nextrush/cookies';
+import { cookies, signedCookies } from '@nextrush/cookies';
 
-app.use(cookies({ secret: 'signing-secret' }));
+app.use(cookies());
+app.use(signedCookies({ secret: 'signing-secret' }));  // opt-in, for signed cookies
 
 // In handler
 router.get('/', (ctx) => {
   const sessionId = ctx.cookies.get('session');           // read
   ctx.cookies.set('theme', 'dark', { httpOnly: true });    // write
   ctx.cookies.delete('session');                           // delete
-  const signed = ctx.cookies.getSigned('auth-token');     // verify signed
+  const signed = await ctx.cookies.signed.get('auth-token'); // verify signed
 });
 ```
+
+Notes:
+- `cookies()` takes no secret — it is the plain read/write middleware. Signing is the
+  separate `signedCookies()` middleware, and `signedCookies()` requires `cookies()` first.
+- `ctx.cookies` always exists and is fully typed (RFC-034). Before the middleware runs,
+  operations throw `CapabilityNotInitializedError` with a WHAT/WHY/HOW/WHERE diagnostic.
+- `ctx.state.cookies` / `ctx.state.signedCookies` are deprecated aliases, removed next major.
 
 ## csrf — `@nextrush/csrf`
 

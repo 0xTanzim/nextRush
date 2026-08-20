@@ -58,7 +58,7 @@ app.use(
     allowedHeaders: {
       type: 'string | string[]',
       description:
-        'Allowed request headers. If omitted, mirrors Access-Control-Request-Headers from the preflight.',
+        'Allowed request headers. If omitted, the preflight intersects the requested headers against a conservative allowlist (Content-Type, Accept, X-Requested-With, plus Authorization when credentials: true) rather than echoing them back.',
       optional: true,
     },
     exposedHeaders: {
@@ -236,6 +236,36 @@ app.use(
 app.get('/api/users', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
 ```
 
+## Cookies with CORS
+
+Setting or reading cookies across origins requires both sides to opt in. `credentials: true`
+makes the server emit `Access-Control-Allow-Credentials: true`; the client's fetch must send
+`credentials: 'include'`. Missing either one means the browser **silently discards** the
+response's `Set-Cookie` header — no error, the cookie never appears.
+
+```ts
+// Server
+import { cookies } from '@nextrush/cookies';
+
+app.use(
+  cors({
+    origin: 'http://localhost:5173', // exact origin — '*' + credentials: true throws
+    credentials: true,
+  })
+);
+app.use(cookies());
+```
+
+```ts
+// Client
+fetch('http://localhost:8080/auth/login', {
+  method: 'POST',
+  credentials: 'include',
+});
+```
+
+See [Cookies](/docs/reference/cookies) for the full cross-origin cookie flow.
+
 ## Common Mistakes
 
 ### Wildcard with credentials
@@ -320,7 +350,7 @@ NextRush's own naming rather than duplicating string literals.
 
 **Preflight fails** — Check that the requested method and headers are allowed. If `allowedHeaders` is not set, the middleware reflects the request headers automatically.
 
-**Credentials rejected** — Ensure `origin` is set to a specific value (not `'*'`). The browser requires an exact origin match when credentials are included.
+**Credentials rejected** — If you see `The value of the 'Access-Control-Allow-Credentials' header ... must be 'true'` in the browser, the server is not emitting that header: add `credentials: true` to your `cors()` options. The origin must also be an exact, non-wildcard value — `cors({ origin: '*', credentials: true })` throws at startup, and the browser requires an exact origin match (no `*`) when credentials are included. Also confirm the client fetch uses `credentials: 'include'`.
 
 ## Related
 

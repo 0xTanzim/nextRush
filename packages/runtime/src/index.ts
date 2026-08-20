@@ -111,6 +111,12 @@ export { normalizeStartupError, ServerStartError } from './server-error';
 export type { ServerStartErrorCode } from './server-error';
 
 // ============================================================================
+// Uninitialized Capability Stubs (RFC-034)
+// ============================================================================
+
+export { UNINITIALIZED_COOKIES, UNINITIALIZED_SIGNED_COOKIES } from './capabilities';
+
+// ============================================================================
 // Web Response Builder (shared Fetch-API response logic for Bun/Deno/Edge)
 // ============================================================================
 

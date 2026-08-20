@@ -17,6 +17,25 @@ Bun/Deno/Edge, and most of the newer middleware (`csrf`, `rate-limit`, `multipar
   version table across all 35 packages before upgrading a subset of them.
 </Callout>
 
+## Cookie API migration: `ctx.state.cookies` → `ctx.cookies`
+
+`@nextrush/cookies` promoted cookies to a first-class context capability (RFC-034). The old
+`ctx.state.cookies` / `ctx.state.signedCookies` still work as deprecated aliases (with a
+once-per-process warning) and are removed in the next major:
+
+```ts
+// Before (deprecated)
+ctx.state.cookies.get('session');
+ctx.state.cookies.set('session', value, { httpOnly: true });
+
+// After — fully typed, no casts
+ctx.cookies.get('session');
+ctx.cookies.set('session', value, { httpOnly: true });
+ctx.cookies.signed.get('user'); // signedCookies() middleware required
+```
+
+See [Cookies reference](/docs/reference/cookies) for the full migration section.
+
 ## How to actually check what changed
 
 Every package ships its own `CHANGELOG.md` (via [Changesets](https://github.com/changesets/changesets)),

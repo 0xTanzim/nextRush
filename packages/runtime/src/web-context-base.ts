@@ -23,6 +23,7 @@ import { HttpError } from '@nextrush/errors';
 import type {
   BodySource,
   ContextState,
+  CookieCapability,
   FetchContext,
   HttpMethod,
   IncomingHeaders,
@@ -38,6 +39,7 @@ import type {
   TextStreamWriter,
 } from '@nextrush/types';
 import { combineAbortSignal, type CombinedAbort } from './request-signal';
+import { UNINITIALIZED_COOKIES } from './capabilities';
 import { createEmptyBodySource } from './body-source';
 import { WebBodySource } from './body-source';
 import { WebResponseBuilder } from './response-builder';
@@ -121,6 +123,14 @@ export abstract class WebContextBase implements FetchContext {
   params: RouteParams = EMPTY_PARAMS;
   status = 200;
   state: ContextState = {};
+  /**
+   * First-class cookie capability (RFC-034). Constructed as the shared
+   * uninitialized stub; the `cookies()` middleware activates it by
+   * reassigning this field to the per-request store. Reassignment is part of
+   * the activation contract, not a hidden-class hazard: the field is declared
+   * here so activation is a value write to an existing slot.
+   */
+  cookies: CookieCapability = UNINITIALIZED_COOKIES;
 
   private _next: (() => Promise<void>) | null = null;
   private readonly _response: WebResponseBuilder;
