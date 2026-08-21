@@ -1,0 +1,45 @@
+---
+title: Express middleware
+description: Reuse Express/Connect 3-arity middleware in NextRush with the opt-in express-bridge.
+keywords: [express, connect, middleware, interop, nextrush, guide]
+---
+
+When a native `@nextrush/*` package does not exist, you can reuse an Express/Connect 3-arity
+middleware via `@nextrush/express-bridge`.
+
+## Native first
+
+Always prefer a native package when one exists. The bridge is a fallback for packages NextRush does not own:
+
+```ts
+// Native — prefer this
+import { cors } from '@nextrush/cors';
+app.use(cors());
+
+// Bridge — only when there is no native package
+import { compat } from '@nextrush/express-bridge';
+import morgan from 'morgan';
+app.use(compat(morgan('combined')));
+```
+
+## Wrap a middleware
+
+`compat(fn)` returns a NextRush `Middleware`. `next()`, `next(err)`, terminal responses, and thrown errors all map onto NextRush's onion and error pipeline.
+
+```ts
+import { compat } from '@nextrush/express-bridge';
+import passport from 'passport';
+
+app.use(compat(passport.initialize()));
+app.use(compat((req, res, next) => {
+  req.user = { id: 'u1' }; // visible downstream as ctx.state.user
+  next();
+}));
+app.use((ctx) => ctx.json({ user: ctx.state.user ?? null }));
+```
+
+## Errors
+
+The bridge throws typed errors for wrong runtime shape, unsupported APIs, arity mistakes, and hanging thenables — never a bare `TypeError`.
+
+See [the reference page](/docs/reference/(interop)/express-bridge) for the full surface and limitations.
