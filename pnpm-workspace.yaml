@@ -3,6 +3,7 @@ packages:
   - packages/middleware/*
   - packages/extensions/*
   - packages/adapters/*
+  - packages/interop/*
   - packages/adapters/conformance/deploy-verification/*
   - apps/*
   - examples/*

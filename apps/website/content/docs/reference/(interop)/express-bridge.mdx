@@ -1,0 +1,48 @@
+---
+title: 'express-bridge'
+package: '@nextrush/express-bridge'
+description: 'Opt-in Express/Connect middleware compatibility for Node-shaped raw HTTP.'
+keywords: [express, connect, middleware, interop, nextrush, reference]
+---
+
+The Express bridge reuses Express/Connect 3-arity middleware — `(req, res, next)` — inside NextRush. It wraps a single middleware function as a NextRush `Middleware`, so you can run packages like `morgan` or `passport` that NextRush does not own natively.
+
+<Callout type="warning" title="Node-shaped raw HTTP only">
+  The bridge requires a Node-shaped `ctx.raw` (`IncomingMessage`-like `req` + `ServerResponse`-like `res`). On Edge/serverless fetch adapters it refuses with an actionable error. Prefer native `@nextrush/*` middleware for portable apps.
+</Callout>
+
+<Callout type="info" title="Source & internals">
+  [README](https://github.com/0xTanzim/nextRush/blob/main/packages/interop/express-bridge/README.md) ·
+  [ARCHITECTURE](https://github.com/0xTanzim/nextRush/blob/main/packages/interop/express-bridge/ARCHITECTURE.md)
+</Callout>
+
+## Installation
+
+<PackageInstall packages={['@nextrush/express-bridge']} />
+
+## Usage
+
+```ts
+import { createApp, listen } from 'nextrush';
+import { compat } from '@nextrush/express-bridge';
+import morgan from 'morgan';
+
+const app = createApp();
+app.use(compat(morgan('combined')));
+app.use((ctx) => ctx.json({ ok: true }));
+listen(app, 8080);
+```
+
+The foreign package keeps its own configuration API — the bridge does not wrap its options.
+
+## Supported surface
+
+The bridge implements a measured minimum Express surface, not the whole framework. Unsupported Express prototype APIs throw an actionable `UnsupportedExpressApiError` instead of a raw `TypeError`.
+
+## Limitations
+
+- **Callback-style hang:** middleware that never calls `next()` and never responds waits until the adapter/server timeout.
+- **Streaming / proxy / session:** not claimed in v1.
+- **Native-first:** when a native `@nextrush/*` package exists, prefer it.
+
+See [the compatibility registry](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/ecosystem-interop/035-compatibility-surface-report.md) for per-package levels.

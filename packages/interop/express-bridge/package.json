@@ -1,0 +1,78 @@
+{
+  "name": "@nextrush/express-bridge",
+  "version": "0.1.0",
+  "description": "Opt-in Express/Connect middleware compatibility bridge for NextRush (Node-shaped raw HTTP only)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ --ignore-pattern 'src/__tests__/'",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "nextrush",
+    "express",
+    "connect",
+    "middleware",
+    "interop",
+    "compatibility"
+  ],
+  "author": {
+    "name": "Tanzim Hossain",
+    "email": "tanzimhossain2@gmail.com",
+    "url": "https://github.com/0xTanzim"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xTanzim/nextRush.git",
+    "directory": "packages/interop/express-bridge"
+  },
+  "bugs": {
+    "url": "https://github.com/0xTanzim/nextRush/issues"
+  },
+  "homepage": "https://github.com/0xTanzim/nextRush/tree/main/packages/interop/express-bridge#readme",
+  "dependencies": {
+    "@nextrush/errors": "workspace:^",
+    "@nextrush/runtime": "workspace:^",
+    "@nextrush/types": "workspace:^"
+  },
+  "devDependencies": {
+    "@nextrush/adapter-node": "workspace:^",
+    "@nextrush/core": "workspace:^",
+    "@types/morgan": "1.9.10",
+    "@types/on-headers": "1.0.4",
+    "@types/passport": "1.0.17",
+    "morgan": "1.10.0",
+    "on-headers": "1.0.2",
+    "passport": "0.7.0",
+    "rimraf": "catalog:tooling",
+    "tsup": "catalog:tooling",
+    "typescript": "catalog:tooling",
+    "vitest": "catalog:testing"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
+}

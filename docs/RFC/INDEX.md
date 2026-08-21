@@ -22,6 +22,7 @@ invent a new structure per RFC.
 | `framework-composition/` | How NextRush's packages compose into one installable framework: the meta-package's dependency/install footprint, public-surface naming coherence, and manifest conventions |
 | `scaffolding/` | The `create-nextrush` project-generation contract: version resolution, template generation, the generated-project install/build/run guarantee |
 | `documentation/` | Docs-site information architecture: content structure, navigation, section placement rules for `apps/website/content/docs/**` |
+| `ecosystem-interop/` | Adapting stable *external* execution contracts (Express/Connect middleware, future Fastify/Connect adapters) into NextRush `Middleware` without reversing the dependency arrow into core |
 
 ## All RFCs (by number)
 
@@ -61,6 +62,7 @@ invent a new structure per RFC.
 | [032](class-runtime/032-session-position.md) | `@nextrush/session` position — what the framework owns and what it defers | **Draft** — see ADR-0020, no code shipped | class-runtime |
 | [033](documentation/033-homepage-hero-proof-architecture.md) | Homepage Hero + Proof architecture — layered homepage composition (Hero communicates, Proof demonstrates) | **Proposed** | documentation |
 | [034](request-data/034-cookies-first-class-context-capability.md) | `@nextrush/cookies` — first-class `ctx.cookies` context capability | **Accepted** | request-data |
+| [035](ecosystem-interop/035-express-bridge.md) | Ecosystem interoperability — `@nextrush/express-bridge` | **Shipped** | ecosystem-interop |
 
 ## Note on RFC-005 (Plugin System)
 
