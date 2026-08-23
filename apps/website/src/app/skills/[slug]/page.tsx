@@ -1,4 +1,4 @@
-import { appConfig } from '@/config/appConfig';
+import { appConfig, toAbsoluteUrl } from '@/config/appConfig';
 import { skillsSource } from '@/lib/source';
 import { getMDXComponents } from '@/mdx-components';
 import { ChevronRight } from 'lucide-react';
@@ -149,5 +149,8 @@ export async function generateMetadata(props: PageProps<'/skills/[slug]'>): Prom
   return {
     title: `${page.data.title} — NextRush Skill`,
     description: page.data.description,
+    alternates: {
+      canonical: toAbsoluteUrl(`/skills/${page.slugs[0]}`),
+    },
   };
 }

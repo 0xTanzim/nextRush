@@ -1,10 +1,14 @@
 import { Rocket } from 'lucide-react';
+import { toAbsoluteUrl } from '@/config/appConfig';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Showcase',
   description: 'Real projects built with NextRush.',
+  alternates: {
+    canonical: toAbsoluteUrl('/showcase'),
+  },
 };
 
 /**
