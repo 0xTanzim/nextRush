@@ -1,4 +1,4 @@
-import { appConfig } from '@/config/appConfig';
+import { appConfig, toAbsoluteUrl } from '@/config/appConfig';
 import { skillsSource } from '@/lib/source';
 import { BookOpen, Sparkles } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   title: 'Skills Directory',
   description:
     'Browse agent skills for NextRush. Each skill is a self-contained guide that AI agents can use to help you build with NextRush.',
+  alternates: {
+    canonical: toAbsoluteUrl('/skills'),
+  },
 };
 
 export default function SkillsPage() {

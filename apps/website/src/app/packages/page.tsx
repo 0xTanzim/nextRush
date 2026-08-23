@@ -1,11 +1,15 @@
 import { PackageCatalog } from '@/components/packages/package-catalog';
 import { packageRegistry } from '@/lib/package-registry';
+import { toAbsoluteUrl } from '@/config/appConfig';
 import { Package } from 'lucide-react';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Packages',
   description: 'Browse all 35 NextRush packages by category, type, and status.',
+  alternates: {
+    canonical: toAbsoluteUrl('/packages'),
+  },
 };
 
 /**
