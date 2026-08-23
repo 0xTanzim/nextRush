@@ -1,4 +1,5 @@
 import { blogSource } from '@/lib/source';
+import { toAbsoluteUrl } from '@/config/appConfig';
 import { BookOpen, Sparkles } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -6,6 +7,9 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'Blog',
   description: 'Release notes and design-decision deep dives for NextRush.',
+  alternates: {
+    canonical: toAbsoluteUrl('/blog'),
+  },
 };
 
 function formatDate(date: string): string {

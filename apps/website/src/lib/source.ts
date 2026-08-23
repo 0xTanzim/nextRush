@@ -88,6 +88,18 @@ export function getPageImage(page: InferPageType<typeof source>) {
   };
 }
 
+export function getBlogPageImage(page: InferPageType<typeof blogSource>): {
+  segments: string[];
+  url: string;
+} {
+  const segments = [...page.slugs, 'image.png'];
+
+  return {
+    segments,
+    url: `/og/blog/${segments.join('/')}`,
+  };
+}
+
 export async function getLLMText(page: InferPageType<typeof source>) {
   let processed = await page.data.getText('processed');
 

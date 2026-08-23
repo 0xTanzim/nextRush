@@ -1,4 +1,5 @@
-import { blogSource } from '@/lib/source';
+import { blogSource, getBlogPageImage } from '@/lib/source';
+import { appConfig, toAbsoluteUrl } from '@/config/appConfig';
 import { getMDXComponents } from '@/mdx-components';
 import { ChevronRight } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -90,8 +91,32 @@ export async function generateMetadata(props: PageProps<'/blog/[slug]'>): Promis
   const page = blogSource.getPage([params.slug]);
   if (!page) notFound();
 
+  const canonicalPath = `/blog/${page.slugs[0]}`;
+  const ogImage = getBlogPageImage(page).url;
+
   return {
     title: `${page.data.title} — NextRush Blog`,
     description: page.data.description,
+    alternates: {
+      canonical: toAbsoluteUrl(canonicalPath),
+    },
+    openGraph: {
+      type: 'article',
+      url: toAbsoluteUrl(canonicalPath),
+      title: `${page.data.title} — NextRush Blog`,
+      description: page.data.description,
+      publishedTime: page.data.date,
+      authors: [page.data.author],
+      siteName: appConfig.name,
+      images: [
+        {
+          url: toAbsoluteUrl(ogImage),
+          width: 1200,
+          height: 630,
+          alt: page.data.title,
+          type: 'image/png',
+        },
+      ],
+    },
   };
 }
