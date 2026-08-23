@@ -15,6 +15,35 @@ export const appConfig = {
   repositoryUrl: 'https://github.com/0xTanzim/nextRush',
   /** Canonical folder for Agent Skills source in the repo (`skills/<name>/SKILL.md`). */
   skillsSourceRootUrl: 'https://github.com/0xTanzim/nextRush/tree/main/skills',
+  /** Social-preview cards are URL-stable; crawlers cache them eagerly (§ _headers `/og/*`). */
+  og: {
+    defaultImage: '/og/og.png',
+    defaultImageAbsolute: `${SITE_URL}/og/og.png`,
+    width: 1200,
+    height: 630,
+    alt: 'NextRush — TypeScript backend framework',
+  },
+  organization: {
+    name: 'NextRush',
+    url: SITE_URL,
+    logo: `${SITE_URL}/logo.png`,
+    sameAs: [
+      'https://github.com/0xTanzim/nextRush',
+      'https://www.linkedin.com/company/nextrush',
+      'https://x.com/0xTanzim',
+    ],
+    founder: {
+      '@type': 'Person',
+      name: 'Tanzim Hossain',
+      alternateName: '0xTanzim',
+      url: 'https://0xtanzim.dev',
+      sameAs: [
+        'https://github.com/0xTanzim',
+        'https://www.linkedin.com/in/0xtanzim/',
+        'https://x.com/0xTanzim',
+      ],
+    },
+  },
   paths: {
     docs: '/docs',
     llmTxt: '/llm.txt',
