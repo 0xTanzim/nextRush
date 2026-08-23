@@ -1,6 +1,6 @@
 import { Provider } from '@/components/provider';
 import { appConfig } from '@/config/appConfig';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './global.css';
 
@@ -82,7 +82,10 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  // Theme color mirrors the brand surfaces in DESIGN/TOKENS.md (`--surface-page`).
+};
+
+/** Theme color mirrors the brand surfaces in DESIGN/TOKENS.md (`--surface-page`). */
+export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#FFFCF8' },
     { media: '(prefers-color-scheme: dark)', color: '#0D1117' },

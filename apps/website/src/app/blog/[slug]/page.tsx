@@ -20,9 +20,42 @@ export default async function BlogPostPage(props: PageProps<'/blog/[slug]'>) {
   if (!page) notFound();
 
   const MDX = page.data.body;
+  const canonicalUrl = toAbsoluteUrl(`/blog/${page.slugs[0]}`);
+  const ogImageUrl = toAbsoluteUrl(getBlogPageImage(page).url);
+
+  /** Per-post `BlogPosting` structured data — Google highlights this over generic
+   *  organization/website JSON-LD for article pages (headline, date, author, image). */
+  const blogPosting = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: page.data.title,
+    description: page.data.description,
+    image: ogImageUrl,
+    datePublished: page.data.date,
+    dateModified: page.data.date,
+    inLanguage: 'en',
+    url: canonicalUrl,
+    mainEntityOfPage: canonicalUrl,
+    author: {
+      '@type': 'Organization',
+      name: page.data.author,
+      url: appConfig.organization.url,
+    },
+    publisher: {
+      '@type': 'Organization',
+      '@id': `${appConfig.siteUrl}/#organization`,
+      name: appConfig.organization.name,
+      logo: { '@type': 'ImageObject', url: appConfig.organization.logo },
+    },
+    ...(page.data.tags.length > 0 ? { keywords: page.data.tags.join(', ') } : {}),
+  };
 
   return (
     <div className="flex w-full min-w-0 flex-1 flex-col items-stretch bg-fd-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPosting) }}
+      />
       <div className="border-b border-fd-border/80 bg-[color-mix(in_srgb,var(--color-fd-muted)_30%,var(--color-fd-background))]">
         <div className="mx-auto w-full max-w-3xl px-5 py-4 sm:px-8">
           <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-sm text-fd-muted-foreground">
