@@ -20,6 +20,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Site brand assets in public/ are deliberate, checked-in deliverables — the root
+# `.gitignore` `*.png` rule exists for screenshots/test artifacts, so re-include
+# the directories that carry first-party images (og cards, logo, banner).
+!public/og/
+!public/og/**
+!public/brand/
+!public/brand/**
+!public/logo.png
+
 # Playwright
 /test-results/
 /playwright-report/
