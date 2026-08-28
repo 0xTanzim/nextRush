@@ -93,7 +93,10 @@ describe('generated project ships a test script and a passing example test (task
         expect(output).toMatch(/passed|Tests\s+\d+\s+passed/i);
         expect(output).not.toMatch(/\bfailed\b/i);
       },
-      20000
+      // Spawns a full `npx vitest run` per style — fast locally (~8s) but CI
+      // containers / cold npx resolution can exceed 20s (observed in act),
+      // so allow a generous ceiling.
+      60000
     );
   }
 });
