@@ -2,9 +2,9 @@
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
+    "composite": false,
     "declaration": true,
     "declarationMap": true,
-    "composite": false,
     "lib": [
       "ES2022",
       "DOM"
@@ -15,7 +15,7 @@
     ]
   },
   "include": [
-    "src/**/*"
+    "src/**/*.ts"
   ],
   "exclude": [
     "node_modules",
