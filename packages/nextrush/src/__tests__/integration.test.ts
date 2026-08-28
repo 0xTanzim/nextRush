@@ -16,6 +16,7 @@ import type {
     BodySource,
     Context,
     ContextState,
+    CookieCapability,
     Middleware,
     QueryParams,
     RawHttp,
@@ -114,6 +115,17 @@ function createMockContext(options: MockContextOptions = {}): Context {
     res: {} as never,
   };
 
+  // Inert cookies capability — the tests here never touch cookies; the real
+  // context carries UNINITIALIZED_COOKIES until the `cookies()` middleware runs.
+  const mockCookies: CookieCapability = {
+    get: () => undefined,
+    set: () => {},
+    delete: () => {},
+    all: () => ({}),
+    has: () => false,
+    signed: {} as CookieCapability['signed'],
+  };
+
   const ctx: Context = {
     // Request - Read-only
     method: method.toUpperCase() as Context['method'],
@@ -122,6 +134,7 @@ function createMockContext(options: MockContextOptions = {}): Context {
     query,
     headers,
     ip,
+    cookies: mockCookies,
 
     // Request body
     body,
