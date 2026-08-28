@@ -192,6 +192,13 @@ api.mount('/users', usersRouter); // explicit; equivalent to use('/users', users
 app.route('/api', api); // → /api/users, /api/users/:id
 ```
 
+Mounted routes keep their route metadata: request schemas contributed by
+`validate()` and inline docs from `endpoint()` on a sub-router route are
+preserved in the parent's `getRoutes()`, so `@nextrush/openapi` documents
+mounted routes exactly like directly registered ones. Mounting is an eager
+copy: routes registered on the sub-router **after** `mount()` are not picked
+up — finish building a sub-router before mounting it.
+
 ### Redirects and method handling
 
 ```ts

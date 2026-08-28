@@ -9,7 +9,7 @@
  * @internal
  */
 
-import type { Context, HttpMethod, Middleware, RouteHandler } from '@nextrush/types';
+import type { Context, HttpMethod, Middleware, RouteHandler, RouteMetadata } from '@nextrush/types';
 
 /**
  * Node type enumeration
@@ -59,6 +59,13 @@ export interface HandlerEntry {
    * which re-derives it from the `GET` it copies.
    */
   autoHead: boolean;
+  /**
+   * Merged route metadata (from `validate()`, `endpoint()`, etc.), retained on
+   * the entry so a parent router's `copyRoutes()` can re-emit it when this
+   * route is copied by `mount()`. Registration-time state only — request
+   * dispatch never reads it. `undefined` for metadata-free routes.
+   */
+  metadata?: RouteMetadata;
 }
 
 /**

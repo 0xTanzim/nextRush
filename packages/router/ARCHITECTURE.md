@@ -86,7 +86,7 @@ The public `Router` class is a deliberately thin facade. It holds the trie root,
 
 1. **Match cost tracks URL depth, not route count.** Enforced by the segment trie (`segment-trie.ts`) plus the O(1) static map — and guarded by `__tests__/match-hotpath-guard.test.ts` and `match-single-alloc.test.ts`.
 2. **The hot path allocates nothing it doesn't have to.** Executors are pre-compiled (`compileExecutor`); the static map is method-nested so no `` `${method} ${path}` `` key string is built per request (HP-9); a resolved promise is cached (`NOOP_NEXT`).
-3. **Introspection never touches dispatch.** Route metadata lives in a separate `routeDefinitions` registry read only by `getRoutes()` — never during `match()`.
+3. **Introspection never touches dispatch.** Route metadata lives in a separate `routeDefinitions` registry read only by `getRoutes()` — never during `match()`. The merged metadata is *additionally* retained on the trie's `HandlerEntry` (registration-time state, write-only at registration) so `copyRoutes()` can re-emit it when the route is mounted into a parent router — dispatch still never reads it.
 4. **The facade stays thin; modules stay small.** `Router` delegates to `registration`/`matching`/`dispatch`/`composition`/`group-router`; the 300-LOC cap is a structural forcing function.
 5. **Untrusted input is handled defensively.** Parameter decoding and normalization are ReDoS- and prototype-pollution-aware (`matching.ts`, proven by `__tests__/match-safety.test.ts`).
 
@@ -124,7 +124,7 @@ src/
 | `match-route.ts` | Orchestrate a match: try the static map, else walk the trie; assemble the `RouteMatch`. |
 | `dispatch.ts` | Wrap `match()` as NextRush `Middleware` for `routes()` and `allowedMethods()`. |
 | `group-router.ts` | Prefix + middleware grouping, delegating registration back to the parent `Router`. |
-| `composition.ts` | Copy one router's routes onto another under a prefix (`mount`/`use`). |
+| `composition.ts` | Copy one router's routes onto another under a prefix (`mount`/`use`), re-emitting each route's metadata so copies are introspection-lossless. |
 
 ## Component relationships
 
@@ -317,7 +317,7 @@ The router treats the incoming `method` and `path` as untrusted and decodes them
 
 **Supported extension points:**
 
-- **Sub-router composition** (`composition.ts`, `mount`/`use`) — routers are meant to be built independently and mounted, carrying their own router-level middleware onto copied routes.
+- **Sub-router composition** (`composition.ts`, `mount`/`use`) — routers are meant to be built independently and mounted, carrying their own router-level middleware onto copied routes. Copies are metadata-lossless: each copied route re-enters registration with its merged metadata re-emitted as a pure marker entry, so mounted routes document identically to directly registered ones.
 - **Route metadata** (`endpoint()` / `getRoutes()`) — the introspection registry is the sanctioned seam for renderers like `@nextrush/openapi` and SDK/RPC generators.
 - **A pluggable router contract** — [RFC-015](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/runtime-adapters/015-router-radix.md) defines the shared `Router` contract a future opt-in `@nextrush/router-radix` would implement, with a conformance parity harness.
 

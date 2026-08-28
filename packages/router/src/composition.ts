@@ -19,16 +19,28 @@
  * @internal
  */
 
-import type { HttpMethod, Middleware, RouteHandler } from '@nextrush/types';
+import { ROUTE_METADATA, type HttpMethod, type Middleware, type RouteEntry, type RouteMetadata, type RouteMetaMarker } from '@nextrush/types';
 import type { TrieNode } from './segment-trie';
 
-/** Callback signature matching `Router['addRoute']` — injected, not imported. */
+/**
+ * Callback signature matching `Router['addRoute']` (the validating wrapper on
+ * `Router`) — injected, not imported. Takes full `RouteEntry[]` (behavior and
+ * pure-metadata markers) so a copied route can re-emit its metadata.
+ */
 export type AddRouteFn = (
   method: HttpMethod,
   path: string,
-  handlers: RouteHandler[],
+  entries: RouteEntry[],
   middleware: Middleware[]
 ) => void;
+
+/**
+ * Re-emit a copied route's merged metadata as a pure metadata entry — the same
+ * `RouteMetaMarker` shape `endpoint()` produces. Pure data: never executed.
+ */
+function metadataMarker(metadata: RouteMetadata): RouteMetaMarker {
+  return { [ROUTE_METADATA]: metadata };
+}
 
 /**
  * Recursively copy routes from one router's trie into another via the
@@ -53,7 +65,15 @@ export function copyRoutes(
       subRouterMiddleware.length > 0
         ? [...subRouterMiddleware, ...entry.middleware]
         : entry.middleware;
-    addRoute(method, path || '/', [entry.handler], combined);
+    // Re-emit the route's merged metadata exactly once as a pure marker entry,
+    // so the copied route re-enters `addRoute` through the SAME contribution
+    // collection path as a directly registered route — lossless for every
+    // contributor kind (validate()-style middleware, endpoint() markers, and
+    // anything else carrying ROUTE_METADATA).
+    const copiedEntries: RouteEntry[] = entry.metadata
+      ? [entry.handler, metadataMarker(entry.metadata)]
+      : [entry.handler];
+    addRoute(method, path || '/', copiedEntries, combined);
   }
 
   // Copy static children

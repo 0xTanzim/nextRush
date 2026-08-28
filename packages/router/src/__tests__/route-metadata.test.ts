@@ -170,3 +170,129 @@ describe('markers never enter the executed chain', () => {
     expect(handler).toHaveBeenCalledOnce();
   });
 });
+
+describe('mounted route metadata preservation', () => {
+  let parent: Router;
+  let sub: Router;
+  const bodySchema = { '~standard': { version: 1, vendor: 'test', validate: () => ({ value: {} }) } };
+  const resSchema = { '~standard': { version: 1, vendor: 'test', validate: () => ({ value: {} }) } };
+
+  beforeEach(() => {
+    parent = createRouter();
+    sub = createRouter();
+  });
+
+  it('keeps a contributing middleware (validate-style) request schema after mount (1.1)', () => {
+    sub.post('/register', contributingMiddleware({ request: { body: bodySchema } }), vi.fn());
+    parent.mount('/auth', sub);
+
+    const row = parent.getRoutes().find((r) => r.key === 'POST /auth/register');
+    expect(row).toBeDefined();
+    expect(row?.metadata?.request?.body).toBe(bodySchema);
+  });
+
+  it('keeps endpoint() marker metadata (summary/tags/responses) after mount (1.2)', () => {
+    sub.post(
+      '/register',
+      endpoint({ summary: 'Register', tags: ['auth'], responses: { 201: resSchema } }),
+      vi.fn()
+    );
+    parent.mount('/auth', sub);
+
+    const row = parent.getRoutes().find((r) => r.key === 'POST /auth/register');
+    expect(row?.metadata?.summary).toBe('Register');
+    expect(row?.metadata?.tags).toEqual(['auth']);
+    expect(row?.metadata?.responses?.[201]).toBe(resSchema);
+  });
+
+  it('exposes the complete merged metadata, content-equal to the source apart from the path (1.3)', () => {
+    sub.post(
+      '/users/:id',
+      contributingMiddleware({ request: { body: bodySchema } }),
+      endpoint({ summary: 'Update user', tags: ['users'], responses: { 200: resSchema } }),
+      vi.fn()
+    );
+    parent.mount('/api', sub);
+
+    const sourceRow = sub.getRoutes().find((r) => r.key === 'POST /users/:id');
+    const mountedRow = parent.getRoutes().find((r) => r.key === 'POST /api/users/:id');
+    expect(sourceRow).toBeDefined();
+    expect(mountedRow).toBeDefined();
+    expect(mountedRow?.path).toBe('/api/users/:id');
+    expect(mountedRow?.metadata).toEqual(sourceRow?.metadata);
+    expect(mountedRow?.metadata?.summary).toBe('Update user');
+    expect(mountedRow?.metadata?.request?.body).toBe(bodySchema);
+  });
+
+  it('does not duplicate metadata rows or merge contributions twice when the parent adds nothing (1.4)', () => {
+    sub.post(
+      '/login',
+      contributingMiddleware({ request: { body: bodySchema } }),
+      endpoint({ summary: 'Login' }),
+      vi.fn()
+    );
+    parent.mount('/auth', sub);
+
+    const rows = parent.getRoutes().filter((r) => r.path === '/auth/login');
+    expect(rows).toHaveLength(1);
+    const sourceRow = sub.getRoutes().find((r) => r.key === 'POST /login');
+    expect(rows[0]?.metadata).toEqual(sourceRow?.metadata);
+  });
+
+  it('leaves metadata-free mounted routes undefined, like direct registration (1.4)', () => {
+    sub.get('/ping', vi.fn());
+    parent.mount('/ops', sub);
+
+    const row = parent.getRoutes().find((r) => r.key === 'GET /ops/ping');
+    expect(row).toBeDefined();
+    expect(row?.metadata).toBeUndefined();
+  });
+
+  it('still does not copy derived HEAD entries; the GET metadata is preserved (1.5)', () => {
+    sub.get(
+      '/status',
+      endpoint({ summary: 'Status' }),
+      vi.fn()
+    );
+    parent.mount('/auth', sub);
+
+    const routes = parent.getRoutes();
+    expect(routes.find((r) => r.key === 'HEAD /auth/status')).toBeUndefined();
+    const getRow = routes.find((r) => r.key === 'GET /auth/status');
+    expect(getRow?.metadata?.summary).toBe('Status');
+  });
+
+  it('carries metadata on the per-method copies of a sub-router all() route (1.5)', () => {
+    sub.all(
+      '/y',
+      endpoint({ summary: 'Any method', tags: ['wild'] }),
+      vi.fn()
+    );
+    parent.mount('/auth', sub);
+
+    const routes = parent.getRoutes().filter((r) => r.path === '/auth/y');
+    expect(routes.length).toBeGreaterThan(0);
+    for (const row of routes) {
+      expect(row.metadata?.summary).toBe('Any method');
+      expect(row.metadata?.tags).toEqual(['wild']);
+    }
+  });
+
+  it('executes mounted middleware exactly once, in order, unchanged (1.1 runtime guard)', async () => {
+    const order: string[] = [];
+    const traced = contributingMiddleware({ request: { body: bodySchema } });
+    const wrapped: Middleware = async (ctx, next) => {
+      order.push('mw');
+      await traced(ctx, next);
+    };
+    const handler = vi.fn(() => void order.push('handler'));
+    sub.post('/register', wrapped, handler);
+    parent.mount('/auth', sub);
+
+    const ctx = createMockContext({ method: 'POST', path: '/auth/register' });
+    await parent.routes()(ctx, async () => {});
+
+    expect(order).toEqual(['mw', 'handler']);
+    expect(handler).toHaveBeenCalledOnce();
+  });
+});

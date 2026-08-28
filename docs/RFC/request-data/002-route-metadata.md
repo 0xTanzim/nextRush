@@ -18,6 +18,7 @@
   3. **Merge semantics specified** (§5) — contributions merge in registration order; scalars/arrays last-write-wins; keyed maps merge per key.
   4. **`responses` is numeric-status-only in v1** (§4); OpenAPI `default`/range keys deferred.
   5. **Plugin ordering made explicit** (§8) — lazy snapshot on first request.
+- **v5 (2026-08-28) — Amendment: mount-time metadata preservation.** Route copies made by `Router.mount()`/`use(prefix, router)` are reconstruction-lossless: the merged metadata is additionally retained on the trie's dispatch entry (registration-time state, never read at dispatch) and re-emitted as a pure marker entry when the route is copied, so mounted routes keep the exact metadata they had on the sub-router for every contributor kind. See §16. Motivated by `docs/issue/mounted-subrouter-drops-route-metadata.md`; implemented in change `preserve-route-metadata-on-mount`.
 
 Names are settled: `RouteDefinition`, `RouteDefinition.key`, `getRoutes()`, `endpoint()`.
 
@@ -296,6 +297,33 @@ Coverage per `v3-testing.instructions.md`: 90/85/90/90.
 - After core lands: `@nextrush/openapi`, then controller response decorators, then further renderers and metadata-contributing middleware (`auth()`/`rateLimit()`) — each a thin participant, none touching core again.
 - Design a contributed-nonstandard-metadata home when `rateLimit()`-style needs arrive.
 - Adopt Standard JSON Schema (Appendix A) once libraries implement it uniformly.
+
+## 16. Amendment — Mount-Time Metadata Preservation (v5, 2026-08-28)
+
+**Decision:** a route copied from one router to another must retain all
+information required to reconstruct its original registration semantics,
+including route metadata. `Router.mount()` / `use(prefix, router)` copies are
+therefore **reconstruction-lossless**.
+
+**Mechanism:** the merged metadata (§5 semantics) is retained on the trie's
+dispatch entry as registration-time state — write-only at registration, never
+read during request dispatch, preserving the §7 hot-path guarantee. When a
+route is copied into a parent router, its metadata is re-emitted exactly once
+as a pure metadata entry, so the copy re-enters registration through the same
+contribution-collection path as a directly registered route. No contributor
+kind is special-cased: `validate()`-style middleware, `endpoint()` markers, and
+any future `ROUTE_METADATA` participant survive the copy identically.
+
+**Alternatives rejected:** recovering metadata by scanning the copied
+middleware list (misses pure markers; correctness would depend on where a
+contributor lands in the reconstruction), and combining both mechanisms
+(double-merges middleware contributions; correctness must not rely on merge
+idempotence).
+
+**Scope note:** `Application.route()` live delegation is a different composition
+mechanism with different introspection semantics — routes delegated that way
+are not trie-copied and remain outside this amendment. That gap is tracked as a
+separate follow-up.
 
 ---
 
