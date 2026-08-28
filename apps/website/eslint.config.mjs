@@ -9,6 +9,9 @@ const eslintConfig = defineConfig([
     'build/**',
     'next-env.d.ts',
     '.source/**',
+    // Build/deploy artifacts (e.g. the compiled Cloudflare Worker) -- generated
+    // output, not source; linting it only produces noise.
+    'public/**',
   ]),
 ]);
 
