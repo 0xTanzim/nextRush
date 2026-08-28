@@ -5,6 +5,13 @@ settings:
   excludeLinksFromLockfile: false
 
 catalogs:
+  default:
+    morgan:
+      specifier: 1.10.0
+      version: 1.10.0
+    response-time:
+      specifier: ^2.3.4
+      version: 2.3.4
   node:
     '@types/bun':
       specifier: ^1.3.14
@@ -144,6 +151,9 @@ importers:
       '@nextrush/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@nextrush/express-bridge':
+        specifier: workspace:*
+        version: link:../../packages/interop/express-bridge
       '@nextrush/router':
         specifier: workspace:*
         version: link:../../packages/router
@@ -180,6 +190,12 @@ importers:
       koa-static:
         specifier: 5.0.0
         version: 5.0.0(supports-color@10.2.2)
+      morgan:
+        specifier: 'catalog:'
+        version: 1.10.0(supports-color@10.2.2)
+      response-time:
+        specifier: 'catalog:'
+        version: 2.3.4
 
   apps/playground:
     dependencies:
@@ -924,6 +940,9 @@ importers:
       passport:
         specifier: 0.7.0
         version: 0.7.0
+      response-time:
+        specifier: 'catalog:'
+        version: 2.3.4
       rimraf:
         specifier: catalog:tooling
         version: 6.1.3
@@ -7700,6 +7719,10 @@ packages:
     resolution: {integrity: sha512-tqt+NBWwyaMgw3zDsnygx4CByWjQEJHOPMdslYhppaQSJUtL/D4JO9CcBBlhPoI8lz9oJIDXkwXfhF4aWqP8xQ==}
     engines: {node: '>= 0.4'}
     hasBin: true
+
+  response-time@2.3.4:
+    resolution: {integrity: sha512-fiyq1RvW5/Br6iAtT8jN1XrNY8WPu2+yEypLbaijWry8WDZmn12azG9p/+c+qpEebURLlQmqCB8BNSu7ji+xQQ==}
+    engines: {node: '>= 0.8.0'}
 
   ret@0.5.0:
     resolution: {integrity: sha512-I1XxrZSQ+oErkRR4jYbAyEEu2I0avBvvMM5JN+6EBprOGRCs63ENqZ3vjavq8fBw2+62G5LF5XelKwuJpcvcxw==}
@@ -15687,6 +15710,11 @@ snapshots:
       object-keys: 1.1.1
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
+
+  response-time@2.3.4:
+    dependencies:
+      depd: 2.0.0
+      on-headers: 1.1.0
 
   ret@0.5.0: {}
 

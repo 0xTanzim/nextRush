@@ -179,6 +179,26 @@ app.use(compat((req, res) => {
 - **Works with:** `@nextrush/core`, `@nextrush/adapter-node`
 - **Incompatible with:** bridged body parsers mixed with native `@nextrush/body-parser` (pick one)
 
+### Compatibility registry (live, test-backed)
+
+Every `Full` / `Partial` claim is backed by a real-package integration test in
+`src/__tests__/packages/` (the registry lock test refuses an untested `Full`
+cell). Untested packages are never advertised as supported.
+
+| Package | Level | Notes |
+| ------- | ----- | ----- |
+| `morgan` | **Full** ✅ | tested via `compat(morgan('tiny'))` |
+| `response-time` | **Full** ✅ | tested — sets `X-Response-Time` through the `on-headers` surface |
+| `passport` (session-less) | Partial | `req.user` → `ctx.state.user` tested; not the full session flow |
+| `passport-jwt` | Partial | headers only, callback-style |
+| `connect-timeout` / `method-override` / `express-validator` | Partial | use supported req/res surface |
+| `cors` · `helmet` · `cookie-parser` · `compression` · `body-parser` · `multer` · `csurf` · `express-rate-limit` · `serve-static` | **native-preferred** | always use the `@nextrush/*` package instead |
+| `express-session` · `express.Router` · `http-proxy-middleware` | Unsupported in v1 | streaming / router / session — not claimed |
+| `on-headers` | surface fixture | exercised by the bridge's `writeHead` pass-through, not a `Full` cell |
+
+> **Not transitive:** a compatible middleware does not imply its own dependencies
+> are compatible — compatibility is evaluated at the package boundary only.
+
 > [!IMPORTANT]
 > NextRush is **ESM-only, permanently** — no CommonJS build.
 

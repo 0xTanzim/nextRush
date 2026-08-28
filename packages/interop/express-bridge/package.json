@@ -63,6 +63,7 @@
     "morgan": "1.10.0",
     "on-headers": "1.0.2",
     "passport": "0.7.0",
+    "response-time": "catalog:",
     "rimraf": "catalog:tooling",
     "tsup": "catalog:tooling",
     "typescript": "catalog:tooling",

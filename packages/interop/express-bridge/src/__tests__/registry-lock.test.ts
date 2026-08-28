@@ -7,28 +7,46 @@
  *   2. `on-headers` is a surface fixture, never a `Full` middleware cell.
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /** Registry rows the bridge treats as `Full` in v1 (P2/P3 confirmed). */
 const FULL_CELLS = new Set(['morgan', 'response-time']);
 
-/** The real-package integration test files that back a `Full` claim. */
+/** A Full cell is only admitted if it is genuinely exercised in a real-package
+ *  integration test. These files run the ACTUAL npm package against a real
+ *  Application + adapter-node request. */
 const REAL_PACKAGE_TEST_FILES = [
-  'real-packages.test.ts',
-  'morgan.test.ts',
-  'passport.test.ts',
+  resolve(dirname(fileURLToPath(import.meta.url)), 'packages', 'real-packages.test.ts'),
+];
+
+/** Native-overlap rows that must never be claimed `Full` (native package is golden path). */
+const NATIVE_OVERLAP = [
+  'cors',
+  'helmet',
+  'cookie-parser',
+  'compression',
+  'body-parser',
+  'multer',
+  'rate-limit',
+  'csurf',
+  'serve-static',
 ];
 
 describe('compatibility registry honesty', () => {
-  it('every Full middleware cell maps to a real-package test file (by convention)', () => {
-    // The bridge's real-package coverage lives under src/__tests__/packages.
-    // A `Full` cell for `morgan` is backed by real-packages.test.ts here.
+  it('every Full middleware cell is backed by a real-package integration test', () => {
+    // A `Full` claim without a test that runs the actual package against a real
+    // request would be a rot point: the cell could be aspirational, not proven.
+    // Scan the real-package test source and require each Full cell to be named
+    // there — both as an import and inside a `describe('real package: ...')`.
+    const source = REAL_PACKAGE_TEST_FILES.map((file) => readFileSync(file, 'utf-8')).join('\n');
+
     for (const cell of FULL_CELLS) {
-      // The exact file mapping is enforced by the CI registry test; this
-      // asserts the invariant in the source of truth: a Full cell is never
-      // admitted without at least one real-package test file existing.
-      expect(REAL_PACKAGE_TEST_FILES.length).toBeGreaterThan(0);
-      expect(cell).toMatch(/^(morgan|response-time)$/);
+      expect(source).toContain(`real package: ${cell}`); // a describe block
+      // Must be exercised with the actual package, not merely mentioned.
+      expect(source).toMatch(new RegExp(`import .* from '${cell}'`));
     }
   });
 
@@ -37,8 +55,7 @@ describe('compatibility registry honesty', () => {
   });
 
   it('native-overlap packages are not Full', () => {
-    const nativeOverlap = ['cors', 'helmet', 'cookie-parser', 'compression', 'body-parser', 'multer', 'rate-limit', 'csurf', 'serve-static'];
-    for (const pkg of nativeOverlap) {
+    for (const pkg of NATIVE_OVERLAP) {
       expect(FULL_CELLS.has(pkg)).toBe(false);
     }
   });

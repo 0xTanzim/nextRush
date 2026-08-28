@@ -81,6 +81,11 @@ export function createResponseProxy(deps: ResponseProxyDeps): unknown {
   // Per-request, null-prototype locals (Express `res.locals`), not `ctx.state`.
   const locals = Object.create(null) as Record<string, unknown>;
 
+  // Bucket-1 stable closures, created ONCE per request. Reading an overlay
+  // property returns a pre-allocated closure (or an inline value) instead of
+  // allocating a fresh closure + a `{found, value}` wrapper on every access.
+  const holder: { value: unknown } = { value: undefined };
+
   function resolveWriteHead(): unknown {
     const own = target.writeHead;
     if (typeof own === 'function' && own !== origWriteHead && own !== assertWriteHead) {
@@ -89,119 +94,84 @@ export function createResponseProxy(deps: ResponseProxyDeps): unknown {
     return assertWriteHead;
   }
 
-  function overlayGet(key: string | symbol): { found: boolean; value?: unknown } {
-    switch (key) {
-      case 'status':
-        return {
-          found: true,
-          value: (code: number): unknown => {
-            ctx.status = code;
-            return holder.value;
-          },
-        };
-      case 'statusCode':
-        return { found: true, value: ctx.status };
-      case 'set':
-      case 'setHeader':
-        return {
-          found: true,
-          value: (field: string, value: unknown): unknown => {
-            ctx.set(field, value as string | number | string[]);
-            return holder.value;
-          },
-        };
-      case 'get':
-      case 'getHeader':
-        return {
-          found: true,
-          value: (field: string): unknown =>
-            typeof rawRes.getHeader === 'function' ? rawRes.getHeader(field) : ctx.get(field),
-        };
-      case 'removeHeader':
-        return {
-          found: true,
-          value: (field: string): unknown => {
-            rawRes.removeHeader?.(field);
-            return holder.value;
-          },
-        };
-      case 'send':
-        return {
-          found: true,
-          value: (body: ResponseBody): unknown => {
-            ctx.send(body);
-            onTerminal();
-            return holder.value;
-          },
-        };
-      case 'json':
-        return {
-          found: true,
-          value: (body: unknown): unknown => {
-            ctx.json(body);
-            onTerminal();
-            return holder.value;
-          },
-        };
-      case 'end':
-        return {
-          found: true,
-          value: (...args: unknown[]): unknown => {
-            const result = (rawRes.end as (...a: unknown[]) => unknown).apply(rawRes, args);
-            onTerminal();
-            return result;
-          },
-        };
-      case 'redirect':
-        return {
-          found: true,
-          value: (a: unknown, b?: unknown): unknown => {
-            // Three Express overloads: (status, url) | (url, status?) | (url).
-            if (typeof a === 'number') {
-              ctx.redirect(String(b), a);
-            } else {
-              ctx.redirect(String(a), typeof b === 'number' ? b : undefined);
-            }
-            onTerminal();
-            return holder.value;
-          },
-        };
-      case 'cookie':
-        return {
-          found: true,
-          value: (name: string, value: string, options?: ExpressCookieOptions): unknown => {
-            ctx.set('Set-Cookie', serializeCookie(name, value, options));
-            return holder.value;
-          },
-        };
-      case 'headersSent':
-        return { found: true, value: rawRes.headersSent === true };
-      case 'locals':
-        return { found: true, value: locals };
-      case 'writeHead':
-        return { found: true, value: resolveWriteHead() };
-      default:
-        return { found: false };
+  const resStatus = (code: number): unknown => {
+    ctx.status = code;
+    return holder.value;
+  };
+  const resSetHeader = (field: string, value: unknown): unknown => {
+    ctx.set(field, value as string | number | string[]);
+    return holder.value;
+  };
+  const resGetHeader = (field: string): unknown =>
+    typeof rawRes.getHeader === 'function' ? rawRes.getHeader(field) : ctx.get(field);
+  const resRemoveHeader = (field: string): unknown => {
+    rawRes.removeHeader?.(field);
+    return holder.value;
+  };
+  const resSend = (body: ResponseBody): unknown => {
+    ctx.send(body);
+    onTerminal();
+    return holder.value;
+  };
+  const resJson = (body: unknown): unknown => {
+    ctx.json(body);
+    onTerminal();
+    return holder.value;
+  };
+  const resEnd = (...args: unknown[]): unknown => {
+    const result = (rawRes.end as (...a: unknown[]) => unknown).apply(rawRes, args);
+    onTerminal();
+    return result;
+  };
+  const resRedirect = (a: unknown, b?: unknown): unknown => {
+    // Three Express overloads: (status, url) | (url, status?) | (url).
+    if (typeof a === 'number') {
+      ctx.redirect(String(b), a);
+    } else {
+      ctx.redirect(String(a), typeof b === 'number' ? b : undefined);
     }
-  }
+    onTerminal();
+    return holder.value;
+  };
+  const resCookie = (name: string, value: string, options?: ExpressCookieOptions): unknown => {
+    ctx.set('Set-Cookie', serializeCookie(name, value, options));
+    return holder.value;
+  };
 
-  function overlaySet(key: string | symbol, value: unknown): boolean {
-    if (key === 'statusCode') {
-      ctx.status = Number(value);
-      return true;
-    }
-    if (key === 'writeHead') {
-      // `on-headers` assigns its own wrap; pass through to the real target.
-      return Reflect.set(target, key, value);
-    }
-    return false;
-  }
-
-  const holder: { value: unknown } = { value: undefined };
   holder.value = new Proxy(target, {
     get(_t, key: string | symbol, receiver) {
-      const ov = overlayGet(key);
-      if (ov.found) return ov.value;
+      switch (key) {
+        case 'status':
+          return resStatus;
+        case 'statusCode':
+          return ctx.status;
+        case 'set':
+        case 'setHeader':
+          return resSetHeader;
+        case 'get':
+        case 'getHeader':
+          return resGetHeader;
+        case 'removeHeader':
+          return resRemoveHeader;
+        case 'send':
+          return resSend;
+        case 'json':
+          return resJson;
+        case 'end':
+          return resEnd;
+        case 'redirect':
+          return resRedirect;
+        case 'cookie':
+          return resCookie;
+        case 'headersSent':
+          return rawRes.headersSent === true;
+        case 'locals':
+          return locals;
+        case 'writeHead':
+          return resolveWriteHead();
+        default:
+          break;
+      }
 
       if (isUnsupportedResponseApi(key)) {
         throw new UnsupportedExpressApiError(String(key));
@@ -219,8 +189,15 @@ export function createResponseProxy(deps: ResponseProxyDeps): unknown {
         return true;
       }
 
-      if (overlaySet(key, value)) {
-        return true;
+      switch (key) {
+        case 'statusCode':
+          ctx.status = Number(value);
+          return true;
+        case 'writeHead':
+          // `on-headers` assigns its own wrap; pass through to the real target.
+          return Reflect.set(target, key, value);
+        default:
+          break;
       }
 
       if (isUnsupportedResponseApi(key)) {
@@ -260,8 +237,14 @@ export function createResponseProxy(deps: ResponseProxyDeps): unknown {
       if (isUnsupportedResponseApi(key)) {
         throw new UnsupportedExpressApiError(String(key));
       }
-      if (overlaySet(key, desc.value)) {
-        return true;
+      switch (key) {
+        case 'statusCode':
+          ctx.status = Number(desc.value);
+          return true;
+        case 'writeHead':
+          return Reflect.set(target, key, desc.value);
+        default:
+          break;
       }
       return Reflect.defineProperty(target, key, desc);
     },

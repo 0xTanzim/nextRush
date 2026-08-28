@@ -11,6 +11,7 @@ import { createHandler } from '@nextrush/adapter-node';
 import type { Context } from '@nextrush/types';
 import { describe, expect, it } from 'vitest';
 import morgan from 'morgan';
+import responseTime from 'response-time';
 import passport from 'passport';
 import onHeaders from 'on-headers';
 import { compat } from '../../compat';
@@ -55,6 +56,23 @@ describe('real package: morgan', () => {
     expect(result.status).toBe(200);
     expect(result.body).toContain('"ok":true');
     expect(logs.length).toBe(1);
+  });
+});
+
+describe('real package: response-time (Full registry cell)', () => {
+  it('runs response-time() as compat middleware and emits the X-Response-Time header', async () => {
+    const app = createApp();
+    app.use(compat(responseTime({ digits: 3 }) as never));
+    app.use((ctx: Context) => {
+      ctx.json({ ok: true });
+    });
+
+    const result = await request(createHandler(app));
+    expect(result.status).toBe(200);
+    expect(result.body).toContain('"ok":true');
+    // response-time sets X-Response-Time through the on-headers surface fixture;
+    // it must reach the client response, proving a Full-registry Level-2 cell.
+    expect(typeof result.headers['x-response-time']).toBe('string');
   });
 });
 

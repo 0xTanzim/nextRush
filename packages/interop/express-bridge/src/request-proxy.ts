@@ -39,68 +39,51 @@ function protocol(req: NodeReq): 'http' | 'https' {
 export function createRequestProxy(ctx: Context, rawReq: NodeReq): unknown {
   const target = rawReq as Record<string | symbol, unknown>;
 
-  function overlayGet(key: string | symbol): { found: boolean; value?: unknown } {
-    switch (key) {
-      case 'method':
-        return { found: true, value: ctx.method };
-      case 'url':
-        return { found: true, value: ctx.url };
-      case 'originalUrl':
-        return { found: true, value: ctx.url };
-      case 'path':
-        return { found: true, value: ctx.path };
-      case 'query':
-        return { found: true, value: ctx.query };
-      case 'params':
-        return { found: true, value: ctx.params };
-      case 'headers':
-        return { found: true, value: ctx.headers };
-      case 'body':
-        return { found: true, value: ctx.body };
-      case 'ip':
-        return { found: true, value: ctx.ip };
-      case 'protocol':
-        return { found: true, value: protocol(rawReq) };
-      case 'secure':
-        return { found: true, value: protocol(rawReq) === 'https' };
-      case 'hostname':
-        return { found: true, value: hostname(ctx) };
-      case 'cookies':
-        return { found: true, value: readState(ctx, 'cookies') };
-      case 'get':
-        return {
-          found: true,
-          value: (field: string): string | undefined => ctx.get(field),
-        };
-      default:
-        return { found: false };
-    }
-  }
-
-  function overlaySet(key: string | symbol, value: unknown): boolean {
-    switch (key) {
-      case 'body':
-        ctx.body = value;
-        return true;
-      case 'cookies':
-        return projectState(ctx, key, value);
-      default:
-        return false;
-    }
-  }
+  // Bucket-1 stable closure, created ONCE per request. Dynamic value reads
+  // (method/url/path/query/...) are answered inline in the get trap — no
+  // per-access closure or `{found, value}` wrapper allocation.
+  const reqGet = (field: string): string | undefined => ctx.get(field);
 
   return new Proxy(target, {
     get(_t, key: string | symbol, receiver) {
-      const ov = overlayGet(key);
-      if (ov.found) return ov.value;
+      switch (key) {
+        case 'method':
+          return ctx.method;
+        case 'url':
+        case 'originalUrl':
+          return ctx.url;
+        case 'path':
+          return ctx.path;
+        case 'query':
+          return ctx.query;
+        case 'params':
+          return ctx.params;
+        case 'headers':
+          return ctx.headers;
+        case 'body':
+          return ctx.body;
+        case 'ip':
+          return ctx.ip;
+        case 'protocol':
+          return protocol(rawReq);
+        case 'secure':
+          return protocol(rawReq) === 'https';
+        case 'hostname':
+          return hostname(ctx);
+        case 'cookies':
+          return readState(ctx, 'cookies');
+        case 'get':
+          return reqGet;
+        default:
+          break;
+      }
 
       if (isUnsupportedRequestApi(key)) {
         throw new UnsupportedExpressApiError(String(key));
       }
 
       if (Reflect.has(target, key)) {
-        const value = Reflect.get(target, key, receiver);
-        return value;
+        return Reflect.get(target, key, receiver);
       }
 
       return readState(ctx, key);
@@ -111,8 +94,14 @@ export function createRequestProxy(ctx: Context, rawReq: NodeReq): unknown {
         return true;
       }
 
-      if (overlaySet(key, value)) {
-        return true;
+      switch (key) {
+        case 'body':
+          ctx.body = value;
+          return true;
+        case 'cookies':
+          return projectState(ctx, key, value);
+        default:
+          break;
       }
 
       if (isUnsupportedRequestApi(key)) {
@@ -152,8 +141,14 @@ export function createRequestProxy(ctx: Context, rawReq: NodeReq): unknown {
       if (isUnsupportedRequestApi(key)) {
         throw new UnsupportedExpressApiError(String(key));
       }
-      if (overlaySet(key, desc.value)) {
-        return true;
+      switch (key) {
+        case 'body':
+          ctx.body = desc.value;
+          return true;
+        case 'cookies':
+          return projectState(ctx, key, desc.value);
+        default:
+          break;
       }
       return Reflect.defineProperty(target, key, desc);
     },
