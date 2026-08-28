@@ -15,6 +15,7 @@ const CATEGORIES: readonly PackageCategory[] = [
   'Observability',
   'Real-time & Events',
   'Adapters',
+  'Ecosystem',
   'Tooling',
 ];
 
