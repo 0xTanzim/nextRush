@@ -1,6 +1,6 @@
 # Issue: Mounted sub-router routes lose `validate()`/`endpoint()` metadata
 
-**Status:** Open
+**Status:** Fixed — by change `preserve-route-metadata-on-mount` (RFC-002 v5 amendment, §16)
 **Area:** `packages/router` (composition / registration)
 **Affects:** `@nextrush/openapi` — request bodies and parameters missing from generated spec for mounted routes
 **Reported:** 2026-08-21
@@ -97,3 +97,23 @@ asserting that a route mounted from a sub-router (whose middleware carries a
   middleware case; `endpoint()` on a sub-router route is lost the same way and
   would need a separate change to `copyRoutes()` (e.g. carrying the sub-router
   entry's contributions through the copy).
+
+## Resolution (2026-08-28)
+
+Fixed by `preserve-route-metadata-on-mount`, implementing the RFC-002 v5
+amendment (`docs/RFC/request-data/002-route-metadata.md` §16). Rather than the
+originally proposed middleware-scan (which covers only `validate()`-style
+contributors), the merged route metadata is retained on the trie's dispatch
+entry (registration-time state, never read during dispatch) and re-emitted
+exactly once as a pure metadata marker when `copyRoutes()` re-registers the
+route in the parent — lossless for **every** contributor kind, including the
+`endpoint()` marker case noted above.
+
+**End-to-end verification** (parent router → `@nextrush/openapi`
+`generateDocument()`): a sub-router `POST /register` with a validating
+middleware and an `endpoint({ summary, tags, responses })` marker, mounted at
+`/auth`, generates an operation with `requestBody`, `summary: 'Register a
+user'`, `tags: ['auth']`, and a `201` response — the previously missing pieces.
+Regression coverage lives in `packages/router/src/__tests__/route-metadata.test.ts`
+(`mounted route metadata preservation` suite); a CPU-pinned interleaved A/B
+dispatch benchmark confirmed no hot-path regression.

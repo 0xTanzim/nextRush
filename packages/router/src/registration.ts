@@ -193,6 +193,12 @@ export function addRoute(
     if (typeof routeEntry === 'function') functions.push(routeEntry);
   }
 
+  // Merge contributions exactly once, registration-time only. The same frozen
+  // object is stored on the trie entry (so `copyRoutes` can re-emit it when
+  // this route is mounted into a parent router) and pushed into the
+  // introspection registry (read by `getRoutes()`). Dispatch never reads it.
+  const mergedMetadata = Object.freeze(mergeContributions(contributions));
+
   // Combine functions into a single handler with inline middleware
   const combinedMiddleware = [...middleware];
   const finalHandler: RouteHandler | undefined = functions[functions.length - 1];
@@ -215,6 +221,9 @@ export function addRoute(
     middleware: combinedMiddleware,
     executor,
     autoHead: false,
+    // Retained so a mount into a parent router re-emits this route's metadata
+    // losslessly (see composition.ts copyRoutes). Never read at dispatch time.
+    metadata: mergedMetadata,
   };
 
   // Detect duplicate route registration. A derived HEAD entry is not a
@@ -271,7 +280,7 @@ export function addRoute(
       key: `${method} ${normalized}`,
       method,
       path: normalized,
-      metadata: mergeContributions(contributions),
+      metadata: mergedMetadata,
     });
   }
 
