@@ -8,15 +8,39 @@
  */
 
 import { getCwd, resolvePath } from '../../runtime/index.js';
-import { getNodeFsPromises, getNodePath } from '../../runtime/node-modules.js';
+import { getNodeFsPromises, getNodePath, NODE_FS, NODE_MODULE } from '../../runtime/node-modules.js';
 import { error, info, log, success, warn, formatSize } from '../../utils/logger.js';
 import type { BuildOptions } from './types.js';
 import { findTypeScriptFiles, mapExtension, type TypeScriptFile } from './file-scanner.js';
 import { writeDeclarationTsconfig, resolveTscPath } from './declaration-builder.js';
 import { buildSwcTransformOptions } from './swc-transform-options.js';
 
-/** SWC version pulled via Deno's `npm:` specifier — kept in sync with package.json. */
-const SWC_NPM_SPECIFIER = 'npm:@swc/core@1.15.43';
+/**
+ * Resolve the `npm:@swc/core@<version>` specifier from the version of
+ * `@swc/core` ACTUALLY installed for this package — never a hardcoded constant.
+ * A hardcoded version drifted from the lockfile (1.15.43 vs 1.15.47) and newer
+ * Deno stopped auto-installing mismatched npm deps, so the import failed and the
+ * builder silently fell back to copying TS sources. Reading the version from the
+ * resolved `@swc/core/package.json` makes the specifier single-sourced.
+ */
+async function resolveSwcNpmSpecifier(): Promise<string> {
+  try {
+    const { createRequire } = (await import(NODE_MODULE)) as typeof import('node:module');
+    const nodeRequire = createRequire(import.meta.url);
+    const swcPkgJsonPath = nodeRequire.resolve('@swc/core/package.json');
+    const fsSync = (await import(NODE_FS)) as typeof import('node:fs');
+    const { version } = JSON.parse(fsSync.readFileSync(swcPkgJsonPath, 'utf-8')) as {
+      version: string;
+    };
+    if (typeof version === 'string' && version.length > 0) {
+      return `npm:@swc/core@${version}`;
+    }
+  } catch {
+    // Resolution failed (e.g. no visible node_modules) — fall through to the
+    // unversioned specifier and let Deno resolve whatever it can see.
+  }
+  return 'npm:@swc/core';
+}
 
 /**
  * The subset of the Deno global this file actually calls — no static Deno types are
@@ -71,12 +95,14 @@ export async function buildWithDeno(entry: string, outDir: string, options: Buil
 
     // Try to use @swc/core via npm: specifier
     try {
-      // The npm: specifier is Deno-specific; the variable specifier keeps it opaque
-      // to the bundler (so it's never prefix-stripped), and `SwcCoreLike` gives the
+      // The specifier version comes from the actually-installed @swc/core (see
+      // resolveSwcNpmSpecifier); the variable specifier keeps it opaque to the
+      // bundler (so it's never prefix-stripped), and `SwcCoreLike` gives the
       // result a real type instead of the `any` the variable-specifier import yields.
-      const swc = (await import(SWC_NPM_SPECIFIER)) as SwcCoreLike;
+      const swcSpecifier = await resolveSwcNpmSpecifier();
+      const swc = (await import(swcSpecifier)) as SwcCoreLike;
 
-      info('Using', `@swc/core via ${SWC_NPM_SPECIFIER}`);
+      info('Using', `@swc/core via ${swcSpecifier}`);
 
       // Transform each file — operate on file.path/file.ext (TypeScriptFile), map
       // extensions the same way the Node builder does.
@@ -206,11 +232,14 @@ export async function generateDeclarationsWithDeno(
 
     const args = [
       'run',
-      // tsc needs only the project tree: read sources + tsconfig, write declarations to
-      // outDir. Scoped instead of blanket `-A`, consistent with the scaffold's no-`-A`
-      // policy (generated-script-flags.test.ts) and the dev-spawn permission defaults.
+      // tsc needs the project tree (read sources + tsconfig, write declarations to
+      // outDir) AND env access: TypeScript's system layer reads process.env
+      // (TSC_WATCHFILE etc.) on startup, which Deno's permission model blocks
+      // without --allow-env (TS 6 + Deno 2.x). Scoped instead of blanket `-A`,
+      // consistent with the scaffold's no-`-A` policy (generated-script-flags.test.ts).
       '--allow-read',
       '--allow-write',
+      '--allow-env',
       tscPath,
       '--declaration',
       '--emitDeclarationOnly',
@@ -227,8 +256,9 @@ export async function generateDeclarationsWithDeno(
     }
 
     // The Deno binary is guaranteed present (we ARE running under it); `deno run
-    // --allow-read --allow-write` executes the locally resolved tsc directly — no npx, no
-    // node_modules requirement, and only the project tree is exposed to it.
+    // --allow-read --allow-write --allow-env` executes the locally resolved tsc
+    // directly — no npx, no node_modules requirement, and only the project tree
+    // (plus read-only env) is exposed to it.
     const command = new Deno.Command('deno', { args, cwd, stderr: 'piped', stdout: 'piped' });
 
     const result = await command.output();
