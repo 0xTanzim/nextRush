@@ -1,0 +1,6 @@
+{
+  "title": "Ecosystem",
+  "icon": "Plug",
+  "defaultOpen": false,
+  "pages": ["express-bridge"]
+}

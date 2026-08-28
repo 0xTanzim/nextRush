@@ -13,6 +13,7 @@ export type PackageCategory =
   | 'Observability'
   | 'Real-time & Events'
   | 'Adapters'
+  | 'Ecosystem'
   | 'Tooling';
 
 export type PackageTypeBadge = 'Core' | 'Middleware' | 'Extension' | 'Adapter' | 'Tool';

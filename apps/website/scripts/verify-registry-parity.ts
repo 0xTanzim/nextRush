@@ -37,6 +37,7 @@ const PACKAGE_GLOB_ROOTS = [
   'packages/middleware',
   'packages/extensions',
   'packages/adapters',
+  'packages/interop',
 ] as const;
 
 interface DiscoveredPackage {

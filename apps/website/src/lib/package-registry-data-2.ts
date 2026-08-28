@@ -1,6 +1,6 @@
 /**
  * Package registry data, part 2 of 2 — Responses, Observability,
- * Real-time & Events, Adapters, Tooling clusters.
+ * Real-time & Events, Adapters, Ecosystem, Tooling clusters.
  *
  * Provenance: this is the single source of truth for all publishable
  * NextRush packages under packages/**. Feeds the /packages catalog,
@@ -165,5 +165,14 @@ export const packageRegistryDataPart2: readonly PackageEntry[] = [
     status: 'Stable',
     summary: 'Interactive project scaffolder for new NextRush applications.',
     sinceVersion: '1.0.0',
+  },
+// ---- Ecosystem --------------------------------------------------------------
+  {
+    name: '@nextrush/express-bridge',
+    category: 'Ecosystem',
+    type: 'Middleware',
+    status: 'New',
+    summary: 'Opt-in bridge that adapts Express/Connect 3-arity middleware into NextRush middleware (Node-shaped raw HTTP only).',
+    sinceVersion: '0.1.0',
   },
 ] as const;
