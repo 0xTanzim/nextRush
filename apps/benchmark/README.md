@@ -514,6 +514,8 @@ apps/benchmark/
 │   ├── registration-cost-child.js# Child harness: boots N controllers, prints { n, bootMs }
 │   ├── smoke-test.js     # Server verification (status + middleware headers)
 │   ├── utils.js          # Thin barrel re-exporting scripts/lib/*
+│   ├── express-bridge-ab.js# RFC-035 A/B/C bridged-path delta harness
+│   ├── express-bridge-ladder.js# RFC-035 cost-isolation ladder harness
 │   ├── alloc/            # Bytes-per-op allocation harnesses (see Allocation Harnesses below)
 │   │   ├── compose-alloc.js compose-alloc-child.js
 │   │   ├── context-alloc.js context-alloc-child.js
@@ -521,6 +523,7 @@ apps/benchmark/
 │   │   ├── context-state-alloc.js context-state-alloc-child.js
 │   │   ├── dispatch-alloc.js dispatch-alloc-child.js
 │   │   ├── handler-alloc.js handler-alloc-child.js
+│   │   ├── native-hello-alloc.js native-hello-alloc-child.js
 │   │   ├── param-match-alloc.js param-match-alloc-child.js
 │   │   ├── router-match-alloc.js router-match-alloc-child.js
 │   │   ├── web-context-alloc.js web-context-alloc-child.js
@@ -548,6 +551,10 @@ apps/benchmark/
 │   ├── nextrush-v3.js    # NextRush v3 (functional path)
 │   ├── nextrush-v3-class.js # NextRush v3 (class/DI path) — mirrors nextrush-v3.js via @Controller
 │   ├── express.js        # Express 5
+│   ├── express-morgan.js # RFC-035 arm C — Express 5 + morgan
+│   ├── express-bridge-morgan.js # RFC-035 arm B — NextRush + compat(morgan)
+│   ├── express-bridge-response-time.js # RFC-035 — NextRush + compat(response-time)
+│   ├── express-bridge-ladder-server.js # RFC-035 cost-ladder parameterized server
 │   ├── fastify.js        # Fastify 5
 │   ├── koa.js            # Koa 3
 │   └── hono.js           # Hono 4

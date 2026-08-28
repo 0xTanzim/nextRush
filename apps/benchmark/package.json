@@ -23,6 +23,9 @@
     "bench:alloc:router": "node scripts/alloc/router-match-alloc.js",
     "bench:alloc:param-match": "node scripts/alloc/param-match-alloc.js",
     "bench:alloc:handler": "node scripts/alloc/handler-alloc.js",
+    "bench:alloc:native-hello": "node scripts/alloc/native-hello-alloc.js",
+    "bench:express-bridge": "node scripts/express-bridge-ab.js",
+    "bench:express-bridge:ladder": "node scripts/express-bridge-ladder.js",
     "bench:alloc:web": "node scripts/alloc/web-context-alloc.js",
     "bench:validate": "node scripts/validate-parity.js",
     "bench:verify": "node scripts/run.js --profile verify --rotate --compare --scenario hello-world",
@@ -43,6 +46,7 @@
     "@nextrush/body-parser": "workspace:*",
     "@nextrush/class": "workspace:*",
     "@nextrush/core": "workspace:*",
+    "@nextrush/express-bridge": "workspace:*",
     "@nextrush/router": "workspace:*",
     "@nextrush/runtime": "workspace:*",
     "@nextrush/static": "workspace:*",
@@ -54,7 +58,9 @@
     "koa": "3.2.1",
     "koa-bodyparser": "4.4.1",
     "koa-router": "14.0.0",
-    "koa-static": "5.0.0"
+    "koa-static": "5.0.0",
+    "morgan": "catalog:",
+    "response-time": "catalog:"
   },
   "engines": {
     "node": ">=22.0.0"

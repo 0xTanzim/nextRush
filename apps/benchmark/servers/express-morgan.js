@@ -1,0 +1,112 @@
+/**
+ * Express + morgan benchmark server — RFC-035 A/B/C arm C.
+ *
+ * The ecosystem baseline: real Express 5 with the native `morgan` logger,
+ * identical scenario shape to arms A (nextrush-v3) and B (bridged morgan).
+ * Used only by the dedicated express-bridge A/B/C comparison (scripts/
+ * express-bridge-ab.js), not the main framework ranking suite.
+ *
+ * Fairness (same rules as `express.js`): x-powered-by disabled, etag disabled
+ * so on-the-wire responses match the NextRush arms byte-for-byte.
+ */
+
+import express from 'express';
+import morgan from 'morgan';
+import { KEEP_ALIVE_TIMEOUT_MS, LISTEN_BACKLOG, LISTEN_HOST } from '../config/constants.js';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+import {
+  ERROR_BODY,
+  ERROR_MESSAGE,
+  HELLO_WORLD,
+  JSON_USER,
+  LARGE_JSON,
+  MIDDLEWARE_BODY,
+  MIDDLEWARE_HEADERS,
+  SEND_OBJECT_BODY,
+  deepRoute,
+  largePostResponse,
+  mwHeaderValue,
+  postUserResponse,
+  searchResponse,
+  userById,
+} from './_shared/payloads.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const PORT = parseInt(process.env.PORT || '8080', 10);
+const app = express();
+app.disable('x-powered-by');
+app.set('etag', false);
+
+// Arm C: native Express `morgan` layer wraps every request.
+app.use(morgan('tiny'));
+const jsonParser = express.json();
+
+app.get('/', (_req, res) => {
+  res.json(HELLO_WORLD);
+});
+app.get('/json', (_req, res) => {
+  res.json(JSON_USER);
+});
+app.get('/large-json', (_req, res) => {
+  res.json(LARGE_JSON);
+});
+
+app.get('/users/:id', (req, res) => {
+  res.json(userById(req.params.id));
+});
+
+app.get('/search', (req, res) => {
+  res.json(searchResponse(req.query.q, req.query.limit));
+});
+
+app.get('/api/v1/orgs/:orgId/teams/:teamId/members/:memberId', (req, res) => {
+  res.json(deepRoute(req.params.orgId, req.params.teamId, req.params.memberId));
+});
+
+app.post('/users', jsonParser, (req, res) => {
+  res.json(postUserResponse(req.body));
+});
+
+app.get('/send-object', (_req, res) => {
+  res.json(SEND_OBJECT_BODY);
+});
+
+const largeJsonParser = express.json({ limit: '5mb' });
+app.post('/large-post', largeJsonParser, (req, res) => {
+  res.json(largePostResponse(Array.isArray(req.body?.items) ? req.body.items.length : 0));
+});
+
+app.use('/static', express.static(join(__dirname, '..', 'public', 'static')));
+
+const middleware = MIDDLEWARE_HEADERS.map((header) => (_req, res, next) => {
+  res.set(header.name, mwHeaderValue(header));
+  next();
+});
+app.get('/middleware', ...middleware, (_req, res) => {
+  res.json(MIDDLEWARE_BODY);
+});
+
+app.get('/error', () => {
+  throw new Error(ERROR_MESSAGE);
+});
+
+app.get('/empty', (_req, res) => {
+  res.status(204).end();
+});
+
+// eslint-disable-next-line no-unused-vars -- Express identifies error middleware by 4 args.
+app.use((_err, _req, res, _next) => {
+  res.status(500).json(ERROR_BODY);
+});
+
+const server = app.listen({ port: PORT, host: LISTEN_HOST, backlog: LISTEN_BACKLOG }, () => {
+  console.log(`Express + morgan listening on http://${LISTEN_HOST}:${PORT}`);
+});
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
+
+const shutdown = () => server.close(() => process.exit(0));
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

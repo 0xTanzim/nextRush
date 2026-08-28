@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-08-21T08:01:43.415Z",
+  "method": "gross-allocation (no mid-loop GC; heapUsed delta / N)",
+  "node": "v26.7.0",
+  "runs": 5,
+  "requestsPerRun": 50000,
+  "maxSemiSpaceSizeMB": 256,
+  "variants": {
+    "native-hello": {
+      "label": "native hello-world (no express-bridge import)",
+      "mean": 568.41,
+      "stddev": 14.62,
+      "min": 551.96528,
+      "max": 583.34224,
+      "cv": 2.57,
+      "values": [
+        567.75392,
+        551.96528,
+        582.88832,
+        556.11568,
+        583.34224
+      ],
+      "rejectedRuns": 0
+    }
+  }
+}
