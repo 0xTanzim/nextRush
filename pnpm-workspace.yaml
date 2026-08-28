@@ -53,3 +53,7 @@ ignoredBuiltDependencies:
   - esbuild
   - sharp
   - unrs-resolver
+
+catalog:
+  morgan: 1.10.0
+  response-time: ^2.3.4
