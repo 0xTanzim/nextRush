@@ -134,15 +134,12 @@ export function GuideAccordion({
 
   // Animate height on open/close. `auto` can't be animated, so we measure the
   // scrollHeight, animate to that, then release to `auto` so content can reflow.
+  // Reduced motion needs no JS handling: global.css disables the panel's
+  // transition and the content's animation under `prefers-reduced-motion`, so
+  // the height jumps below land instantly by CSS alone.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-
-    // Respect reduced-motion: jump to the final state with no transition.
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setHeight(open ? 'auto' : 0);
-      return;
-    }
 
     if (isInitial.current) {
       isInitial.current = false;
