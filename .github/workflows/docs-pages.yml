@@ -17,6 +17,10 @@ concurrency:
 
 permissions:
   contents: read
+  # cloudflare/pages-action@v1 creates a synthetic GitHub "Deployment" record
+  # via POST /repos/{owner}/{repo}/deployments. Without this the action fails
+  # with `403 Resource not accessible by integration`. Least privilege.
+  deployments: write
   pages: write
   id-token: write
 
