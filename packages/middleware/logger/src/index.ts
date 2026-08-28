@@ -2,7 +2,7 @@
  * @nextrush/logger - Request logging middleware for NextRush
  *
  * This package wraps @nextrush/log and provides:
- * - Re-exports of all @nextrush/log functionality
+ * - Re-exports of the @nextrush/log v0.3 public surface
  * - Request logging middleware for NextRush applications
  * - Automatic correlation ID handling
  * - Context-attached logger for request handlers
@@ -32,55 +32,51 @@
  */
 
 // ============================================================================
-// Re-export everything from @nextrush/log
+// Re-export the @nextrush/log v0.3 public surface
 // ============================================================================
 
 export {
-    addGlobalTransport,
-    clearGlobalTransports, compareLevels,
-    // Configuration
-    configure,
-    configureFromEnv, containsSensitivePattern, createBatchTransport,
-    // Transports
-    createConsoleTransport, createContextMiddleware, createFilteredTransport,
-    // Core
-    createLogger, createNamespaceRateLimitedTransport, createPredicateTransport,
-    createRateLimitedTransport, DEFAULT_SENSITIVE_KEYS, logger as defaultLogger,
-    // Runtime
-    detectRuntime, disableLogging, disableNamespaces, enableLogging, enableNamespaces,
-    // Formatters
-    formatJSON,
-    formatPrettyJSON,
-    formatPrettyTerminal, formatPrettyTimestamp,
-    // Utilities
-    formatTimestamp, getAsyncContext,
-    getContextCorrelationId,
-    getContextMetadata, getEnvVar, getGlobalConfig, getProcessId, getRuntime, getTime, isAsyncContextAvailable, isError, isNamespaceEnabled, isProductionBuild, isValidLogLevel, log, LOG_LEVEL_PRIORITY,
-    // Levels
-    LOG_LEVELS, Logger, mergeSensitiveKeys, onConfigChange, parseLogLevel, redactSensitiveValues, resetGlobalConfig,
-    // Context (AsyncLocalStorage)
-    runWithContext,
-    // Serializers
-    safeSerialize, sanitizeContext, scopedLogger, serializeError, setGlobalLevel, shouldLog, shouldRedact, type AsyncLogContext,
-    // Types
-    type BatchTransport,
-    type BatchTransportOptions, type GlobalLoggerConfig, type ILogger,
-    type LogContext,
-    type LogEntry,
-    type LoggerOptions,
-    type LogLevel,
-    type LogTransport, type NamespaceRateLimits, type PerformanceMetrics, type RateLimitOptions,
-    type RateLimitStats, type RuntimeEnvironment,
-    type RuntimeInfo,
-    type SerializedError,
-    type Timer
+  // Core / config
+  addGlobalTransport,
+  configure,
+  createLogger,
+  disableLogging,
+  log,
+  // Transports
+  createBatchTransport,
+  createFilteredTransport,
+  createRateLimitedTransport,
+  // Async context
+  createContextMiddleware,
+  getAsyncContext,
+  runWithContext,
+  // Types
+  type AsyncLogContext,
+  type BatchTransport,
+  type BatchTransportOptions,
+  type GlobalLoggerConfig,
+  type ILogger,
+  type LogContext,
+  type LogEntry,
+  type Logger,
+  type LoggerOptions,
+  type LogLevel,
+  type LogTransport,
+  type NamespaceRateLimits,
+  type PerformanceMetrics,
+  type RateLimitOptions,
+  type RateLimitStats,
+  type RuntimeEnvironment,
+  type RuntimeInfo,
+  type SerializedError,
+  type Timer,
 } from '@nextrush/log';
 
 // ============================================================================
 // NextRush-specific Types
 // ============================================================================
 
-import { createLogger, isProductionBuild, type ILogger, type LoggerOptions, type LogLevel } from '@nextrush/log';
+import { createLogger, type ILogger, type LoggerOptions, type LogLevel } from '@nextrush/log';
 import type { Context, Middleware } from '@nextrush/types';
 
 /**
@@ -151,6 +147,14 @@ export interface LoggerMiddlewareOptions extends LoggerOptions {
   logRequestStart?: boolean;
 
   /**
+   * Runtime environment used to derive the `logRequestStart` default
+   * (development → on, production → off). Explicit `logRequestStart` wins.
+   * A Web-standard, edge-portable signal — never reads `process.env`.
+   * @default 'development'
+   */
+  environment?: 'development' | 'production';
+
+  /**
    * Header name for correlation ID
    * @default 'x-request-id'
    */
@@ -197,12 +201,14 @@ function getCorrelationIdFromHeaders(
   ctx: Context,
   headerName: string,
 ): string | undefined {
-  // Safety check for undefined headers
-  if (!ctx.headers || typeof ctx.headers !== 'object') {
+  // Safety check for undefined/null headers. The type says non-null, but a
+  // caller can (and a regression test does) pass null at runtime.
+  const headers = ctx.headers as unknown;
+  if (typeof headers !== 'object' || headers === null) {
     return undefined;
   }
 
-  const value = ctx.headers[headerName.toLowerCase()];
+  const value = (headers as Record<string, string | string[] | undefined>)[headerName.toLowerCase()];
   if (typeof value === 'string' && value.length > 0) {
     return value;
   }
@@ -277,7 +283,8 @@ export function logger(options: LoggerMiddlewareOptions = {}): Middleware {
     successLevel = 'info',
     clientErrorLevel = 'warn',
     serverErrorLevel = 'error',
-    logRequestStart = !isProductionBuild(),
+    environment = 'development',
+    logRequestStart = environment !== 'production',
     correlationIdHeader = 'x-request-id',
     generateCorrelationId: shouldGenerateId = true,
     context: loggerContext = 'nextrush',
@@ -354,7 +361,7 @@ export function logger(options: LoggerMiddlewareOptions = {}): Middleware {
 
       // Add query params if present
       if (Object.keys(ctx.query).length > 0) {
-        logData['query'] = ctx.query;
+        logData.query = ctx.query;
       }
 
       // Add error if present
@@ -443,7 +450,8 @@ export function attachLogger(options: LoggerMiddlewareOptions = {}): Middleware 
  * Type guard to check if context has logger attached
  */
 export function hasLogger(ctx: Context): ctx is LoggerContext {
-  return 'log' in ctx && typeof (ctx as LoggerContext).log?.info === 'function';
+  const log = (ctx as Partial<LoggerContext>).log;
+  return typeof log?.info === 'function';
 }
 
 /**

@@ -7,7 +7,8 @@
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as loggerApi from '../index';
-import { DEFAULT_SENSITIVE_KEYS, LOG_LEVEL_PRIORITY, LOG_LEVELS, Logger } from '../index';
+import { log, createLogger, configure } from '../index';
+import * as logApi from '@nextrush/log';
 import type { LoggerContext, LoggerMiddlewareOptions } from '../index';
 import type {
   AsyncLogContext,
@@ -17,6 +18,7 @@ import type {
   ILogger,
   LogContext,
   LogEntry,
+  Logger,
   LoggerOptions,
   LogLevel,
   LogTransport,
@@ -34,66 +36,22 @@ describe('Public API surface (runtime exports)', () => {
   it('exports exactly the intended runtime symbols', () => {
     const actualExports = Object.keys(loggerApi).sort();
 
-    // SEALED: intentional public runtime API surface — re-exports everything
-    // from @nextrush/log plus NextRush-specific middleware/helpers.
+    // SEALED: intentional public runtime API surface — the v0.3-aligned
+    // @nextrush/log survivors the middleware adds value to, plus the
+    // NextRush-specific middleware/helpers.
     const expectedRuntime = [
-      // Re-exported from @nextrush/log
+      // Re-exported from @nextrush/log (v0.3 surface)
       'addGlobalTransport',
-      'clearGlobalTransports',
-      'compareLevels',
       'configure',
-      'configureFromEnv',
-      'containsSensitivePattern',
       'createBatchTransport',
-      'createConsoleTransport',
       'createContextMiddleware',
       'createFilteredTransport',
       'createLogger',
-      'createNamespaceRateLimitedTransport',
-      'createPredicateTransport',
       'createRateLimitedTransport',
-      'DEFAULT_SENSITIVE_KEYS',
-      'defaultLogger',
-      'detectRuntime',
       'disableLogging',
-      'disableNamespaces',
-      'enableLogging',
-      'enableNamespaces',
-      'formatJSON',
-      'formatPrettyJSON',
-      'formatPrettyTerminal',
-      'formatPrettyTimestamp',
-      'formatTimestamp',
       'getAsyncContext',
-      'getContextCorrelationId',
-      'getContextMetadata',
-      'getEnvVar',
-      'getGlobalConfig',
-      'getProcessId',
-      'getRuntime',
-      'getTime',
-      'isAsyncContextAvailable',
-      'isError',
-      'isNamespaceEnabled',
-      'isProductionBuild',
-      'isValidLogLevel',
       'log',
-      'LOG_LEVEL_PRIORITY',
-      'LOG_LEVELS',
-      'Logger',
-      'mergeSensitiveKeys',
-      'onConfigChange',
-      'parseLogLevel',
-      'redactSensitiveValues',
-      'resetGlobalConfig',
       'runWithContext',
-      'safeSerialize',
-      'sanitizeContext',
-      'scopedLogger',
-      'serializeError',
-      'setGlobalLevel',
-      'shouldLog',
-      'shouldRedact',
 
       // NextRush-specific
       'logger',
@@ -103,10 +61,31 @@ describe('Public API surface (runtime exports)', () => {
     ].sort();
 
     expect(actualExports).toEqual(expectedRuntime);
-    expect(typeof DEFAULT_SENSITIVE_KEYS === 'object').toBe(true);
-    expect(typeof LOG_LEVEL_PRIORITY).toBe('object');
-    expect(typeof LOG_LEVELS).toBe('object');
-    expect(typeof Logger).toBe('function');
+    expect(typeof log).toBe('object');
+    expect(typeof createLogger).toBe('function');
+    expect(typeof configure).toBe('function');
+  });
+
+  it('locks re-exports against the installed @nextrush/log surface (link guard)', () => {
+    // Every symbol re-exported by the middleware barrel from @nextrush/log must
+    // actually exist on the installed dependency. A future @nextrush/log
+    // breaking change fails HERE, at test time — not as a cold build failure.
+    const reexportedFromLog = [
+      'addGlobalTransport',
+      'configure',
+      'createBatchTransport',
+      'createContextMiddleware',
+      'createFilteredTransport',
+      'createLogger',
+      'createRateLimitedTransport',
+      'disableLogging',
+      'getAsyncContext',
+      'log',
+      'runWithContext',
+    ];
+    for (const symbol of reexportedFromLog) {
+      expect(symbol in logApi, `@nextrush/log no longer exports "${symbol}"`).toBe(true);
+    }
   });
 });
 
