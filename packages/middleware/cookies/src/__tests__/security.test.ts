@@ -64,8 +64,15 @@ describe('Cookie Tampering Prevention', () => {
     const secret = 'super-secret-key-123';
     const signed = await signCookie('session', 'user:admin', secret);
 
-    // Tamper with the signature
-    const tampered = signed.slice(0, -1) + 'X';
+    // Tamper with the signature. The replacement must DIFFER from the current
+    // final character — the signature is deterministic (value.issuedAt.HMAC),
+    // so a blind 'X' would be a no-op whenever the signature happens to end
+    // in 'X', making verification legitimately succeed (observed flake).
+    const lastChar = signed.slice(-1);
+    const replacement = lastChar === 'X' ? 'Y' : 'X';
+    const tampered = signed.slice(0, -1) + replacement;
+    expect(tampered).not.toBe(signed);
+
     const result = await unsignCookie('session', tampered, secret);
 
     expect(result).toBeUndefined();
