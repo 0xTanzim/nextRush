@@ -93,7 +93,13 @@ describe('unsignCookie expiry and rejection branches not covered elsewhere', () 
 
   it('rejects a tampered signature without throwing', async () => {
     const signed = await signCookie('session', 'value', 'secret');
-    const tampered = `${signed.slice(0, -1)}0`;
+    // The replacement must differ from the current final character — the HMAC is
+    // deterministic, so a blind substitution is a no-op whenever the signature
+    // already ends in that character (observed flake under act/CI).
+    const lastChar = signed.slice(-1);
+    const replacement = lastChar === '0' ? '1' : '0';
+    const tampered = `${signed.slice(0, -1)}${replacement}`;
+    expect(tampered).not.toBe(signed);
     await expect(unsignCookie('session', tampered, 'secret')).resolves.toBeUndefined();
   });
 });
