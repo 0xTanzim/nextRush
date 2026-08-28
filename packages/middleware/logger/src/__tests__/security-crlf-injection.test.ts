@@ -11,7 +11,7 @@
 
 import type { Context } from '@nextrush/types';
 import { describe, expect, it, vi } from 'vitest';
-import { Logger, logger, type LoggerContext } from '../index';
+import { logger, type LogEntry, type LoggerContext } from '../index';
 
 function createMockContext(overrides: Partial<Context> = {}): Context {
   const headers: Record<string, string | string[] | undefined> = {};
@@ -47,47 +47,45 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
 
 describe('logger() middleware — CRLF / log-forging surface (audit-unreviewed-security-surface, 6.1/6.2)', () => {
   it('passes a raw \\r\\n-bearing ctx.path straight into the default log message, unsanitized', async () => {
-    const infoSpy = vi.spyOn(Logger.prototype, 'info');
+    const captured: LogEntry[] = [];
     const forgedPath = '/legit\r\n[FAKE] 2024-01-01 ERROR admin deleted all users\r\n/still-attacker';
 
     const ctx = createMockContext({ path: forgedPath });
-    const middleware = logger({ silent: true });
+    const middleware = logger({
+      silent: true,
+      transports: [(entry) => void captured.push(entry)],
+    });
 
     await middleware(ctx, async () => {});
 
-    const call = infoSpy.mock.calls.find(([msg]) => typeof msg === 'string' && msg.includes(forgedPath));
-    expect(call).toBeDefined();
-    const [message] = call!;
+    const entry = captured.find((e) => typeof e.message === 'string' && e.message.includes(forgedPath));
+    expect(entry).toBeDefined();
     // The finding: the message contains the raw, un-stripped CR/LF bytes.
     // @nextrush/logger performs no sanitization before handing this string to
     // the (external, out-of-scope) @nextrush/log transport — a plain-text
     // transport would render the embedded \r\n as literal newlines, letting
     // the request forge additional, fake-looking log lines.
-    expect(message).toContain('\r\n');
-    expect(message).toBe(`GET ${forgedPath}`);
-
-    infoSpy.mockRestore();
+    expect(entry!.message).toContain('\r\n');
+    expect(entry!.message).toBe(`GET ${forgedPath}`);
   });
 
   it('passes raw \\r\\n-bearing query values into logData unsanitized', async () => {
-    const infoSpy = vi.spyOn(Logger.prototype, 'info');
+    const captured: LogEntry[] = [];
     const forgedQueryValue = 'x\r\n[FAKE] admin escalated privileges';
 
     const ctx = createMockContext({ query: { redirect: forgedQueryValue } });
-    const middleware = logger({ silent: true });
+    const middleware = logger({
+      silent: true,
+      transports: [(entry) => void captured.push(entry)],
+    });
 
     await middleware(ctx, async () => {});
 
-    const call = infoSpy.mock.calls.find(
-      ([, data]) => typeof data === 'object' && data !== null && 'query' in data
-    );
-    expect(call).toBeDefined();
-    const [, logData] = call!;
-    const query = (logData as { query: Record<string, string> }).query;
+    const entry = captured.find((e) => e.data && 'query' in e.data);
+    expect(entry).toBeDefined();
+    const query = (entry!.data as { query: Record<string, string> }).query;
     expect(query['redirect']).toBe(forgedQueryValue);
     expect(query['redirect']).toContain('\r\n');
-
-    infoSpy.mockRestore();
   });
 
   it('a custom formatMessage receives the same unsanitized ctx.path (confirms the gap is upstream of any user hook)', async () => {

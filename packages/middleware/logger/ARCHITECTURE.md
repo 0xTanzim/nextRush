@@ -80,7 +80,7 @@ flowchart TB
 
 ## Overview
 
-`@nextrush/logger` is a thin request-logging layer over a separate logging engine, `@nextrush/log`, published and versioned independently of this monorepo (confirmed via `pnpm-lock.yaml`, which resolves it to a concrete `@nextrush/log@0.2.1`, not a `workspace:*` reference). The package's `src/index.ts` has two halves: the first re-exports the entirety of `@nextrush/log`'s public API unchanged, so application code can depend on `@nextrush/logger` alone; the second half — `logger()`, `attachLogger()`, `hasLogger()`, `getLogger()`, and their supporting helpers — is the actual middleware logic this package contributes.
+`@nextrush/logger` is a thin request-logging layer over a separate logging engine, `@nextrush/log`, published and versioned independently of this monorepo (confirmed via `pnpm-lock.yaml`, which resolves it to a concrete `@nextrush/log@0.3.0`, not a `workspace:*` reference). The package's `src/index.ts` has two halves: the first re-exports the stable public surface `@nextrush/log@0.3` (its surviving values and types; removed v0.2 internal helpers are deliberately NOT re-exported — see the README migration notes), so application code can depend on `@nextrush/logger` alone; the second half — `logger()`, `attachLogger()`, `hasLogger()`, `getLogger()`, and their supporting helpers — is the actual middleware logic this package contributes.
 
 The organizing idea is a strict separation of concerns: this package decides *when* and *with what request-derived fields* to log (correlation ID, method, path, status, duration, level-per-status-code), while `@nextrush/log` decides *how* a log entry is serialized, formatted, redacted, and emitted. Nothing in `logger()`'s implementation touches formatting, redaction key lists, or transport wiring directly — it calls `createLogger()` once per middleware instance and then only ever calls `.debug()`/`.info()`/`.warn()`/`.error()`/`.trace()`/`.fatal()` on the resulting logger, passing plain data objects. Everything downstream of that call is `@nextrush/log`'s responsibility.
 
@@ -198,7 +198,7 @@ The two facts a reader would otherwise miss: **redaction and format selection bo
 | `baseLogger` (closure inside `logger()`/`attachLogger()`) | The base `Logger` instance created once per middleware registration via `createLogger(loggerContext, loggerOptions)` | app (one instance per `app.use(logger(...))` call, shared across all requests it handles) |
 | `requestLogger` (local variable per request) | A child logger with the request's correlation ID bound in, created fresh via `baseLogger.withCorrelationId(...)` | per request |
 | `ctx.log` (owned by `Context`, written by this middleware) | The reference to `requestLogger` for the current request | per request |
-| `@nextrush/log`'s global config (`GlobalLoggerConfig`) | Process-wide enabled/disabled state, global transports, namespace filters — configured via `configure()`/`configureFromEnv()`, re-exported but not owned by this package | process-wide, owned by `@nextrush/log` |
+| `@nextrush/log`'s global config (`GlobalLoggerConfig`) | Process-wide enabled/disabled state, global transports, namespace filters — configured via `configure()` (and, when `@nextrush/log` exposes it, `configureFromEnv()`), re-exported but not owned by this package | process-wide, owned by `@nextrush/log` |
 
 ## Concurrency & edge behaviour
 

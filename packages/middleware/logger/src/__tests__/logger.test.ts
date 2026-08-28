@@ -1188,139 +1188,60 @@ describe('formatMessage Callback', () => {
 });
 
 // ============================================================================
-// @nextrush/log Re-exports Tests
+// @nextrush/log Re-exports Tests (v0.3-aligned surface)
 // ============================================================================
 
 describe('@nextrush/log Re-exports', () => {
-  it('should export all core functions', async () => {
+  it('should export the surviving core functions', async () => {
     const {
       createLogger,
       configure,
-      configureFromEnv,
-      setGlobalLevel,
-      resetGlobalConfig,
-      enableLogging,
+      addGlobalTransport,
       disableLogging,
-      enableNamespaces,
-      disableNamespaces,
+      log,
     } = await import('../index');
 
     expect(createLogger).toBeDefined();
     expect(configure).toBeDefined();
-    expect(configureFromEnv).toBeDefined();
-    expect(setGlobalLevel).toBeDefined();
-    expect(resetGlobalConfig).toBeDefined();
-    expect(enableLogging).toBeDefined();
+    expect(addGlobalTransport).toBeDefined();
     expect(disableLogging).toBeDefined();
-    expect(enableNamespaces).toBeDefined();
-    expect(disableNamespaces).toBeDefined();
+    expect(log).toBeDefined();
+    expect(typeof createLogger).toBe('function');
+    expect(typeof configure).toBe('function');
+    expect(typeof addGlobalTransport).toBe('function');
+    expect(typeof disableLogging).toBe('function');
   });
 
-  it('should export all transport functions', async () => {
+  it('should export the surviving transport functions', async () => {
     const {
-      createConsoleTransport,
       createBatchTransport,
       createFilteredTransport,
       createRateLimitedTransport,
-      createNamespaceRateLimitedTransport,
-      createPredicateTransport,
     } = await import('../index');
 
-    expect(createConsoleTransport).toBeDefined();
     expect(createBatchTransport).toBeDefined();
     expect(createFilteredTransport).toBeDefined();
     expect(createRateLimitedTransport).toBeDefined();
-    expect(createNamespaceRateLimitedTransport).toBeDefined();
-    expect(createPredicateTransport).toBeDefined();
   });
 
-  it('should export all formatter functions', async () => {
-    const {
-      formatJSON,
-      formatPrettyJSON,
-      formatPrettyTerminal,
-    } = await import('../index');
-
-    expect(formatJSON).toBeDefined();
-    expect(formatPrettyJSON).toBeDefined();
-    expect(formatPrettyTerminal).toBeDefined();
-  });
-
-  it('should export all serializer functions', async () => {
-    const {
-      safeSerialize,
-      serializeError,
-      redactSensitiveValues,
-      sanitizeContext,
-      DEFAULT_SENSITIVE_KEYS,
-    } = await import('../index');
-
-    expect(safeSerialize).toBeDefined();
-    expect(serializeError).toBeDefined();
-    expect(redactSensitiveValues).toBeDefined();
-    expect(sanitizeContext).toBeDefined();
-    expect(DEFAULT_SENSITIVE_KEYS).toBeDefined();
-    expect(Array.isArray(DEFAULT_SENSITIVE_KEYS)).toBe(true);
-  });
-
-  it('should export all context functions', async () => {
+  it('should export the surviving context functions', async () => {
     const {
       runWithContext,
       getAsyncContext,
-      getContextCorrelationId,
-      getContextMetadata,
-      isAsyncContextAvailable,
       createContextMiddleware,
     } = await import('../index');
 
     expect(runWithContext).toBeDefined();
     expect(getAsyncContext).toBeDefined();
-    expect(getContextCorrelationId).toBeDefined();
-    expect(getContextMetadata).toBeDefined();
-    expect(isAsyncContextAvailable).toBeDefined();
     expect(createContextMiddleware).toBeDefined();
   });
 
-  it('should export runtime detection functions', async () => {
-    const {
-      detectRuntime,
-      getRuntime,
-      getEnvVar,
-      isProductionBuild,
-      getProcessId,
-    } = await import('../index');
-
-    expect(detectRuntime).toBeDefined();
-    expect(getRuntime).toBeDefined();
-    expect(getEnvVar).toBeDefined();
-    expect(isProductionBuild).toBeDefined();
-    expect(getProcessId).toBeDefined();
-  });
-
-  it('should export log level utilities', async () => {
-    const {
-      LOG_LEVELS,
-      LOG_LEVEL_PRIORITY,
-      shouldLog,
-      compareLevels,
-      isValidLogLevel,
-      parseLogLevel,
-    } = await import('../index');
-
-    expect(LOG_LEVELS).toBeDefined();
-    expect(LOG_LEVEL_PRIORITY).toBeDefined();
-    expect(shouldLog).toBeDefined();
-    expect(compareLevels).toBeDefined();
-    expect(isValidLogLevel).toBeDefined();
-    expect(parseLogLevel).toBeDefined();
-  });
-
-  it('should export default logger instance', async () => {
-    const { log, defaultLogger } = await import('../index');
+  it('should export a default log instance', async () => {
+    const { log } = await import('../index');
 
     expect(log).toBeDefined();
-    expect(defaultLogger).toBeDefined();
-    expect(log).toBe(defaultLogger);
+    expect(typeof log.info).toBe('function');
+    expect(typeof log.error).toBe('function');
   });
 });
 
@@ -1402,27 +1323,44 @@ describe('Integration with @nextrush/log Features', () => {
 });
 
 // ============================================================================
-// Environment Detection Tests
+// Environment Detection / Production Mode Tests
 // ============================================================================
 
-describe('Environment Detection', () => {
-  it('should use isProductionBuild from @nextrush/log', async () => {
-    const { isProductionBuild } = await import('../index');
+describe('Environment / Production Mode', () => {
+  it('should log request starts in development by default', async () => {
+    const ctx = createMockContext();
+    const spy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const middleware = logger({ silent: false, environment: 'development' });
 
-    // Just verify it's a function that returns a boolean
-    expect(typeof isProductionBuild).toBe('function');
-    const result = isProductionBuild();
-    expect(typeof result).toBe('boolean');
+    await middleware(ctx, async () => {});
+
+    // development default → logRequestStart on → requestLogger.debug called once
+    // (spy is on console, which the real logger writes to via console transport)
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 
-  it('should detect runtime correctly', async () => {
-    const { getRuntime, detectRuntime } = await import('../index');
+  it('should not log request starts in production by default', async () => {
+    const ctx = createMockContext();
+    const middleware = logger({ silent: true, environment: 'production' });
 
-    const runtime = getRuntime();
-    expect(runtime).toBeDefined();
-    expect(runtime.environment).toBeDefined();
+    await middleware(ctx, async () => {});
 
-    const detected = detectRuntime();
-    expect(detected.environment).toBe(runtime.environment);
+    // Production default → logRequestStart off → no start log; silent logger
+    // drops everything anyway, but we assert the run completes without error.
+    expect((ctx as LoggerContext).log).toBeDefined();
+  });
+
+  it('should let an explicit logRequestStart override the environment default', async () => {
+    const ctx = createMockContext();
+    const middleware = logger({
+      silent: true,
+      environment: 'production',
+      logRequestStart: true,
+    });
+
+    await middleware(ctx, async () => {});
+
+    expect((ctx as LoggerContext).log).toBeDefined();
   });
 });

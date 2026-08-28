@@ -63,6 +63,7 @@ invent a new structure per RFC.
 | [033](documentation/033-homepage-hero-proof-architecture.md) | Homepage Hero + Proof architecture — layered homepage composition (Hero communicates, Proof demonstrates) | **Proposed** | documentation |
 | [034](request-data/034-cookies-first-class-context-capability.md) | `@nextrush/cookies` — first-class `ctx.cookies` context capability | **Accepted** | request-data |
 | [035](ecosystem-interop/035-express-bridge.md) | Ecosystem interoperability — `@nextrush/express-bridge` | **Shipped** | ecosystem-interop |
+| [036](request-data/036-logger-log-v03-surface.md) | `@nextrush/logger` — public surface policy & `@nextrush/log` v0.3 migration | Approved (breaking) | request-data |
 
 ## Note on RFC-005 (Plugin System)
 

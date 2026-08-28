@@ -1,6 +1,6 @@
 # @nextrush/logger
 
-> Request logging middleware for NextRush -- attaches a correlation-ID-aware logger to every request context and re-exports the full @nextrush/log API.
+> Request logging middleware for NextRush -- attaches a correlation-ID-aware logger to every request context and re-exports the `@nextrush/log` v0.3 public surface.
 
 [![npm version](https://img.shields.io/npm/v/@nextrush/logger.svg)](https://www.npmjs.com/package/@nextrush/logger)
 [![downloads](https://img.shields.io/npm/dm/@nextrush/logger.svg)](https://www.npmjs.com/package/@nextrush/logger)
@@ -64,7 +64,7 @@ app.use(async (ctx, next) => {
 
 **Reach for something else if:**
 
-- You only need application-level logging with no request middleware or correlation-ID wiring -- install [`@nextrush/log`](https://www.npmjs.com/package/@nextrush/log) directly; this package re-exports it in full but adds a request layer on top
+- You only need application-level logging with no request middleware or correlation-ID wiring -- install [`@nextrush/log`](https://www.npmjs.com/package/@nextrush/log) directly; this package re-exports its stable v0.3 surface but adds a request layer on top
 - You need response-time headers on the wire (`X-Response-Time`) rather than log lines -- see [`@nextrush/timer`](../timer)
 - You need the correlation ID itself generated/propagated as a header for services that don't log -- see [`@nextrush/request-id`](../request-id); the two packages solve overlapping but distinct problems and can be used together
 
@@ -118,7 +118,7 @@ Every request now gets a correlation ID (generated, or read from `x-request-id` 
 - `hasLogger()` / `getLogger()` give a safe way to read `ctx.log` when a handler can't be sure the middleware ran first
 
 **Re-exported logging engine (`@nextrush/log`)**
-- Every export of `@nextrush/log` -- `createLogger`, transports, formatters, serializers, redaction utilities, runtime detection, `AsyncLocalStorage`-based context propagation -- is re-exported from this package's entry point, so application code depends on one package instead of two
+- Every stable export of `@nextrush/log` v0.3 -- `createLogger`, `log`, `configure`, transports, async-context helpers, and the surviving types -- is re-exported from this package's entry point, so application code depends on one package instead of two. Internal/removed v0.2 helpers are intentionally **not** re-exported (see [Migration notes](#migration-notes-@nextrushlog-v0.3)).
 
 ## Mental model
 
@@ -202,7 +202,7 @@ app.use(logger({
 
 ## API overview
 
-The sealed public surface (ADR-0005). Everything from `@nextrush/log` is also re-exported in full;
+The sealed public surface (ADR-0005). The stable `@nextrush/log` v0.3 exports are re-exported;
 only this package's own additions are listed here -- see [Re-exports from @nextrush/log](#re-exports-from-nextrushlog).
 
 | Export | Signature | Since | Stability | Description |
@@ -212,11 +212,32 @@ only this package's own additions are listed here -- see [Re-exports from @nextr
 | `hasLogger` | `(ctx: Context) => ctx is LoggerContext` | 1.0.0 | Stable | Type guard for whether `ctx.log` is present and looks like a logger. |
 | `getLogger` | `(ctx: Context, fallbackContext?: string) => ILogger` | 1.0.0 | Stable | Returns `ctx.log` if present, else a fresh logger for `fallbackContext` (default `'nextrush'`). |
 | `type LoggerContext` | `Context & { log: ILogger }` | 1.0.0 | Stable | `Context` narrowed to include `log`. |
-| `type LoggerMiddlewareOptions` | `LoggerOptions & { skip?, formatMessage?, successLevel?, clientErrorLevel?, serverErrorLevel?, logRequestStart?, correlationIdHeader?, generateCorrelationId?, context? }` | 1.0.0 | Stable | Options for `logger()`/`attachLogger()`. Extends `@nextrush/log`'s `LoggerOptions`. |
+| `type LoggerMiddlewareOptions` | `LoggerOptions & { skip?, formatMessage?, successLevel?, clientErrorLevel?, serverErrorLevel?, logRequestStart?, environment?, correlationIdHeader?, generateCorrelationId?, context? }` | 1.0.0 | Stable | Options for `logger()`/`attachLogger()`. Extends `@nextrush/log`'s `LoggerOptions`. |
 
 ### Re-exports from @nextrush/log
 
-`createLogger`, `logger as defaultLogger`, `log`, `Logger`, `configure`, `configureFromEnv`, `setGlobalLevel`, `enableLogging`, `disableLogging`, `enableNamespaces`, `disableNamespaces`, `createConsoleTransport`, `createBatchTransport`, `createFilteredTransport`, `createPredicateTransport`, `createRateLimitedTransport`, `createNamespaceRateLimitedTransport`, `addGlobalTransport`, `clearGlobalTransports`, `formatJSON`, `formatPrettyJSON`, `formatPrettyTerminal`, `formatTimestamp`, `formatPrettyTimestamp`, `safeSerialize`, `serializeError`, `isError`, `redactSensitiveValues`, `containsSensitivePattern`, `shouldRedact`, `mergeSensitiveKeys`, `sanitizeContext`, `DEFAULT_SENSITIVE_KEYS`, `detectRuntime`, `getRuntime`, `getEnvVar`, `isProductionBuild`, `getProcessId`, `runWithContext`, `getAsyncContext`, `getContextCorrelationId`, `getContextMetadata`, `isAsyncContextAvailable`, `createContextMiddleware`, `shouldLog`, `compareLevels`, `isValidLogLevel`, `parseLogLevel`, `LOG_LEVELS`, `LOG_LEVEL_PRIORITY`, plus every type (`LogLevel`, `LogEntry`, `LogContext`, `LoggerOptions`, `ILogger`, `LogTransport`, `RuntimeEnvironment`, `RuntimeInfo`, `SerializedError`, `PerformanceMetrics`, `Timer`, `BatchTransport`, `BatchTransportOptions`, `AsyncLogContext`, `RateLimitOptions`, `RateLimitStats`, `NamespaceRateLimits`). See [`@nextrush/log`](https://www.npmjs.com/package/@nextrush/log) for full documentation of these.
+`log`, `createLogger`, `configure`, `addGlobalTransport`, `disableLogging`, `createBatchTransport`, `createFilteredTransport`, `createRateLimitedTransport`, `createContextMiddleware`, `getAsyncContext`, `runWithContext`, plus the surviving types (`LogLevel`, `LogEntry`, `LogContext`, `LoggerOptions`, `ILogger`, `Logger`, `LogTransport`, `RuntimeEnvironment`, `RuntimeInfo`, `SerializedError`, `PerformanceMetrics`, `Timer`, `BatchTransport`, `BatchTransportOptions`, `AsyncLogContext`, `GlobalLoggerConfig`, `RateLimitOptions`, `RateLimitStats`, `NamespaceRateLimits`). See [`@nextrush/log`](https://www.npmjs.com/package/@nextrush/log) for full documentation of these.
+
+### Migration notes (`@nextrush/log` v0.3)
+
+`@nextrush/log` v0.3.0 (2026-07-06) removed ~40 previously-exported internal helpers --
+`serializeError`, `safeSerialize`, `shouldLog`, `compareLevels`, `isValidLogLevel`,
+`parseLogLevel`, `LOG_LEVELS`, `LOG_LEVEL_PRIORITY`, `formatJSON`, `formatPrettyJSON`,
+`detectRuntime`, `getRuntime`, `getEnvVar`, `getProcessId`, `isProductionBuild`,
+`scopedLogger`, `createConsoleTransport`, `createPredicateTransport`,
+`createNamespaceRateLimitedTransport`, `clearGlobalTransports`, and others (see that
+package's CHANGELOG for the full list and migration guidance). This package no longer
+re-exports any of them, and its `logRequestStart` default no longer calls
+`isProductionBuild()`.
+
+- **If you imported removed helpers from `@nextrush/logger`:** switch to the surviving
+  API. `createLogger(name)` + `log` cover logger acquisition; transports/serializers
+  that remain are exported. Anything audit-removed is internal plumbing `@nextrush/log`
+  no longer exposes.
+- **`isProductionBuild()` → `environment` option:** the middleware's production default
+  is now derived from an explicit `environment?: 'development' | 'production'` option
+  (default `'development'`), which is edge-portable and never reads `process.env`. Set
+  `environment: 'production'` when deploying; an explicit `logRequestStart` still wins.
 
 ## Options
 
@@ -229,7 +250,8 @@ Every default below is read directly from `src/index.ts` (this package) or `@nex
 | `successLevel` | `LogLevel` | No | `'info'` | No | Level used for 2xx/3xx completion logs. |
 | `clientErrorLevel` | `LogLevel` | No | `'warn'` | No | Level used for 4xx completion logs. |
 | `serverErrorLevel` | `LogLevel` | No | `'error'` | No | Level used for 5xx completion logs. |
-| `logRequestStart` | `boolean` | No | `!isProductionBuild()` | No | Whether a `debug`-level "Request started" line is logged before `next()`. |
+| `logRequestStart` | `boolean` | No | `environment !== 'production'` | No | Whether a `debug`-level "Request started" line is logged before `next()`. |
+| `environment` | `'development' \| 'production'` | No | `'development'` | No | Derives the `logRequestStart` default (development → on, production → off); explicit `logRequestStart` wins. Edge-portable -- never reads `process.env`. |
 | `correlationIdHeader` | `string` | No | `'x-request-id'` | No | Header name read for an incoming correlation ID, and written back on the response. |
 | `generateCorrelationId` | `boolean` | No | `true` | No | Whether to generate a correlation ID (via `crypto.randomUUID()`, falling back to timestamp+random) when the header is absent. |
 | `context` | `string` | No | `'nextrush'` | No | The logger context/name prefix passed to `createLogger()`. |
@@ -302,7 +324,7 @@ Every default below is read directly from `src/index.ts` (this package) or `@nex
 ## FAQ
 
 **Can I use `@nextrush/log` without the middleware?**
-Yes -- install `@nextrush/log` directly for application-level logging with no request/correlation-ID layer. This package is a superset: everything `@nextrush/log` exports is re-exported here too, so most applications only need to depend on `@nextrush/logger`.
+Yes -- install `@nextrush/log` directly for application-level logging with no request/correlation-ID layer. This package re-exports `@nextrush/log`'s stable v0.3 surface (the surviving values and types), so most applications only need to depend on `@nextrush/logger`; removed v0.2 internal helpers are not re-exported (see [Migration notes](#migration-notes-@nextrushlog-v0.3)).
 
 **Is sensitive data redacted from logs automatically?**
 Yes, but only by default in production. `@nextrush/log`'s `redact` option (re-exported and configurable through this package's `logger()`/`attachLogger()` options) defaults to `true` in production and `false` in development/test, and applies both key-based matching (~60 default sensitive key names, extendable via `sensitiveKeys`) and pattern-based matching (SSN, credit-card, and bank-account-shaped strings) to logged data. See [Architecture](#architecture) for exactly where this runs in the request lifecycle.
