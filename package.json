@@ -36,6 +36,8 @@
     "version": "pnpm validate:changeset-baselines && pnpm verify:release-state && changeset version",
     "release:check": "pnpm verify:release-state && pnpm validate:changeset-baselines",
     "release": "turbo run build && changeset publish",
+    "release:github": "tsx scripts/create-github-release.ts",
+    "release:github:cleanup": "tsx scripts/migrate-github-releases.ts",
     "create": "node packages/create-nextrush/bin/create-nextrush.js"
   },
   "devDependencies": {

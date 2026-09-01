@@ -198,7 +198,7 @@ and you get `2.0.0` — a number that claims a `1.x` line existed when it never 
 exactly that mistake across nine packages before catching it by hand.
 
 The second script exists because the first one has a blind spot: it only checks packages a
-*pending changeset* names. It would never have caught `@nextrush/class` sitting at a hardcoded
+_pending changeset_ names. It would never have caught `@nextrush/class` sitting at a hardcoded
 `4.0.0-beta.0` with zero changesets pending — which is exactly what happened later the same day.
 `verify-release-state` checks the whole working tree independent of what's pending: every
 `fixed`-group package carries the identical version right now, no never-published package has a
@@ -216,10 +216,10 @@ simple-git-hooks` once after cloning if hooks aren't firing (`postinstall` shoul
 automatically, but confirm with `cat .git/hooks/pre-commit`).
 
 <Callout type="warn">
-If the baseline check fails, the fix is always the same: open the flagged changeset, delete that
-package's line from the frontmatter. Its `package.json` version already **is** its correct first
-release. A changeset entry adds nothing for a package with no history to be relative to — it
-only risks producing the exact wrong number this guard exists to catch.
+  If the baseline check fails, the fix is always the same: open the flagged changeset, delete that
+  package's line from the frontmatter. Its `package.json` version already **is** its correct first
+  release. A changeset entry adds nothing for a package with no history to be relative to — it only
+  risks producing the exact wrong number this guard exists to catch.
 </Callout>
 
 ### Phase 3 — Hold never-published packages out of the beta
@@ -289,7 +289,7 @@ Don't trust the diff blind. Run `git diff --stat`, look at what actually changed
 things every time: every package inside the fixed group landed on the exact same number as its
 siblings; every independent package's new version is a sane bump from its real npm history, not
 from whatever the working tree happened to say; and nothing that's supposed to be in `ignore`
-shows up as changed at all. If something with zero npm history changed and it's *not* in
+shows up as changed at all. If something with zero npm history changed and it's _not_ in
 `ignore`, stop — you missed a package in Phase 3.
 
 <Callout type="warn" title="Never re-run pre enter after correcting versions by hand">
@@ -311,6 +311,7 @@ pnpm changeset pre enter beta   # re-snapshots from your CURRENT, corrected pack
 `verify:release-state` (Phase 2) checks for this drift automatically — it compares `pre.json`'s
 snapshot against the live `package.json` values and fails loudly if they disagree, so you don't
 have to remember to check by hand.
+
 </Callout>
 
 ### Phase 5 — Verify before you publish anything
@@ -375,6 +376,7 @@ mechanism the tool actually expects you to use here.
 
 Verify with `npm view nextrush dist-tags` after publishing; `beta` should be the only tag that
 moved.
+
 </Callout>
 
 Confirm the output lists only what you expect — nothing from `ignore` should appear anywhere.
@@ -429,26 +431,64 @@ npm view nextrush dist-tags   # confirm latest actually moved
 
 ## Part 4 — Every real edge case, named
 
-| What happened | Why | What catches it now |
-| --- | --- | --- |
-| Local `package.json` said `3.1.0`; npm's real last release was `3.0.7` | The working tree isn't the source of truth — the registry is | Phase 1: always compute from real npm history, never from what's already in the file |
-| A `major`/`minor` changeset targeted a package with zero publish history | `changeset version` has no concept of "this has no history to bump from" — it applies the severity literally | Phase 2: `validate:changeset-baselines`, wired into `pnpm run version` |
-| A never-published package almost rode along in a beta publish | First publish always lands on `latest`, prerelease mode or not — unconditional, undocumented-until-you-hit-it behavior | Phase 3: the `ignore` list, held until stable |
-| `@nextrush/stream` sat in the core `fixed` group with zero real dependency on core | README prose implied a coupling that the actual import graph didn't have | Always check the real dependency graph, not the description |
-| A circular-dependency test passed after 33 seconds instead of milliseconds | A fast cycle guard only covered one DI resolution path; the other path fell through to a much slower, technically-correct fallback | Phase 5: an unusually slow test is a bug to investigate, not a green check to accept |
-| A hardcoded version on a never-published package (`@nextrush/class` at `4.0.0-beta.0`) sat wrong with zero changesets pending to catch it | `validate:changeset-baselines` only checks packages a pending changeset names — an already-wrong version with nothing pending against it is invisible to it | `verify:release-state`'s never-published version-sanity check, independent of pending changesets |
-| `pnpm changeset publish --tag beta` failed with "Releasing under custom tag is not allowed in pre mode" | `.changeset/pre.json` already records the tag (`"tag": "beta"`) from `pre enter beta` in Phase 4; an explicit `--tag` is a second, conflicting instruction the tool won't reconcile with what's already recorded — it is never needed while `pre.json` exists | Phase 6: drop `--tag` entirely and run plain `pnpm changeset publish`; the version string's own `-beta.N` suffix keeps it off `latest` |
-| `@nextrush/adapter-bun@1.0.0-beta.0` and `@nextrush/dev@1.0.0-beta.0` both failed with `E409 Conflict` on publish | Both package names had been fully unpublished on npm weeks earlier (2026-07-08/09). npm's unpublish policy is permanent for that exact name+version combination — never just a 24/72-hour cooldown once the whole package was unpublished — so republishing the *same* version string is blocked forever, no matter how much time has passed | Bump to a new version string never used before (`1.0.0-beta.1`) — confirm with `npm view <pkg>` first; a `404 ... Unpublished on <date>` response (not a plain 404) is the tell that this is the permanent-reuse block, not a transient registry error |
-| `@nextrush/form-data` and `@nextrush/static` both failed with `E403 Forbidden` on their first-ever publish, while a dozen other brand-new package names in the same run succeeded | Neither name appeared in `npm access list packages @nextrush` at all beforehand (unlike the unpublish cases above, which return a dated 404) — a genuinely first-time package creation can hit npm's 2FA/granular-access-token publish policy even when the CLI token has write access to every *existing* package in the scope, because creating a brand-new package name is a stricter security check than publishing a new version of one already claimed | Not automated — needs an interactive `npm publish` (answers the 2FA/OTP prompt directly) or a token with "bypass 2FA" explicitly enabled, done by the account owner before an automated `changeset publish` retry can succeed for that specific package |
-| Two fixed-group packages (`nextrush`, `@nextrush/adapter-node`) depended on packages sitting in `ignore` (`@nextrush/class`, `@nextrush/stream`) — `changeset pre exit` refused to run | Changesets won't let a publishing package depend on one it can't resolve; the `ignore` list was built by "never published → hold back" without checking who actually consumes each package | `verify:release-state`'s ignore-vs-dependency-graph check, run proactively before `pre exit`/`version` instead of discovered as a runtime error |
-| Re-running `changeset pre enter beta` after hand-correcting versions left `pre.json`'s snapshot pointing at the old, wrong baseline | `pre enter` only snapshots `initialVersions` once; re-running it while `pre.json` already exists is a silent no-op on that snapshot | `verify:release-state`'s stale-`pre.json` check, plus the documented recovery (`pre exit` then `pre enter` again) in Phase 4 |
-| Two packages (`@nextrush/controllers`, `@nextrush/decorators`) are live on npm but deleted from the repo | Changesets only versions packages that exist in the current workspace — a removed package is invisible to the whole flow | Not automated. Deprecate manually with `npm deprecate`, tracked as its own task, never folded into a version bump |
+| What happened                                                                                                                                                                          | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                          | What catches it now                                                                                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local `package.json` said `3.1.0`; npm's real last release was `3.0.7`                                                                                                                 | The working tree isn't the source of truth — the registry is                                                                                                                                                                                                                                                                                                                                                                                                 | Phase 1: always compute from real npm history, never from what's already in the file                                                                                                                                                                    |
+| A `major`/`minor` changeset targeted a package with zero publish history                                                                                                               | `changeset version` has no concept of "this has no history to bump from" — it applies the severity literally                                                                                                                                                                                                                                                                                                                                                 | Phase 2: `validate:changeset-baselines`, wired into `pnpm run version`                                                                                                                                                                                  |
+| A never-published package almost rode along in a beta publish                                                                                                                          | First publish always lands on `latest`, prerelease mode or not — unconditional, undocumented-until-you-hit-it behavior                                                                                                                                                                                                                                                                                                                                       | Phase 3: the `ignore` list, held until stable                                                                                                                                                                                                           |
+| `@nextrush/stream` sat in the core `fixed` group with zero real dependency on core                                                                                                     | README prose implied a coupling that the actual import graph didn't have                                                                                                                                                                                                                                                                                                                                                                                     | Always check the real dependency graph, not the description                                                                                                                                                                                             |
+| A circular-dependency test passed after 33 seconds instead of milliseconds                                                                                                             | A fast cycle guard only covered one DI resolution path; the other path fell through to a much slower, technically-correct fallback                                                                                                                                                                                                                                                                                                                           | Phase 5: an unusually slow test is a bug to investigate, not a green check to accept                                                                                                                                                                    |
+| A hardcoded version on a never-published package (`@nextrush/class` at `4.0.0-beta.0`) sat wrong with zero changesets pending to catch it                                              | `validate:changeset-baselines` only checks packages a pending changeset names — an already-wrong version with nothing pending against it is invisible to it                                                                                                                                                                                                                                                                                                  | `verify:release-state`'s never-published version-sanity check, independent of pending changesets                                                                                                                                                        |
+| `pnpm changeset publish --tag beta` failed with "Releasing under custom tag is not allowed in pre mode"                                                                                | `.changeset/pre.json` already records the tag (`"tag": "beta"`) from `pre enter beta` in Phase 4; an explicit `--tag` is a second, conflicting instruction the tool won't reconcile with what's already recorded — it is never needed while `pre.json` exists                                                                                                                                                                                                | Phase 6: drop `--tag` entirely and run plain `pnpm changeset publish`; the version string's own `-beta.N` suffix keeps it off `latest`                                                                                                                  |
+| `@nextrush/adapter-bun@1.0.0-beta.0` and `@nextrush/dev@1.0.0-beta.0` both failed with `E409 Conflict` on publish                                                                      | Both package names had been fully unpublished on npm weeks earlier (2026-07-08/09). npm's unpublish policy is permanent for that exact name+version combination — never just a 24/72-hour cooldown once the whole package was unpublished — so republishing the _same_ version string is blocked forever, no matter how much time has passed                                                                                                                 | Bump to a new version string never used before (`1.0.0-beta.1`) — confirm with `npm view <pkg>` first; a `404 ... Unpublished on <date>` response (not a plain 404) is the tell that this is the permanent-reuse block, not a transient registry error  |
+| `@nextrush/form-data` and `@nextrush/static` both failed with `E403 Forbidden` on their first-ever publish, while a dozen other brand-new package names in the same run succeeded      | Neither name appeared in `npm access list packages @nextrush` at all beforehand (unlike the unpublish cases above, which return a dated 404) — a genuinely first-time package creation can hit npm's 2FA/granular-access-token publish policy even when the CLI token has write access to every _existing_ package in the scope, because creating a brand-new package name is a stricter security check than publishing a new version of one already claimed | Not automated — needs an interactive `npm publish` (answers the 2FA/OTP prompt directly) or a token with "bypass 2FA" explicitly enabled, done by the account owner before an automated `changeset publish` retry can succeed for that specific package |
+| Two fixed-group packages (`nextrush`, `@nextrush/adapter-node`) depended on packages sitting in `ignore` (`@nextrush/class`, `@nextrush/stream`) — `changeset pre exit` refused to run | Changesets won't let a publishing package depend on one it can't resolve; the `ignore` list was built by "never published → hold back" without checking who actually consumes each package                                                                                                                                                                                                                                                                   | `verify:release-state`'s ignore-vs-dependency-graph check, run proactively before `pre exit`/`version` instead of discovered as a runtime error                                                                                                         |
+| Re-running `changeset pre enter beta` after hand-correcting versions left `pre.json`'s snapshot pointing at the old, wrong baseline                                                    | `pre enter` only snapshots `initialVersions` once; re-running it while `pre.json` already exists is a silent no-op on that snapshot                                                                                                                                                                                                                                                                                                                          | `verify:release-state`'s stale-`pre.json` check, plus the documented recovery (`pre exit` then `pre enter` again) in Phase 4                                                                                                                            |
+| Two packages (`@nextrush/controllers`, `@nextrush/decorators`) are live on npm but deleted from the repo                                                                               | Changesets only versions packages that exist in the current workspace — a removed package is invisible to the whole flow                                                                                                                                                                                                                                                                                                                                     | Not automated. Deprecate manually with `npm deprecate`, tracked as its own task, never folded into a version bump                                                                                                                                       |
 
 That last one is worth a sentence on its own, because it's the one thing in this whole handbook
 that genuinely has no automated fix. If you delete a package from the monorepo, npm doesn't know
 that happened. Anyone can still `npm install` it. The only way to signal "this is abandoned" is
 `npm deprecate <package>@"*" "moved to X"` — a manual, one-time command, run once outside the
 whole Changesets flow, and it's the one step nothing in the pipeline reminds you to run.
+
+## GitHub Releases — one release per cycle, not one per package
+
+Changesets publishes packages to npm and pushes a `@<package>@<version>` git tag per package.
+That package-level provenance stays. What changed in the v4 era is the **GitHub Releases page**:
+the release workflow runs `changesets/action` with `createGithubReleases: false`, then creates
+exactly **one** canonical release per cycle — `NextRush vX.Y.Z` — via
+`scripts/create-github-release.ts` (run as `pnpm release:github`). npm keeps its 39+ package
+versions; GitHub Releases become a product timeline.
+
+Three rules keep that page meaningful:
+
+1. **A canonical release is created only when `nextrush` was published.** GitHub Releases mean
+   "a version of the NextRush framework product." A package-only wave (`@nextrush/openapi`,
+   `@nextrush/dev`, ...) publishes to npm, writes changelogs, and pushes package git tags —
+   but deliberately creates no GitHub Release. The product version is never inferred from the
+   highest package version in a wave.
+2. **The release body is assembled from the changelogs.** It carries the package matrix, the
+   per-package change sections for the released versions (parsed from each package's
+   `CHANGELOG.md`), a highlight summary for `nextrush`, and the install line.
+3. **CLI / beta / emergency publishes create no GitHub Release.** Running `pnpm changeset
+publish` from a laptop is fine — the npm version, the `CHANGELOG.md` entry, and the git tag
+   are the source of truth for those. GitHub Releases only reflect what `release.yml` published.
+
+The aggregation logic lives in `scripts/release-notes.ts` — pure, dependency-free functions
+(`assembleReleaseBody`, `deriveProductVersion`, `extractChangelogSection`, `groupWaves`,
+`buildCanonicalReleasePlans`) with tests in `scripts/__tests__/`. The only `gh` call the forward
+path makes is the final `gh release create`; everything else is computed locally.
+
+### Historical releases and the migration
+
+Before v4 each publish produced one GitHub Release per package — 136 releases by August 2026,
+which read like an artifact registry rather than a framework history. To fix that, the
+`pnpm release:github:cleanup` script (`scripts/migrate-github-releases.ts`) deletes the
+package-style releases (git tags preserved) and builds one canonical `NextRush v…` release per
+`nextrush`-containing wave, using each wave's underlying git commit as the grouping key. It is
+**dry-run by default, mutates only with `--apply`, and is never wired into CI.** Canonical
+releases like `NextRush v2.0.0 - Framework` are always preserved untouched.
 
 ## Quick reference — every command, in order
 
@@ -481,6 +521,8 @@ pnpm changeset publish
 npm view nextrush dist-tags
 ```
 
-See `PUBLISHING.md` at the repo root for the package tiers, CI trigger details, and the GitHub
-setup this handbook assumes (secrets, workflow permissions, that kind of thing). This page is the
-lifecycle and the reasoning; that one is the reference table you keep open in a second tab.
+For the package tiers, the CI trigger details, and the GitHub setup this handbook assumes
+(secrets, workflow permissions, that kind of thing), see the [Compatibility Matrix](/docs/help/compatibility-matrix),
+the package-tier table in the root `packages.json` catalog, and the release workflow
+(`.github/workflows/release.yml`) itself. This page is the lifecycle and the reasoning; those are
+the reference tables you keep open in a second tab.

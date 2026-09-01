@@ -44,8 +44,12 @@ for example [`nextrush` on npm](https://www.npmjs.com/package/nextrush) and
 
 ## GitHub Releases
 
-Tagged releases with notes are published under
-[GitHub Releases](https://github.com/0xTanzim/nextRush/releases).
+Publishing creates exactly **one** GitHub Release per cycle — `NextRush vX.Y.Z` — via the
+[release workflow](https://github.com/0xTanzim/nextRush/blob/main/.github/workflows/release.yml).
+Per-package GitHub Releases are intentionally not created: each package's version history lives
+on [npm](https://www.npmjs.com/package/nextrush), in its own `CHANGELOG.md`, and in the
+repository's `@<package>@<version>` git tags, while the Releases page is reserved for the
+framework product timeline.
 
 ## See also
 
