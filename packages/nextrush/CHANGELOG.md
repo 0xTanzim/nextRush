@@ -1,5 +1,21 @@
 # nextrush
 
+## 4.0.2
+
+### Patch Changes
+
+- [`826bd5e`](https://github.com/0xTanzim/nextRush/commit/826bd5e1b23a2f469d09c98e335c9e6dffc0a5f8) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Prepare the NextRush v4 ecosystem patch release with updates across core, routing, adapters, middleware, utilities, OpenAPI, testing, development tooling, and the create-nextrush scaffolder.
+
+- Updated dependencies [[`826bd5e`](https://github.com/0xTanzim/nextRush/commit/826bd5e1b23a2f469d09c98e335c9e6dffc0a5f8), [`b2a5e2c`](https://github.com/0xTanzim/nextRush/commit/b2a5e2c6d399f4ed6453df412652a8abf8ea55fd)]:
+  - @nextrush/adapter-nextjs@1.0.1
+  - @nextrush/adapter-node@4.0.2
+  - @nextrush/errors@4.0.2
+  - @nextrush/router@4.0.2
+  - @nextrush/class@1.0.2
+  - @nextrush/types@4.0.2
+  - @nextrush/core@4.0.2
+  - @nextrush/di@4.0.2
+
 ## 4.0.1
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/express-bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Opt-in Express/Connect middleware compatibility bridge for NextRush (Node-shaped raw HTTP only)",
   "type": "module",
   "main": "./dist/index.js",

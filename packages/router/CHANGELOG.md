@@ -1,5 +1,17 @@
 # @nextrush/router
 
+## 4.0.2
+
+### Patch Changes
+
+- [`826bd5e`](https://github.com/0xTanzim/nextRush/commit/826bd5e1b23a2f469d09c98e335c9e6dffc0a5f8) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Prepare the NextRush v4 ecosystem patch release with updates across core, routing, adapters, middleware, utilities, OpenAPI, testing, development tooling, and the create-nextrush scaffolder.
+
+- [`b2a5e2c`](https://github.com/0xTanzim/nextRush/commit/b2a5e2c6d399f4ed6453df412652a8abf8ea55fd) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Routes mounted via `mount()`/`use(prefix, router)` now preserve their route metadata: request schemas from `validate()` and inline docs from `endpoint()` survive the copy, so `getRoutes()` (and `@nextrush/openapi`) documents mounted routes exactly like directly registered ones. Internal representation change only — no public API change, and the dispatch hot path is unaffected (verified by the hot-path guard suite and a CPU-pinned interleaved A/B benchmark). Implements the RFC-002 v5 amendment (mount-time metadata preservation).
+
+- Updated dependencies [[`826bd5e`](https://github.com/0xTanzim/nextRush/commit/826bd5e1b23a2f469d09c98e335c9e6dffc0a5f8)]:
+  - @nextrush/types@4.0.2
+  - @nextrush/core@4.0.2
+
 ## 4.0.1
 
 ### Patch Changes

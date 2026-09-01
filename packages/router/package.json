@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/router",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "High-performance segment trie router for NextRush",
   "type": "module",
   "main": "./dist/index.js",
