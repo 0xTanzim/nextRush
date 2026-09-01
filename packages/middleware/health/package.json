@@ -1,6 +1,6 @@
 {
   "name": "@nextrush/health",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Liveness and readiness health check endpoints for NextRush, built for orchestrator probes (Kubernetes, PM2, systemd)",
   "type": "module",
   "main": "./dist/index.js",
