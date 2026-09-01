@@ -67,6 +67,36 @@ async function runGh(args: string[]): Promise<string> {
   }
 }
 
+async function runGit(args: string[]): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync('git', args, { maxBuffer: 16 * 1024 * 1024 });
+    return stdout.trim();
+  } catch (err) {
+    const detail = err instanceof Error ? err.message.split('\n')[0] : String(err);
+    throw new Error(`git ${args[0]} failed: ${detail}`);
+  }
+}
+
+/**
+ * Resolves the commit the canonical release tag should point at.
+ *
+ * `gh release create --target` sends `target_commitish` verbatim to the GitHub API, which
+ * rejects the literal string `HEAD` ("Release.target_commitish is invalid"). Resolve the
+ * working-tree HEAD to its full SHA first. On a runner this is the version state the
+ * workflow checked out, which is also pushed (the publish path never leaves an unpushed
+ * HEAD), so the SHA is guaranteed to exist server-side. Falls back to `GITHUB_SHA` (the
+ * workflow dispatch SHA) when git resolution is unavailable.
+ */
+async function resolveTargetCommit(): Promise<string> {
+  try {
+    return await runGit(['rev-parse', 'HEAD']);
+  } catch {
+    const sha = process.env.GITHUB_SHA;
+    if (sha) return sha;
+    throw new Error('Unable to resolve target commit (git rev-parse HEAD and GITHUB_SHA both unavailable).');
+  }
+}
+
 /** Finds the CHANGELOG.md for a published package by walking the workspace manifests. */
 async function findChangelogPath(packageName: string): Promise<string | null> {
   for (const glob of WORKSPACE_PACKAGE_DIRS) {
@@ -161,6 +191,7 @@ async function main(): Promise<void> {
   const notesPath = path.join(tmpDir, 'release-notes.md');
   await writeFile(notesPath, body, 'utf8');
   try {
+    const targetCommit = await resolveTargetCommit();
     const created = await runGh([
       'release',
       'create',
@@ -170,7 +201,7 @@ async function main(): Promise<void> {
       '--title',
       title,
       '--target',
-      'HEAD',
+      targetCommit,
       '--notes-file',
       notesPath,
     ]);
