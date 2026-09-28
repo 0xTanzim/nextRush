@@ -427,7 +427,9 @@ only project to skip the class-based path entirely for anyone who wanted it.
   exercise the CLI's argument parsing and entry point together
 - **Invariant tests:** `generated-readme-structure.test.ts` (README matches the real tree),
   `generated-package-metadata.test.ts`, `generated-tsconfig-isolation.test.ts`,
-  `generated-toolchain-versions.test.ts`
+  `generated-toolchain-versions.test.ts`, `production-preset.test.ts` (generated lint gate:
+  `.oxlintrc.json` + declared `oxlint` devDependency + `oxc.oxc-vscode` recommendation +
+  TS 7 compiler range + `lint` script contract)
 - **Conformance / cross-adapter parity:** N/A — this package does not touch
   `packages/adapters/conformance`; `cross-runtime-parity-smoke.test.ts`,
   `bun-runtime-config.test.ts`, and `deno-runtime-smoke.test.ts` cover this package's own
