@@ -51,11 +51,18 @@ pnpm install                           # Install dependencies
 pnpm build                             # Build all packages
 pnpm test                              # Run all tests
 pnpm typecheck                         # Type check all packages
-pnpm lint                              # Lint all packages
+pnpm lint                              # Lint all packages (Oxlint, type-aware via oxlint-tsgolint)
+pnpm verify                            # Full gate: build → test + typecheck + lint
 pnpm clean                             # Clean build artifacts
 pnpm --filter @nextrush/<pkg> test     # Test a specific package
 pnpm --filter @nextrush/<pkg> build    # Build a specific package
+pnpm --filter @nextrush/<pkg> lint     # Lint a single package
 ```
+
+> **Editor setup:** install the [Oxlint extension](https://marketplace.visualstudio.com/items?itemName=oxc.oxc-vscode)
+> (`oxc.oxc-vscode`) — it reads the repo-root `oxlint.config.ts`, the single source of
+> lint truth. Type-aware rules resolve through the workspace TypeScript 7 toolchain,
+> so no extra configuration is needed beyond the extension.
 
 ## Package Hierarchy
 
