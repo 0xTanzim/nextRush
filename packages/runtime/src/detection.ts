@@ -92,6 +92,7 @@ export function detectRuntime(): Runtime {
 
   // Generic Edge Runtime - Has Web APIs but not Node.js
   if (
+    /* eslint-disable-next-line @typescript-eslint/prefer-optional-chain -- globalThis existence guard */
     typeof globalThis !== 'undefined' &&
     typeof globalThis.Request !== 'undefined' &&
     typeof globalThis.Response !== 'undefined'

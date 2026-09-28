@@ -421,7 +421,10 @@ export class EventEmitter<T extends EventMap = EventMap> implements TypedEventEm
           } catch {
             // Ignore errors in error handler to prevent infinite loops
           }
-        } else if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
+        } else if (
+          /* eslint-disable-next-line @typescript-eslint/prefer-optional-chain -- process global may not exist in non-Node environments */
+          typeof process === 'undefined' || process.env.NODE_ENV !== 'test'
+        ) {
           console.error(`[nextrush/events] Handler error for '${event}':`, err);
         }
       } else {
