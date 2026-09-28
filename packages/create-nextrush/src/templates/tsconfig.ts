@@ -21,7 +21,7 @@ export function generateTsconfig(options: ProjectOptions): string {
       resolveJsonModule: true,
       // Guards required by a per-file transpiler (SWC has no cross-file type view — see
       // report/scaffolding/scaffolding-cli-review.md F-06). Both `nextrush dev`
-      // (@swc-node/register) and `nextrush build` (SWC) transpile file-by-file, so a
+      // (in-repo SWC hooks) and `nextrush build` (SWC) transpile file-by-file, so a
       // type-only re-export written without `export type` compiles clean under `tsc` but
       // mistranspiles under SWC. `isolatedModules` catches that class of mistake at
       // type-check time, matching the framework's own standard (typescript.instructions.md).

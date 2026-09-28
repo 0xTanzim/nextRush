@@ -123,8 +123,9 @@ function findDistRoot(fileUrlBase: string): string {
 export function resolveLoaderFromUrl(fileUrlBase: string): string {
   // Check if this is a dist location
   if (!fileUrlBase.includes(DIST_SEGMENT)) {
-    // Dev mode: fallback to npm package
-    return '@swc-node/register/esm-register';
+    // Source context (tests, src-run spawns): the hooks module is plain .mjs, so it
+    // loads directly — resolve it as a sibling of the caller's loaders/ directory.
+    return new URL('../loaders/swc-hooks.mjs', fileUrlBase).href;
   }
 
   const distRoot = findDistRoot(fileUrlBase);
@@ -133,10 +134,11 @@ export function resolveLoaderFromUrl(fileUrlBase: string): string {
 }
 
 /**
- * Get the path to @swc-node/register/esm-register
+ * Get the path to the dev-time SWC loader `--import` entry.
  *
- * This returns the path to our custom swc-loader.mjs which wraps
- * @swc-node/register and resolves dependencies from this package.
+ * This returns the path to our in-repo `swc-loader.mjs`, which registers the
+ * sibling `swc-hooks.mjs` (`@swc/core`, no TypeScript compiler API) and resolves
+ * from this package — never from the user's CWD.
  *
  * Uses the URL constructor to handle Windows file:// URLs correctly,
  * avoiding the old string.replace('file://','') + split('/') pattern

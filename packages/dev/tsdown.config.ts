@@ -57,14 +57,16 @@ export default defineConfig({
       'process': 'node:process',
     };
   },
-  // Copy the SWC loader after build
+  // Copy the SWC loader after build (both files are plain .mjs — runnable by Node
+  // with no build step, from src/ and dist/ alike)
   onSuccess: async () => {
     try {
       mkdirSync('dist/loaders', { recursive: true });
       copyFileSync('src/loaders/swc-loader.mjs', 'dist/loaders/swc-loader.mjs');
-      console.log('Copied swc-loader.mjs to dist/loaders/');
+      copyFileSync('src/loaders/swc-hooks.mjs', 'dist/loaders/swc-hooks.mjs');
+      console.log('Copied swc-loader.mjs and swc-hooks.mjs to dist/loaders/');
     } catch (e) {
-      console.error('Failed to copy swc-loader.mjs:', e);
+      console.error('Failed to copy loader files:', e);
     }
   },
   deps: {

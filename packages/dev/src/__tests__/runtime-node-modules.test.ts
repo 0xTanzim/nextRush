@@ -5,10 +5,10 @@ import { resolveLoaderFromUrl } from '../runtime/node-modules.js';
 
 describe('Node Modules Loader Resolution', () => {
   describe('resolveLoaderFromUrl', () => {
-    it('should resolve to npm package when not in dist', () => {
+    it('should resolve to the in-repo hooks module when not in dist', () => {
       const src = 'file:///home/u/pkg/src/runtime/node-modules.ts';
       const result = resolveLoaderFromUrl(src);
-      expect(result).toBe('@swc-node/register/esm-register');
+      expect(result).toBe('file:///home/u/pkg/src/loaders/swc-hooks.mjs');
     });
 
     it('should resolve to file:// URL for posix dist location', () => {

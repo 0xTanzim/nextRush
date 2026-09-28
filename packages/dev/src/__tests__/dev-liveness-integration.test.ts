@@ -11,14 +11,14 @@
  * artifact rather than requiring a loader that only exists in `dist/`.
  *
  * A full in-process re-test of the happy-path liveness scenario was deliberately not
- * added here: `dev()`'s SWC-loader resolution (`resolveLoaderFromUrl`) falls back to a
- * bare `@swc-node/register` package specifier whenever `import.meta.url` has no `/dist/`
- * segment — true for every module vitest runs directly from `src/`. That bare specifier
- * can only resolve from the FIXTURE's own `node_modules`, which correctly does NOT hoist
- * `@nextrush/dev`'s own dependency there. This is an artifact of testing `src/` in-process,
- * not a product defect — real installs always run the compiled `dist/`, where the loader
- * resolves to a real `dist/loaders/swc-loader.mjs` file path, already proven by
- * `cli-dev-integration.test.ts` and this session's manual Node/Bun/Deno smokes.
+ * added here: `dev()`'s SWC-loader resolution (`resolveLoaderFromUrl`) points at
+ * `src/loaders/swc-hooks.mjs` whenever `import.meta.url` has no `/dist/` segment —
+ * true for every module vitest runs directly from `src/` — and the spawned fixture
+ * resolves its framework imports from the FIXTURE's own `node_modules`, exercising a
+ * different resolution layout than real installs (which always run the compiled
+ * `dist/`, where the loader resolves to a real `dist/loaders/swc-loader.mjs` file
+ * path). The happy path is instead proven by `cli-dev-integration.test.ts` and
+ * `dev-loader-di-integration.test.ts` against the built artifact.
  */
 
 import { spawnSync } from 'node:child_process';

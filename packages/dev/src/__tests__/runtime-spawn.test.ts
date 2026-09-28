@@ -45,11 +45,9 @@ describe('Process Spawning', () => {
       const loaderPath = result.args[importIndex + 1];
       expect(loaderPath).toBeDefined();
 
-      // Should be either a file:// URL or the npm package fallback
+      // Always a file:// URL now: dist entry in production, src hooks module in src context.
       if (loaderPath) {
-        expect(
-          loaderPath.startsWith('file://') || loaderPath === '@swc-node/register/esm-register'
-        ).toBe(true);
+        expect(loaderPath.startsWith('file://')).toBe(true);
       }
     });
 

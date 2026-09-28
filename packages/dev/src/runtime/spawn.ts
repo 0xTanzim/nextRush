@@ -274,7 +274,8 @@ function mergeDenoPermissions(configured: string[] | undefined): string[] {
 /**
  * Build runtime-specific dev command arguments
  *
- * For Node.js, we use @swc-node/register via --import because:
+ * For Node.js, we use the in-repo SWC hooks (`dist/loaders/swc-loader.mjs`,
+ * registered via --import) because:
  * - SWC properly emits decorator metadata (emitDecoratorMetadata)
  * - Decorator metadata is required for DI constructor injection
  * - Node.js >= 22 has built-in --watch that auto-watches imported files

@@ -9,7 +9,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "postinstall": "simple-git-hooks && node scripts/ensure-swc-node-ts6.mjs",
+    "postinstall": "simple-git-hooks",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "test": "turbo run test",
@@ -18,7 +18,7 @@
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
-    "verify": "turbo run verify && pnpm validate:bins && pnpm validate:esm-only && pnpm validate:manifest-composition && pnpm validate:lint-rules && pnpm validate:build-plugins && pnpm ensure:swc-node && pnpm check:coverage",
+    "verify": "turbo run verify && pnpm validate:bins && pnpm validate:esm-only && pnpm validate:manifest-composition && pnpm validate:lint-rules && pnpm validate:build-plugins && pnpm check:coverage",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "clean:modules": "bash scripts/clean-modules.sh",
     "update:all": "bash scripts/update-all.sh",
@@ -31,7 +31,6 @@
     "validate:esm-only": "tsx scripts/validate-esm-only.ts",
     "validate:manifest-composition": "tsx scripts/validate-manifest-composition.ts",
     "validate:lint-rules": "node --test tools/eslint-rules/",
-    "ensure:swc-node": "node scripts/ensure-swc-node-ts6.mjs --check",
     "validate:build-plugins": "node --test tools/tsdown/",
     "validate:changeset-baselines": "tsx scripts/validate-changeset-baselines.ts",
     "verify:release-state": "tsx scripts/verify-release-state.ts",
