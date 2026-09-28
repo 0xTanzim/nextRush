@@ -198,13 +198,17 @@ can be turned on, exactly as the current ESLint config turns them on.
 | Pre-bump typecheck wall-time (uncached) | _task 3.1_ | ✅ `pnpm exec turbo run typecheck --force` on **TypeScript 6.0.3** → **1 m 25.61 s**, 68/68 tasks, exit 0 |
 | Compiler installed on the TS 7 line | _task 3.2_ | ✅ `pnpm install` → `typescript 6.0.3 → 7.0.2`, exit 0, quarantine respected. `oxlint-tsgolint@7.0.2002` needed **no** change: its own README §Versioning shows `7.0.2002` = TypeScript `7.0.2` + tsgolint patch `002`, i.e. it is already built on the target compiler |
 | Library build on TS 7 | _tasks 3.3–3.5, 3.9_ | ❌ **BLOCKED** — `pnpm build` dies in `tsup`'s vendored `rollup-plugin-dts@6.1.1` (legacy `ts.sys`) across **38** `dts: true` packages. Full facts, the failed override experiment, and the four options are in **[P2 blocker](#p2-blocker--discovered-while-bumping-the-compiler-tasks-32--33)** below |
-| Post-bump typecheck wall-time (uncached) | _task 3.11_ | ⬜ not yet recorded |
-| Declaration pass under the native compiler | `packages/dev` build/declaration tests | ⬜ not yet recorded |
+| Post-bump typecheck wall-time (uncached) | _task 3.11_ | ✅ `pnpm exec turbo run typecheck --force` on TypeScript **7.0.2** → **16.03s** (68/68, exit 0) vs the TS 6.0.3 baseline of **1m25.61s** — a **5.3×** speed-up on the identical command |
+| Declaration pass under the native compiler | `packages/dev` build/declaration tests | ✅ passed inside the cold `pnpm verify` (2026-09-28): `swc-builder-integration` `generateDeclarations (in-process, real tsc)` green; full build 44/44 emits `.d.ts` for every `dts: true` package under `tsdown@0.23.0` |
 
 ### P2 blocker — discovered while bumping the compiler (tasks 3.2 / 3.3)
 
-**Status: BLOCKED — a decision is required before P2 can land.** The compiler installs and typechecks
-fine; the **library build cannot emit declarations**, so P2's exit condition is unreachable as specified.
+**Status: RESOLVED — Option B (tsup → `tsdown`) was executed and is green.** The compiler installs and
+typechecks, the library build now emits declarations (rolldown-plugin-dts, oxc-based, never the
+TypeScript JS API), and the stage-2 `^0.23.0` bump landed once the deprecation-warning count reached
+zero (2026-09-28). Full build under `tsdown@0.23.0`: **44/44 tasks, exit 0, wall 48s**; the only
+remaining notice is tsdown's own per-package `TypeScript 7.0 does not yet have a stable API` warning
+(informational, not a failure). The analysis below is kept as the record of why Option B was chosen.
 
 Verified facts (all reproduced on this branch, 2026-09-28):
 
@@ -234,13 +238,66 @@ Options, on facts rather than preference:
 `eslint-config-next`'s transitive `typescript-eslint@8.66.0` wants `<6.1.0` (harmless — the website's Next
 config enables no typed rules and its lint exits 0).
 
-**Tree state while blocked:** the `typescript` catalog range was reverted to `~6.0.3` so the workspace
-stays buildable on the completed P1 cutover. The TS 7 evaluation is reproducible from the facts above.
+**Tree state (updated 2026-09-28):** the `typescript` catalog range is **`^7.0.2`** — the workspace
+runs the TS 7 line end to end (typecheck, lint, build). The one deliberate exception is the
+`docs-toolchain` catalog (`typescript: 6.0.3`): the website's `twoslash@0.3.9` reads `ts.sys` at module
+init, which TS 7's main entry no longer exposes, and no twoslash release supports TS 7 yet — remove
+that catalog when upstream ships support.
 
 ### Group 6 — integration verification (task 6.4)
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Full uncached `verify` | `pnpm verify` | ⬜ not yet recorded |
+| Full uncached `verify` | `pnpm verify` | ✅ 2026-09-28, cold `.turbo`: **EXIT=0** — `turbo run verify` 147/147 (build + test + typecheck + lint) **and** the full validator chain (`validate:bins`, `validate:esm-only`, `validate:manifest-composition`, `validate:lint-rules`, `validate:build-plugins`, `ensure:swc-node`, `check:coverage`); wall **3m28s** (`/tmp/ts7/verify-cold-61.log`) |
 | Generate-then-install matrix | `create-nextrush` matrix gate | ⬜ not yet recorded |
 | Repository rule + typed rules still enforced after the cutover | spot-check of one finding of each kind | ⬜ not yet recorded |
+
+
+### Integration findings — root causes hit and fixed during full-suite verification (2026-09-28)
+
+Two genuine failures surfaced when the full suite ran cold (a wiped `.turbo`). Both were root-caused,
+fixed, and given a permanent regression guard. Neither is attributable to Oxlint.
+
+#### A. Cold-run ordering race in `create-nextrush`'s generate-then-install tests
+
+| Fact | Evidence |
+| --- | --- |
+| Symptom | `generated-example-test.test.ts` failed on a cold run: vitest inside the generated project could not resolve `@nextrush/router` (`Failed to resolve entry for package`) while it passed in isolation |
+| Root cause | `turbo.json` gives `test` `dependsOn: ["build"]` — the **same package's** build only. `create-nextrush` declares **zero** workspace dependencies, so turbo had no edge ordering `@nextrush/router#build` before `create-nextrush#test`. On a cold cache `router:build` (`clean: true` deletes `dist/`) ran **concurrently** with the generated project's vitest resolving that same `dist/` — a read-during-delete race. Log proof: `create-nextrush:test` starts at line 355, `router:build` emits dist at lines 2866–2869 of the same run |
+| Why CI never showed it | CI pre-builds `--filter=dev-cli-fixture...` before `pnpm verify`, warming exactly the closure the generated project links — the repo's own workaround for the missing edge |
+| Why 13 sibling tasks showed `ELIFECYCLE` | turbo stops the run on first failure (default, no `--continue`); those lines are cancelled tasks, not additional failures |
+| Fix | `"nextrush": "workspace:*"` added to `create-nextrush`'s devDependencies — semantically true (its e2e tests consume the built framework) and it gives turbo the transitive edge `create-nextrush#test → create-nextrush#build → nextrush#build → {router, core, errors, adapter-node, class, …}` (verified via `turbo run test --filter=create-nextrush --dry=json`) |
+| Verification | Full suite green afterwards; the previously-failing file passes **6/6** in isolation and in-suite |
+
+#### B. `@swc-node/register` crashed against TypeScript 7 — pnpm peer-override bug
+
+| Fact | Evidence |
+| --- | --- |
+| Symptom | `cross-runtime-parity-smoke.test.ts` (Node boot) failed: the generated project died with `TypeError: Cannot read properties of undefined (reading 'Js')` at `@swc-node/register/lib/transform-cache.js:60` (`ts.Extension.Js`) |
+| Root cause (depth) | TS 7's main entry exports **only** `version` / `versionMajorMinor` (`node -e "console.log(Object.keys(require('typescript')))"` → 2 keys); the API moved behind `./unstable/*`. `@swc-node/register@1.12.1` (already its `latest`; peer `typescript: ">= 4.3 < 7"`) uses **21** distinct `ts.*` APIs — pairing it with TS 7 is fatal by construction |
+| Why the workspace override didn't save it | `pnpm-workspace.yaml` pins `overrides: {'@swc-node/register>typescript': '6.0.3'}`. pnpm 12.6.0 applies it at the *spec* level (`pnpm peers check` → `✕ unmet peer typescript — Installed: 7.0.2 / Wanted: 6.0.3`) but still **binds** the peer from the dependent's context (`typescript@7.0.2`) — the known override-not-applied-to-peer-deps-on-version-mismatch class (pnpm/pnpm#9913, pnpm/pnpm#12345; no stable pnpm release contains the fix — 12.7.0 is `next-12` only). `packageExtensions` making typescript a hard dependency was tested and had **no** effect (dead config — removed) |
+| Fix that holds today | Re-keyed the lockfile to the override-consistent variant (importer binding + variant key + snapshot dependency → `typescript@6.0.3`); `pnpm install --frozen-lockfile` accepts it and lays down the correct `typescript@6.0.3` sibling symlink. Probe: `ts.Extension.Js` defined; boot test green in **697ms** |
+| Durability (the bug re-fires) | A plain `pnpm install` keeps the key, but **`pnpm update` re-resolves the graph and clobbers it** (observed). Guard: `scripts/ensure-swc-node-ts6.mjs` — repair mode runs from root `postinstall` (so `update-all.sh`'s final install self-heals; it rewrites lockfile + symlink) and `--check` mode is wired into the root `verify` chain as `pnpm ensure:swc-node`, so a clobbered state cannot pass CI |
+| Rejected alternative | Deleting `@swc-node/register` (tsx / Node type-stripping) — `spawn.ts` documents the register is load-bearing for `emitDecoratorMetadata` (DI constructor injection); esbuild-based runners cannot emit metadata. Upstream must ship a TS-7-capable release |
+
+
+#### Toolchain currency audit (npm registry, 2026-09-28T06:2xZ; quarantine cutoff 2026-09-21T06:2xZ)
+
+| Tool | Repo | Latest | Status |
+| --- | --- | --- | --- |
+| `typescript` | `^7.0.2` | 7.0.2 | **latest** ✓ |
+| `tsdown` | `^0.23.0` | 0.23.0 | **latest** ✓ (stage-2 D9 bump landed today; 44/44 builds green) |
+| `pnpm` | 12.6.0 | 12.6.0 | **latest stable** ✓ (12.7.0 exists only as `next-12` prerelease) |
+| `oxlint` | 1.83.0 (exact, D3 lockstep) | 1.85.0 | quarantined until **2026-09-28T15:32Z** — bump after that, in lockstep with tsgolint |
+| `oxlint-tsgolint` | 7.0.2002 (exact, D3 lockstep) | 7.0.2003 | quarantined until **2026-10-01T15:18Z** — bump in lockstep |
+| `fast-check` | 4.10.2 | 4.10.2 | **latest** ✓ (bumped today) |
+| `simple-git-hooks` | 2.14.0 | 2.14.0 | **latest** ✓ (bumped today) |
+| `turbo` | `^2.11.2` | 2.11.5 | 2.11.5 quarantined until 2026-10-04; the caret floats there automatically |
+| `prettier` | `^3.9.6` | 3.9.9 | floats when quarantine clears (2026-09-30) |
+| `next` | `^16.3.0` | 16.3.6 | floats when quarantine clears (2026-09-29) |
+| `zod` / `tsx` / `esbuild` / `react` / `react-dom` | caret ranges | — | floated to latest-within-range today (`zod 4.6.5`, `tsx 4.23.15`, `esbuild 0.28.2`, `react 19.3.0`) |
+| `vitest` | `^4.1.10` | 5.0.2 | **major** — quarantined until 2026-10-02 *and* a v4→v5 migration; flagged as its own decision, not folded into this change |
+| `@changesets/cli` | `^2.31.1` | 3.0.3 | **major** release-tooling bump — flagged, not folded in |
+| `eslint` (website-only now) | `^9.39.5` | 10.11.0 | major; website scope only (`eslint-config-next` compat unverified) — flagged |
+
+

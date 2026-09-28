@@ -86,7 +86,8 @@ gated on all P0 + Phase 0-2 P1 items, not a chained dependency anymore.
 > missing its `dist/` segment). Root cause: `resolveLoaderFromUrl()` in
 > `packages/dev/src/runtime/node-modules.ts` computed `../loaders/swc-loader.mjs` relative to its
 > own `import.meta.url`, assuming it always runs from `dist/runtime/node-modules.js` (one directory
-> under `dist/`). Because `tsup.config.ts` sets `splitting: false`, the package's real CLI entry
+> under `dist/`). Because the bundler inlines shared code across entries (`tsdown.config.ts`; code splitting
+> is always on and the function is depth-independent by design), the package's real CLI entry
 > point (`bin/nextrush.js` → `dist/cli.js`) inlines that function's code directly into `cli.js`
 > itself — zero directories under `dist/`, not one — so the hardcoded relative climb landed one
 > level too high, at a nonexistent `packages/dev/loaders/` instead of the real

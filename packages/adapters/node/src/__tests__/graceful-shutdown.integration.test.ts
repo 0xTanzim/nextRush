@@ -41,7 +41,7 @@ const FIXTURE_SCRIPT = resolve(__dirname, 'fixtures/graceful-shutdown-server.mjs
 
 /** Spawn + drain-timeout headroom for a real child process on a loaded CI runner. */
 const CHILD_STARTUP_TIMEOUT_MS = 10_000;
-/** `tsup build` for this package is small; generous headroom for a cold CI cache. */
+/** `tsdown build` for this package is small; generous headroom for a cold CI cache. */
 const BUILD_TIMEOUT_MS = 30_000;
 
 let child: ChildProcess | undefined;
@@ -50,7 +50,7 @@ beforeAll(() => {
   // Rebuild so the fixture's `@nextrush/adapter-node` import (resolved through the pnpm
   // workspace to `dist/index.js`) reflects the CURRENT `adapter.ts` source, not whatever
   // was last built. A stale dist here would let this test pass against old code.
-  execFileSync('pnpm', ['exec', 'tsup'], {
+  execFileSync('pnpm', ['exec', 'tsdown'], {
     cwd: PACKAGE_ROOT,
     stdio: 'pipe',
     timeout: BUILD_TIMEOUT_MS,

@@ -237,9 +237,16 @@ export async function generateDeclarationsWithDeno(
       // (TSC_WATCHFILE etc.) on startup, which Deno's permission model blocks
       // without --allow-env (TS 6 + Deno 2.x). Scoped instead of blanket `-A`,
       // consistent with the scaffold's no-`-A` policy (generated-script-flags.test.ts).
+      //
+      // --allow-run is required on TypeScript 7: `bin/tsc` is no longer the compiler —
+      // it is a shim that `execFileSync`s the native platform binary
+      // (`@typescript/typescript-<platform>/lib/tsc`). Without --allow-run the shim
+      // throws, and because this pass is non-fatal the build reports success while
+      // emitting NO declarations at all.
       '--allow-read',
       '--allow-write',
       '--allow-env',
+      '--allow-run',
       tscPath,
       '--declaration',
       '--emitDeclarationOnly',

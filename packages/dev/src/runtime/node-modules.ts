@@ -2,11 +2,11 @@
  * @nextrush/dev - Node.js Module Constants
  *
  * This file defines Node.js module specifiers as runtime variables
- * to prevent bundlers (esbuild/tsup) from stripping the `node:` prefix.
+ * to prevent a bundler or transpiler from stripping the `node:` prefix.
  *
  * **Why this exists:**
  * - Deno REQUIRES the `node:` prefix for Node.js built-in modules
- * - esbuild/tsup transforms `import('node:fs')` to `import('fs')`
+ * - a bundler/transpiler can rewrite `import('node:fs')` to `import('fs')`
  * - Using variables like `import(NODE_FS)` prevents this transformation
  *
  * @packageDocumentation
@@ -26,7 +26,7 @@ export const NODE_OS = 'node:os';
 
 // ── Typed accessors for Node built-ins (RFC-019 D3) ────────────────────────────
 // These wrap the variable-specifier `import(NODE_*)` pattern — which stops
-// esbuild/tsup rewriting the `node:` prefix (Deno requires it) — in a typed cast so
+// a bundler rewriting the `node:` prefix (Deno requires it) — in a typed cast so
 // `tsc` verifies usage again. Importing via the bare const specifier alone yields
 // `any`, which is how a runtime type error (a TypeScriptFile object passed where a
 // path string was expected) shipped undetected in deno-builder.ts. Prefer these over
@@ -73,9 +73,10 @@ const LOADER_RELATIVE_PATH = 'loaders/swc-loader.mjs';
  * `/dist/` segment — regardless of how many directories deep under `dist/` the URL goes.
  *
  * Why this instead of a fixed relative climb (the original bug) or a real filesystem
- * walk-up to `package.json`: `packages/dev`'s `tsup.config.ts` builds with
- * `splitting: false`, so this module's code is inlined SEPARATELY into every one of the
- * package's 14 entry-point bundles — including `dist/cli.js` (the real CLI entry point).
+ * walk-up to `package.json`: `packages/dev`'s `tsdown.config.ts` bundles 14 entry
+ * points with code splitting always enabled, so this module's code can land in a shared
+ * chunk (`dist/*.js`) or be inlined into an entry bundle such as `dist/cli.js` (the real
+ * CLI entry point).
  * Depending which bundle the caller ends up in, `import.meta.url` can be `dist/cli.js`
  * itself (zero directories under `dist/`) or `dist/runtime/node-modules.js` (one
  * directory under `dist/`). A hardcoded relative climb (`'../loaders/...'`) is only

@@ -38,7 +38,7 @@ We will replace the two-probe version proxy with **per-package version resolutio
 dependency the chosen `{style, runtime, middleware}` combination emits is resolved from its own
 `/{pkg}/latest` registry entry, run in parallel under one shared timeout budget. When the registry
 is unreachable, resolution falls back to a **build-time-injected per-package map** — not two
-scalars — built by `tsup.config.ts` reading each relevant workspace `package.json` directly. We
+scalars — built by `tsdown.config.ts` reading each relevant workspace `package.json` directly. We
 will additionally land a generate-then-install CI matrix over every `style × runtime × middleware`
 cell as the system-of-record verifier for the install-integrity claim, mirroring the
 verification-first sequencing `ADR-0008` already established for `@nextrush/dev`.
@@ -70,7 +70,7 @@ undetected.
   framework's actual, independently-versioned release model.
 - **Negative / cost:** more registry calls at scaffold time (bounded by one shared timeout, same
   ceiling as today); the CI matrix adds job time proportional to the combination count; the
-  fallback map must be kept in sync by `tsup.config.ts` reading the workspace (mitigated by the
+  fallback map must be kept in sync by `tsdown.config.ts` reading the workspace (mitigated by the
   matrix catching staleness).
 - **Neutral:** `create-nextrush`'s public API is unchanged — this is an internal resolution-
   mechanism change plus a correction to previously-broken generated output, not a new contract.

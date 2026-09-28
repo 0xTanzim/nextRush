@@ -21,8 +21,8 @@
     "README.md"
   ],
   "scripts": {
-    "prepublishOnly": "npx tsup",
-    "build": "tsup",
+    "prepublishOnly": "npx tsdown",
+    "build": "tsdown",
     "clean": "rm -rf dist",
     "lint": "oxlint src --max-warnings 0 --ignore-pattern '**/__tests__/**'",
     "lint:fix": "oxlint src --fix",
@@ -68,7 +68,8 @@
   "devDependencies": {
     "@types/node": "^26.1.2",
     "dotenv": "^17.4.2",
-    "tsup": "catalog:tooling",
+    "nextrush": "workspace:*",
+    "tsdown": "catalog:tooling",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }

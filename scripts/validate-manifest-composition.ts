@@ -10,7 +10,7 @@
  *   - declare an `install` / `preinstall` / `postinstall` lifecycle script (install-time code
  *     execution is a supply-chain anti-pattern; see docs/RFC/framework-composition/020-...).
  *
- * This does not (yet) enforce `module`-field consistency or `tsup` target/`engines` alignment —
+ * This does not (yet) enforce `module`-field consistency or the bundler target/`engines` alignment —
  * those are single, targeted manifest edits (tasks 2.3, 2.4) verified by direct inspection rather
  * than a generic cross-package rule, since they are not yet violated by more than the one or two
  * packages this change corrects.

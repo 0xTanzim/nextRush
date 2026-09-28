@@ -23,7 +23,7 @@
   ],
   "scripts": {
     "prepublishOnly": "pnpm build",
-    "build": "tsup",
+    "build": "tsdown",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src --ignore-pattern '**/__tests__/**'",
@@ -62,7 +62,7 @@
   "devDependencies": {
     "@types/node": "catalog:node",
     "nextrush": "workspace:*",
-    "tsup": "catalog:tooling",
+    "tsdown": "catalog:tooling",
     "typescript": "catalog:tooling",
     "vitest": "catalog:testing"
   },

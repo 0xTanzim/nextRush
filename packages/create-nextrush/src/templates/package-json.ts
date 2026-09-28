@@ -100,7 +100,7 @@ declare const __DOTENV_RANGE__: string;
 
 /**
  * Single-sources the generated project's `typescript`/`@types/node` versions with the
- * scaffolder's OWN toolchain (build-time injected — see tsup.config.ts) rather than a
+ * scaffolder's OWN toolchain (build-time injected — see tsdown.config.ts) rather than a
  * hardcoded, independently-drifting literal (fixes F-07).
  *
  * `@types/node`'s major is additionally capped at the declared `engines.node` floor: the
@@ -113,7 +113,7 @@ declare const __DOTENV_RANGE__: string;
 function getToolchainRange(pkg: 'typescript' | 'vitest' | 'dotenv' | '@types/node'): string {
   if (pkg === 'typescript') {
     // Dev-mode fallback mirrors create-nextrush's OWN devDependency (build-time injection
-    // in tsup.config.ts reads the same value) — never a stale independent literal.
+    // in tsdown.config.ts reads the same value) — never a stale independent literal.
     return typeof __TYPESCRIPT_RANGE__ !== 'undefined' ? __TYPESCRIPT_RANGE__ : '^6.0.3';
   }
   if (pkg === 'vitest') {

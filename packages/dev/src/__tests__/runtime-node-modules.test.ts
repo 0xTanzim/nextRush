@@ -88,10 +88,10 @@ describe('Node Modules Loader Resolution', () => {
     });
 
     it('should resolve correctly when called from dist/cli.js (zero directories under dist/)', () => {
-      // tsup builds packages/dev with splitting: false, so resolveLoaderFromUrl's code
-      // is inlined separately into EVERY entry-point bundle, including dist/cli.js — the
-      // real CLI entry point bin/nextrush.js loads. At that call site, import.meta.url is
-      // dist/cli.js itself: zero directories under dist/, not one (unlike
+      // tsdown builds packages/dev's 14 entries with code splitting always on, so
+      // resolveLoaderFromUrl's code can end up in an entry bundle such as dist/cli.js (the
+      // real CLI entry point bin/nextrush.js loads) or in a shared chunk at the dist root.
+      // In the entry case, import.meta.url is dist/cli.js itself: zero directories under dist/, not one (unlike
       // dist/runtime/node-modules.js, tested above). A resolution scheme anchored to an
       // assumed calling-module depth breaks here; the fix must be depth-independent.
       const cliDist = 'file:///home/u/pkg/dist/cli.js';

@@ -15,11 +15,11 @@
 declare const __FALLBACK_VERSIONS__: Record<string, string> | undefined;
 
 /**
- * Dev-mode-only per-package fallback used when this module runs WITHOUT the tsup build
+ * Dev-mode-only per-package fallback used when this module runs WITHOUT the tsdown build
  * step (e.g. under `vitest` directly against `src/`, where `__FALLBACK_VERSIONS__` is
  * never defined). Mirrors the current workspace's real major-version split so tests can
  * exercise the offline path without a build. The published CLI always uses the build-time
- * map injected by `tsup.config.ts` — this is never shipped as the primary source.
+ * map injected by `tsdown.config.ts` — this is never shipped as the primary source.
  *
  * Toolchain deps (dotenv/typescript/vitest/@types/node) are NOT probed — the manifest's
  * `toolchain` policy single-sources them, so they have no entry here.
@@ -41,7 +41,7 @@ const DEV_FALLBACK_VERSIONS: Record<string, string> = {
 
 const FALLBACK_VERSIONS: Record<string, string> = (() => {
   try {
-    // esbuild's `define` (via tsup.config.ts) substitutes this identifier as a JS
+    // the build's `define` (via tsdown.config.ts) substitutes this identifier as a JS
     // EXPRESSION at build time — the value here is already a plain object, never a JSON
     // string, so JSON.parse must NOT be called on it (calling JSON.parse on a non-string
     // coerces it to `"[object Object]"`, which throws — silently falling through to the
@@ -109,7 +109,7 @@ export async function resolveVersions(
       const range = FALLBACK_VERSIONS[pkg];
       if (!range) {
         throw new Error(
-          `Unable to resolve a version for package "${pkg}" in offline mode: no fallback entry exists for it. This usually means a new package was added to the scaffolder without adding it to the fallback map in tsup.config.ts.`
+          `Unable to resolve a version for package "${pkg}" in offline mode: no fallback entry exists for it. This usually means a new package was added to the scaffolder without adding it to the fallback map in tsdown.config.ts.`
         );
       }
       fallback.set(pkg, range);
@@ -127,7 +127,7 @@ export async function resolveVersions(
       const fallback = FALLBACK_VERSIONS[pkg];
       if (!fallback) {
         throw new Error(
-          `Unable to resolve a version for package "${pkg}": the registry probe failed and no fallback entry exists for it. This usually means a new package was added to the scaffolder without adding it to the fallback map in tsup.config.ts.`
+          `Unable to resolve a version for package "${pkg}": the registry probe failed and no fallback entry exists for it. This usually means a new package was added to the scaffolder without adding it to the fallback map in tsdown.config.ts.`
         );
       }
       return [pkg, fallback] as const;

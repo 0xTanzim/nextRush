@@ -50,6 +50,6 @@
     "serve": "^14.2.6",
     "tailwindcss": "^4.3.3",
     "tsx": "catalog:tooling",
-    "typescript": "catalog:tooling"
+    "typescript": "catalog:docs-toolchain"
   }
 }

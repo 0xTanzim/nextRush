@@ -12,30 +12,40 @@ catalogMode: prefer
 cleanupUnusedCatalogs: true
 minimumReleaseAge: 10080
 
+overrides:
+  '@swc-node/register>typescript': '6.0.3'
+
 catalogs:
   tooling:
-    typescript: "~6.0.3"
-    zod: "^4.4.3"
-    tsup: "^8.5.1"
+    typescript: "^7.0.2"
+    zod: ^4.6.5
+    # tsdown stage 2 of the RFC-037 D9 migration path: the tsup-compatible options were
+    # eliminated (full-workspace deprecation-warning count = 0 under 0.22.14), so this
+    # line now follows the current release. 0.23.x declares typescript "^5 || ^6 || ~7.0"
+    # as an optional peer and builds declarations with oxc (rolldown-plugin-dts), never
+    # the TypeScript JS API — it is TS 7-ready by construction.
+    tsdown: "^0.23.0"
     rimraf: "^6.1.3"
-    tsx: "^4.23.9"
+    tsx: ^4.23.15
     eslint: "^9.39.5"
-    "@eslint/js": "^9.39.5"
-    # Oxlint pair — pinned EXACTLY, deliberately (RFC-037 D3):
-    #   • oxlint-tsgolint's version encodes the TypeScript version it was built for
-    #     (`<tsMajor>.<tsMinor>.<patch>`, e.g. 7.0.2002 = TS 7.0.2, patch 002), so it
-    #     MUST move in lockstep with `typescript` and MUST NOT float across a TS line.
-    #   • The two are a matched pair; a floating range could resolve to a version this
-    #     oxlint cannot drive.
-    # Both versions below clear the workspace's 7-day `minimumReleaseAge` quarantine
-    # without needing a `minimumReleaseAgeExclude` entry.
     oxlint: "1.83.0"
     oxlint-tsgolint: "7.0.2002"
+
+  docs-toolchain:
+    # The docs site pins TypeScript itself. Its syntax-highlighting chain
+    # (`@shikijs/twoslash` → `twoslash@0.3.9`) reads `ts.sys` at module init, and
+    # TypeScript 7's main entry only exposes `./lib/version.cjs` (the API moved to
+    # `./unstable/*`), so `ts.sys` is undefined and every `fumadocs-mdx` run crashed.
+    # No twoslash release supports TS 7 yet (`typescript: ^5.5 || ^6.0`), and pinning the
+    # inner dependency alone does not work — the outer peer resolves too. Remove this
+    # catalog when twoslash publishes TypeScript 7 support; the framework packages are on
+    # the `tooling` catalog (TypeScript 7) regardless of this entry.
+    typescript: "6.0.3"
 
   testing:
     vitest: "^4.1.10"
     "@vitest/ui": "^4.1.10"
-    fast-check: "4.9.0"
+    fast-check: "4.10.2"
 
   runtime:
     reflect-metadata: "^0.2.2"
@@ -46,8 +56,8 @@ catalogs:
 
   web:
     next: "^16.3.0"
-    react: "^19.2.8"
-    react-dom: "^19.2.8"
+    react: ^19.3.0
+    react-dom: ^19.3.0
     "@types/react": "^19.2.18"
     "@types/react-dom": "^19.2.4"
 
@@ -68,4 +78,4 @@ ignoredBuiltDependencies:
 
 catalog:
   morgan: 1.10.0
-  response-time: ^2.3.4
+  response-time: ^2.3.4  

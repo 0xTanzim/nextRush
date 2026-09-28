@@ -26,7 +26,7 @@ Deno `--env-file`), but they are one coherent body of developer-experience archi
    config module; no runtime loaded `.env` in any path; `HOST` ignored; `PORT`/`NODE_ENV` parsing
    fragile).
 2. **Dependency model** — adding a dependency required five edits (`getDependencies`,
-   `getAllPossiblePackageNames`, fallback map, `tsup.config.ts`, templates); third-party packages
+   `getAllPossiblePackageNames`, fallback map, `tsdown.config.ts`, templates); third-party packages
    used a special-cased fallback; the runtime floor was a hardcoded literal.
 3. **Deno parity** — Deno generated a different layout (`.env.example` only) and ignored `.env` in
    dev and production.

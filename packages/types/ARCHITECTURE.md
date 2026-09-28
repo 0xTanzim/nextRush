@@ -197,7 +197,7 @@ block-beta
 
 ## Lifecycle
 
-`@nextrush/types` has **no runtime lifecycle**. It is not constructed, booted, or torn down — it is a set of compile-time declarations plus four constant values. At build (`tsup`), every `interface` and `type` is erased and only `HttpStatus`, `HTTP_METHODS`, `ContentType`, and the `ROUTE_METADATA` symbol survive into `dist`.
+`@nextrush/types` has **no runtime lifecycle**. It is not constructed, booted, or torn down — it is a set of compile-time declarations plus four constant values. At build (`tsdown`), every `interface` and `type` is erased and only `HttpStatus`, `HTTP_METHODS`, `ContentType`, and the `ROUTE_METADATA` symbol survive into `dist`.
 
 The only "lifecycle" worth naming is **compile-time conformance**: a consumer imports a contract, and the type checker verifies (structurally) that the consumer's implementation matches it — a schema library satisfying `StandardSchemaV1`, an adapter satisfying `ServerAdapter`, a concrete context satisfying `AdapterContext`. Nothing happens at runtime; the guarantee is discharged entirely by `tsc`.
 
