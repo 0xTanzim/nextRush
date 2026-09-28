@@ -145,7 +145,7 @@ eslint: "^9.39.5"
 - **21 package-level `lint` scripts** run `eslint src --ignore-pattern '**/__tests__/**'`
   (20 packages + `apps/website`; root's `lint` is `turbo run lint`); turbo `lint` depends on
   `build` and feeds `verify`, which CI (`.github/workflows/ci.yml`) and the pre-push hook both run.
-- **~124 `eslint-disable` directives across ~51 source files** (`packages/`, `scripts/`, `tools/`).
+- **89 `eslint-disable*` directives (70 of them `-next-line`, plus 4 matching `eslint-enable`) across 51 source files** (`packages/`, `scripts/`, `tools/`) — verified 2026-09-28.
 - `tsconfig.base.json` sets `"ignoreDeprecations": "6.0"` plus
   `experimentalDecorators`/`emitDecoratorMetadata` (required by the `class` DI package).
 
@@ -253,7 +253,7 @@ its fixtures and `capability-exempt` semantics byte-for-byte.
 - Type-aware enforcement retained (59/61 typed rules; the 2 gaps identified in P0 — §18).
 - Lint wall-time drops ~12–18× on the same rules (published benchmarks; measured locally in §14).
 - One tool for lint + (optionally later) format; ~10 redundant ESLint-family packages removed.
-- All ~124 `eslint-disable` directives keep working (`eslint-*` syntax is supported natively).
+- All 89 `eslint-disable*` directives keep working (`eslint-*` syntax is supported natively).
 
 ### Costs
 
@@ -478,7 +478,7 @@ actually means "stay on TS 6, unless/until upstream ships."
 - **Wait for Oxlint JS Plugins to leave alpha before porting the custom rule** — rejected: blocks
   the whole migration on an unrelated timeline; the plugin host passes 100% of ESLint's rule-test
   suite, and our fixtures run in CI to catch regressions immediately.
-- **Translate all ~124 `eslint-disable` comments to `oxlint-disable` syntax** — rejected as churn:
+- **Translate all 89 `eslint-disable` comments to `oxlint-disable` syntax** — rejected as churn:
   `eslint-*` suppression is supported natively; the rename can happen opportunistically later.
 - **Pin TS 6 + rewrite lint stack anyway, upgrade TS later** — rejected: inverts the risk order;
   running the new linter against the *new* compiler in a separate phase is what keeps deltas
