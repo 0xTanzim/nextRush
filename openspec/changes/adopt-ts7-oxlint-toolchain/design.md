@@ -146,6 +146,41 @@ is ESM-only with no `main` and no `tsserver` bin. The same spawn path is exercis
 mode stays loud (a named missing package and the install command, never a green build with silently
 absent declarations).
 
+### D9 — The bundling/declaration step moves from `tsup` to `tsdown` (approved 2026-09-28)
+
+`pnpm build` on TypeScript 7 dies inside `tsup@8.5.1`'s **vendored** `rollup-plugin-dts@6.1.1`, which
+reads the legacy TypeScript JS API (`ts.sys.useCaseSensitiveFileNames`) that TS 7 no longer exports
+(`typeof require('typescript').sys === 'undefined'`). Because the plugin is bundled into tsup's own
+`dist/rollup.js`, a dependency override cannot reach it — verified by adding
+`overrides: { rollup-plugin-dts: "^6.5.1" }`, reinstalling, and reproducing the identical crash; the
+override was reverted rather than left as a no-op. tsup's newest release is 8.5.1, published
+2025-11-12 — roughly eight months before TS 7 shipped — with no v9 and no prerelease to wait for.
+
+Alternatives weighed before choosing:
+
+| Alternative | Why not chosen |
+| --- | --- |
+| `dts: false` + `tsc --emitDeclarationOnly`, keeping tsup for JS | Works, but touches 38 configs and build scripts to change the declaration *shape* (bundled single file → per-file tree) and leaves the JS half on a bundler that cannot follow the ecosystem's TS 7 path |
+| Patch tsup via `patchedDependencies` | We would own a patch against a release that is already ten months stale |
+| Keep the build on TypeScript 6 | Contradicts this change's goal |
+
+**Decision: move to `tsdown`.** Its declaration path is `rolldown-plugin-dts`
+(`peerDependencies.typescript: "^5.0.0 || ^6.0.0 || ~7.0.0"`), built on oxc parsers (`yuku-ast`,
+`yuku-parser`, `yuku-codegen`) and never touching the TypeScript JS API; `tsdown` itself treats
+`typescript` as an *optional* peer. Both packages clear the release-age quarantine
+(`tsdown@0.23.0` → 2026-09-03; `rolldown-plugin-dts@0.28.6` → 2026-09-16).
+
+**The two-stage migration is mandatory**, per tsdown's own migration guide: v0.22.14 is the last release
+that still accepts tsup-compatible options (with deprecation warnings); newer releases removed them and
+**silently ignore** them at runtime. The migration therefore runs on `0.22.14`, every deprecation warning
+is resolved, and only then does the catalog move to `^0.23.0`. Going straight to `^0.23.0` would turn
+`external`/`splitting` into silently-dropped options — a build that reports success while producing
+different output than intended, which is precisely the failure class this change exists to prevent.
+
+**Behaviour differences to account for:** `splitting: false` is unsupported (code splitting is always
+enabled), `external` moves to `deps.neverBundle`, tsup-style `plugins`/`swc`/`metafile` are unavailable,
+and `onSuccess` has no direct equivalent (tsdown exposes `hooks`).
+
 ## Risks / Trade-offs
 
 - **`oxlint-tsgolint` may not implement every typed rule the repo relies on** → the rule mapping is a
@@ -164,6 +199,14 @@ absent declarations).
   option's removal part of that phase rather than an unplanned follow-up.
 - **Contributor friction from losing ESLint editor integration** → the Oxlint editor extension and
   the unchanged `pnpm lint` / `pnpm verify` commands are documented in the same change.
+- **The bundler's declaration step may be tied to the old compiler** → established before the bump:
+  `tsup@8.5.1` vendors `rollup-plugin-dts@6.1.1`, which reads the legacy TypeScript JS API that TS 7
+  does not export, and the plugin is bundled so an override cannot reach it. Resolved by D9 (move to
+  `tsdown`), with the mitigation carried by tasks that compare build output before and after the
+  bundler swap rather than trusting a green exit code.
+- **A migration tool can silently drop options it no longer supports** → D9's two-stage rule: migrate
+  on the last tsup-compatible release, drive deprecation warnings to zero, and only then upgrade; the
+  bundler phase is not complete until output is compared against the tsup-built baseline.
 
 ## Migration Plan
 
@@ -177,9 +220,11 @@ Phased so each step is independently revertible (full checklists and rollback ta
 2. **Lint cutover** (still TypeScript 6) — swap the 21 lint scripts, land the new root config, remove
    the ESLint lint-path dependencies, triage findings. Exit: `pnpm verify` green with no ESLint in the
    lint path.
-3. **Compiler bump** — move the catalog to `typescript@^7.0.2`, align `oxlint-tsgolint`, validate
-   config, fix surfaced type errors. Exit: `pnpm typecheck`, `pnpm build`, `pnpm test` green across
-   the workspace; conformance suite green.
+3. **Compiler bump + bundler migration** — move the catalog to `typescript@^7.0.2`, align
+   `oxlint-tsgolint` (already built on TS 7.0.2 — see D3), validate config, **migrate the 38 tsup
+   configs to tsdown on v0.22.14 first, then upgrade to `^0.23.0`** (D9), fix surfaced type errors.
+   Exit: `pnpm typecheck`, `pnpm build`, `pnpm test` green across the workspace with build output
+   compared against the tsup-built baseline; conformance suite green.
 4. **Downstream consumers + close-out** — generated-project templates, website lint, contributor
    docs, then promote the durable decisions (repo linter is Oxlint; the `typescript` ↔
    `oxlint-tsgolint` lockstep) to an ADR from `docs/adr/TEMPLATE.md`.

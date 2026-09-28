@@ -49,6 +49,17 @@
 - [ ] 3.10 Re-run the gate checks owned by this group (per-package ≥90% coverage, tsc strict clean, lint clean) and the cross-adapter conformance suite; verify identical conformance results and green gates
 - [ ] 3.11 Record the post-bump typecheck wall-time against task 3.1's baseline in the evidence file; verify the figure comes from the same uncached command
 
+### 3b. Bundler migration — `tsup` → `tsdown` (D9; required for 3.9)
+
+- [ ] 3.12 RED: pin the bundler failure to its mechanism before changing anything — reproduce the `pnpm build` crash on TypeScript 7, show it originates inside the bundler's vendored declaration plugin (not our source), show that a dependency override does **not** reach it, and record that no newer release of the current bundler exists; verify all four facts are reproducible and are recorded in the evidence file
+- [ ] 3.13 Capture the pre-migration build contract for every package that publishes something: the `dist/` file list, the resolved `types`/`exports` entry paths, and a working import of each published entry — so the migration is judged on output, not on exit codes
+- [ ] 3.14 Migrate the 38 build configs with the official migration tool on the last tsup-compatible release (v0.22.14); verify every config is converted, the toolchain dependency is declared as a catalog entry (not a loose version), and `tsup` no longer appears in any manifest or config file
+- [ ] 3.15 Resolve every deprecation warning the migration release emits (moved options such as the external-dependency list, and unsupported ones such as `splitting: false`); verify a full workspace build emits **zero** deprecation warnings
+- [ ] 3.16 Re-verify the captured contract of 3.13 against the migrated build: identical `dist/` file lists, identical resolved entry paths, and every published entry still importable — investigate and resolve any difference rather than accepting it
+- [ ] 3.17 Only after 3.15 is warning-free, move the toolchain catalog to the current release line and re-verify: still zero warnings, output unchanged from the previous step, and the tool's compiler peer satisfied — proving no option was silently dropped
+- [ ] 3.18 Handle the packages with non-default build needs individually (the dev CLI's declaration tree and loader copy, its post-build hook, the scaffolder, and any package using platform/tree-shaking settings); verify each builds and its own tests pass
+- [ ] 3.19 Verify the full workspace on TypeScript 7: `pnpm build`, `pnpm typecheck`, `pnpm test` green, and the cross-adapter conformance suite identical to the task 2.8 baseline
+
 ## 4. Generated-project toolchain (project-scaffolding delta)
 
 - [ ] 4.1 RED: add the acceptance tests this delta requires — (a) every package imported by an emitted lint configuration is declared in the generated manifest, (b) the emitted lint script exits zero on a generated project, (c) the emitted editor recommendation names the configured linter, (d) the emitted compiler range is on the framework's current compiler major; verify all four fail against the current generator output
