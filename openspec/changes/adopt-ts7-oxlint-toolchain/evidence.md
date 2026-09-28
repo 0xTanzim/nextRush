@@ -41,11 +41,55 @@ Quarantine reference: `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080` (7 d
 
 ## Phase results
 
+### Task 1.1 — lint baseline (recorded 2026-09-28)
+
+Two baselines were captured, because `pnpm lint` (turbo) is **not** a reliable lint-only signal here.
+
+#### Baseline A — turbo-level (`pnpm lint`)
+
+| Run | Command | Result |
+| --- | --- | --- |
+| 1 | `pnpm lint` (cold, no turbo cache) | ❌ exit 1 in **1m07.8s**; `Failed: @nextrush/adapter-edge#lint` — 3 × `@typescript-eslint/no-unsafe-assignment` "Unsafe assignment of an error typed value" at `packages/adapters/edge/src/context.ts:118` (46 of 53 tasks succeeded) |
+| 2 | `pnpm lint` (warm) | ❌ exit 1 in **13.2s**; `Failed: website#build` — `⨯ Another next build process is already running` |
+
+Both failures are **artifacts, not repo defects**:
+
+- The `adapter-edge` errors do **not** reproduce standalone: `pnpm --filter @nextrush/adapter-edge lint` exits 0. Cause: `turbo.json`'s `lint` task declares `dependsOn: ["build"]` — the **same package's** build only, not `^build` — so type-aware linting can run before a dependency package's `dist/**/*.d.ts` exists, and the unresolved type surfaces as an *error typed value*. This is a pre-existing latent race in the repo's task graph, and it is exactly the caveat the Oxc docs state for monorepos (*"Build dependent packages so `.d.ts` files are available"*).
+- The `website#build` failure was caused by a concurrent run holding the Next.js build lock, not by repo state.
+
+#### Baseline B — lint-only harness (authoritative; used for every before/after comparison)
+
+`pnpm lint` cannot serve as an A/B measurement because it drags build tasks (including the website's Next.js build) into every comparison. Instead each of the 21 packages' **own** `lint` script runs in its own directory, with no turbo/build dependency:
+
+```bash
+bash /tmp/ts7/lint-all.sh baseline     # loops the 21 lint-script packages, times each, counts findings
+```
+
+| Metric | Baseline (run 1) | Reproduction (run 2) |
+| --- | --- | --- |
+| Wall time (21 packages, serial) | **52.97s** | **48.36s** |
+| Packages with a `lint` script | 21 | 21 |
+| Failing packages | **0** | **0** |
+| Total findings | **0** | **0** |
+
+Per-package wall times (seconds, run 1): core 2.16, create-nextrush 2.47, dev 3.24, router 2.16,
+runtime 2.54, stream 1.91, types 1.85, adapters/bun 2.51, adapters/conformance 3.08, adapters/deno 2.31,
+adapters/edge 2.28, adapters/nextjs 2.92, adapters/node 2.46, adapters/serverless 2.60,
+extensions/events 1.94, interop/express-bridge 2.18, middleware/cookies 2.31, middleware/csrf 2.12,
+middleware/openapi 2.07, middleware/validation 2.11, apps/website 5.59.
+
+**Reproduction check:** the harness re-run reports the **same finding set** (0 findings, 0 failing packages), so the baseline is stable and fit for comparison. Wall time differs by ~9% between runs (page-cache warmth), which is why the before/after comparison uses the finding set as the hard gate and treats timing as indicative.
+
+**Conclusion for the migration:** the linted source is **clean** (0 findings) at the package level. Any
+finding the new engine reports is therefore a genuine engine delta to triage, not pre-existing lint debt.
+The turbo-level `adapter-edge` race and the `lint`-task `^build` gap are pre-existing issues, recorded here
+so they are not mistaken for regressions of this change.
+
 ### Group 1 — spike and rule-parity map (tasks 1.1, 1.3, 1.6)
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Lint baseline (finding set + wall-time) | _task 1.1_ | ⬜ not yet recorded |
+| Lint baseline (finding set + wall-time) | _task 1.1_ | ✅ 0 findings / 0 failing across 21 packages; lint-only wall 52.97s (reproduction 48.36s) — see the baseline section above |
 | Pinned pair produces type-aware diagnostics | _task 1.3_ | ⬜ not yet recorded |
 | Type-aware wiring under the per-package turbo invocation | _task 1.6_ | ⬜ not yet recorded |
 
