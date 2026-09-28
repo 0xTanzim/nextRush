@@ -42,6 +42,7 @@ export function QuickInstall() {
 
         <div className="mx-auto max-w-[720px]">
           <div className="home-card overflow-hidden rounded-2xl shadow-[0_12px_40px_-20px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_40px_-18px_rgba(0,0,0,0.5)]">
+            {/* eslint-disable-next-line jsx-a11y/prefer-tag-over-role -- toggle-button group: role="group" with a label is the correct pattern; none of the suggested native tags (address/details/fieldset/…) applies outside a form */}
             <div role="group" aria-label="Package manager" className="flex border-b border-fd-border/80">
               {packageManagers.map((pm) => {
                 const isActive = activeTab === pm.name;

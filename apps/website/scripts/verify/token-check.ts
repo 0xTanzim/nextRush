@@ -30,7 +30,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findFiles } from './lib/fs-walk.js';
 
 export interface TokenFinding {
   file: string;
@@ -167,11 +166,6 @@ function collectSources(dir: string): string[] {
     }
   }
   return out;
-}
-
-/** Split file content into lines and return (line, text) for the given file. */
-function linesOf(raw: string): Array<{ line: number; text: string }> {
-  return raw.split('\n').map((text, i) => ({ line: i + 1, text }));
 }
 
 /** Find a regex match's 1-based line number within `raw`. */

@@ -32,13 +32,10 @@ export function TutorialProgress({
         <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
         <p className="text-xs font-medium tabular-nums text-[var(--text-secondary)]">{status}</p>
       </div>
+      <progress className="sr-only" value={pct} max={100} aria-label={`${title}: ${status}`} />
       <div
         className="mt-2 h-1.5 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--color-fd-muted)_70%,transparent)]"
-        role="progressbar"
-        aria-valuenow={pct}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`${title}: ${status}`}
+        aria-hidden="true"
       >
         <div
           className="h-full rounded-full bg-[var(--brand-solid)] transition-[width] duration-300"
@@ -55,8 +52,6 @@ export function TutorialProgress({
  * no gradient, no nested cards.
  */
 export function TutorialChapter({
-  part,
-  total = 3,
   tagline,
   focus,
 }: {
@@ -315,7 +310,6 @@ export function WhyItem({ children }: { children: ReactNode }) {
 
 /** Celebratory part checkpoint with momentum into the next part. */
 export function TutorialCheckpoint({
-  part,
   title,
   next,
   children,

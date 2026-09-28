@@ -1,4 +1,4 @@
-import { transformerTwoslash } from '@shikijs/twoslash';
+import { transformerTwoslash } from 'fumadocs-twoslash';
 import { remarkMdxMermaid } from 'fumadocs-core/mdx-plugins';
 import {
   defineCollections,
