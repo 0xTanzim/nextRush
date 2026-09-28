@@ -47,10 +47,15 @@ for (const [pkgName, segments] of Object.entries(PACKAGE_VERSION_SOURCES)) {
 
 // create-nextrush's own toolchain devDependency versions, single-sourced into the
 // generated project (see task 5.3 / F-07): typescript / @types/node must not drift from
-// what this scaffolder itself uses and tests against.
+// what this scaffolder itself uses and tests against. `oxlint` joins the same policy:
+// the emitted `.oxlintrc.json` is dependency-free JSON, so `oxlint` alone runs the
+// generated lint gate — its range comes from the repo pin, never an inline literal.
 const OWN_PKG_JSON = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf8')) as {
   version: string;
   devDependencies: Record<string, string>;
+};
+const ROOT_PKG_JSON = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
+  devDependencies?: Record<string, string>;
 };
 
 export default defineConfig({
@@ -71,12 +76,15 @@ export default defineConfig({
   define: {
     __VERSION__: JSON.stringify(OWN_PKG_JSON.version),
     __FALLBACK_VERSIONS__: JSON.stringify(FALLBACK_VERSIONS),
-    __TYPESCRIPT_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['typescript'] ?? '^6.0.3'),
+    __TYPESCRIPT_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['typescript'] ?? '^7.0.2'),
     __TYPES_NODE_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['@types/node'] ?? '^22.0.0'),
     __VITEST_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['vitest'] ?? '^4.1.10'),
     // Third-party `dotenv` fallback for generated Node/Bun projects — single-sourced from
     // this package's own devDependencies (dotenv is not a workspace package, so it can't
     // join PACKAGE_VERSION_SOURCES). Mirrors the typescript/vitest single-sourcing pattern.
     __DOTENV_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['dotenv'] ?? '^17.4.2'),
+    // Oxlint companion to the emitted `.oxlintrc.json` — single-sourced from the ROOT
+    // manifest's catalog pin (the scaffolder is not the consumer; the repo root is).
+    __OXLINT_RANGE__: JSON.stringify(ROOT_PKG_JSON.devDependencies?.['oxlint'] ?? '1.83.0'),
   },
 });

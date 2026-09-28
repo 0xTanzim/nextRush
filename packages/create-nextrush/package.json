@@ -70,7 +70,7 @@
     "dotenv": "^17.4.2",
     "nextrush": "workspace:*",
     "tsdown": "catalog:tooling",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }
 }

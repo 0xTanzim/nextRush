@@ -260,7 +260,7 @@ through `npm create` is a separate, earlier network step.
 ### Extra layers: production preset, examples, workspace mode
 
 - **`--preset production`** adds an opt-in production-service layer: `.editorconfig`, VS Code
-  recommendations, `eslint.config.mjs`, a `.github/workflows/ci.yml` CI job, a multi-stage
+  recommendations, `.oxlintrc.json`, a `.github/workflows/ci.yml` CI job, a multi-stage
   `Dockerfile` + `.dockerignore`, and `docs/production.md` — all referencing the generated
   scripts and `/health` endpoint. The base starter stays unchanged when the preset is off.
 - **`--example secure-api`** scaffolds a governed task-oriented example: a minimal bearer-token
