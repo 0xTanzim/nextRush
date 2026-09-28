@@ -91,8 +91,76 @@ so they are not mistaken for regressions of this change.
 | --- | --- | --- |
 | Lint baseline (finding set + wall-time) | _task 1.1_ | ✅ 0 findings / 0 failing across 21 packages; lint-only wall 52.97s (reproduction 48.36s) — see the baseline section above |
 | Pinned pair installs under the quarantine | `pnpm install` + `pnpm exec oxlint --version` | ✅ `oxlint` 1.83.0 + `oxlint-tsgolint` 7.0.2002 installed; `minimumReleaseAge: 10080` unchanged and **zero** `minimumReleaseAgeExclude` entries; lockfile records the pair as `oxlint@1.83.0(oxlint-tsgolint@7.0.2002)` |
-| Pinned pair produces type-aware diagnostics | _task 1.3_ | ⬜ not yet recorded |
+| Pinned pair produces type-aware diagnostics | _task 1.3_ | ✅ `--type-aware` reports 25 diagnostics incl. the type-aware `typescript(unbound-method)`; a scratch `no-floating-promises` violation is caught with its inferred type `Promise<number>` — see below |
 | Type-aware wiring under the per-package turbo invocation | _task 1.6_ | ⬜ not yet recorded |
+
+### Task 1.3 — the pinned pair is mutually usable (verified 2026-09-28)
+
+Type-aware linting must be proven on the pinned pair *before* it is relied on, because `oxlint` and
+`oxlint-tsgolint` are separate binaries loaded together (the lockfile even records the peer link as
+`oxlint@1.83.0(oxlint-tsgolint@7.0.2002)`).
+
+**Invocation 1 — whole package, config-free:**
+
+```bash
+cd packages/router && pnpm exec oxlint --type-aware src
+```
+
+```
+Found 25 warnings and 0 errors.
+Finished in 238ms on 44 files with 111 rules using 8 threads.
+```
+
+The 25 diagnostics include `typescript(unbound-method)` — a genuinely type-aware rule — so type
+information reached tsgolint. No version-mismatch error and no silent no-op: **the pair is compatible.**
+
+**Invocation 2 — proof that real type information flows, not just rule registration:**
+
+A throwaway file was placed at `packages/router/src/__ts7_scratch.ts` (deleted immediately after the run):
+
+```ts
+async function load(): Promise<number> {
+  return 1;
+}
+
+export function run(): void {
+  load();
+}
+```
+
+```bash
+cd packages/router && pnpm exec oxlint --type-aware -D typescript/no-floating-promises src/__ts7_scratch.ts
+```
+
+```
+  x typescript(no-floating-promises): Promises must be awaited, add void operator to ignore.
+   ,-[src/__ts7_scratch.ts:6:3]
+ 5 | export function run(): void {
+ 6 |   load();
+   :   ^^^|^^^
+   :      `-- This unhandled promise-like value has type `Promise<number>`.
+ 7 | }
+   `----
+  help: The promise must end with a call to .catch, or end with a call to .then with a rejection handler, or be explicitly marked as ignored with the `void` operator.
+
+Found 0 warnings and 1 error.
+Finished in 175ms on 1 file with 111 rules using 8 threads.   (exit 1)
+```
+
+The message quotes the **inferred type** (`Promise<number>`), which is only obtainable by building a
+real TypeScript program — the `typescript-go` path is live.
+
+**Rule-table schema learnt here (needed for task 1.5):** `oxlint --rules` prints
+`| Rule name | Source | Default | Enabled? | Fixable? |`. A blank `Default`/`Enabled?` pair does **not**
+mean "unimplemented" — it means the rule **exists but is not in the default set**, so it must be
+enabled explicitly in the config. This distinction matters for the parity map: rules such as
+`no-misused-promises`, `no-unsafe-assignment`, `no-unsafe-call`, `no-unsafe-member-access`,
+`no-unsafe-return`, `no-unsafe-argument`, `no-explicit-any`, `no-non-null-assertion`,
+`prefer-nullish-coalescing`, `prefer-optional-chain`, `require-await`, `no-unnecessary-condition`,
+`only-throw-error`, `no-confusing-void-expression`, and `unified-signatures` are all **present** and
+can be turned on, exactly as the current ESLint config turns them on.
+
+
 
 ### Group 2 — lint cutover (task 2.9)
 
