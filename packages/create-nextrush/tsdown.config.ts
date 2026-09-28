@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'tsdown';
 import { keepClassNames } from '../../tools/tsdown/keep-class-names.mjs';
+import { resolveInstallableRange } from '../../tools/tsdown/catalog-range.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -84,7 +85,12 @@ export default defineConfig({
     // join PACKAGE_VERSION_SOURCES). Mirrors the typescript/vitest single-sourcing pattern.
     __DOTENV_RANGE__: JSON.stringify(OWN_PKG_JSON.devDependencies['dotenv'] ?? '^17.4.2'),
     // Oxlint companion to the emitted `.oxlintrc.json` — single-sourced from the ROOT
-    // manifest's catalog pin (the scaffolder is not the consumer; the repo root is).
-    __OXLINT_RANGE__: JSON.stringify(ROOT_PKG_JSON.devDependencies?.['oxlint'] ?? '1.83.0'),
+    // manifest's toolchain catalog. The root declares it as `catalog:tooling`, which
+    // resolves only inside this workspace; a generated project is standalone, so the
+    // injected range must be the catalog's concrete resolved version, never the
+    // workspace-only `catalog:` protocol.
+    __OXLINT_RANGE__: JSON.stringify(
+      resolveInstallableRange(ROOT_PKG_JSON.devDependencies?.['oxlint'], 'oxlint', ROOT, '1.83.0')
+    ),
   },
 });
