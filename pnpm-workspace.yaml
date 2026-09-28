@@ -12,9 +12,6 @@ catalogMode: prefer
 cleanupUnusedCatalogs: true
 minimumReleaseAge: 10080
 
-overrides:
-  '@swc-node/register>typescript': '6.0.3'
-
 catalogs:
   tooling:
     typescript: "^7.0.2"
@@ -30,17 +27,6 @@ catalogs:
     eslint: "^9.39.5"
     oxlint: "1.83.0"
     oxlint-tsgolint: "7.0.2002"
-
-  docs-toolchain:
-    # The docs site pins TypeScript itself. Its syntax-highlighting chain
-    # (`@shikijs/twoslash` → `twoslash@0.3.9`) reads `ts.sys` at module init, and
-    # TypeScript 7's main entry only exposes `./lib/version.cjs` (the API moved to
-    # `./unstable/*`), so `ts.sys` is undefined and every `fumadocs-mdx` run crashed.
-    # No twoslash release supports TS 7 yet (`typescript: ^5.5 || ^6.0`), and pinning the
-    # inner dependency alone does not work — the outer peer resolves too. Remove this
-    # catalog when twoslash publishes TypeScript 7 support; the framework packages are on
-    # the `tooling` catalog (TypeScript 7) regardless of this entry.
-    typescript: "6.0.3"
 
   testing:
     vitest: "^4.1.10"
