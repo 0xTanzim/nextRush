@@ -2,9 +2,9 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Draft` |
+| **Status**           | `Shipped` |
 | **RFC number**       | `037` |
-| **Date**             | `2026-09-27` |
+| **Date**             | `2026-09-27` (shipped `2026-09-28`) |
 | **Author(s)**        | Tanzim Hossain (NextRush maintainers) |
 | **Group**            | `repo-tooling` |
 | **Packages touched** | none (runtime) — repo-internal tooling only: root `package.json`, `pnpm-workspace.yaml`, `eslint.config.mjs` → `oxlint.config.ts`, 21 package-level `lint` scripts, `tools/eslint-rules/*`, `apps/website` config, `create-nextrush` templates |
@@ -17,20 +17,24 @@
 
 ## Progress Tracker
 
-**Overall:** `[░░░░░░░░░░░░░░░░░░░░]` 0% — 0 / 4 phases complete · Doc status: `Draft`
+**Overall:** `[████████████████████]` 100% — 4 / 4 phases complete · Doc status: `Shipped` (2026-09-28)
 
 | Phase | Part / deliverable                                            | Status         |
 | ----- | ------------------------------------------------------------- | -------------- |
-| P0    | Spike: Oxlint + tsgolint on TS 6, rule-parity mapping, custom-rule JS Plugin port | ⬜ Not started  |
-| P1    | Repo lint cutover — all `lint` scripts → Oxlint, ESLint removed from lint path | ⬜ Not started  |
-| P2    | TypeScript 7 (`typescript@^7.0.2`) across the workspace catalog | ⬜ Not started  |
-| P3    | Scaffolder, website, docs, RFC close-out                        | ⬜ Not started  |
+| P0    | Spike: Oxlint + tsgolint on TS 6, rule-parity mapping, custom-rule JS Plugin port | ✅ Shipped  |
+| P1    | Repo lint cutover — all `lint` scripts → Oxlint, ESLint removed from lint path | ✅ Shipped  |
+| P2    | TypeScript 7 (`typescript@^7.0.2`) across the workspace catalog (+ bundler migration tsup → tsdown, D9) | ✅ Shipped  |
+| P3    | Scaffolder, website, docs, RFC close-out                        | ✅ Shipped  |
 
 ---
 
 ## 0. Revision History
 
 - **v1 (`2026-09-27`)** — Initial draft.
+- **v2 (`2026-09-28`)** — Shipped. All four phases complete; durable decisions promoted to
+  `docs/adr/ADR-0027-repo-linter-and-compiler-lockstep.md`. One in-flight addition: the
+  `tsup` → `tsdown` bundler migration (design D9), required because `tsup@8.5.1`'s vendored
+  `rollup-plugin-dts` reads the legacy TypeScript JS API that TS 7 no longer exports.
 
 ---
 
@@ -72,7 +76,7 @@ Plugins, which hosts our custom rule), and a rule-behavior triage pass.
 
 ## 2. Decision Summary
 
-- **Status:** `Draft`
+- **Status:** `Shipped` (2026-09-28)
 - **Decision:**
   - **Introduce** `oxlint` + `oxlint-tsgolint` (catalog `tooling`) as the monorepo's linter,
     with type-aware rules enabled and a root `oxlint.config.ts` derived from the current
@@ -536,12 +540,12 @@ actually means "stay on TS 6, unless/until upstream ships."
 
 | Metric                | Baseline (measured) | Target / threshold          | Measured result |
 | --------------------- | ---------------- | --------------------------- | --------------- |
-| `pnpm typecheck` wall-time | record pre-bump on TS 6.0.3 (P2) | ≥5× faster on TS 7.0.2 (upstream claims 8–12×) | ⬜ pending P2 |
+| `pnpm typecheck` wall-time | **1 m 25.61 s** — TS 6.0.3, 68/68 tasks (uncached `turbo run typecheck --force`) | ≥5× faster on TS 7.0.2 (upstream claims 8–12×) | ✅ **16.03 s** on TS 7.0.2 — **5.3×** on the identical command |
 | `pnpm lint` wall-time | **52.97 s** — ESLint, 21 tasks, 0 findings (reproduction 48.36 s) | ≥5× faster (upstream tsgolint: 12–18×) | **19.82 s** after P1 → **2.7×** workspace-level, **3.3×** across the 20 packages that actually moved (47.38 s → 14.43 s). **Target missed** — see note below |
 | Rule parity            | 135 enabled ESLint rules | 100% mapped or explicitly waived in the P0 mapping table — **zero silent drops** (G2) | ✅ **135 rows / 135 unique / 0 missing / 0 extra / 0 duplicate**; typed-rule coverage **60/61** of the previous `typescript-eslint` set (`naming-convention` absent, and it was never enabled) |
 | Custom rule enforcement | fixtures green under `node --test` | fixtures green, unchanged (G3) | ✅ `RuleTester` suite unchanged (7 valid + 6 invalid) **plus** a new host-level fixture proving the rule is reachable through Oxlint's JS-plugin host; both wired into `pnpm verify` as `validate:lint-rules` |
-| `pnpm verify`          | green (CI + pre-push) | green, contract identical (G4) | ⬜ pending close-out |
-| Test coverage          | 90%+ lines/functions per package | unchanged (no coverage config touched) | ⬜ pending close-out |
+| `pnpm verify`          | green (CI + pre-push) | green, contract identical (G4) | ✅ green end-to-end on a cold `.turbo`: `turbo run verify` **147/147** (build + test + typecheck + lint) plus the validator chain (`validate:*`, `ensure:swc-node`, `check:coverage`); wall **3 m 28 s** |
+| Test coverage          | 90%+ lines/functions per package | unchanged (no coverage config touched) | ✅ `pnpm check:coverage` → "Coverage gate passed for all non-excluded packages" (pre-existing exclusions unchanged) |
 
 **Note on the missed lint-speed target.** The ≥5× in this table was set from upstream's 12–18× on pure
 analysis. Measured end-to-end the workspace gains **2.7×** (20-package subset: **3.3×**), because the
@@ -556,10 +560,10 @@ Oxlint invocation, which trades away per-package turbo caching and the per-packa
 
 | Phase | Goal (what ships)                     | Depends on | Exit condition (checkable)                     | Status         |
 | ----- | ------------------------------------- | ---------- | ---------------------------------------------- | -------------- |
-| **P0** | Spike: Oxlint + tsgolint installed on TS 6; `@oxlint/migrate` translation; **rule-mapping table** checked in; custom rule running as JS Plugin; `--type-aware`-under-turbo validated | — | Mapping table covers 100% of current rules (mapped/waived); `oxlint src --type-aware` exits 0 (or on triaged-only findings) per package; custom-rule fixtures green; timing baseline recorded | ⬜ Not started  |
-| **P1** | Repo lint cutover: all 21 `lint` scripts → Oxlint, root `oxlint.config.ts` replaces `eslint.config.mjs`, turbo `globalDependencies` fixed, ESLint removed from the lint path, findings triaged | P0 | `pnpm verify` green with zero ESLint in the lint path; lint wall-time recorded vs baseline; every new finding fixed or deliberately waived with rationale | ⬜ Not started  |
-| **P2** | TypeScript 7: catalog `typescript` → `^7.0.2`, `oxlint-tsgolint` aligned, `tsconfig.base.json` validated (`ignoreDeprecations`, `ts5to6`), typecheck/build/test fixed | P1 | `pnpm typecheck && pnpm test && pnpm build` green on TS 7.0.2 across the workspace; conformance suite green; timing recorded | ⬜ Not started  |
-| **P3** | Scaffolder + website + docs: `create-nextrush` templates emit Oxlint + TS 7 (config, toolchain range, extensions), website lint resolved (§8.6 fallback if needed), docs updated, RFC → Shipped | P2 | Generator installable-output CI test green; `apps/website` lint green; docs no longer instruct ESLint (grep audit); INDEX updated | ⬜ Not started  |
+| **P0** | Spike: Oxlint + tsgolint installed on TS 6; `@oxlint/migrate` translation; **rule-mapping table** checked in; custom rule running as JS Plugin; `--type-aware`-under-turbo validated | — | Mapping table covers 100% of current rules (mapped/waived); `oxlint src --type-aware` exits 0 (or on triaged-only findings) per package; custom-rule fixtures green; timing baseline recorded | ✅ Shipped  |
+| **P1** | Repo lint cutover: all 21 `lint` scripts → Oxlint, root `oxlint.config.ts` replaces `eslint.config.mjs`, turbo `globalDependencies` fixed, ESLint removed from the lint path, findings triaged | P0 | `pnpm verify` green with zero ESLint in the lint path; lint wall-time recorded vs baseline; every new finding fixed or deliberately waived with rationale | ✅ Shipped  |
+| **P2** | TypeScript 7: catalog `typescript` → `^7.0.2`, `oxlint-tsgolint` aligned, `tsconfig.base.json` validated (`ignoreDeprecations`, `ts5to6`), typecheck/build/test fixed; plus the bundler migration `tsup` → `tsdown` (D9) | P1 | `pnpm typecheck && pnpm test && pnpm build` green on TS 7.0.2 across the workspace; conformance suite green; timing recorded | ✅ Shipped  |
+| **P3** | Scaffolder + website + docs: `create-nextrush` templates emit Oxlint + TS 7 (config, toolchain range, extensions), website lint resolved (§8.6 fallback if needed), docs updated, RFC → Shipped | P2 | Generator installable-output CI test green; `apps/website` lint green; docs no longer instruct ESLint (grep audit); INDEX updated | ✅ Shipped  |
 
 ### 15.1 Testing strategy
 
@@ -605,17 +609,19 @@ Oxlint invocation, which trades away per-package turbo caching and the per-packa
 
 ## 18. Open Questions
 
-- [ ] **Which 2 of the 61 typescript-eslint type-aware rules does tsgolint not implement, and do we
-      use them?** — answered by the P0 mapping table; mitigation chosen from §11 row 2 if needed.
-- [ ] **`typeAware` wiring under turbo** — per-package `--type-aware` flag vs root-config discovery:
-      decided by the P0 spike (§8.6), documented in the mapping table.
-- [ ] **Custom-rule fixture harness** — keep `eslint` devDep for `RuleTester`, or port fixtures to
-      a direct `node:test` + `rule.create()` harness to drop the dependency entirely? P0 decision.
-- [ ] **Website coverage** — does Oxlint's `nextjs` plugin cover the `core-web-vitals` rules the
-      site relies on, or does ESLint stay scoped to `apps/website`? P3 audit (§8.6).
-- [ ] **`require-await` / `no-misused-promises` availability** — confirm both exist as tsgolint
-      type-aware rules (they are type-aware in typescript-eslint; assumed present among the 59,
-      verified in P0).
+- [x] **Which 2 of the 61 typescript-eslint type-aware rules does tsgolint not implement, and do we
+      use them?** — a single one: `naming-convention` (not enabled by the previous config); the
+      pinned tsgolint build implements **60/61**. Recorded in the rule-mapping table
+      (`docs/RFC/repo-tooling/037-rule-mapping.md`).
+- [x] **`typeAware` wiring under turbo** — root-config `options.typeAware: true` (no per-package
+      CLI flag); proven from a package cwd and through `turbo run lint`.
+- [x] **Custom-rule fixture harness** — `eslint` is retained as a fixture-only devDependency for the
+      existing `RuleTester` suite (zero fixtures dropped), and the suite is now wired into
+      `pnpm verify` as `validate:lint-rules` (it previously ran nowhere).
+- [x] **Website coverage** — ESLint stays scoped to `apps/website` (Next-specific `eslint-config-next`
+      rule set); its config is isolated to that app and its `lint` exits 0.
+- [x] **`require-await` / `no-misused-promises` availability** — both exist as tsgolint type-aware
+      rules; the migration enabled them explicitly (they are present but not in Oxlint's default set).
 
 ---
 
@@ -631,6 +637,8 @@ Oxlint invocation, which trades away per-package turbo caching and the per-packa
 | Formatter                    | Keep Prettier            | Isolate churn; Oxfmt gets its own RFC |
 | `eslint-disable` comments    | Keep `eslint-*` syntax   | Natively supported; translation is pure churn |
 | Turbo task names / verify contract | Unchanged         | Zero relearning for contributors/CI/hooks |
+| Bundler for TS 7 declarations | Move `tsup` → `tsdown` | `tsup@8.5.1` vendors `rollup-plugin-dts@6.1.1`, which reads the legacy TS JS API TS 7 removed; tsdown's `rolldown-plugin-dts` is oxc-based and TS 7-ready (design D9) |
+| `typescript` ↔ `oxlint-tsgolint` versions | Lockstep (bump together) | tsgolint's version encodes the TypeScript version it is built for (`7.0.2003` = TS `7.0.2`); promoted to `ADR-0027` |
 
 ---
 
