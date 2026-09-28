@@ -13,22 +13,22 @@
 - [x] 1.4 Translate the flat config with the Oxlint migration tool into a root `oxlint.config.ts`; verify the translated rule set lists every rule ID present in `eslint.config.mjs` (compare counts mechanically, not by eye)
 - [x] 1.5 Write the rule-parity map (`037-rule-mapping.md`) — one row per rule in the current config, giving its Oxlint equivalent or an explicit waiver with rationale; verify every rule ID from the current config appears exactly once, and identify which of the `typescript-eslint` type-aware rules have no tsgolint implementation
 - [x] 1.6 Settle the type-aware wiring under the per-package turbo invocation (root config vs command-line flag, per the documented constraint that type-aware options are honoured only in the root config); verify by running one package's lint task end-to-end and confirming type-aware diagnostics are reported, and record the chosen mechanism in the parity map
-- [ ] 1.7 Wire the custom rule as a JS Plugin — RED first: add a fixture asserting the plugin-exported rule flags runtime-identity capability branching, run it and confirm it fails before the export exists; then add the ESLint-plugin-shaped export and verify the new fixture passes
-- [ ] 1.8 Verify the ported custom rule's full existing fixture suite passes under the new harness, including `capability-exempt` suppression and multi-line disable blocks; verify the harness choice (keep the lint engine as a fixture-only devDependency, or port the fixtures) drops no coverage from the current suite
-- [ ] 1.9 Verify end-to-end enforcement of the custom rule: create a scratch source file under `packages/**/src` with a runtime-identity comparison, confirm the lint run reports it, confirm a `capability-exempt` annotation silences it, then delete the scratch file
-- [ ] 1.10 Update the RFC's success-metrics table with the baseline lint wall-time and the spike timings; verify the recorded numbers come from the commands in 1.1 and 1.3
+- [x] 1.7 Wire the custom rule as a JS Plugin — RED first: add a fixture asserting the plugin-exported rule flags runtime-identity capability branching, run it and confirm it fails before the export exists; then add the ESLint-plugin-shaped export and verify the new fixture passes
+- [x] 1.8 Verify the ported custom rule's full existing fixture suite passes under the new harness, including `capability-exempt` suppression and multi-line disable blocks; verify the harness choice (keep the lint engine as a fixture-only devDependency, or port the fixtures) drops no coverage from the current suite
+- [x] 1.9 Verify end-to-end enforcement of the custom rule: create a scratch source file under `packages/**/src` with a runtime-identity comparison, confirm the lint run reports it, confirm a `capability-exempt` annotation silences it, then delete the scratch file
+- [x] 1.10 Update the RFC's success-metrics table with the baseline lint wall-time and the spike timings; verify the recorded numbers come from the commands in 1.1 and 1.3
 
 ## 2. Lint cutover (still on TypeScript 6)
 
 - [x] 2.1 Swap the `lint`/`lint:fix` script bodies in all 21 package manifests to the Oxlint invocation, preserving each package's existing strictness posture (including the scaffolder's zero-warning stance); verify one package's lint task runs clean through `pnpm --filter <pkg> lint` and that the script text contains no lint-engine reference other than Oxlint
-- [ ] 2.2 Land the final root config and remove `eslint.config.mjs`; verify `pnpm lint` resolves configuration for a package run from its own directory (no "config not found" or ignored-config behaviour)
-- [ ] 2.3 Make config edits invalidate lint caches — add the root config file to turbo's global dependencies and to the lint task's declared inputs as needed; verify the task definition references the config file so a config-only commit cannot reuse a stale lint cache
-- [ ] 2.4 Remove the lint-path dependencies (`typescript-eslint`, the scoped `@typescript-eslint/*` packages, the Prettier-conflict config, the base JS config) from the root manifest, keeping the lint engine itself only if task 1.8's harness needs it; verify `pnpm install` succeeds and `pnpm lint` still runs clean afterwards
-- [ ] 2.5 Triage every finding delta against the baseline from task 1.1: fix new errors, and for each remaining difference (waiver, engine-specific edge case, or intentional severity change) record the decision in the parity map; verify `pnpm lint` exits zero with no unexplained diff against the baseline
-- [ ] 2.6 Verify existing suppression directives still work and were not mass-edited: confirm the directive count in source is unchanged and that a spot-check file still suppresses the rule its comment names
+- [x] 2.2 Land the final root config and remove `eslint.config.mjs`; verify `pnpm lint` resolves configuration for a package run from its own directory (no "config not found" or ignored-config behaviour)
+- [x] 2.3 Make config edits invalidate lint caches — add the root config file to turbo's global dependencies and to the lint task's declared inputs as needed; verify the task definition references the config file so a config-only commit cannot reuse a stale lint cache
+- [x] 2.4 Remove the lint-path dependencies (`typescript-eslint`, the scoped `@typescript-eslint/*` packages, the Prettier-conflict config, the base JS config) from the root manifest, keeping the lint engine itself only if task 1.8's harness needs it; verify `pnpm install` succeeds and `pnpm lint` still runs clean afterwards
+- [x] 2.5 Triage every finding delta against the baseline from task 1.1: fix new errors, and for each remaining difference (waiver, engine-specific edge case, or intentional severity change) record the decision in the parity map; verify `pnpm lint` exits zero with no unexplained diff against the baseline
+- [x] 2.6 Verify existing suppression directives still work and were not mass-edited: confirm the directive count in source is unchanged and that a spot-check file still suppresses the rule its comment names
 - [ ] 2.7 Run the gate checks owned by this group: per-package line coverage at or above 90%, `tsc` strict clean, lint clean; verify all three pass and record the commands used
 - [ ] 2.8 Run the cross-adapter conformance suite and verify its results are identical to the pre-cutover run, proving the tooling change moved no runtime behaviour
-- [ ] 2.9 Record the post-cutover lint wall-time against the baseline in the change evidence file; verify the recorded figure comes from the same command as task 1.1
+- [x] 2.9 Record the post-cutover lint wall-time against the baseline in the change evidence file; verify the recorded figure comes from the same command as task 1.1
 
 ## 3. Compiler bump to TypeScript 7
 
@@ -57,8 +57,8 @@
 
 ## 5. Website lint and contributor documentation
 
-- [ ] 5.1 Decide the website app's linter on evidence: compare the rule set the site currently enforces against what the Oxlint Next plugin provides; verify the decision is recorded in the parity map, and if coverage is incomplete, scope the existing linter to that one app and document why
-- [ ] 5.2 Apply 5.1's outcome so the website's lint task passes; verify the site's lint command exits zero and, if a linter remains scoped there, that its config is isolated to that app
+- [x] 5.1 Decide the website app's linter on evidence: compare the rule set the site currently enforces against what the Oxlint Next plugin provides; verify the decision is recorded in the parity map, and if coverage is incomplete, scope the existing linter to that one app and document why
+- [x] 5.2 Apply 5.1's outcome so the website's lint task passes; verify the site's lint command exits zero and, if a linter remains scoped there, that its config is isolated to that app
 - [ ] 5.3 Update contributor documentation for the new toolchain — the unchanged `pnpm lint` / `pnpm verify` commands, the editor extension to install, and how to run a single package's lint; verify every command shown in the documentation runs as written
 - [ ] 5.4 Update the repo's editor recommendation file and any contributor-facing guidance that referenced the previous linter; verify a repository-wide search of non-historical documentation finds no instruction to install or configure the previous linter
 - [ ] 5.5 Correct the capability-list drift found during planning: `openspec/config.yaml`'s fixed capability list omits capabilities that exist in `openspec/specs/` and the registry README (including the two this change targets); verify the list matches the directories on disk

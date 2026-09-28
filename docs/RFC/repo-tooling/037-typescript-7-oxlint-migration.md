@@ -534,14 +534,23 @@ actually means "stay on TS 6, unless/until upstream ships."
 
 ## 14. Success Metrics
 
-| Metric                | Baseline (today) | Target / threshold          |
-| --------------------- | ---------------- | --------------------------- |
-| `pnpm typecheck` wall-time | measure in P2 pre-bump (TS 6.0.3) | ≥5× faster on TS 7.0.2 (upstream claims 8–12×) |
-| `pnpm lint` wall-time | measure in P0 pre-swap (ESLint, 21 tasks) | ≥5× faster (upstream tsgolint: 12–18×) |
-| Rule parity            | 100% of current `strictTypeChecked` + overrides enforced | 100% mapped or explicitly waived in the P0 mapping table — **zero silent drops** (G2) |
-| Custom rule enforcement | fixtures green under `node --test` | fixtures green, unchanged (G3) |
-| `pnpm verify`          | green (CI + pre-push) | green, contract identical (G4) |
-| Test coverage          | 90%+ lines/functions per package | unchanged (no coverage config touched) |
+| Metric                | Baseline (measured) | Target / threshold          | Measured result |
+| --------------------- | ---------------- | --------------------------- | --------------- |
+| `pnpm typecheck` wall-time | record pre-bump on TS 6.0.3 (P2) | ≥5× faster on TS 7.0.2 (upstream claims 8–12×) | ⬜ pending P2 |
+| `pnpm lint` wall-time | **52.97 s** — ESLint, 21 tasks, 0 findings (reproduction 48.36 s) | ≥5× faster (upstream tsgolint: 12–18×) | **19.82 s** after P1 → **2.7×** workspace-level, **3.3×** across the 20 packages that actually moved (47.38 s → 14.43 s). **Target missed** — see note below |
+| Rule parity            | 135 enabled ESLint rules | 100% mapped or explicitly waived in the P0 mapping table — **zero silent drops** (G2) | ✅ **135 rows / 135 unique / 0 missing / 0 extra / 0 duplicate**; typed-rule coverage **60/61** of the previous `typescript-eslint` set (`naming-convention` absent, and it was never enabled) |
+| Custom rule enforcement | fixtures green under `node --test` | fixtures green, unchanged (G3) | ✅ `RuleTester` suite unchanged (7 valid + 6 invalid) **plus** a new host-level fixture proving the rule is reachable through Oxlint's JS-plugin host; both wired into `pnpm verify` as `validate:lint-rules` |
+| `pnpm verify`          | green (CI + pre-push) | green, contract identical (G4) | ⬜ pending close-out |
+| Test coverage          | 90%+ lines/functions per package | unchanged (no coverage config touched) | ⬜ pending close-out |
+
+**Note on the missed lint-speed target.** The ≥5× in this table was set from upstream's 12–18× on pure
+analysis. Measured end-to-end the workspace gains **2.7×** (20-package subset: **3.3×**), because the
+remaining cost is dominated by the ~0.3 s process-spawn floor of 21 separate `pnpm exec` invocations —
+not by analysis. Oxlint's own report shows the engine work is sub-400 ms per package. The speedup is real
+and material, but it is **not** ≥5× at this task granularity, and it is recorded here as a miss rather than
+quietly restated. Reaching ≥5× would mean replacing 21 per-package lint tasks with a single workspace-wide
+Oxlint invocation, which trades away per-package turbo caching and the per-package strictness postures
+(`--max-warnings 0` in the scaffolder) — deliberately out of scope for this change.
 
 ## 15. Phased Implementation Plan
 

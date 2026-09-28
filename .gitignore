@@ -28,6 +28,9 @@ apps/website/.vitepress/cache
 .turbo/
 **/.turbo/
 
+# Scratch dir for tools/eslint-rules/js-plugin-host.test.mjs (created and removed per fixture)
+packages/runtime/src/__lint-rule-probe__.ts
+
 
 # Downloaded CI log folders (local debugging)
 logs_*/
