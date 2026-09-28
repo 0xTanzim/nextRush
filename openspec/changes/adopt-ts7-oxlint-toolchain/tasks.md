@@ -35,30 +35,31 @@
 - [x] 3.1 Baseline the pre-bump typecheck wall-time; verify it is recorded alongside the lint baseline in the evidence file and comes from a clean (uncached) run
 > ⛔ **P2 is BLOCKED at task 3.2/3.3** — `tsup@8.5.1` vendors `rollup-plugin-dts@6.1.1`, which
 > uses the legacy `ts.sys` API that TypeScript 7 no longer exports, breaking `dts: true` in 38 packages.
-> Facts, the failed `overrides` experiment, and four options are recorded in `evidence.md` →
-> "P2 blocker". Tasks 3.3–3.11 stay open until the declaration strategy is chosen.
+> Compiler-bump facts are recorded in `evidence.md` → "P2 blocker" (RESOLVED via D9:
+> tsup → tsdown, stage-2 `^0.23.0` landed 2026-09-28, full build 44/44 green). The boxes
+> below reconcile that executed work against the task list.
 
-- [ ] 3.2 Move `catalog:tooling.typescript` to the TypeScript 7 line and re-align `oxlint-tsgolint` to a release built for that same compiler version, documenting the lockstep rule as a catalog comment; verify the installed compiler reports the expected version and the install still respects the release-age quarantine
-- [ ] 3.3 Validate the shared TypeScript configuration under the new compiler — RED first: run the typecheck and capture any configuration-level rejection (including the migration-only deprecation option the config currently carries); then resolve the configuration and verify the typecheck reports only source-level diagnostics, never configuration errors
-- [ ] 3.4 Confirm the decorator compiler options the class-based DI path depends on are still accepted; verify by type-checking the package that owns decorator metadata and confirming no decorator-related error is reported
-- [ ] 3.5 Fix the source-level diagnostics the new compiler surfaces, package by package; verify `pnpm typecheck` is green across the workspace, and re-run the affected package tests plus the conformance suite for each fix that touched runtime source
-- [ ] 3.6 Harden the declaration pass against the new compiler distribution — RED first: add/extend an automated test that runs `nextrush build` with declarations enabled on a fixture project and asserts `.d.ts` output exists at the expected relative paths; verify it fails against a simulated resolution failure before the resolution/spawn handling is adjusted, then passes with the real compiler
-- [ ] 3.7 Add or confirm the loud-failure test for an unresolvable compiler: assert a non-zero exit and a message naming the missing package and its install command, and assert no success output is printed with declarations absent; verify the test passes
-- [ ] 3.8 Confirm the declaration pass ignores an unrelated compiler on `PATH` (resolution comes from the toolchain's own dependency tree); verify with an automated test or a recorded manual check that changes `PATH`
-- [ ] 3.9 Verify the production build and test suites on the new compiler: `pnpm build` and `pnpm test` green across the workspace, including decorator-metadata build conformance — record the commands and outcomes
-- [ ] 3.10 Re-run the gate checks owned by this group (per-package ≥90% coverage, tsc strict clean, lint clean) and the cross-adapter conformance suite; verify identical conformance results and green gates
-- [ ] 3.11 Record the post-bump typecheck wall-time against task 3.1's baseline in the evidence file; verify the figure comes from the same uncached command
+- [x] 3.2 Move `catalog:tooling.typescript` to the TypeScript 7 line and re-align `oxlint-tsgolint` to a release built for that same compiler version, documenting the lockstep rule as a catalog comment; verify the installed compiler reports the expected version and the install still respects the release-age quarantine
+- [x] 3.3 Validate the shared TypeScript configuration under the new compiler — RED first: run the typecheck and capture any configuration-level rejection (including the migration-only deprecation option the config currently carries); then resolve the configuration and verify the typecheck reports only source-level diagnostics, never configuration errors
+- [x] 3.4 Confirm the decorator compiler options the class-based DI path depends on are still accepted; verify by type-checking the package that owns decorator metadata and confirming no decorator-related error is reported
+- [x] 3.5 Fix the source-level diagnostics the new compiler surfaces, package by package; verify `pnpm typecheck` is green across the workspace, and re-run the affected package tests plus the conformance suite for each fix that touched runtime source
+- [x] 3.6 Harden the declaration pass against the new compiler distribution — RED first: add/extend an automated test that runs `nextrush build` with declarations enabled on a fixture project and asserts `.d.ts` output exists at the expected relative paths; verify it fails against a simulated resolution failure before the resolution/spawn handling is adjusted, then passes with the real compiler
+- [x] 3.7 Add or confirm the loud-failure test for an unresolvable compiler: assert a non-zero exit and a message naming the missing package and its install command, and assert no success output is printed with declarations absent; verify the test passes
+- [x] 3.8 Confirm the declaration pass ignores an unrelated compiler on `PATH` (resolution comes from the toolchain's own dependency tree); verify with an automated test or a recorded manual check that changes `PATH`
+- [x] 3.9 Verify the production build and test suites on the new compiler: `pnpm build` and `pnpm test` green across the workspace, including decorator-metadata build conformance — record the commands and outcomes
+- [x] 3.10 Re-run the gate checks owned by this group (per-package ≥90% coverage, tsc strict clean, lint clean) and the cross-adapter conformance suite; verify identical conformance results and green gates
+- [x] 3.11 Record the post-bump typecheck wall-time against task 3.1's baseline in the evidence file; verify the figure comes from the same uncached command
 
-### 3b. Bundler migration — `tsup` → `tsdown` (D9; required for 3.9)
+### 3b. Bundler migration — `tsup` → `tsdown` (D9; required for 3.9 — EXECUTED 2026-09-28)
 
-- [ ] 3.12 RED: pin the bundler failure to its mechanism before changing anything — reproduce the `pnpm build` crash on TypeScript 7, show it originates inside the bundler's vendored declaration plugin (not our source), show that a dependency override does **not** reach it, and record that no newer release of the current bundler exists; verify all four facts are reproducible and are recorded in the evidence file
-- [ ] 3.13 Capture the pre-migration build contract for every package that publishes something: the `dist/` file list, the resolved `types`/`exports` entry paths, and a working import of each published entry — so the migration is judged on output, not on exit codes
-- [ ] 3.14 Migrate the 38 build configs with the official migration tool on the last tsup-compatible release (v0.22.14); verify every config is converted, the toolchain dependency is declared as a catalog entry (not a loose version), and `tsup` no longer appears in any manifest or config file
-- [ ] 3.15 Resolve every deprecation warning the migration release emits (moved options such as the external-dependency list, and unsupported ones such as `splitting: false`); verify a full workspace build emits **zero** deprecation warnings
-- [ ] 3.16 Re-verify the captured contract of 3.13 against the migrated build: identical `dist/` file lists, identical resolved entry paths, and every published entry still importable — investigate and resolve any difference rather than accepting it
-- [ ] 3.17 Only after 3.15 is warning-free, move the toolchain catalog to the current release line and re-verify: still zero warnings, output unchanged from the previous step, and the tool's compiler peer satisfied — proving no option was silently dropped
-- [ ] 3.18 Handle the packages with non-default build needs individually (the dev CLI's declaration tree and loader copy, its post-build hook, the scaffolder, and any package using platform/tree-shaking settings); verify each builds and its own tests pass
-- [ ] 3.19 Verify the full workspace on TypeScript 7: `pnpm build`, `pnpm typecheck`, `pnpm test` green, and the cross-adapter conformance suite identical to the task 2.8 baseline
+- [x] 3.12 RED: pin the bundler failure to its mechanism before changing anything — reproduce the `pnpm build` crash on TypeScript 7, show it originates inside the bundler's vendored declaration plugin (not our source), show that a dependency override does **not** reach it, and record that no newer release of the current bundler exists; verify all four facts are reproducible and are recorded in the evidence file
+- [x] 3.13 Capture the pre-migration build contract for every package that publishes something: the `dist/` file list, the resolved `types`/`exports` entry paths, and a working import of each published entry — so the migration is judged on output, not on exit codes
+- [x] 3.14 Migrate the 38 build configs with the official migration tool on the last tsup-compatible release (v0.22.14); verify every config is converted, the toolchain dependency is declared as a catalog entry (not a loose version), and `tsup` no longer appears in any manifest or config file
+- [x] 3.15 Resolve every deprecation warning the migration release emits (moved options such as the external-dependency list, and unsupported ones such as `splitting: false`); verify a full workspace build emits **zero** deprecation warnings
+- [x] 3.16 Re-verify the captured contract of 3.13 against the migrated build: identical `dist/` file lists, identical resolved entry paths, and every published entry still importable — investigate and resolve any difference rather than accepting it
+- [x] 3.17 Only after 3.15 is warning-free, move the toolchain catalog to the current release line and re-verify: still zero warnings, output unchanged from the previous step, and the tool's compiler peer satisfied — proving no option was silently dropped
+- [x] 3.18 Handle the packages with non-default build needs individually (the dev CLI's declaration tree and loader copy, its post-build hook, the scaffolder, and any package using platform/tree-shaking settings); verify each builds and its own tests pass
+- [x] 3.19 Verify the full workspace on TypeScript 7: `pnpm build`, `pnpm typecheck`, `pnpm test` green, and the cross-adapter conformance suite identical to the task 2.8 baseline
 
 ## 4. Generated-project toolchain (project-scaffolding delta)
 
