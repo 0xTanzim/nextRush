@@ -26,8 +26,8 @@
 - [x] 2.4 Remove the lint-path dependencies (`typescript-eslint`, the scoped `@typescript-eslint/*` packages, the Prettier-conflict config, the base JS config) from the root manifest, keeping the lint engine itself only if task 1.8's harness needs it; verify `pnpm install` succeeds and `pnpm lint` still runs clean afterwards
 - [x] 2.5 Triage every finding delta against the baseline from task 1.1: fix new errors, and for each remaining difference (waiver, engine-specific edge case, or intentional severity change) record the decision in the parity map; verify `pnpm lint` exits zero with no unexplained diff against the baseline
 - [x] 2.6 Verify existing suppression directives still work and were not mass-edited: confirm the directive count in source is unchanged and that a spot-check file still suppresses the rule its comment names
-- [ ] 2.7 Run the gate checks owned by this group: per-package line coverage at or above 90%, `tsc` strict clean, lint clean; verify all three pass and record the commands used
-- [ ] 2.8 Run the cross-adapter conformance suite and verify its results are identical to the pre-cutover run, proving the tooling change moved no runtime behaviour
+- [x] 2.7 Run the gate checks owned by this group: per-package line coverage at or above 90%, `tsc` strict clean, lint clean; verify all three pass and record the commands used
+- [x] 2.8 Run the cross-adapter conformance suite and verify its results are identical to the pre-cutover run, proving the tooling change moved no runtime behaviour
 - [x] 2.9 Record the post-cutover lint wall-time against the baseline in the change evidence file; verify the recorded figure comes from the same command as task 1.1
 
 ## 3. Compiler bump to TypeScript 7
