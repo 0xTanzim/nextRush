@@ -192,9 +192,6 @@ catalogs:
       specifier: ^4.1.10
       version: 4.1.10
   tooling:
-    '@eslint/js':
-      specifier: ^9.39.5
-      version: 9.39.5
     eslint:
       specifier: ^9.39.5
       version: 9.39.5
@@ -246,18 +243,9 @@ importers:
       '@changesets/cli':
         specifier: ^2.31.1
         version: 2.31.1(@types/node@26.1.2)
-      '@eslint/js':
-        specifier: catalog:tooling
-        version: 9.39.5
       '@types/node':
         specifier: catalog:node
         version: 26.1.2
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^8.66.0
-        version: 8.66.0(@typescript-eslint/parser@8.66.0(eslint@9.39.5(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3))(eslint@9.39.5(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)
-      '@typescript-eslint/parser':
-        specifier: ^8.66.0
-        version: 8.66.0(eslint@9.39.5(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)
       '@vitest/coverage-v8':
         specifier: ^4.1.10
         version: 4.1.10(vitest@4.1.10)
@@ -270,9 +258,6 @@ importers:
       eslint:
         specifier: catalog:tooling
         version: 9.39.5(jiti@2.7.0)(supports-color@10.2.2)
-      eslint-config-prettier:
-        specifier: ^10.1.8
-        version: 10.1.8(eslint@9.39.5(jiti@2.7.0)(supports-color@10.2.2))
       miniflare:
         specifier: 5.20260801.0-alpha
         version: 5.20260801.0-alpha
@@ -300,9 +285,6 @@ importers:
       typescript:
         specifier: catalog:tooling
         version: 6.0.3
-      typescript-eslint:
-        specifier: ^8.66.0
-        version: 8.66.0(eslint@9.39.5(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)
       vitest:
         specifier: catalog:testing
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(vite@7.3.1(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.9)(yaml@2.9.0))
@@ -509,6 +491,44 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      tsx:
+        specifier: catalog:tooling
+        version: 4.23.9
+      typescript:
+        specifier: catalog:tooling
+        version: 6.0.3
+
+  examples/dev-cli-fixture:
+    dependencies:
+      nextrush:
+        specifier: workspace:*
+        version: link:../../packages/nextrush
+    devDependencies:
+      '@nextrush/dev':
+        specifier: workspace:*
+        version: link:../../packages/dev
+      typescript:
+        specifier: catalog:tooling
+        version: 6.0.3
+
+  examples/openapi-basic:
+    dependencies:
+      '@nextrush/body-parser':
+        specifier: workspace:*
+        version: link:../../packages/middleware/body-parser
+      '@nextrush/openapi':
+        specifier: workspace:*
+        version: link:../../packages/middleware/openapi
+      '@nextrush/validation':
+        specifier: workspace:*
+        version: link:../../packages/middleware/validation
+      nextrush:
+        specifier: workspace:*
+        version: link:../../packages/nextrush
+      zod:
+        specifier: catalog:tooling
+        version: 4.4.3
+    devDependencies:
       tsx:
         specifier: catalog:tooling
         version: 4.23.9
@@ -5714,12 +5734,6 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
-
-  eslint-config-prettier@10.1.8:
-    resolution: {integrity: sha512-82GZUjRS0p/jganf6q1rEO25VSoHH0hKPCTrgillPjdI/3bgBhAE1QzHrHTizjpRvy6pGAvKjDJtk2pF9NDq8w==}
-    hasBin: true
-    peerDependencies:
-      eslint: '>=7.0.0'
 
   eslint-import-resolver-node@0.3.10:
     resolution: {integrity: sha512-tRrKqFyCaKict5hOd244sL6EQFNycnMQnBe+j8uqGNXYzsImGbGUU4ibtoaBmv5FLwJwcFJNeg1GeVjQfbMrDQ==}
@@ -13263,10 +13277,6 @@ snapshots:
       - eslint-import-resolver-webpack
       - eslint-plugin-import-x
       - supports-color
-
-  eslint-config-prettier@10.1.8(eslint@9.39.5(jiti@2.7.0)(supports-color@10.2.2)):
-    dependencies:
-      eslint: 9.39.5(jiti@2.7.0)(supports-color@10.2.2)
 
   eslint-import-resolver-node@0.3.10(supports-color@10.2.2):
     dependencies:
