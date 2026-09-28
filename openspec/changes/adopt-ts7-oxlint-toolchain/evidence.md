@@ -194,9 +194,47 @@ can be turned on, exactly as the current ESLint config turns them on.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Pre-bump typecheck wall-time (uncached) | _task 3.1_ | ⬜ not yet recorded |
+| Pre-bump typecheck wall-time (uncached) | _task 3.1_ | ✅ `pnpm exec turbo run typecheck --force` on **TypeScript 6.0.3** → **1 m 25.61 s**, 68/68 tasks, exit 0 |
+| Compiler installed on the TS 7 line | _task 3.2_ | ✅ `pnpm install` → `typescript 6.0.3 → 7.0.2`, exit 0, quarantine respected. `oxlint-tsgolint@7.0.2002` needed **no** change: its own README §Versioning shows `7.0.2002` = TypeScript `7.0.2` + tsgolint patch `002`, i.e. it is already built on the target compiler |
+| Library build on TS 7 | _tasks 3.3–3.5, 3.9_ | ❌ **BLOCKED** — `pnpm build` dies in `tsup`'s vendored `rollup-plugin-dts@6.1.1` (legacy `ts.sys`) across **38** `dts: true` packages. Full facts, the failed override experiment, and the four options are in **[P2 blocker](#p2-blocker--discovered-while-bumping-the-compiler-tasks-32--33)** below |
 | Post-bump typecheck wall-time (uncached) | _task 3.11_ | ⬜ not yet recorded |
 | Declaration pass under the native compiler | `packages/dev` build/declaration tests | ⬜ not yet recorded |
+
+### P2 blocker — discovered while bumping the compiler (tasks 3.2 / 3.3)
+
+**Status: BLOCKED — a decision is required before P2 can land.** The compiler installs and typechecks
+fine; the **library build cannot emit declarations**, so P2's exit condition is unreachable as specified.
+
+Verified facts (all reproduced on this branch, 2026-09-28):
+
+| # | Fact | Evidence |
+| - | ---- | -------- |
+| 1 | `typescript@7.0.2` installs under the quarantine | `pnpm install` → `typescript 6.0.3 → 7.0.2`, exit 0, **no** `minimumReleaseAgeExclude` added |
+| 2 | The lockstep already holds — tsgolint 7.0.2002 **is** built on TypeScript 7.0.2 | `oxlint-tsgolint` README §Versioning: in `v7.0.2001`, `7.0.2` is the TypeScript version and `001` the tsgolint patch, and the patch suffix resets when the TypeScript portion changes |
+| 3 | TS 7's JS API shrank: `ts.sys` and `ts.createProgram` are gone | `node -e "typeof require('typescript').sys"` → `undefined` on 7.0.2. The **CLI** contract the design relied on is intact: `bin.tsc` present, `./package.json` still exported, ESM-only, per-platform `optionalDependencies` |
+| 4 | **`pnpm build` fails on the first package** | `@nextrush/types:build` → `TypeError: Cannot read properties of undefined (reading 'useCaseSensitiveFileNames')` |
+| 5 | The crash is inside `tsup`, not in our source | `tsup@8.5.1` **vendors** `rollup-plugin-dts@6.1.1` inside its own `dist/rollup.js` (the identifying string occurs exactly once, in tsup's bundle); `rollup-plugin-dts@6.1.1` declares `peerDependencies.typescript: "^4.5 \|\| ^5.0"` and reads the legacy `ts.sys` API at module init |
+| 6 | A pnpm `overrides` entry **cannot** fix it | Added `overrides: { rollup-plugin-dts: "^6.5.1" }`, reinstalled, rebuilt → **same crash**. Reverted — a no-op supply-chain override is worse than none |
+| 7 | No newer tsup exists to wait for | tsup dist-tags contain only `latest: 8.5.1`, published **2025-11-12** — roughly eight months before TS 7 shipped; no v9, no prerelease |
+| 8 | Blast radius | **38 packages** declare `dts: true` in `tsup.config.ts` |
+
+Options, on facts rather than preference:
+
+| Option | TS 7 declaration path | Evidence | Assessment |
+| ------ | --------------------- | -------- | ---------- |
+| **A.** `dts: false` + `tsc --emitDeclarationOnly` (keep tsup for JS bundling) | TypeScript 7's own native compiler | fact 3 — the `tsc` CLI contract is intact | Mechanical but wide: 38 near-identical `tsup.config.ts` files plus their build scripts; declaration output becomes a per-file tree instead of one bundled file |
+| **B.** Swap tsup → `tsdown` | `rolldown-plugin-dts` — `peerDependencies.typescript: "^5.0.0 \|\| ^6.0.0 \|\| ~7.0.0"`, built on oxc parsers (`yuku-ast`, `yuku-parser`, `yuku-codegen`), never touching the TS JS API; `tsdown@0.23.0` treats `typescript` as an *optional* peer | Highest upside (explicitly TS 7-ready, actively released), largest blast radius (bundling behaviour differs package by package) |
+| **C.** Patch tsup (`patchedDependencies`) to swap the vendored 6.1.1 for 6.5.1 | Keeps today's build shape | — | We would own a patch against a release that is already ten months stale |
+| **D.** Keep the build on TS 6 and adopt TS 7 for typecheck/lint only | tsc 6 | — | Contradicts this change's goal (adopt TS 7) |
+
+**Not validated, therefore not claimed:** whether A or B is green end-to-end, and whether the website app
+(`next build` + fumadocs) survives TS 7. Peer warnings observed under TS 7, recorded for that follow-up:
+`twoslash@0.3.9` wants `typescript: ^5.5.0 || ^6.0.0`; `@swc-node/register@1.12.1` wants `>= 4.3 < 7`;
+`eslint-config-next`'s transitive `typescript-eslint@8.66.0` wants `<6.1.0` (harmless — the website's Next
+config enables no typed rules and its lint exits 0).
+
+**Tree state while blocked:** the `typescript` catalog range was reverted to `~6.0.3` so the workspace
+stays buildable on the completed P1 cutover. The TS 7 evaluation is reproducible from the facts above.
 
 ### Group 6 — integration verification (task 6.4)
 

@@ -32,7 +32,12 @@
 
 ## 3. Compiler bump to TypeScript 7
 
-- [ ] 3.1 Baseline the pre-bump typecheck wall-time; verify it is recorded alongside the lint baseline in the evidence file and comes from a clean (uncached) run
+- [x] 3.1 Baseline the pre-bump typecheck wall-time; verify it is recorded alongside the lint baseline in the evidence file and comes from a clean (uncached) run
+> ⛔ **P2 is BLOCKED at task 3.2/3.3** — `tsup@8.5.1` vendors `rollup-plugin-dts@6.1.1`, which
+> uses the legacy `ts.sys` API that TypeScript 7 no longer exports, breaking `dts: true` in 38 packages.
+> Facts, the failed `overrides` experiment, and four options are recorded in `evidence.md` →
+> "P2 blocker". Tasks 3.3–3.11 stay open until the declaration strategy is chosen.
+
 - [ ] 3.2 Move `catalog:tooling.typescript` to the TypeScript 7 line and re-align `oxlint-tsgolint` to a release built for that same compiler version, documenting the lockstep rule as a catalog comment; verify the installed compiler reports the expected version and the install still respects the release-age quarantine
 - [ ] 3.3 Validate the shared TypeScript configuration under the new compiler — RED first: run the typecheck and capture any configuration-level rejection (including the migration-only deprecation option the config currently carries); then resolve the configuration and verify the typecheck reports only source-level diagnostics, never configuration errors
 - [ ] 3.4 Confirm the decorator compiler options the class-based DI path depends on are still accepted; verify by type-checking the package that owns decorator metadata and confirming no decorator-related error is reported
