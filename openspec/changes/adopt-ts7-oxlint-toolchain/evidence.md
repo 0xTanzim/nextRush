@@ -92,6 +92,12 @@ so they are not mistaken for regressions of this change.
 | Lint baseline (finding set + wall-time) | _task 1.1_ | ✅ 0 findings / 0 failing across 21 packages; lint-only wall 52.97s (reproduction 48.36s) — see the baseline section above |
 | Pinned pair installs under the quarantine | `pnpm install` + `pnpm exec oxlint --version` | ✅ `oxlint` 1.83.0 + `oxlint-tsgolint` 7.0.2002 installed; `minimumReleaseAge: 10080` unchanged and **zero** `minimumReleaseAgeExclude` entries; lockfile records the pair as `oxlint@1.83.0(oxlint-tsgolint@7.0.2002)` |
 | Pinned pair produces type-aware diagnostics | _task 1.3_ | ✅ `--type-aware` reports 25 diagnostics incl. the type-aware `typescript(unbound-method)`; a scratch `no-floating-promises` violation is caught with its inferred type `Promise<number>` — see below |
+| Config translated mechanically | `npx @oxlint/migrate --type-aware --details` → `oxlint.config.ts` | ✅ 145 rules (143 translated + 2 nursery rescued). Migrator reported 5 skipped: 3 nursery, 2 unsupported, plus *"ignore list inside overrides is not supported"* — all three findings corrected in the config |
+| Mechanical rule-set comparison | `compare-rules.py` (ESLint `--print-config` vs Oxlint `--print-config`) | ✅ 135 enabled (ESLint) → 134 (Oxlint): **1** gap after consolidation (`no-octal`, waived), **0** new rules introduced |
+| Parity map covers the config exactly once | regex audit of `037-rule-mapping.md` | ✅ 135 rows / 135 unique / **0** missing / **0** extra / **0** duplicates — exact bijection with the ESLint enabled set |
+| Type-aware rule coverage of this tsgolint build | `oxlint --rules` vs `@typescript-eslint` `requiresTypeChecking` | ✅ **60/61** present; only `naming-convention` absent (and it was never enabled by the previous config) |
+| Root `.ts` config loads without stderr noise | `pnpm exec oxlint --type-aware …` (stderr captured) | ✅ stderr empty after adding `"type": "module"` to the root manifest; root-scoped `tsx` smoke tests (`validate:bins`, `validate:manifest-composition`) still pass |
+| `packages/router` under the new config | `oxlint --type-aware --ignore-pattern '**/__tests__/**' src` | ✅ `Found 0 warnings and 0 errors` (150 rules, 305ms) — matches the 0-finding baseline |
 | Type-aware wiring under the per-package turbo invocation | _task 1.6_ | ⬜ not yet recorded |
 
 ### Task 1.3 — the pinned pair is mutually usable (verified 2026-09-28)

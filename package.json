@@ -2,6 +2,7 @@
   "name": "nextrush-monorepo",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@12.6.0",
   "description": "NextRush v3 — minimal, modular TypeScript HTTP stack for Node.js and other runtimes",
   "engines": {
