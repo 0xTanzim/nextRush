@@ -77,8 +77,8 @@
 - [x] 5.2 Apply 5.1's outcome so the website's lint task passes; verify the site's lint command exits zero and, if a linter remains scoped there, that its config is isolated to that app
 - [ ] 5.3 Update contributor documentation for the new toolchain — the unchanged `pnpm lint` / `pnpm verify` commands, the editor extension to install, and how to run a single package's lint; verify every command shown in the documentation runs as written
 - [ ] 5.4 Update the repo's editor recommendation file and any contributor-facing guidance that referenced the previous linter; verify a repository-wide search of non-historical documentation finds no instruction to install or configure the previous linter
-- [ ] 5.5 Correct the capability-list drift found during planning: `openspec/config.yaml`'s fixed capability list omits capabilities that exist in `openspec/specs/` and the registry README (including the two this change targets); verify the list matches the directories on disk
-- [ ] 5.6 Align the capability registry README with disk as part of 5.5; verify its stated capability count and table rows match `openspec/specs/` exactly
+- [x] 5.5 Correct the capability-list drift found during planning: `openspec/config.yaml`'s fixed capability list omits capabilities that exist in `openspec/specs/` and the registry README (including the two this change targets); verify the list matches the directories on disk
+- [x] 5.6 Align the capability registry README with disk as part of 5.5; verify its stated capability count and table rows match `openspec/specs/` exactly
 
 ## 6. Integration verification and close-out
 
