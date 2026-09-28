@@ -1,6 +1,0 @@
-schema: spec-driven
-created: 2026-09-28
-goal: Use TypeScript 7 (latest, 7.0.2) and Oxlint (1.85.0) + tsgolint (7.0.2003)
-  instead of the blocked ESLint/typescript-eslint stack, without losing
-  type-aware lint enforcement or the generated-project install/build/run
-  guarantee.
