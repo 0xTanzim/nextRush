@@ -39,6 +39,7 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0024](ADR-0024-create-nextrush-strict-automation-contract.md) | `create-nextrush` strict automation contract — versioned JSON result/error schema (`schemaVersion` 1, stable codes + remediation), `--dry-run`/`--json`, explicit destructive `--overwrite` policy (never implied by `--yes`), non-zero `TARGET_DIRECTORY_NOT_EMPTY` | Accepted | `docs/RFC/scaffolding/021-project-scaffolding-capability.md` |
 | [ADR-0025](ADR-0025-first-class-ctx-cookies-capability.md) | First-class `ctx.cookies` context capability (typed, always-present, actionable `CapabilityNotInitializedError`; `ctx.state.cookies` deprecated) | Accepted | `docs/RFC/request-data/034-cookies-first-class-context-capability.md` |
 | [ADR-0026](ADR-0026-public-interop-tier.md) | Public `interop` package tier (stable, Node-shaped raw HTTP only) | Accepted | `docs/RFC/ecosystem-interop/035-express-bridge.md` |
+| [ADR-0027](ADR-0027-repo-linter-and-compiler-lockstep.md) | Repo linter is Oxlint; `typescript` ↔ `oxlint-tsgolint` version lockstep | Accepted · Shipped | `docs/RFC/repo-tooling/037-typescript-7-oxlint-migration.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 
