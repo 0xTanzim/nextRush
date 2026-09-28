@@ -69,8 +69,8 @@
 - [x] 4.4 Single-source the generated compiler range onto the framework's current compiler major (including the offline fallback path, which must not keep a hardcoded older line); verify 4.1(d) passes for generated projects and for the offline/no-registry path
 - [x] 4.5 Make the generated lint script and generated docs consistent with the emitted configuration; verify the documented command in the generated project documentation runs as written
 - [x] 4.6 Run the generate-then-install matrix for a production-preset project on at least one runtime and verify 4.1(b): install, lint, then build all exit zero with no unresolved-module error
-- [ ] 4.7 Update the package's README/architecture documentation for the emitted toolchain, and any recipe that named the previous linter; verify no quoted command or dependency list contradicts the generator's actual output
-- [ ] 4.8 Run the gate checks owned by this group — per-package ≥90% line coverage for the scaffolder, tsc strict clean, lint clean — and verify they pass
+- [x] 4.7 Update the package's README/architecture documentation for the emitted toolchain, and any recipe that named the previous linter; verify no quoted command or dependency list contradicts the generator's actual output
+- [x] 4.8 Run the gate checks owned by this group — per-package ≥90% line coverage for the scaffolder, tsc strict clean, lint clean — and verify they pass
 
 ## 5. Website lint and contributor documentation
 
@@ -83,11 +83,11 @@
 
 ## 6. Integration verification and close-out
 
-- [ ] 6.1 Run the full `verify` task from a clean checkout state (uncached) and verify it exits zero end-to-end: build, test, typecheck, and lint
-- [ ] 6.2 Verify end-to-end that the previous linter is gone from the lint path — no lint task, config, or dependency in the workspace causes the previous engine to be invoked — while the repo rule and typed rules are still enforced (spot-check one finding of each kind)
-- [ ] 6.3 Run the generate-then-install matrix and the cross-adapter conformance suite together and verify both pass unchanged, proving the generated-project contract and runtime behaviour are intact
-- [ ] 6.4 Verify the §14-style metrics recorded in the evidence file are complete: baseline and post-change lint and typecheck timings, rule-parity coverage, and the custom-rule fixture outcome
-- [ ] 6.5 Promote the durable decisions to an ADR from the ADR template — the repository's linter choice and the compiler/type-aware-engine version lockstep — and verify the ADR exists, is linked from the RFC, and states the lockstep rule concretely
-- [ ] 6.6 Update the RFC's progress tracker, phase statuses, and status field to reflect the shipped outcome, and mark the plan's checkboxes complete; verify the tracker and the phase table agree
-- [ ] 6.7 Verify the change's own artifacts are internally consistent before archive: proposal capability list matches the delta files on disk, every requirement has at least one scenario, and the validation command passes
+- [x] 6.1 Run the full `verify` task from a clean checkout state (uncached) and verify it exits zero end-to-end: build, test, typecheck, and lint
+- [x] 6.2 Verify end-to-end that the previous linter is gone from the lint path — no lint task, config, or dependency in the workspace causes the previous engine to be invoked — while the repo rule and typed rules are still enforced (spot-check one finding of each kind)
+- [x] 6.3 Run the generate-then-install matrix and the cross-adapter conformance suite together and verify both pass unchanged, proving the generated-project contract and runtime behaviour are intact
+- [x] 6.4 Verify the §14-style metrics recorded in the evidence file are complete: baseline and post-change lint and typecheck timings, rule-parity coverage, and the custom-rule fixture outcome
+- [x] 6.5 Promote the durable decisions to an ADR from the ADR template — the repository's linter choice and the compiler/type-aware-engine version lockstep — and verify the ADR exists, is linked from the RFC, and states the lockstep rule concretely
+- [x] 6.6 Update the RFC's progress tracker, phase statuses, and status field to reflect the shipped outcome, and mark the plan's checkboxes complete; verify the tracker and the phase table agree
+- [x] 6.7 Verify the change's own artifacts are internally consistent before archive: proposal capability list matches the delta files on disk, every requirement has at least one scenario, and the validation command passes
 

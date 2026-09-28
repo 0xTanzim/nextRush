@@ -8,7 +8,7 @@ That block is now avoidable: Oxlint's type-aware linting (`oxlint-tsgolint` v7, 
 
 ## What Changes
 
-- Add `oxlint` **1.85.0** + `oxlint-tsgolint` **7.0.2003** to `catalog:tooling`; a root `oxlint.config.ts` replaces `eslint.config.mjs`.
+- Add `oxlint` **1.83.0** + `oxlint-tsgolint` **7.0.2002** to `catalog:tooling` — the quarantine-clean pair (design D3); `1.85.0` / `7.0.2003` are unreachable today under the 7-day release-age gate and are bumped to behind it. A root `oxlint.config.ts` replaces `eslint.config.mjs`.
 - Convert the 21 per-package `lint` / `lint:fix` scripts (`eslint src …` → `oxlint src --type-aware`). Command names, the turbo task graph, and the `pnpm verify` contract stay identical.
 - Port the repo rule `nextrush/no-runtime-identity-capability` to an Oxlint JS Plugin; its fixtures and `capability-exempt` semantics stay unchanged, and existing `eslint-disable` directives keep working.
 - Remove `typescript-eslint`, `@typescript-eslint/*`, `eslint-config-prettier`, and `@eslint/js` from the lint path.

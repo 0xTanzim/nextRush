@@ -244,13 +244,16 @@ runs the TS 7 line end to end (typecheck, lint, build). The one deliberate excep
 init, which TS 7's main entry no longer exposes, and no twoslash release supports TS 7 yet — remove
 that catalog when upstream ships support.
 
-### Group 6 — integration verification (task 6.4)
+### Group 6 — integration verification (tasks 6.1–6.4)
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Full uncached `verify` | `pnpm verify` | ✅ 2026-09-28, cold `.turbo`: **EXIT=0** — `turbo run verify` 147/147 (build + test + typecheck + lint) **and** the full validator chain (`validate:bins`, `validate:esm-only`, `validate:manifest-composition`, `validate:lint-rules`, `validate:build-plugins`, `ensure:swc-node`, `check:coverage`); wall **3m28s** (`/tmp/ts7/verify-cold-61.log`) |
-| Generate-then-install matrix | `create-nextrush` matrix gate | ⬜ not yet recorded |
-| Repository rule + typed rules still enforced after the cutover | spot-check of one finding of each kind | ⬜ not yet recorded |
+| Full uncached `verify` (task 6.1) | `pnpm verify` after `rm -rf .turbo` | ✅ **EXIT=0**, re-run 2026-09-28 against the final tree (incl. the `catalog:` defect fix + ADR): `turbo run verify` **147/147 successful, 0 cached** (turbo 1m53.96s; wall **232s** incl. the validator chain) + `validate:bins` ✅, `validate:esm-only` ✅ (39 pkgs), `validate:manifest-composition` ✅ (39 pkgs), `validate:lint-rules` **5/5** ✅, `validate:build-plugins` **9/9** ✅ (5 `catalog-range` + 4 `keep-class-names`), `ensure:swc-node` ✅, `check:coverage` ✅ "Coverage gate passed for all non-excluded packages". Log `/tmp/opencode/verify-cold-61-rerun.log`. (Earlier cold run same day: 147/147, wall 3m28s, `/tmp/ts7/verify-cold-61.log`.) |
+| Previous linter gone from the framework lint path (task 6.2) | mechanical audit of all 56 manifests + config scan | ✅ 21 packages carry `lint*` scripts (24 entries: 23 Oxlint + 1 ESLint). **The single ESLint entry is `apps/website`** — the task 5.1 scoped decision, config isolated to `apps/website/eslint.config.mjs`. **No root `eslint.config.*` / `.eslintrc*`** exists; `oxlint.config.ts` is the only root config. `eslint` stays a root devDependency **fixture-only** (task 1.8 `RuleTester` harness) |
+| Repo rule + typed rules still enforced (task 6.2) | scratch probe in `packages/runtime/src/` via the package's own lint path | ✅ exit 1 with **both kinds**: `nextrush(no-runtime-identity-capability)` on `runtime === 'node'` (repo rule **through Oxlint's JS-plugin host**) and `typescript(no-floating-promises)` quoting the inferred type `Promise<number>` (typed rule **through tsgolint**), plus `typescript(require-await)`. Probe deleted; path clean |
+| Generate-then-install matrix (task 6.3) | `pnpm --filter create-nextrush exec vitest run src/__tests__/generate-install-matrix.test.ts` | ✅ **27/27 cells** (3 styles × 3 runtimes × 3 middleware presets), exit 0. Every emitted `@nextrush/*` range matches its own package's real published major |
+| Cross-adapter conformance unchanged (task 6.3) | `pnpm --filter @nextrush/adapter-conformance test` | ✅ **11 files / 320 tests passed, exit 0** — **identical** to the pre-cutover baseline (`bd943db7`) and to task 2.8, proving the lint cutover, compiler bump, and bundler migration moved no runtime behaviour |
+| §14-style metrics completeness (task 6.4) | audit of this file's metric rows | ✅ all four categories present: lint wall **52.97s → 19.82s** (2.7×; reproduction 48.36s); typecheck **1m25.61s → 16.03s** (5.3×); rule-parity **135 → 134** exact bijection + typed **60/61** (only `naming-convention` absent, never enabled); custom-rule fixtures **7 valid + 6 invalid** green, wired as `validate:lint-rules` (5/5) |
 
 
 ### Integration findings — root causes hit and fixed during full-suite verification (2026-09-28)
