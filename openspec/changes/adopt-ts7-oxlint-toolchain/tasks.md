@@ -62,12 +62,12 @@
 
 ## 4. Generated-project toolchain (project-scaffolding delta)
 
-- [ ] 4.1 RED: add the acceptance tests this delta requires — (a) every package imported by an emitted lint configuration is declared in the generated manifest, (b) the emitted lint script exits zero on a generated project, (c) the emitted editor recommendation names the configured linter, (d) the emitted compiler range is on the framework's current compiler major; verify all four fail against the current generator output
-- [ ] 4.2 Emit an Oxlint configuration from the production preset instead of the ESLint one, and declare the packages that configuration needs in the generated manifest; verify 4.1(a) and 4.1(c) pass
-- [ ] 4.3 Point the emitted editor recommendation at the configured linter's extension; verify 4.1(c) passes and no stale linter recommendation remains in any preset file
-- [ ] 4.4 Single-source the generated compiler range onto the framework's current compiler major (including the offline fallback path, which must not keep a hardcoded older line); verify 4.1(d) passes for generated projects and for the offline/no-registry path
-- [ ] 4.5 Make the generated lint script and generated docs consistent with the emitted configuration; verify the documented command in the generated project documentation runs as written
-- [ ] 4.6 Run the generate-then-install matrix for a production-preset project on at least one runtime and verify 4.1(b): install, lint, then build all exit zero with no unresolved-module error
+- [x] 4.1 RED: add the acceptance tests this delta requires — (a) every package imported by an emitted lint configuration is declared in the generated manifest, (b) the emitted lint script exits zero on a generated project, (c) the emitted editor recommendation names the configured linter, (d) the emitted compiler range is on the framework's current compiler major; verify all four fail against the current generator output
+- [x] 4.2 Emit an Oxlint configuration from the production preset instead of the ESLint one, and declare the packages that configuration needs in the generated manifest; verify 4.1(a) and 4.1(c) pass
+- [x] 4.3 Point the emitted editor recommendation at the configured linter's extension; verify 4.1(c) passes and no stale linter recommendation remains in any preset file
+- [x] 4.4 Single-source the generated compiler range onto the framework's current compiler major (including the offline fallback path, which must not keep a hardcoded older line); verify 4.1(d) passes for generated projects and for the offline/no-registry path
+- [x] 4.5 Make the generated lint script and generated docs consistent with the emitted configuration; verify the documented command in the generated project documentation runs as written
+- [x] 4.6 Run the generate-then-install matrix for a production-preset project on at least one runtime and verify 4.1(b): install, lint, then build all exit zero with no unresolved-module error
 - [ ] 4.7 Update the package's README/architecture documentation for the emitted toolchain, and any recipe that named the previous linter; verify no quoted command or dependency list contradicts the generator's actual output
 - [ ] 4.8 Run the gate checks owned by this group — per-package ≥90% line coverage for the scaffolder, tsc strict clean, lint clean — and verify they pass
 
