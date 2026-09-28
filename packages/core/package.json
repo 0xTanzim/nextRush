@@ -23,8 +23,8 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
-    "lint:fix": "eslint src --fix --ignore-pattern '**/__tests__/**'",
+    "lint": "oxlint src --ignore-pattern '**/__tests__/**'",
+    "lint:fix": "oxlint src --fix --ignore-pattern '**/__tests__/**'",
     "clean": "rm -rf dist .turbo"
   },
   "keywords": [

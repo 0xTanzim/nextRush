@@ -16,7 +16,7 @@
     "test:watch": "vitest",
     "cert:matrix": "vitest run -u src/__tests__/certification.test.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
+    "lint": "oxlint src --ignore-pattern '**/__tests__/**'",
     "clean": "rm -rf dist"
   },
   "devDependencies": {

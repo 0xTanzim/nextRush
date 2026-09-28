@@ -92,6 +92,7 @@ so they are not mistaken for regressions of this change.
 | Lint baseline (finding set + wall-time) | _task 1.1_ | ✅ 0 findings / 0 failing across 21 packages; lint-only wall 52.97s (reproduction 48.36s) — see the baseline section above |
 | Pinned pair installs under the quarantine | `pnpm install` + `pnpm exec oxlint --version` | ✅ `oxlint` 1.83.0 + `oxlint-tsgolint` 7.0.2002 installed; `minimumReleaseAge: 10080` unchanged and **zero** `minimumReleaseAgeExclude` entries; lockfile records the pair as `oxlint@1.83.0(oxlint-tsgolint@7.0.2002)` |
 | Pinned pair produces type-aware diagnostics | _task 1.3_ | ✅ `--type-aware` reports 25 diagnostics incl. the type-aware `typescript(unbound-method)`; a scratch `no-floating-promises` violation is caught with its inferred type `Promise<number>` — see below |
+| Type-aware wiring under the per-package turbo invocation | _task 1.6_ | ✅ Root-config `options.typeAware: true` chosen (no CLI flag). Proven from package cwd **and** through `turbo run lint`: a probe file surfaced `typescript(no-floating-promises)` (error) + `typescript(require-await)` (warn) and the task exited 1; probe removed, run recovers to 5/5 |
 | Config translated mechanically | `npx @oxlint/migrate --type-aware --details` → `oxlint.config.ts` | ✅ 145 rules (143 translated + 2 nursery rescued). Migrator reported 5 skipped: 3 nursery, 2 unsupported, plus *"ignore list inside overrides is not supported"* — all three findings corrected in the config |
 | Mechanical rule-set comparison | `compare-rules.py` (ESLint `--print-config` vs Oxlint `--print-config`) | ✅ 135 enabled (ESLint) → 134 (Oxlint): **1** gap after consolidation (`no-octal`, waived), **0** new rules introduced |
 | Parity map covers the config exactly once | regex audit of `037-rule-mapping.md` | ✅ 135 rows / 135 unique / **0** missing / **0** extra / **0** duplicates — exact bijection with the ESLint enabled set |
@@ -172,6 +173,10 @@ can be turned on, exactly as the current ESLint config turns them on.
 
 | Check | Command | Result |
 | --- | --- | --- |
+| 21 lint script bodies swapped to the new engine | scripted audit of every manifest | ✅ 21 files changed, **24/24 lines** (21 `lint` + 3 `lint:fix`), **0** lint scripts still name ESLint, UTF-8 preserved (`ensure_ascii=False`) |
+| Package-level lint task end-to-end | `pnpm --filter @nextrush/router lint` | ✅ `$ oxlint src --ignore-pattern '**/__tests__/**'` → `Found 0 warnings and 0 errors` (150 rules, 516ms), exit 0 |
+| Turbo-level lint task end-to-end | `pnpm exec turbo run lint --filter=@nextrush/router` | ✅ build + lint succeed, exit 0 (task 1.6's probe run proved diagnostics reach this layer) |
+| Zero-warning posture preserved | `pnpm --filter create-nextrush lint` | ✅ `oxlint src --max-warnings 0 …` → 0 warnings / 0 errors, exit 0 |
 | Post-cutover lint wall-time vs baseline | _task 2.9_ | ⬜ not yet recorded |
 | Cross-adapter conformance parity (task 2.8) | `pnpm --filter @nextrush/adapter-conformance test` | ⬜ not yet recorded |
 

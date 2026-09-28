@@ -10,7 +10,7 @@
     "types:check": "fumadocs-mdx && next typegen && NODE_OPTIONS=--max-old-space-size=3048 tsc --noEmit",
     "typecheck": "pnpm types:check",
     "docs:verify-registry": "tsx scripts/verify-registry-parity.ts",
-    "lint": "eslint",
+    "lint": "oxlint",
     "docs:verify": "tsx scripts/verify/index.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"

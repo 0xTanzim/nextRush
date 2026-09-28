@@ -305,7 +305,53 @@ No other rule from the previous config is dropped.
 | `use-isnan` | `use-isnan` | equivalent |
 | `valid-typeof` | `valid-typeof` | equivalent |
 
-## Non-rule deltas carried by the config translation
+## Type-aware wiring under the per-package turbo invocation (task 1.6)
+
+**Decision: the root config's `options.typeAware: true` — no `--type-aware` CLI flag, no per-package
+config.** The `lint` script body stays a bare `oxlint <paths>`.
+
+Why this mechanism, and the alternatives rejected:
+
+| Option | Verdict |
+| --- | --- |
+| **Root config `options.typeAware: true`** | ✅ **chosen.** Single source of truth; survives being run from any package directory (Oxlint walks up to the root config), so all 21 turbo-cwd invocations behave identically. |
+| `--type-aware` on each of the 21 `lint` scripts | ❌ Rejected: 21 copies of a flag that can drift, be forgotten, or be copied into a new package's script. Nothing is gained — the flag merely *overrides* the config, it does not enable anything the config cannot. |
+| Per-package nested config | ❌ Rejected outright: Oxlint documents that `options.typeAware` / `options.typeCheck` are honoured **only in the root config**; nested configs must not set them. |
+
+**Verification (from a package cwd, config only, no CLI flag):**
+
+```bash
+cd packages/router
+# probe file src/__ts7_probe.ts (deleted after the run):
+#   async function load(): Promise<number> { return 1; }
+#   export function run(): void { load(); }
+pnpm exec oxlint src/__ts7_probe.ts
+```
+
+```
+  ! typescript(require-await): Function has no 'await' expression.          [warn, as configured]
+  x typescript(no-floating-promises): Promises must be awaited, …
+     `-- This unhandled promise-like value has type `Promise<number>`.      [error, as configured]
+Found 1 warning and 1 error.
+Finished in 277ms on 1 file with 150 rules using 8 threads.
+```
+
+Type information resolved **without** the flag, at the **configured** severities (`require-await`
+warn, `no-floating-promises` error), while reading a config that lives two directories up. That is
+the mechanism proven end-to-end; the turbo-level run of the same command is confirmed in tasks 2.1
+and 2.9.
+
+### Monorepo prerequisite (pre-existing, carried over)
+
+Oxlint's own monorepo docs state that type-aware linting requires *"Build dependent packages so
+`.d.ts` files are available"* — exactly the condition that made the **previous** ESLint baseline fail
+at the turbo level (`@nextrush/adapter-edge` "unsafe assignment of an error typed value" when
+dependency builds hadn't landed). `turbo.json`'s `lint` task depends on the same package's `build`
+but **not** `^build`, so this race predates this change and still exists after it. It is recorded in
+`evidence.md` (task 1.1) and is out of scope here; the finding is that the new engine has the *same*
+dependency, not a new one.
+
+
 
 Rules are only part of the migration. These structural differences were found and handled
 explicitly, so they are recorded rather than left implicit:
