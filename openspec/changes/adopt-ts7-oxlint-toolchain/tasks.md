@@ -8,7 +8,7 @@
 ## 1. Spike and rule-parity map (lint engine, still on TypeScript 6)
 
 - [x] 1.1 Capture the current lint baseline — the full finding list and lint wall-time for the workspace — into `openspec/changes/adopt-ts7-oxlint-toolchain/evidence.md`; verify the recorded baseline reproduces by re-running lint and diffing the finding set
-- [ ] 1.2 Add `oxlint@1.83.0` and `oxlint-tsgolint@7.0.2002` to `catalog:tooling` and the root devDependencies; verify `pnpm install` succeeds under `minimumReleaseAge: 10080` with **no** `minimumReleaseAgeExclude` entry added, and `pnpm exec oxlint --version` matches the pinned version
+- [x] 1.2 Add `oxlint@1.83.0` and `oxlint-tsgolint@7.0.2002` to `catalog:tooling` and the root devDependencies; verify `pnpm install` succeeds under `minimumReleaseAge: 10080` with **no** `minimumReleaseAgeExclude` entry added, and `pnpm exec oxlint --version` matches the pinned version
 - [ ] 1.3 Prove the pinned pair is mutually usable before depending on it: run the type-aware command over `packages/router` and verify at least one type-aware rule produces a diagnostic (not a silent no-op or a version-mismatch error); record the exact invocation and output
 - [ ] 1.4 Translate the flat config with the Oxlint migration tool into a root `oxlint.config.ts`; verify the translated rule set lists every rule ID present in `eslint.config.mjs` (compare counts mechanically, not by eye)
 - [ ] 1.5 Write the rule-parity map (`037-rule-mapping.md`) — one row per rule in the current config, giving its Oxlint equivalent or an explicit waiver with rationale; verify every rule ID from the current config appears exactly once, and identify which of the `typescript-eslint` type-aware rules have no tsgolint implementation

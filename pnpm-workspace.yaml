@@ -21,6 +21,16 @@ catalogs:
     tsx: "^4.23.9"
     eslint: "^9.39.5"
     "@eslint/js": "^9.39.5"
+    # Oxlint pair — pinned EXACTLY, deliberately (RFC-037 D3):
+    #   • oxlint-tsgolint's version encodes the TypeScript version it was built for
+    #     (`<tsMajor>.<tsMinor>.<patch>`, e.g. 7.0.2002 = TS 7.0.2, patch 002), so it
+    #     MUST move in lockstep with `typescript` and MUST NOT float across a TS line.
+    #   • The two are a matched pair; a floating range could resolve to a version this
+    #     oxlint cannot drive.
+    # Both versions below clear the workspace's 7-day `minimumReleaseAge` quarantine
+    # without needing a `minimumReleaseAgeExclude` entry.
+    oxlint: "1.83.0"
+    oxlint-tsgolint: "7.0.2002"
 
   testing:
     vitest: "^4.1.10"

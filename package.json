@@ -2,7 +2,7 @@
   "name": "nextrush-monorepo",
   "version": "0.0.1",
   "private": true,
-  "packageManager": "pnpm@11.21.0",
+  "packageManager": "pnpm@12.6.0",
   "description": "NextRush v3 — minimal, modular TypeScript HTTP stack for Node.js and other runtimes",
   "engines": {
     "node": ">=22.0.0"
@@ -53,6 +53,8 @@
     "eslint": "catalog:tooling",
     "eslint-config-prettier": "^10.1.8",
     "miniflare": "5.20260801.0-alpha",
+    "oxlint": "catalog:tooling",
+    "oxlint-tsgolint": "catalog:tooling",
     "prettier": "^3.9.6",
     "simple-git-hooks": "2.13.1",
     "tsup": "catalog:tooling",

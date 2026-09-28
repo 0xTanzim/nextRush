@@ -90,6 +90,7 @@ so they are not mistaken for regressions of this change.
 | Check | Command | Result |
 | --- | --- | --- |
 | Lint baseline (finding set + wall-time) | _task 1.1_ | ✅ 0 findings / 0 failing across 21 packages; lint-only wall 52.97s (reproduction 48.36s) — see the baseline section above |
+| Pinned pair installs under the quarantine | `pnpm install` + `pnpm exec oxlint --version` | ✅ `oxlint` 1.83.0 + `oxlint-tsgolint` 7.0.2002 installed; `minimumReleaseAge: 10080` unchanged and **zero** `minimumReleaseAgeExclude` entries; lockfile records the pair as `oxlint@1.83.0(oxlint-tsgolint@7.0.2002)` |
 | Pinned pair produces type-aware diagnostics | _task 1.3_ | ⬜ not yet recorded |
 | Type-aware wiring under the per-package turbo invocation | _task 1.6_ | ⬜ not yet recorded |
 
