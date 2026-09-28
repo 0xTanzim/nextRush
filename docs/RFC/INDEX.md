@@ -66,6 +66,7 @@ invent a new structure per RFC.
 | [035](ecosystem-interop/035-express-bridge.md) | Ecosystem interoperability — `@nextrush/express-bridge` | **Shipped** | ecosystem-interop |
 | [036](request-data/036-logger-log-v03-surface.md) | `@nextrush/logger` — public surface policy & `@nextrush/log` v0.3 migration | Approved (breaking) | request-data |
 | [037](repo-tooling/037-typescript-7-oxlint-migration.md) | Repo toolchain — TypeScript 7 adoption via Oxlint (replace ESLint + typescript-eslint) | **Draft** — plan: [037-typescript-7-oxlint-migration-plan.md](repo-tooling/037-typescript-7-oxlint-migration-plan.md) | repo-tooling |
+| [038](dev-tooling/038-in-repo-dev-loader.md) | `@nextrush/dev` — dev runtime loader owned in-repo on `@swc/core` | Shipped | dev-tooling |
 
 ## Note on RFC-005 (Plugin System)
 
