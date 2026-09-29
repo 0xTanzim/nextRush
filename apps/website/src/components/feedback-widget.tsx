@@ -87,11 +87,12 @@ export function FeedbackWidget() {
 
       {vote && status === 'voted' && (
         <form onSubmit={submitComment} className="flex flex-col gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-fd-muted-foreground">
+          <label htmlFor="feedback-comment" className="flex items-center gap-1.5 text-xs text-fd-muted-foreground">
             <MessageSquare className="size-3.5" aria-hidden />
             Add an optional comment
           </label>
           <textarea
+            id="feedback-comment"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={2}

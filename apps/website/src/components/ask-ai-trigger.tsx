@@ -63,7 +63,7 @@ export function AskAiTrigger() {
 
         <form onSubmit={runSearch} className="flex items-center gap-2">
           <input
-            autoFocus
+            ref={(el) => el?.focus()}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="How do I add authentication?"

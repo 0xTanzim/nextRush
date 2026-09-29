@@ -45,9 +45,9 @@ describe('dependency manifest system', () => {
       const names = getAllPossiblePackageNames();
       // Every manifest key with a registry-resolved policy must be probed.
       for (const key of getManifestPackageNames()) {
-        // toolchain-sourced (typescript/vitest/@types/node/dotenv) and pinned-literal
+        // toolchain-sourced (typescript/vitest/@types/node/dotenv/oxlint) and pinned-literal
         // (reflect-metadata) entries are resolved by the manifest, never probed — skip.
-        if (['typescript', 'vitest', '@types/node', 'dotenv', 'reflect-metadata'].includes(key)) continue;
+        if (['typescript', 'vitest', '@types/node', 'dotenv', 'oxlint', 'reflect-metadata'].includes(key)) continue;
         expect(names).toContain(key);
       }
     });

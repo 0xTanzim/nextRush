@@ -37,20 +37,27 @@ trim_trailing_whitespace = true
 
 function generateVscodeExtensions(): string {
   return `{
-  "recommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
+  "recommendations": ["oxc.oxc-vscode", "esbenp.prettier-vscode"]
 }
 `;
 }
 
-function generateEslintConfig(): string {
-  return `import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
-
-export default tseslint.config(
-  { ignores: ['dist/**'] },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-);
+function generateOxlintConfig(): string {
+  // Dependency-free JSON: the generated project needs `oxlint` alone (declared in
+  // the generated manifest) — no `@eslint/js` / `typescript-eslint` imports that
+  // the generated package.json never declared (the old emitter's defect).
+  return `{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn"],
+  "categories": {
+    "correctness": "off"
+  },
+  "rules": {
+    "no-unused-vars": "error",
+    "typescript/no-explicit-any": "warn"
+  },
+  "ignorePatterns": ["dist/**"]
+}
 `;
 }
 
@@ -127,7 +134,7 @@ export function generatePresetFiles(options: ProjectOptions): FileMap {
   const files: FileMap = new Map([
     ['.editorconfig', generateEditorConfig()],
     ['.vscode/extensions.json', generateVscodeExtensions()],
-    ['eslint.config.mjs', generateEslintConfig()],
+    ['.oxlintrc.json', generateOxlintConfig()],
     ['.github/workflows/ci.yml', generateCiWorkflow()],
     ['Dockerfile', generateDockerfile(options)],
     ['.dockerignore', generateDockerignore()],

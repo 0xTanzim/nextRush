@@ -45,14 +45,14 @@ export function getAllPossiblePackageNames(): string[] {
 /** Resolves a manifest entry's version range, applying its `resolve` policy.
  *
  * `'latest-compatible'` reads the probed per-package range; `'toolchain'` reads the
- * build-time-injected single-sourced range (typescript/vitest/@types/node from
- * `create-nextrush`'s own devDependencies); a literal is a pinned contract returned as-is. */
+ * build-time-injected single-sourced range (typescript/vitest/dotenv/@types/node/oxlint
+ * from `create-nextrush`'s own devDependencies); a literal is a pinned contract returned as-is. */
 function resolveManifestRange(pkgName: string, entry: ManifestEntry): string {
   switch (entry.resolve) {
     case 'latest-compatible':
       return getPackageRange(pkgName);
     case 'toolchain':
-      return getToolchainRange(pkgName as 'typescript' | 'vitest' | 'dotenv' | '@types/node');
+      return getToolchainRange(pkgName as 'typescript' | 'vitest' | 'dotenv' | '@types/node' | 'oxlint');
     default:
       // A pinned literal contract (e.g. reflect-metadata `>=0.2.0`) — declared, not buried.
       return entry.resolve;
@@ -93,6 +93,7 @@ export function getDependencies(options: ProjectOptions): DependencySet {
 }
 
 declare const __VITEST_RANGE__: string;
+declare const __OXLINT_RANGE__: string;
 
 declare const __TYPESCRIPT_RANGE__: string;
 declare const __TYPES_NODE_RANGE__: string;
@@ -100,7 +101,7 @@ declare const __DOTENV_RANGE__: string;
 
 /**
  * Single-sources the generated project's `typescript`/`@types/node` versions with the
- * scaffolder's OWN toolchain (build-time injected — see tsup.config.ts) rather than a
+ * scaffolder's OWN toolchain (build-time injected — see tsdown.config.ts) rather than a
  * hardcoded, independently-drifting literal (fixes F-07).
  *
  * `@types/node`'s major is additionally capped at the declared `engines.node` floor: the
@@ -110,11 +111,18 @@ declare const __DOTENV_RANGE__: string;
  * that mismatch is exactly what F-07 found (`@types/node ^26` against an `engines >=22`
  * floor).
  */
-function getToolchainRange(pkg: 'typescript' | 'vitest' | 'dotenv' | '@types/node'): string {
+function getToolchainRange(pkg: 'typescript' | 'vitest' | 'dotenv' | '@types/node' | 'oxlint'): string {
   if (pkg === 'typescript') {
     // Dev-mode fallback mirrors create-nextrush's OWN devDependency (build-time injection
-    // in tsup.config.ts reads the same value) — never a stale independent literal.
-    return typeof __TYPESCRIPT_RANGE__ !== 'undefined' ? __TYPESCRIPT_RANGE__ : '^6.0.3';
+    // in tsdown.config.ts reads the same value) — never a stale independent literal.
+    // The framework compiler is TypeScript 7 (RFC-037); the fallback must stay on that
+    // major so a generated project is never scaffolded onto a superseded line.
+    return typeof __TYPESCRIPT_RANGE__ !== 'undefined' ? __TYPESCRIPT_RANGE__ : '^7.0.2';
+  }
+  if (pkg === 'oxlint') {
+    // Dev-mode fallback mirrors the repo's Oxlint pin (pnpm-workspace.yaml
+    // catalog:tooling). The generated `.oxlintrc.json` runs under this range.
+    return typeof __OXLINT_RANGE__ !== 'undefined' ? __OXLINT_RANGE__ : '1.83.0';
   }
   if (pkg === 'vitest') {
     return typeof __VITEST_RANGE__ !== 'undefined' ? __VITEST_RANGE__ : '^4.1.10';
@@ -191,11 +199,15 @@ export function getRuntimeScripts(runtime: Runtime): {
   readonly build: string;
   readonly start: string;
   readonly test: string;
+  readonly lint: string;
 } {
   // No `nextrush test` subcommand exists on @nextrush/dev's CLI (see packages/dev/src/cli.ts) —
   // generated projects run their tests directly through vitest, consistent with every
   // workspace package's own `test` script (fixes F-16: a `test` script + example test).
   const test = 'vitest run';
+  // The generated lint gate is Oxlint running the emitted `.oxlintrc.json` (task 4.5):
+  // dependency-free JSON, so `oxlint` alone — the one package the config needs — runs it.
+  const lint = 'oxlint --deny-warnings';
 
   switch (runtime) {
     case 'bun':
@@ -204,6 +216,7 @@ export function getRuntimeScripts(runtime: Runtime): {
         build: 'bun nextrush build',
         start: 'bun dist/index.js',
         test,
+        lint,
       };
     case 'deno':
       // Routed through `nextrush dev`/`nextrush build` — NOT a raw `deno run` against the
@@ -223,6 +236,7 @@ export function getRuntimeScripts(runtime: Runtime): {
         // overwrite existing process env, so shell-provided PORT/NODE_ENV still win in prod.
         start: 'deno run --allow-net --allow-read --allow-env --env-file=.env dist/index.js',
         test,
+        lint,
       };
     case 'node':
       return {
@@ -230,6 +244,7 @@ export function getRuntimeScripts(runtime: Runtime): {
         build: 'nextrush build',
         start: 'node dist/index.js',
         test,
+        lint,
       };
   }
 }

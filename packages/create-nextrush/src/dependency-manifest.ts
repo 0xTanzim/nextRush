@@ -28,6 +28,11 @@ export function defineDependencies(entries: Record<string, ManifestEntry>): Reco
 export const dependencyManifest = defineDependencies({
   nextrush: { scope: 'dependency', resolve: 'latest-compatible' },
 
+  // The generated lint gate is Oxlint: `oxlint` runs the emitted `.oxlintrc.json`.
+  // Its range is single-sourced like the other toolchain ranges — from the repo's
+  // resolved toolchain versions (see package-json.ts / tsdown.config.ts), never an
+  // inline literal — so it cannot drift independently.
+  oxlint: { scope: 'devDependency', resolve: 'toolchain' },
   // Node/Bun need `dotenv` because `@nextrush/dev`'s `Bun.spawn` bypasses Bun's native
   // auto-load. Deno is native (`Deno.env`), so it gets no loader.
   dotenv: { scope: 'dependency', runtimes: ['node', 'bun'], resolve: 'toolchain' },

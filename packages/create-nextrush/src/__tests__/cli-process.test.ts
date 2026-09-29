@@ -232,7 +232,7 @@ describe('CLI process input contract', () => {
     expect(result.status).toBe(0);
     expect(existsSync(join(testRoot, 'preset-app', 'Dockerfile'))).toBe(true);
     expect(existsSync(join(testRoot, 'preset-app', '.editorconfig'))).toBe(true);
-    expect(existsSync(join(testRoot, 'preset-app', 'eslint.config.mjs'))).toBe(true);
+    expect(existsSync(join(testRoot, 'preset-app', '.oxlintrc.json'))).toBe(true);
   });
 
   it('--workspace fails with actionable guidance when no workspace is detected', () => {

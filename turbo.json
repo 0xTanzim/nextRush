@@ -2,7 +2,7 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
   "concurrency": "4",
-  "globalDependencies": ["tsconfig.base.json", "pnpm-lock.yaml"],
+  "globalDependencies": ["tsconfig.base.json", "pnpm-lock.yaml", "oxlint.config.ts"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

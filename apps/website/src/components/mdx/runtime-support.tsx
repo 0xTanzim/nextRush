@@ -83,8 +83,7 @@ export function RuntimeSupport({ support, links }: RuntimeSupportProps) {
   }
 
   return (
-    <div
-      role="list"
+    <ul
       aria-label="Runtime support"
       className="not-prose my-6 flex flex-wrap gap-2"
     >
@@ -115,7 +114,7 @@ export function RuntimeSupport({ support, links }: RuntimeSupportProps) {
           'flex items-center gap-2 rounded-lg border border-[var(--color-fd-border)] bg-[var(--color-fd-card)] px-3 py-1.5';
 
         return (
-          <div key={id} role="listitem">
+          <li key={id}>
             {href ? (
               <Link
                 href={href}
@@ -126,9 +125,9 @@ export function RuntimeSupport({ support, links }: RuntimeSupportProps) {
             ) : (
               <div className={itemClassName}>{content}</div>
             )}
-          </div>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }

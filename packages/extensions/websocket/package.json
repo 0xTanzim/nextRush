@@ -17,8 +17,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -32,6 +32,7 @@
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
+    "tsdown": "catalog:tooling",
     "typescript": "catalog:tooling",
     "vitest": "catalog:testing",
     "ws": "^8.21.2"

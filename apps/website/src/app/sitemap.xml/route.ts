@@ -1,4 +1,4 @@
-import { appConfig, toAbsoluteUrl } from '@/config/appConfig';
+import { toAbsoluteUrl } from '@/config/appConfig';
 import { blogSource, skillsSource, source } from '@/lib/source';
 
 export const dynamic = 'force-static';

@@ -49,7 +49,7 @@ describe('findInstallLifecycleScripts', () => {
   });
 
   it('does not flag ordinary scripts', () => {
-    const pkg: PackageJson = { name: 'fixture', scripts: { build: 'tsup', test: 'vitest run' } };
+    const pkg: PackageJson = { name: 'fixture', scripts: { build: 'tsdown', test: 'vitest run' } };
     expect(findInstallLifecycleScripts(pkg)).toEqual([]);
   });
 });

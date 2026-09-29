@@ -18,4 +18,12 @@ describe('bin entry (packaged CLI)', () => {
   it('has dist output so the bin can run (run build in CI before test)', () => {
     expect(existsSync(distIndex)).toBe(true);
   });
+
+  it('never injects a workspace-only `catalog:` protocol into generated manifests', () => {
+    // The scaffolder emits a standalone project. A pnpm `catalog:` specifier resolves
+    // only inside the workspace that declares it, so the built CLI must carry a concrete
+    // version for every emitted toolchain range (task 4.7 — generated project must install).
+    const dist = readFileSync(distIndex, 'utf-8');
+    expect(dist).not.toMatch(/["']catalog:[^"']*["']/);
+  });
 });

@@ -17,7 +17,7 @@ import { exitProcess, getRuntimeInfo } from './runtime/index.js';
 import { getDenoGlobal } from './runtime/runtime-globals.js';
 import { error } from './utils/logger.js';
 
-// Version injected at build time via tsup define
+// Version injected at build time via tsdown define
 declare const __VERSION__: string;
 const VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.0';
 

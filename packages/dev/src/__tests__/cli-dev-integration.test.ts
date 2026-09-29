@@ -6,8 +6,9 @@
  *
  * This is the layer the pure-function unit tests in `runtime-node-modules.test.ts`
  * cannot cover: those call `resolveLoaderFromUrl` directly with a hand-constructed
- * `import.meta.url`, so they never exercise what happens once tsup's `splitting: false`
- * inlines that function's code into `dist/cli.js` itself. Only a real spawn of the built
+ * `import.meta.url`, so they never exercise what happens once the build has placed that
+ * function in whichever bundle the bundler chose (an entry such as `dist/cli.js` or a
+ * shared chunk at the `dist/` root). Only a real spawn of the built
  * artifact proves the loader path is actually correct at zero directories under `dist/`
  * (see design.md D2, proposal.md's Why section).
  *

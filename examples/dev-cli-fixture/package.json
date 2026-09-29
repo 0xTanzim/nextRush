@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Minimal fixture exercising `nextrush dev` and `nextrush build` — used by CI's multi-OS toolchain jobs (see openspec/changes/close-phase0-ci-matrix-and-metadata-preflight)",
   "dependencies": {
+    "dotenv": "^17.4.2",
     "nextrush": "workspace:*"
   },
   "devDependencies": {

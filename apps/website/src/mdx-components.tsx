@@ -66,6 +66,7 @@ DocSectionEyebrow,
 } from '@/components/mdx';
 import { typeTableGenerator } from '@/lib/type-table-generator';
 import { AutoTypeTable as BaseAutoTypeTable, type AutoTypeTableProps } from 'fumadocs-typescript/ui';
+import { Popup, PopupContent, PopupTrigger } from 'fumadocs-twoslash/ui';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
@@ -103,6 +104,13 @@ const customComponents = {
   // Tabs from Fumadocs
   Tabs,
   Tab,
+
+  // Twoslash hover/query popups — required by the `ts twoslash` transformer in
+  // source.config.ts (fumadocs-twoslash). Without these, twoslash nodes render
+  // as inert markup instead of interactive type hovers.
+  Popup,
+  PopupContent,
+  PopupTrigger,
 
   // Steps from Fumadocs
   Steps,

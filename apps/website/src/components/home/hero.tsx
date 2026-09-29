@@ -20,10 +20,10 @@ export function Hero() {
       <div className="container mx-auto px-4 pt-6 pb-7 md:pt-7 md:pb-8">
         <div className="mx-auto flex max-w-[720px] flex-col items-center text-center">
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/50 px-4 py-1.5 backdrop-blur-md animate-fade-up">
-            <span className="relative flex size-2" role="status" aria-label="Live">
+            <output className="relative flex size-2" aria-label="Live">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--success)] opacity-75" />
               <span className="relative inline-flex size-2 rounded-full bg-[var(--success)]" />
-            </span>
+            </output>
             <span className="text-sm text-fd-muted-foreground">
               Node.js 22+ &middot; Bun &middot; Deno &middot; Edge
             </span>

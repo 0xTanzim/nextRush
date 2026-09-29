@@ -183,4 +183,27 @@ describe('generateDeclarations (in-process, real tsc)', () => {
     },
     30_000
   );
+
+  it(
+    'ignores unrelated tsc binaries on PATH (resolves deterministically from dependencies)',
+    async () => {
+      const srcDir = join(FIXTURE_DIR, 'src');
+      const files = await findTypeScriptFiles(FIXTURE_DIR, FIXTURE_ENTRY);
+
+      const originalPath = process.env.PATH;
+      try {
+        // Point PATH to an empty temporary directory so PATH has no valid tsc
+        const emptyDir = mkdtempSync(join(tmpdir(), 'empty-path-'));
+        process.env.PATH = emptyDir;
+
+        await generateDeclarations(FIXTURE_DIR, outDir, srcDir, files);
+        expect(existsSync(join(outDir, 'index.d.ts'))).toBe(true);
+
+        rmSync(emptyDir, { recursive: true, force: true });
+      } finally {
+        process.env.PATH = originalPath;
+      }
+    },
+    30_000
+  );
 });

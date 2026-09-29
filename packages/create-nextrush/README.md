@@ -126,9 +126,10 @@ and installs dependencies with your detected package manager.
 - **Offline mode** - `--offline` skips registry probes entirely and resolves every package from
   the embedded fallback ranges, with the run annotated as offline in both human and JSON output
 - **Manifest-driven dependencies** - every dependency is declared once in a typed dependency
-  manifest; toolchain packages (`typescript`, `vitest`, `dotenv`, `@types/node`) single-source
-  from `create-nextrush`'s own devDependencies, and the generated `engines.node` floor derives
-  from a single runtime policy
+  manifest; toolchain packages (`typescript`, `vitest`, `dotenv`, `@types/node`, `oxlint`)
+  single-source from `create-nextrush`'s own devDependencies (`oxlint` from the repo's
+  toolchain catalog, resolved to a concrete version the generated project can install), and
+  the generated `engines.node` floor derives from a single runtime policy
 
 **Developer experience**
 - **Non-interactive mode** - every prompt has a corresponding flag, so CI/scripting never
@@ -260,9 +261,11 @@ through `npm create` is a separate, earlier network step.
 ### Extra layers: production preset, examples, workspace mode
 
 - **`--preset production`** adds an opt-in production-service layer: `.editorconfig`, VS Code
-  recommendations, `eslint.config.mjs`, a `.github/workflows/ci.yml` CI job, a multi-stage
-  `Dockerfile` + `.dockerignore`, and `docs/production.md` — all referencing the generated
-  scripts and `/health` endpoint. The base starter stays unchanged when the preset is off.
+  recommendations (`oxc.oxc-vscode` for the emitted Oxlint config), a dependency-free
+  `.oxlintrc.json` plus its declared `oxlint` devDependency, a `.github/workflows/ci.yml` CI
+  job, a multi-stage `Dockerfile` + `.dockerignore`, and `docs/production.md` — all referencing
+  the generated scripts and `/health` endpoint. The base starter stays unchanged when the preset
+  is off.
 - **`--example secure-api`** scaffolds a governed task-oriented example: a minimal bearer-token
   guarded `src/routes/secure.routes.ts` plus its unit test, maintained and verified on the same
   runtime/style matrix as the base starter.
@@ -298,7 +301,7 @@ entire public surface is the command-line interface documented below.
 | `--offline` | | - | `false` | Skip registry lookups; resolve every package from the embedded fallback ranges |
 | `--json` | | - | `false` | Emit one machine-readable result document on stdout |
 | `--skip-runtime-check` | | - | `false` | Skip the local runtime-binary preflight (remote/container targets) |
-| `--preset` | | `production` | - | Add the opt-in production-service preset (editor, lint, CI, Docker, ops docs) |
+| `--preset` | | `production` | - | Add the opt-in production-service preset (Oxlint + editor, CI, Docker, ops docs) |
 | `--example` | | `secure-api` | - | Scaffold a governed task-oriented example |
 | `--workspace` | | - | `false` | Place the project in a detected pnpm workspace (`apps/<name>`) |
 | `--version` | `-v` | - | - | Print the CLI version |

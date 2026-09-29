@@ -397,10 +397,6 @@ function bottleneckTone(level: 'low' | 'mid' | 'high'): string {
   return 'border-orange-500/40 bg-orange-500/15 text-orange-800 dark:text-orange-200';
 }
 
-function stars(n: number): string {
-  return '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n));
-}
-
 function filterRows(rows: RankRow[], visible: Set<FrameworkId>): RankRow[] {
   return rows.filter((r) => visible.has(r.id));
 }
@@ -485,7 +481,8 @@ function ColumnChart({
 }) {
   const max = Math.max(...rows.map((r) => r.rps), 1);
   return (
-    <div className="w-full" role="img" aria-label="Vertical column chart of requests per second">
+    <figure className="w-full">
+      <figcaption className="sr-only">Vertical column chart of requests per second</figcaption>
       <div className="flex items-end justify-between gap-2 sm:gap-3" style={{ height }}>
         {rows.map((row) => {
           const meta = FW[row.id];
@@ -532,7 +529,7 @@ function ColumnChart({
       <p className="mt-3 text-center text-[0.65rem] font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">
         req/s · higher is better{suffix !== ' RPS' ? ` · ${suffix.trim()}` : ''}
       </p>
-    </div>
+    </figure>
   );
 }
 
@@ -541,15 +538,14 @@ function ColumnChart({
 function RankedBars({ rows, suffix = ' RPS' }: { rows: RankRow[]; suffix?: string }) {
   const max = Math.max(...rows.map((r) => r.rps), 1);
   return (
-    <div className="space-y-2.5" role="list" aria-label="Ranked throughput">
+    <ul className="space-y-2.5" aria-label="Ranked throughput">
       {rows.map((row, i) => {
         const meta = FW[row.id];
         const width = Math.min(Math.max((row.rps / max) * 100, 4), 100);
         const isTarget = row.id === 'nextrush-v3';
         return (
-          <div
+          <li
             key={row.id}
-            role="listitem"
             className={`grid gap-1 rounded-xl px-2 py-1.5 ${
               isTarget
                 ? 'bg-[color-mix(in_srgb,var(--brand-link)_8%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-link)_28%,var(--color-fd-border))]'
@@ -580,10 +576,10 @@ function RankedBars({ rows, suffix = ' RPS' }: { rows: RankRow[]; suffix?: strin
                 }}
               />
             </div>
-          </div>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }
 
@@ -774,11 +770,11 @@ function ScalingChart({ visible }: { visible: Set<FrameworkId> }) {
 
   return (
     <div>
+      <p className="sr-only">Concurrency scaling line chart for Hello World</p>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="h-auto w-full"
-        role="img"
-        aria-label="Concurrency scaling line chart for Hello World"
+        aria-hidden="true"
       >
         {/* grid */}
         {ticks.map((t) => (
@@ -1052,6 +1048,7 @@ function ScenarioExplorer({ visible }: { visible: Set<FrameworkId> }) {
                       isTarget ? 'bg-[color-mix(in_srgb,var(--brand-link)_6%,transparent)]' : ''
                     }`}
                   >
+                    {/* eslint-disable-next-line jsx-a11y/control-has-associated-label -- false positive: this td holds plain text (framework name), not a control, so no label applies */}
                     <td className="px-3 py-2">
                       <span className="inline-flex items-center gap-2">
                         <span

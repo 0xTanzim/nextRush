@@ -103,6 +103,7 @@ export function HeroCodeExample() {
         </div>
 
         {/* Code — +1px type scale, same left edge as header */}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- tabindex=0 keeps the scrollable region keyboard-operable (WCAG 2.1.1); removing it would strand overflow content for keyboard users */}
         <pre className={`overflow-x-auto py-2 text-left leading-[1.5] sm:py-2.5 ${PAD}`} tabIndex={0}>
           <code className="text-sm font-mono">{highlightedCode}</code>
         </pre>

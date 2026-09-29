@@ -1,0 +1,18 @@
+import { defineConfig } from 'tsdown';
+import { keepClassNames } from '../../tools/tsdown/keep-class-names.mjs';
+
+export default defineConfig({
+  // Restore class names in the emitted chunk: `err.name` is public API, and rolldown's
+  // `var X = class X` shape is renamed by downstream esbuild transforms.
+  // See tools/tsdown/keep-class-names.mjs.
+  plugins: [keepClassNames()],
+  entry: ['src/index.ts', 'src/class.ts', 'src/dev-cli-launcher.ts', 'src/nextjs.ts'],
+  format: ['esm'],
+  // Keep the published entry shape (./dist/index.js + ./dist/index.d.ts) exactly as
+  // package.json declares it — tsdown otherwise emits .mjs/.d.mts.
+  outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
+  dts: true,
+  clean: true,
+  sourcemap: true,
+  target: 'node22',
+});

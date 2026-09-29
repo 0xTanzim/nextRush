@@ -10,7 +10,7 @@
  */
 
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -46,14 +46,20 @@ async function waitForBodyOk(url: string, expected: boolean, deadlineMs: number)
 describe('nextrush dev — restart on file change (task 2.2)', () => {
   beforeEach(() => {
     // Must live INSIDE the monorepo (not os.tmpdir()) — the fixture's `nextrush` dep is a
-    // `workspace:*` link, and @swc-node/register's tsconfig-extends resolution walks up
-    // from the entry file looking for `tsconfig.base.json`, which only exists at the repo
-    // root. A copy outside the repo breaks that chain with an unrelated-looking error.
+    // `workspace:*` link, so a copy outside the repo breaks resolution with an
+    // unrelated-looking error.
     workDir = mkdtempSync(join(REPO_ROOT, 'examples', '.tmp-dev-restart-'));
     cpSync(FIXTURE_SRC, workDir, {
       recursive: true,
       filter: (src) => !src.includes('node_modules') && !src.includes('/dist'),
     });
+    // The copy above excludes node_modules (speed + never mutates the fixture), but the
+    // copied app still imports the `nextrush` workspace link — symlink the fixture's own
+    // node_modules in so bare-specifier resolution works exactly as in the real fixture.
+    // (Without this, server boot fails with ERR_MODULE_NOT_FOUND for 'nextrush' under
+    // ANY loader — old and new alike — because no parent node_modules provides it in an
+    // isolated-linker layout.) 'junction' keeps this working on Windows.
+    symlinkSync(join(FIXTURE_SRC, 'node_modules'), join(workDir, 'node_modules'), 'junction');
   });
 
   afterEach(() => {

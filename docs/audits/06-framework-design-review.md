@@ -311,7 +311,7 @@ This is the **best single property of the codebase**: dependency direction is ne
 | Aspect | Assessment | Evidence |
 |---|---|---|
 | **Repository structure** | ✅ Clear | Turborepo + pnpm workspaces; `packages/`, `apps/`, `docs/`, `examples/` |
-| **Build system** | ✅ | `turbo run build` + `tsup` per package; `pnpm verify` (build+test+typecheck+lint) |
+| **Build system** | ✅ | `turbo run build` + `tsdown` per package; `pnpm verify` (build+test+typecheck+lint) |
 | **Testing strategy** | ✅ Strong | Vitest; 145+ test files; conformance suite; forced-no-cache verification culture; `@nextrush/testing` harness |
 | **Coding standards** | ✅ Enforced | ESLint + Prettier + strict TS + steering instructions |
 | **RFC workflow** | ✅ Mature | RFC-before-public-API is an explicit rule (12 RFCs prove it's followed) |

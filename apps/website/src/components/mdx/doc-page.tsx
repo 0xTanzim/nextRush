@@ -27,7 +27,7 @@ export function StageLabel({
 }) {
   const activeIndex = steps.findIndex((s) => s.label === active);
   return (
-    <div className="stage-label not-prose" role="group" aria-label="Position on the request flow">
+    <section className="stage-label not-prose" aria-label="Position on the request flow">
       <div className="stage-label__map" aria-hidden>
         {steps.map((s, i) => {
           const isActive = i === activeIndex;
@@ -51,7 +51,7 @@ export function StageLabel({
         })}
       </div>
       <p className="stage-label__note">{note}</p>
-    </div>
+    </section>
   );
 }
 
@@ -374,7 +374,7 @@ export function BenchmarkBars({
         </span>
       </div>
 
-      <div className={compact ? 'space-y-3' : 'space-y-3.5'} role="list" aria-label={title}>
+      <ul className={compact ? 'space-y-3' : 'space-y-3.5'} aria-label={title}>
         {items.map((item, index) => {
           const pctOfMax = (item.value / max) * 100;
           // Floor at 4% so tiny bars stay visible; cap so 100% fills cleanly.
@@ -385,9 +385,8 @@ export function BenchmarkBars({
           const rank = item.rank ?? index + 1;
 
           return (
-            <div
+            <li
               key={item.label}
-              role="listitem"
               className={`grid gap-1.5 rounded-xl px-2.5 py-2 transition-colors ${
                 highlighted
                   ? 'bg-[color-mix(in_srgb,var(--brand-link)_8%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-link)_28%,var(--color-fd-border))]'
@@ -446,10 +445,10 @@ export function BenchmarkBars({
                   {item.detail}
                 </p>
               ) : null}
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </section>
   );
 }
@@ -468,21 +467,20 @@ export function BenchmarkLegend({
   items?: Array<{ framework: BenchmarkFrameworkId; label: string }>;
 }) {
   return (
-    <div
+    <ul
       className="not-prose my-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[var(--color-fd-border)] bg-[color-mix(in_srgb,var(--color-fd-muted)_35%,var(--color-fd-card))] px-4 py-3"
-      role="list"
       aria-label="Framework color legend"
     >
       {items.map((item) => {
         const tone = FRAMEWORK_TONE[item.framework];
         return (
-          <span key={item.framework} role="listitem" className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+          <li key={item.framework} className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
             <span aria-hidden className={`size-2.5 rounded-full ${tone.swatch}`} />
             <span className="font-medium text-[var(--text-primary)]">{item.label}</span>
-          </span>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }
 

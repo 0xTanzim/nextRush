@@ -29,7 +29,7 @@
     "nextrush": "./bin/nextrush.js"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -109,7 +109,7 @@
     "@nextrush/di": "workspace:*",
     "@nextrush/helmet": "workspace:*",
     "reflect-metadata": "catalog:runtime",
-    "tsup": "catalog:tooling",
+    "tsdown": "catalog:tooling",
     "typescript": "catalog:tooling",
     "vitest": "catalog:testing"
   }

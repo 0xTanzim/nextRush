@@ -374,3 +374,154 @@ toolchain SHALL still take precedence in dev (matching the Node/Bun documented b
 - **WHEN** the dev toolchain injects `PORT`/`NODE_ENV` and a `.env` file also sets them
 - **THEN** the injected values take precedence (existing process env is not overwritten by `--env-file`), matching the documented Node/Bun dev behavior
 
+
+
+### Requirement: The scaffolder has a strict command-line input contract
+`create-nextrush` SHALL reject an unknown option, an option missing its required value, or an invalid
+value for an enumerated option. It MUST exit non-zero before creating or modifying the target and MUST
+name the invalid input, list valid values where applicable, and show a corrected invocation. A valid
+non-interactive invocation MUST remain supported without prompts.
+
+#### Scenario: Invalid runtime is rejected
+- **WHEN** a caller runs `create-nextrush my-api --yes --runtime nodee`
+- **THEN** the CLI exits non-zero without creating `my-api`, identifies `nodee` as invalid, lists `node`, `bun`, and `deno`, and shows a valid `--runtime` example
+
+#### Scenario: Unknown option is rejected
+- **WHEN** a caller passes an unsupported option such as `--typo`
+- **THEN** the CLI exits non-zero without scaffolding and directs the caller to `--help`
+
+#### Scenario: Complete non-interactive input does not prompt
+- **WHEN** a caller supplies a valid directory, style, runtime, middleware, package manager, install choice, Git choice, and `--yes`
+- **THEN** the CLI creates the selected project without an interactive prompt
+
+### Requirement: Non-interactive target conflicts are safe and machine-detectable
+When the target directory is non-empty, `create-nextrush` MUST preserve existing files. In non-interactive
+mode (`--yes` or no TTY), it SHALL not prompt; it MUST exit non-zero with a stable
+`TARGET_DIRECTORY_NOT_EMPTY` error and state that no files were changed. Overwriting, if supported,
+MUST require an explicit `--overwrite` option and MUST be documented as destructive.
+
+#### Scenario: --yes never silently declines a target conflict
+- **WHEN** `--yes` targets a directory containing files without `--overwrite`
+- **THEN** the CLI exits non-zero, emits `TARGET_DIRECTORY_NOT_EMPTY`, and leaves every existing file unchanged
+
+#### Scenario: Interactive target conflict remains protective
+- **WHEN** an interactive user targets a non-empty directory without `--overwrite`
+- **THEN** the CLI presents a confirmation whose default does not overwrite files
+
+#### Scenario: Explicit overwrite is observable
+- **WHEN** a caller uses the documented `--overwrite` option on a non-empty directory
+- **THEN** the CLI states that existing files may be replaced before writing and reports the files written in its completion result
+
+### Requirement: The scaffolder provides a stable automation interface
+The CLI SHALL support `--dry-run` and `--json`. `--dry-run` MUST validate all supplied input and return
+the selected options, target path, planned files, package-manager action, Git action, and verification
+URL without modifying the filesystem or running install/Git commands. `--json` MUST emit one
+schema-versioned result or error document to stdout and no decorative terminal UI; errors MUST have a
+stable code, message, and remediation.
+
+#### Scenario: Dry run has no side effects
+- **WHEN** a caller runs a valid scaffold command with `--dry-run`
+- **THEN** no target directory, file, Git repository, or dependency installation is created, and the plan identifies every file that would be written
+
+#### Scenario: JSON success is machine-readable
+- **WHEN** a valid non-interactive scaffold command uses `--json`
+- **THEN** stdout contains exactly one valid result document with schema version, target path, selected options, written-file list, post-scaffold action status, and verification URL
+
+#### Scenario: JSON failure is machine-readable
+- **WHEN** an invalid option or target conflict occurs with `--json`
+- **THEN** stdout contains exactly one valid error document with a stable error code, message, remediation, and non-zero process exit
+
+### Requirement: Offline generation is explicit after package acquisition
+After `create-nextrush` is locally available, `--offline` SHALL avoid all registry probes and resolve every
+emitted dependency from the embedded per-package fallback map. The CLI MUST state that the generated
+dependency ranges are offline fallback ranges. Documentation MUST distinguish this mode from the
+separate network requirement to acquire the generator through `npm create` for the first time.
+
+#### Scenario: Cached CLI scaffolds without registry access
+- **WHEN** a locally available CLI runs with `--offline` while its configured registry is unreachable
+- **THEN** generation succeeds without a registry request and every emitted dependency range comes from its own fallback entry
+
+#### Scenario: First package acquisition is explained honestly
+- **WHEN** documentation describes offline scaffolding
+- **THEN** it explains that `npm create` must first download or already have cached `create-nextrush`, while `--offline` governs the generator's own dependency-version probes
+
+### Requirement: The default onboarding path minimizes unnecessary decisions
+Interactive onboarding SHALL first offer a recommended Node API starter composed of the supported default
+style, runtime, and middleware preset. Accepting it MUST proceed without asking separate architecture
+questions. Choosing customization MUST expose style, runtime, middleware, and package-manager choices
+with concise consequences and preserve keyboard-accessible selection and validation.
+
+#### Scenario: Recommended starter is one decision
+- **WHEN** a first-time interactive user accepts the recommended starter
+- **THEN** the CLI selects the documented Node API defaults without separately prompting for style, runtime, or middleware
+
+#### Scenario: Customization remains complete
+- **WHEN** a user chooses customization
+- **THEN** the CLI presents every supported style, runtime, middleware, and package-manager choice with enough description to distinguish them
+
+### Requirement: Runtime and package-manager choices are observable and actionable
+Before a local install or run action, the scaffolder SHALL state the selected or detected package manager
+and its source (explicit, detected, or runtime policy). When a selected runtime is expected to be used
+locally and its binary is unavailable, the CLI MUST fail or warn with an actionable installation/remoting
+path; callers targeting another machine MUST be able to opt out explicitly.
+
+#### Scenario: Detected package manager is visible
+- **WHEN** package manager selection is inferred from the invoking environment
+- **THEN** the CLI reports the selected manager and that it was detected before it runs installation
+
+#### Scenario: Missing selected runtime is actionable
+- **WHEN** a local Bun or Deno scaffold is about to run an action requiring a binary absent from PATH
+- **THEN** the CLI identifies the missing runtime and explains how to install it or explicitly skip the local check
+
+### Requirement: Production foundations are available as an opt-in preset
+The base starter SHALL remain lean. `create-nextrush` MUST offer a documented opt-in production-service
+preset that generates a coherent quality and operational baseline: editor settings, a formatter/linter,
+CI validation, container files, and production/health documentation. The preset MUST work with every
+supported generated runtime or clearly refuse unsupported combinations before writing files.
+
+#### Scenario: Production preset supplies an operational baseline
+- **WHEN** a supported project is generated with the production-service preset
+- **THEN** it includes editor, format/lint, CI, container, ignore, and production-operation artifacts that reference its generated scripts and health endpoint
+
+#### Scenario: Base starter remains focused
+- **WHEN** a project is generated without the production-service preset
+- **THEN** production-preset-only files are not emitted and the ordinary starter remains runnable, testable, and documented
+
+### Requirement: Workspace and task-oriented starters are governed opt-ins
+The CLI SHALL provide only documented, tested workspace destinations and task-oriented examples. A
+workspace mode MUST detect or require an explicit supported workspace layout and report its resolved
+destination. An example MUST be versioned with the CLI, identify its maintained runtime/style contract,
+and satisfy the same generated-project verification gate as the base starter.
+
+#### Scenario: Workspace destination is explicit
+- **WHEN** a caller requests a workspace destination
+- **THEN** the CLI states the resolved path, package name, and workspace policy before writing, or fails with actionable guidance if the workspace is unsupported
+
+#### Scenario: Example is verified like the base starter
+- **WHEN** a task-oriented example is offered by the CLI
+- **THEN** release verification installs, builds, starts, and checks its documented endpoint on every runtime/style combination it advertises
+
+
+### Requirement: The generated lint gate is installable and runnable
+
+The lint configuration a generated project ships SHALL be paired with the devDependencies that
+configuration imports, so the generated lint script runs on a freshly installed project. A generated
+project MUST NOT contain a lint configuration that references a package the generated `package.json`
+does not declare. The generated editor-recommendation list MUST name the linter the project is
+actually configured with.
+
+#### Scenario: Every lint-configuration import is a declared devDependency
+
+- **WHEN** a project is generated with any preset that emits a lint configuration
+- **THEN** every package the emitted lint configuration imports appears as a declared devDependency in the generated `package.json`
+
+#### Scenario: The generated lint script succeeds on a fresh install
+
+- **WHEN** the generate-then-install gate installs a generated project and runs its `lint` script
+- **THEN** the script exits zero, with no unresolved-module or missing-configuration error
+
+#### Scenario: The editor recommendation matches the configured linter
+
+- **WHEN** the emitted editor-recommendation file is inspected
+- **THEN** it recommends the extension for the linter the project is configured with, not an extension for a different linter
+

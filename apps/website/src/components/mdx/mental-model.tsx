@@ -29,7 +29,7 @@ const stepAccent: Record<string, string> = {
 
 export function MentalModelFlow({ steps }: { steps: string[] }) {
   return (
-    <ol className="mm-flow not-prose" role="list" aria-label="Request flow through NextRush">
+    <ol className="mm-flow not-prose" aria-label="Request flow through NextRush">
       {steps.map((step, i) => {
         const isLast = i === steps.length - 1;
         const isConcept = CONCEPTS.has(step);

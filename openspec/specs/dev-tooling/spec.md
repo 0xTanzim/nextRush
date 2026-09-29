@@ -152,16 +152,42 @@ Bun, and Deno for the same inputs, including `..` collapsing and absolute-segmen
 
 ### Requirement: Toolchain dependencies are reproducible
 The `@nextrush/dev` package SHALL declare no unused runtime dependency, and MUST pin its
-compilation-critical dependencies (`@swc/core`, `@swc-node/register`) to tight version ranges so
-tool builds are reproducible.
+compilation-critical dependencies (`@swc/core`) to tight version ranges so tool builds are
+reproducible. The package MUST NOT declare a TypeScript compiler package as a runtime dependency for
+its dev-time transpilation, so the dev loader cannot break when the workspace TypeScript major
+changes.
 
 #### Scenario: No unused runtime dependency is declared
 - **WHEN** the package's declared runtime dependencies are checked against actual source imports
-- **THEN** every declared runtime dependency is referenced (the unused `tsx` dependency is removed)
+- **THEN** every declared runtime dependency is referenced
 
 #### Scenario: Compilation-critical dependencies are pinned
 - **WHEN** the package manifest is inspected
-- **THEN** `@swc/core` and `@swc-node/register` use exact or tightly-bounded version ranges rather than open carets
+- **THEN** `@swc/core` uses an exact or tightly-bounded version range rather than an open caret
+
+#### Scenario: No TypeScript-compiler runtime dependency is declared
+- **WHEN** the package's declared runtime dependencies are inspected
+- **THEN** neither `typescript` nor `@swc-node/register` appears, so the dev loader carries no dependency on the TypeScript compiler's JavaScript API
+
+### Requirement: The dev runtime loader is independent of the TypeScript JS API
+The dev-time TypeScript loader that `nextrush dev` installs into the spawned application process SHALL
+transform project sources to runnable JavaScript with decorator metadata emitted (`design:paramtypes`),
+so constructor-injection DI resolves at runtime. The loader MUST NOT load the TypeScript compiler's
+JavaScript API at runtime, so it works unchanged on any installed TypeScript major — including
+TypeScript 7, whose main entry no longer exposes that API. The loader stays a Node-only dev path: the
+build path and cross-runtime behavior are unchanged.
+
+#### Scenario: Decorated classes resolve DI under nextrush dev
+- **WHEN** `nextrush dev` starts an application containing a decorated class whose constructor dependency is injected
+- **THEN** the application serves requests and the injected dependency resolves, with the transformed module carrying `design:paramtypes` metadata
+
+#### Scenario: The dev loader runs under TypeScript 7
+- **WHEN** the workspace TypeScript is TypeScript 7 and `nextrush dev` starts a TypeScript application
+- **THEN** the process starts and serves requests without a TypeScript-JS-API initialization error
+
+#### Scenario: The dev transform needs no TypeScript compiler dependency
+- **WHEN** `@nextrush/dev`'s dependency tree is inspected
+- **THEN** the dev-time transform is provided by `@swc/core` and no `@swc-node/register` (or other package that imports the TypeScript JS API) is present
 
 ### Requirement: Build concurrency scales to available CPUs
 The SWC build SHALL derive its transform concurrency from the host's available parallelism (capped
@@ -186,3 +212,28 @@ via the generated entrypoint's `dotenv` import. The flag MUST be added to the sc
 - **WHEN** a Deno dev/build spawn runs with `--env-file=.env` and the process environment already has a variable also present in `.env`
 - **THEN** the existing process value is preserved (Deno's `--env-file` does not overwrite), so toolchain-injected `PORT`/`NODE_ENV` still win in dev
 
+
+
+### Requirement: Declaration emission survives a compiler major-line change
+
+The declaration pass in `nextrush build` SHALL emit `.d.ts` output from the TypeScript compiler that
+`@nextrush/dev` itself resolves, independent of that compiler's packaging layout — including a
+compiler distributed as native per-platform binaries, published as an ES module, or without the
+historical `tsserver` entry point. The pass MUST use the resolved local compiler rather than a
+`PATH`-looked-up or network-fetched one, and MUST fail the build with an actionable message when no
+usable compiler can be resolved, never silently skipping declaration output while reporting success.
+
+#### Scenario: Declarations are emitted with a natively distributed compiler
+
+- **WHEN** the TypeScript version resolved by `@nextrush/dev` is distributed as a platform-native binary rather than a JavaScript entry point
+- **THEN** `nextrush build --dts` still produces `.d.ts` files at the same relative layout as their corresponding `.js` outputs
+
+#### Scenario: An unresolvable compiler fails loudly
+
+- **WHEN** no local TypeScript compiler can be resolved for the declaration pass
+- **THEN** the build exits non-zero with a message naming the missing package and the install command, and it does not report a successful build with declarations silently absent
+
+#### Scenario: The declaration pass ignores an unrelated compiler on PATH
+
+- **WHEN** a different TypeScript version is available on the host `PATH` than the one `@nextrush/dev` resolves
+- **THEN** the declaration pass uses the resolved local compiler, so declared output does not vary with the host environment

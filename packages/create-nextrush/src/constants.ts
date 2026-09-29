@@ -1,7 +1,7 @@
 import type { MiddlewarePreset, Runtime, Style } from './types.js';
 import { getPackageRange } from './version-store.js';
 
-// Build-time injected (see tsup.config.ts define) — used only for --version flag
+// Build-time injected (see tsdown.config.ts define) — used only for --version flag
 declare const __VERSION__: string;
 export const NEXTRUSH_VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '0.0.0';
 
