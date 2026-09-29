@@ -18,15 +18,9 @@ const config = {
   reactStrictMode: true,
   /** Playwright / MCP hit dev server via 127.0.0.1 — avoid cross-origin dev warnings */
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
-  // Cap Next.js/webpack build worker parallelism so a docs build doesn't compete with
-  // the rest of the monorepo (turbo tasks, MCP servers, editor) for all CPU cores/RAM
-  // on a resource-constrained dev machine.
-  // NOTE (verified in next@16.3.5 source): this app builds with Turbopack, which is
-  // parallel by design — the webpack build worker and its `parallelServer*`
-  // companions are webpack-only and error out under Turbopack, so they stay off.
-  // Barrel-import trimming lives under `experimental` in v16.
+  // Turbopack build is parallel by design — no worker flags needed.
   experimental: {
-    // webpackBuildWorker: true,
+    // Trims the per-page compile cost of the icon barrel used across the docs.
     optimizePackageImports: ['lucide-react'],
   },
   ...(normalizedBasePath
