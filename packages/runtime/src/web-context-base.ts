@@ -39,6 +39,7 @@ import type {
   TextStreamWriter,
 } from '@nextrush/types';
 import { combineAbortSignal, type CombinedAbort } from './request-signal';
+import { requestTargetFromUrl } from './request-target';
 import { UNINITIALIZED_COOKIES } from './capabilities';
 import { createEmptyBodySource } from './body-source';
 import { WebBodySource } from './body-source';
@@ -167,12 +168,15 @@ export abstract class WebContextBase implements FetchContext {
     this.platform = platform;
     this._ip = ip;
 
-    // Parse URL
-    const urlObj = new URL(request.url);
-    this.url = urlObj.pathname + urlObj.search;
-    this.path = urlObj.pathname;
-    this.originalPath = this.path;
-    this.query = parseQueryString(urlObj.search.slice(1));
+    // Derive the target by scanning `request.url` instead of parsing it: WHATWG
+    // parsing resolves dot segments (every encoded spelling of one included),
+    // which would resolve a segment before the router could reject it, and it
+    // allocates a `URL` object per request to do that.
+    const target = requestTargetFromUrl(request.url);
+    this.path = target.path;
+    this.originalPath = target.path;
+    this.url = target.search === '' ? target.path : target.path + target.search;
+    this.query = parseQueryString(target.search.slice(1));
 
     // Convert Headers to record format
     this.headers = headersToRecord(request.headers);

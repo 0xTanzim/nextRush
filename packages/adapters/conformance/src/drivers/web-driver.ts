@@ -20,6 +20,7 @@ import { createHandler as createBunHandler } from '@nextrush/adapter-bun';
 import { createHandler as createDenoHandler } from '@nextrush/adapter-deno';
 import { createFetchHandler } from '@nextrush/adapter-edge';
 import { type Application, createApp } from '@nextrush/core';
+import { capabilitiesFor } from '@nextrush/runtime';
 import { buildConformanceApp } from './app-shape';
 import type { Configure, ConformanceDriver, DispatchInit, DispatchResult } from './types';
 
@@ -58,7 +59,8 @@ function buildRequest(init: DispatchInit | undefined, signal?: AbortSignal): Req
 function createWebDriver(
   name: string,
   invoke: WebInvoke,
-  honorsCloudflareIp: boolean
+  honorsCloudflareIp: boolean,
+  simulatedRuntime: 'bun' | 'deno' | 'edge'
 ): ConformanceDriver {
   return {
     name,
@@ -72,6 +74,9 @@ function createWebDriver(
     teardownOnShutdown: name !== 'edge', // edge has no teardown seam (F-14)
     transportAbortFiresSignal: true,
     honorsCloudflareIp,
+    // The capability of the platform being simulated, not of this Node process —
+    // a simulated driver must not claim Node's answer for a Bun adapter.
+    rawRequestTarget: capabilitiesFor(simulatedRuntime).rawRequestTarget,
 
     async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
       const app = buildConformanceApp(init);
@@ -146,14 +151,14 @@ export const bunDriver: ConformanceDriver = createWebDriver('bun', (app, request
   // for the conformance path; erase the Bun-specific server type at this seam.
   const serverStub = { requestIP: () => ({ address: ip, family: 'IPv4', port: 0 }) };
   return (handler as unknown as (r: Request, s: unknown) => Promise<Response>)(request, serverStub);
-}, false);
+}, false, 'bun');
 
 export const denoDriver: ConformanceDriver = createWebDriver('deno', (app, request, options, ip) => {
   const handler = createDenoHandler(app, options);
   return handler(request, { remoteAddr: { hostname: ip, port: 0 } });
-}, false);
+}, false, 'deno');
 
 export const edgeDriver: ConformanceDriver = createWebDriver('edge', async (app, request, options) => {
   const handler = createFetchHandler(app, options);
   return handler(request);
-}, true);
+}, true, 'edge');

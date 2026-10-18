@@ -28,6 +28,74 @@ function makeContext(init?: RequestInit & { url?: string }): TestContext {
   return new TestContext(new Request(url, rest));
 }
 
+/**
+ * A request whose `.url` carries the target verbatim, the way a runtime that does
+ * not re-parse the request line delivers it (Deno, and Node's `req.url`).
+ *
+ * Built as a stub rather than a real `Request` on purpose: constructing a
+ * `Request` from a URL resolves dot segments inside the WHATWG parser, so a real
+ * `Request` can never carry one — which is why this is a unit test of the
+ * context's own derivation, and why the cross-adapter assertion for it has to run
+ * over a real socket (`@nextrush/adapter-conformance`).
+ */
+function rawTargetRequest(target: string): Request {
+  return {
+    method: 'GET',
+    url: `http://localhost${target}`,
+    headers: new Headers(),
+  } as unknown as Request;
+}
+
+/** Counts constructions of the global `URL` for the duration of `fn`. */
+function countUrlConstructions(fn: () => void): number {
+  const OriginalURL = globalThis.URL;
+  let count = 0;
+  class CountingURL extends OriginalURL {
+    constructor(...args: ConstructorParameters<typeof OriginalURL>) {
+      super(...args);
+      count++;
+    }
+  }
+  (globalThis as { URL: typeof URL }).URL = CountingURL as unknown as typeof URL;
+  try {
+    fn();
+  } finally {
+    (globalThis as { URL: typeof URL }).URL = OriginalURL;
+  }
+  return count;
+}
+
+describe('WebContextBase — the request target is read, not re-derived', () => {
+  it('publishes a dot segment instead of resolving it', () => {
+    const ctx = new TestContext(rawTargetRequest('/files/../admin?x=1'));
+    expect(ctx.path).toBe('/files/../admin');
+    expect(ctx.originalPath).toBe('/files/../admin');
+    expect(ctx.url).toBe('/files/../admin?x=1');
+    expect(ctx.query).toEqual({ x: '1' });
+  });
+
+  it('publishes a percent-encoded dot segment verbatim', () => {
+    const ctx = new TestContext(rawTargetRequest('/files/%2e%2e/admin'));
+    expect(ctx.path).toBe('/files/%2e%2e/admin');
+    expect(ctx.originalPath).toBe('/files/%2e%2e/admin');
+  });
+
+  it('derives path, url and query with no URL construction per request', () => {
+    const ctx = new TestContext(rawTargetRequest('/users/5?x=1&y=2'));
+    expect(ctx.path).toBe('/users/5');
+    expect(ctx.url).toBe('/users/5?x=1&y=2');
+    expect(ctx.query).toEqual({ x: '1', y: '2' });
+
+    // The parse is the whole reason a `URL` object existed per request; the
+    // derivation must not construct one, or the per-request cost it removes comes
+    // straight back.
+    const constructions = countUrlConstructions(() => {
+      new TestContext(rawTargetRequest('/users/5?x=1&y=2'));
+    });
+    expect(constructions).toBe(0);
+  });
+});
+
 describe('WebContextBase — construction', () => {
   it('parses method, url, path, and query from the request', () => {
     const ctx = makeContext({ method: 'post', url: 'http://localhost/users/5?x=1&y=2' });

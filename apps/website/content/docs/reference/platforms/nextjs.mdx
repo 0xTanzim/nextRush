@@ -263,6 +263,21 @@ app.use(async (ctx) => {
 
 ---
 
+## Request Paths and Dot Segments
+
+<Callout type="warn" title="handle() sees what the platform already parsed">
+  `handle()` receives the `Request` Next.js built for the route, so the target has already been
+  through that platform's URL parser — Node or workerd, depending on where App Router is deployed.
+  Where that parser resolves dot segments, the application is dispatched to the resolved path and
+  the framework's `400` rejection cannot fire.
+
+  Authorise path rules against the path the application actually routed on (`ctx.path`), and reject
+  unwanted raw targets at the platform edge. See
+  [Request Paths and Dot Segments](/docs/guides/security/security#request-paths-and-dot-segments).
+</Callout>
+
+---
+
 ## Rejected alternatives
 
 Recorded here because each was seriously considered during design — not obvious in hindsight:

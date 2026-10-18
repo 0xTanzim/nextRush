@@ -55,6 +55,12 @@ export const nextjsDriver: ConformanceDriver = {
   teardownOnShutdown: false, // no server lifetime, like edge (F-14) — handle() never calls close()
   transportAbortFiresSignal: true, // the forwarded Request's own .signal aborts, same as edge
   honorsCloudflareIp: true, // reuses the edge context → cf-connecting-ip precedence (F-11)
+  // `false`, because this driver builds its synthetic Request through `URL`, which
+  // resolves a dot segment before anything downstream can see it — the target that
+  // reaches the handler is already the resolved form (see `toRequest`). The scenario
+  // that observes a raw target is socket-required, so it is refused here anyway; the
+  // real-target evidence for App Router runs on the runtimes it actually deploys to.
+  rawRequestTarget: false,
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
     const app = buildConformanceApp(init);

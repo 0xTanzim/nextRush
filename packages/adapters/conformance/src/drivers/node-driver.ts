@@ -14,6 +14,7 @@
 import { createHandler, serve } from '@nextrush/adapter-node';
 import { createServer } from 'node:http';
 import { type Application, createApp } from '@nextrush/core';
+import { getRuntimeCapabilities } from '@nextrush/runtime';
 import { request as httpRequest, type IncomingHttpHeaders } from 'node:http';
 import { buildConformanceApp } from './app-shape';
 import type { Configure, ConformanceDriver, DispatchInit, DispatchResult } from './types';
@@ -24,7 +25,16 @@ interface RawResponse {
   body: string;
 }
 
-/** Perform a raw HTTP request against the loopback server. */
+/**
+ * Perform a raw HTTP request against the loopback server.
+ *
+ * @remarks
+ * `init.path` is written into the request line exactly as given, so this function
+ * also satisfies a `verbatimTarget` dispatch: `node:http` does not parse the path
+ * it is handed (measured against a socket that echoes its own request line), which
+ * is what makes a dot-segment target observable here at all — `fetch` would have
+ * resolved it client-side before the request left.
+ */
 function rawRequest(port: number, init: DispatchInit | undefined): Promise<RawResponse> {
   return new Promise((resolve, reject) => {
     const req = httpRequest(
@@ -111,6 +121,7 @@ export const nodeDriver: ConformanceDriver = {
   teardownOnShutdown: true,
   transportAbortFiresSignal: true,
   honorsCloudflareIp: false, // Node ignores cf-connecting-ip (F-11)
+  rawRequestTarget: getRuntimeCapabilities().rawRequestTarget,
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
     const app = buildConformanceApp(init);

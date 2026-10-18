@@ -27,6 +27,19 @@ export interface DispatchInit {
   headers?: Record<string, string>;
   /** Request body (POST/PUT). */
   body?: string;
+  /**
+   * Put `path` in the request line exactly as given, over a real socket, instead
+   * of sending it through a client that parses it into a `URL`.
+   *
+   * @remarks
+   * Every `fetch` implementation resolves a dot segment on the client before the
+   * request leaves — measured: `fetch('http://h/files/../admin')` arrives at the
+   * server as `/admin` on Node, Bun and Deno alike — so a scenario about what the
+   * *server* does with the target can only be observed by writing the request
+   * line directly. A driver on a real listener satisfies this with a raw write;
+   * one that cannot is already refused by the scenario's socket requirement.
+   */
+  verbatimTarget?: boolean;
   /** Proxy-trust specification the app boots with (`app.options.proxy`, RFC-030). */
   proxy?: ProxyTrust;
   /**
@@ -119,6 +132,20 @@ export interface ConformanceDriver {
    * documented exception (F-14).
    */
   readonly teardownOnShutdown: boolean;
+
+  /**
+   * Whether the platform this driver runs on hands the application the request
+   * target un-reshaped — the capability the dot-segment scenarios are derived
+   * from.
+   *
+   * @remarks
+   * Read from the runtime capability matrix, never hard-coded per driver, so a
+   * driver and the framework's own claim cannot disagree by accident. The
+   * scenario asserts the *observed* behaviour matches this declaration, which is
+   * what catches a platform that changed under us: a driver that claims the
+   * target is preserved and then answers `200` for `/files/../admin` fails.
+   */
+  readonly rawRequestTarget: boolean;
 
   /**
    * Whether the adapter consults Cloudflare's `cf-connecting-ip` at the front of

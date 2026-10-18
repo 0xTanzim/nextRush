@@ -21,7 +21,7 @@
 
 import { createApp, type Application } from '@nextrush/core';
 import { createHandler, serve, type ServerInstance } from '@nextrush/adapter-deno';
-import { detectRuntime } from '@nextrush/runtime';
+import { detectRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
 import {
   buildConformanceApp,
   defineConformanceSuite,
@@ -78,6 +78,116 @@ async function withServer<T>(
   }
 }
 
+const ENCODER = new TextEncoder();
+
+/** Read a raw socket to EOF (only used by requests that send `Connection: close`). */
+async function readToEof(conn: Deno.TcpConn): Promise<string> {
+  const decoder = new TextDecoder();
+  const buffer = new Uint8Array(4096);
+  let raw = '';
+  for (;;) {
+    const read = await conn.read(buffer);
+    if (read === null) return raw;
+    raw += decoder.decode(buffer.subarray(0, read), { stream: true });
+  }
+}
+
+/**
+ * Decode a chunked body.
+ *
+ * @remarks
+ * Byte-oriented, so it assumes an ASCII body — which is all the scenarios routed
+ * through here produce (a status body, never user content).
+ */
+function decodeChunked(raw: string): string {
+  let decoded = '';
+  let index = 0;
+  while (index < raw.length) {
+    const sizeEnd = raw.indexOf('\r\n', index);
+    if (sizeEnd === -1) break;
+    const size = Number.parseInt(raw.slice(index, sizeEnd), 16);
+    if (!Number.isFinite(size) || size === 0) break;
+    decoded += raw.slice(sizeEnd + 2, sizeEnd + 2 + size);
+    index = sizeEnd + 2 + size + 2; // the chunk, then its trailing CRLF
+  }
+  return decoded;
+}
+
+/** Split a raw HTTP/1.1 response into a `DispatchResult`. */
+function parseHttpResponse(raw: string): DispatchResult {
+  const separator = raw.indexOf('\r\n\r\n');
+  const head = separator === -1 ? raw : raw.slice(0, separator);
+  const rawBody = separator === -1 ? '' : raw.slice(separator + 4);
+
+  const lines = head.split('\r\n');
+  const status = Number.parseInt((lines[0] ?? '').split(' ')[1] ?? '0', 10);
+
+  const headers = new Map<string, string[]>();
+  for (const line of lines.slice(1)) {
+    const colon = line.indexOf(':');
+    if (colon === -1) continue;
+    const name = line.slice(0, colon).trim().toLowerCase();
+    const value = line.slice(colon + 1).trim();
+    const existing = headers.get(name);
+    if (existing === undefined) {
+      headers.set(name, [value]);
+    } else {
+      existing.push(value);
+    }
+  }
+
+  const isChunked =
+    headers.get('transfer-encoding')?.some((value) => value.toLowerCase().includes('chunked')) ??
+    false;
+
+  return {
+    status,
+    header: (name) => headers.get(name.toLowerCase())?.join(', '),
+    setCookies: () => headers.get('set-cookie') ?? [],
+    text: () => (isChunked ? decodeChunked(rawBody) : rawBody),
+  };
+}
+
+/**
+ * Send the target in the request line unparsed, for a `verbatimTarget` dispatch.
+ *
+ * @remarks
+ * `fetch` — this driver's transport everywhere else — resolves a dot segment on
+ * the client, so the server would never be asked about the target the scenario
+ * cares about. Writing the request line over a raw `Deno.connect` socket is also
+ * the honest way to observe the platform limit: what arrives here is what the
+ * server received, with no client-side shaping in between.
+ */
+async function verbatimFetch(port: number, init: DispatchInit): Promise<DispatchResult> {
+  const conn = await Deno.connect({ hostname: '127.0.0.1', port });
+  try {
+    const target = init.path ?? '/';
+    const body = init.body ?? '';
+    const headerLines = Object.entries(init.headers ?? {})
+      .map(([name, value]) => `${name}: ${value}\r\n`)
+      .join('');
+
+    await conn.write(
+      ENCODER.encode(
+        `${init.method ?? 'GET'} ${target} HTTP/1.1\r\n` +
+          `Host: 127.0.0.1:${String(port)}\r\n` +
+          headerLines +
+          `content-length: ${String(ENCODER.encode(body).byteLength)}\r\n` +
+          'Connection: close\r\n\r\n' +
+          body
+      )
+    );
+
+    return parseHttpResponse(await readToEof(conn));
+  } finally {
+    try {
+      conn.close();
+    } catch {
+      // The peer already closed after `Connection: close`.
+    }
+  }
+}
+
 /** Real-Deno ConformanceDriver: every dispatch hits a real `Deno.serve()` listener. */
 const realDenoDriver: ConformanceDriver = {
   name: 'deno',
@@ -87,6 +197,9 @@ const realDenoDriver: ConformanceDriver = {
   teardownOnShutdown: true,
   transportAbortFiresSignal: true,
   honorsCloudflareIp: false,
+  // The running runtime's own answer: this file runs under `deno test`, so it
+  // reports Deno's platform behaviour rather than a value copied from a table.
+  rawRequestTarget: getRuntimeCapabilities().rawRequestTarget,
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
     const app = buildConformanceApp(init);
@@ -107,6 +220,7 @@ const realDenoDriver: ConformanceDriver = {
       }
     }
     return await withServer(app, {}, async (server) => {
+      if (init?.verbatimTarget === true) return await verbatimFetch(server.port, init);
       const response = await rawFetch(server.port, init);
       return await toResult(response);
     });

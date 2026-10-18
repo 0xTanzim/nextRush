@@ -117,7 +117,7 @@ describe.each(primarySecurityDrivers())(
       expect(result.status).toBe(driver.name === 'node' ? 400 : 404);
     });
 
-    it('a single-encoded double-dot /api/%2e%2e/admin: Node rejects with 400 (canonicalizePath treats %2e literally, never decoding for traversal purposes); Fetch-based adapters percent-decode AND resolve it during URL parsing to /admin, dispatching there — this is RFC-029\u2019s exact proxy-desync motivation made concrete: the SAME raw target is either rejected or silently resolved to a DIFFERENT route depending on which layer parses it first, which is precisely why this RFC rejects rather than resolves', async () => {
+    it('a single-encoded double-dot /api/%2e%2e/admin is rejected with 400 where the target is preserved (Node); on Fetch-based adapters the WHATWG parser resolved it to /admin before the app ran, so the registered route answers 200 — the proxy-desync motivation for rejecting rather than resolving, and the reason the expectation follows the adapter\u2019s declared capability instead of one assumed answer', async () => {
       const results = await securityScenario(
         {
           path: '/api/%2e%2e/admin',
@@ -130,7 +130,7 @@ describe.each(primarySecurityDrivers())(
         [driver]
       );
       const [{ result }] = [results[0]!];
-      expect(result.status).toBe(driver.name === 'node' ? 404 : 200);
+      expect(result.status).toBe(driver.name === 'node' ? 400 : 200);
     });
 
     it('a double-encoded double-dot /api/%252e%252e/admin is never resolved by URL parsing (percent-encoding is preserved verbatim) — 404 on every adapter, since the literal, unresolved segment matches nothing', async () => {

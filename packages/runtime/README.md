@@ -134,6 +134,7 @@ Detection is memoized after the first call, and the feature decision keys off `c
 **Capability negotiation**
 - **`capabilitiesFor(runtime)`** — the pure capability matrix for a runtime; unknown/future runtimes are answered by feature-probing, never an all-`false` blank
 - **`getRuntimeCapabilities()`** — the matrix for the current runtime
+- **`rawRequestTarget`** — whether the platform hands the request target over un-reshaped. Node and Deno do, and the framework publishes the path exactly as the platform delivered it (no percent-decoding, no dot-segment resolution, no re-encoding) — which is what lets the router reject a traversal spelling instead of silently dispatching the resolved route. `Bun.serve`, the edge isolates, and a Lambda event mapping parse the target into a `URL` first, so the original bytes are already gone and that rejection cannot fire. Nothing in the request path branches on this flag — it exists so the guarantee is claimed only where it actually holds, and it is what the adapter conformance suite derives its dot-segment expectation from
 - **Named profiles** — `NodeProfile` · `BunProfile` · `DenoProfile` · `DenoDeployProfile` · `CloudflareProfile` · `VercelEdgeProfile` · `EdgeProfile` · `LambdaProfile`, plus `capabilityProfileFor(runtime)`
 
 **Cross-runtime request/response primitives**

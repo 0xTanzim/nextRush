@@ -65,14 +65,14 @@ recorded because each item is load-bearing for a later group's proof.
 
 ## 6. Dot segments and the negotiated request-target capability
 
-- [ ] 6.1 RED: add tests for percent-encoded and mixed dot spellings, for non-rejection of names that merely contain dots (including double-encoded forms), for the raw-target path helper on unusual targets, and for the new capability's reported value — verify: they fail today
-- [ ] 6.2 Add the raw-target path helper (path, query, original path) that scans the target string and constructs no `URL`, and use it for the Web context — verify: a test asserts no `URL` is constructed per request and that ordinary targets derive the same values as before
-- [ ] 6.3 Treat every percent-encoded dot spelling as a dot segment in one linear scan — verify: the encoded-rejection tests pass and the "filename containing dots" test still passes
-- [ ] 6.4 Add the request-target preservation capability, produce it for every known runtime, and expose it on the capability profiles — verify: a preserving runtime reports true, a normalizing runtime reports false, and the runtime-identity lint rule stays green
-- [ ] 6.5 Add the real-socket conformance scenario whose expectation is derived from the capability — verify: a divergence between an adapter's reported capability and its observed behaviour fails the suite
-- [ ] 6.6 Document the platform limit in the security guide and on each affected adapter page, including the proxy-ACL guidance — verify: each page states the limit and the recommended enforcement point
-- [ ] 6.7 Delete the known-failure id covering the `dot-segment-literal` and `dot-segment-encoded` probes — verify: both report PASS on `--rt node` and `--rt bun` with the documented per-capability expectations
-- [ ] 6.8 Confirm the adapter contract's security-parity requirement is satisfied by the socket scenarios — verify: the parity scenario reports its proof level and passes, or is explicitly marked simulated for an adapter that cannot run one
+- [x] 6.1 RED: add tests for percent-encoded and mixed dot spellings, for non-rejection of names that merely contain dots (including double-encoded forms), for the raw-target path helper on unusual targets, and for the new capability's reported value — verify: they fail today
+- [x] 6.2 Add the raw-target path helper (path, query, original path) that scans the target string and constructs no `URL`, and use it for the Web context — verify: a test asserts no `URL` is constructed per request and that ordinary targets derive the same values as before
+- [x] 6.3 Treat every percent-encoded dot spelling as a dot segment in one linear scan — verify: the encoded-rejection tests pass and the "filename containing dots" test still passes
+- [x] 6.4 Add the request-target preservation capability, produce it for every known runtime, and expose it on the capability profiles — verify: a preserving runtime reports true, a normalizing runtime reports false, and the runtime-identity lint rule stays green
+- [x] 6.5 Add the real-socket conformance scenario whose expectation is derived from the capability — verify: a divergence between an adapter's reported capability and its observed behaviour fails the suite
+- [x] 6.6 Document the platform limit in the security guide and on each affected adapter page, including the proxy-ACL guidance — verify: each page states the limit and the recommended enforcement point
+- [x] 6.7 Delete the known-failure id covering the `dot-segment-literal` and `dot-segment-encoded` probes — verify: both report PASS on `--rt node` and `--rt bun` with the documented per-capability expectations
+- [x] 6.8 Confirm the adapter contract's security-parity requirement is satisfied by the socket scenarios — verify: the parity scenario reports its proof level and passes, or is explicitly marked simulated for an adapter that cannot run one
 
 ## 7. Outgoing-response honesty (interim, until the recorded model lands)
 

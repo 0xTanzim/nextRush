@@ -28,6 +28,7 @@
  */
 
 import assert from 'node:assert/strict';
+import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -51,6 +52,8 @@ async function bundleWorker() {
 
 /** One miniflare instance per test run, sharing the bundled worker. */
 let mf;
+/** A second instance, bound to a real port for hand-written request lines. */
+let socketInstance;
 async function getMf() {
   if (!mf) {
     mf = new Miniflare({ modules: true, script: await bundleWorker(), compatibilityDate: '2024-11-01' });
@@ -60,6 +63,110 @@ async function getMf() {
 
 test.after(async () => {
   await mf?.dispose();
+  await socketInstance?.mf.dispose();
+});
+
+/** A free loopback port, so the socket instance never collides with another run. */
+async function getFreePort() {
+  const probe = net.createServer();
+  await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve));
+  const { port } = probe.address();
+  await new Promise((resolve) => probe.close(resolve));
+  return port;
+}
+
+/**
+ * A second instance that listens on a real port.
+ *
+ * @remarks
+ * Needed because `dispatchFetch` builds its `Request` from a URL in THIS process,
+ * so it is Node's URL parser — not workerd's — that decides what a dot segment in
+ * the string becomes. Observing what the platform does with a request line
+ * therefore requires writing the request line by hand over a socket.
+ */
+async function getSocketInstance() {
+  if (socketInstance !== undefined) return socketInstance;
+  const port = await getFreePort();
+  const worker = new Miniflare({
+    modules: true,
+    port,
+    host: '127.0.0.1',
+    script: await bundleWorker(),
+    compatibilityDate: '2024-11-01',
+  });
+  await worker.ready;
+  socketInstance = { mf: worker, port };
+  return socketInstance;
+}
+
+/**
+ * Write a request line by hand and parse the response.
+ *
+ * @remarks
+ * Resolves as soon as the promised body is complete instead of waiting for EOF:
+ * the platform keeps the connection alive for its idle timeout even after
+ * `Connection: close`, which would make every case here cost seconds. Lengths are
+ * compared in UTF-16 units, which is exact for the ASCII bodies these requests
+ * produce.
+ */
+function rawRequest(port, target) {
+  const parse = (raw) => {
+    const separator = raw.indexOf('\r\n\r\n');
+    const head = separator === -1 ? raw : raw.slice(0, separator);
+    return {
+      status: Number.parseInt(head.split(' ')[1] ?? '0', 10),
+      body: separator === -1 ? '' : raw.slice(separator + 4),
+    };
+  };
+
+  return new Promise((resolve, reject) => {
+    const socket = net.connect(port, '127.0.0.1', () => {
+      socket.write(
+        `GET ${target} HTTP/1.1\r\nHost: 127.0.0.1:${String(port)}\r\nConnection: close\r\n\r\n`
+      );
+    });
+    let raw = '';
+    socket.setEncoding('utf8');
+    socket.on('data', (chunk) => {
+      raw += chunk;
+      const separator = raw.indexOf('\r\n\r\n');
+      if (separator === -1) return;
+      const length = /content-length: *(\d+)/i.exec(raw.slice(0, separator));
+      if (length !== null && raw.length >= separator + 4 + Number(length[1])) {
+        socket.destroy();
+        resolve(parse(raw));
+      }
+    });
+    socket.on('end', () => resolve(parse(raw)));
+    socket.on('error', reject);
+  });
+}
+
+test('platform limit: workerd resolves a dot segment before the framework sees it on real workerd', async () => {
+  const { port } = await getSocketInstance();
+
+  // Every spelling, the encoded ones included: workerd's own URL parser runs before
+  // any application code, which is the measured basis for the edge adapter declaring
+  // `rawRequestTarget: false` rather than claiming a rejection it never performs.
+  // The framework still rejects the same target on a runtime that preserves it —
+  // see the socket-required conformance scenario.
+  const cases = [
+    ['/files/../admin', '/admin'],
+    ['/files/%2e%2e/admin', '/admin'],
+    ['/files/%2E%2E/admin', '/admin'],
+    ['/a/./b', '/a/b'],
+  ];
+  for (const [target, resolved] of cases) {
+    const { status, body } = await rawRequest(port, target);
+    assert.equal(status, 200, `${target} did not reach the handler as a resolved path`);
+    assert.equal(JSON.parse(body).path, resolved);
+  }
+
+  // A dot as filename content is not a dot segment and must survive untouched —
+  // the control that keeps the rule from widening into "any dotted path".
+  const dotted = await rawRequest(port, '/files/..hidden');
+  assert.equal(dotted.status, 200);
+  assert.equal(JSON.parse(dotted.body).path, '/files/..hidden');
 });
 
 test('GET dispatch: method + path + query on real workerd', async () => {

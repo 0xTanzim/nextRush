@@ -93,6 +93,31 @@ export interface RuntimeCapabilities {
 
   /** Supports HTTP/2 negotiation via ALPN (requires secureServing) */
   http2: boolean;
+
+  /**
+   * The platform hands the application the request target exactly as the client
+   * wrote it, un-reshaped — so `request.url` still contains a `.`/`..` segment,
+   * in whatever spelling it arrived.
+   *
+   * @remarks
+   * Whether a dot segment is visible at all is decided by the HTTP front end,
+   * before any framework code runs: a runtime that parses the request line into
+   * a `URL` has already resolved the segment, including every percent-encoded
+   * spelling, and the original bytes are gone. This flag records that property
+   * so the rejection guarantee is claimed only where it actually holds.
+   *
+   * It is *not* consulted to decide behavior — the target is derived and a dot
+   * segment rejected identically on every runtime. It is read by
+   * `@nextrush/adapter-conformance` to derive an expectation from the claim, and
+   * by documentation, so a deployment whose platform normalizes segments (Bun,
+   * workerd, Vercel Edge) is not mistaken for one where the framework's
+   * rejection is doing the work.
+   *
+   * `false` is also the answer where the property cannot be probed (an
+   * unrecognised runtime): a capability that backs a security control is claimed
+   * only when it is known.
+   */
+  rawRequestTarget: boolean;
 }
 
 /**

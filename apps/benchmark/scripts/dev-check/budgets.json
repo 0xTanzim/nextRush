@@ -12,7 +12,6 @@
     "wire.nextrush.vs_hono": { "min": 0.5, "target": 0.85 }
   },
   "knownFailures": {
-    "FB-03": "*",
-    "FB-04": ["node"]
+    "FB-03": "*"
   }
 }

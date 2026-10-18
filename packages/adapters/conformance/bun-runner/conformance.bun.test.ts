@@ -20,10 +20,11 @@
  */
 
 import { afterEach, describe, expect, test } from 'bun:test';
+import { request as httpRequest, type IncomingMessage } from 'node:http';
 import { createApp } from '@nextrush/core';
 import { createHandler, serve } from '@nextrush/adapter-bun';
 import type { ServerInstance } from '@nextrush/adapter-bun';
-import { detectRuntime } from '@nextrush/runtime';
+import { detectRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
 import {
   buildConformanceApp,
   defineConformanceSuite,
@@ -69,6 +70,46 @@ function toResult(response: Response, bodyText: string): DispatchResult {
   };
 }
 
+/**
+ * Send the target in the request line unparsed, for a `verbatimTarget` dispatch.
+ *
+ * `fetch` — this driver's transport everywhere else — resolves a dot segment on
+ * the client, so the server would never see the target the scenario is asking
+ * about. `node:http` writes `path` into the request line as given (measured under
+ * Bun against a socket that echoes its own request line) and returns a response
+ * with its headers parsed, so nothing else about this driver changes.
+ */
+async function verbatimFetch(port: number, init: DispatchInit): Promise<DispatchResult> {
+  const response = await new Promise<IncomingMessage>((resolve, reject) => {
+    const req = httpRequest(
+      {
+        host: '127.0.0.1',
+        port,
+        path: init.path ?? '/',
+        method: init.method ?? 'GET',
+        headers: init.headers,
+      },
+      resolve
+    );
+    req.on('error', reject);
+    if (init.body !== undefined) req.write(init.body);
+    req.end();
+  });
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of response) chunks.push(chunk as Buffer);
+
+  return {
+    status: response.statusCode ?? 0,
+    header: (name) => {
+      const value = response.headers[name.toLowerCase()];
+      return Array.isArray(value) ? value.join(', ') : value;
+    },
+    setCookies: () => response.headers['set-cookie'] ?? [],
+    text: () => Buffer.concat(chunks).toString('utf8'),
+  };
+}
+
 /** Real-Bun ConformanceDriver: every dispatch spins a real `serve()` and hits it over the network. */
 const realBunDriver: ConformanceDriver = {
   name: 'bun',
@@ -78,6 +119,9 @@ const realBunDriver: ConformanceDriver = {
   teardownOnShutdown: true,
   transportAbortFiresSignal: true,
   honorsCloudflareIp: false,
+  // The running runtime's own answer: this file runs under `bun test`, so it
+  // reports Bun's platform behaviour rather than a value copied from a table.
+  rawRequestTarget: getRuntimeCapabilities().rawRequestTarget,
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
     const app = buildConformanceApp(init);
@@ -96,6 +140,7 @@ const realBunDriver: ConformanceDriver = {
     }
     const server = await serve(app, { port: 0 });
     try {
+      if (init?.verbatimTarget === true) return await verbatimFetch(server.port, init);
       const res = await rawFetch(server.port, init);
       const bodyText = await res.text();
       return toResult(res, bodyText);

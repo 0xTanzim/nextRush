@@ -28,6 +28,7 @@ function fakeDriver(transport: Transport, runtimeFidelity: RuntimeFidelity): Con
     teardownOnShutdown: true,
     honorsCloudflareIp: false,
     transportAbortFiresSignal: true,
+    rawRequestTarget: false, // never dispatched — only its transport/fidelity is read
     dispatch: () => Promise.reject(new Error('the ledger never dispatches')),
     abortFiresSignal: () => Promise.resolve(false),
     timeoutResult: () => Promise.resolve(null),

@@ -251,6 +251,54 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(body).toContain('event: greeting\ndata: hello\n\n');
     expect(body).toContain('data: world\n\n');
   });
+
+  // Socket-required, and the target is written into the request line rather than
+  // sent through `fetch`, which resolves a dot segment client-side on every
+  // runtime. Two spellings, because a client that spells `..` as `%2e%2e` must not
+  // get a different answer than one that spells it literally.
+  //
+  // The expectation comes from the driver's declared capability rather than from a
+  // table kept here: a platform that hands the target over un-reshaped has to
+  // reject the segment (400), and one that resolved it before the framework ran
+  // answers with the resolved path. Whichever the driver declares, the observed
+  // behaviour must agree — so a platform that changes under the framework fails
+  // this test instead of quietly turning the rejection into a no-op.
+  registerScenario(
+    driver,
+    '#28 request line: a dot-segment target is rejected where the platform preserves it',
+    { socketRequired: true },
+    async () => {
+      for (const target of ['/files/../admin', '/files/%2e%2e/admin']) {
+        const res = await driver.dispatch(
+          (app) => {
+            // A mounted router, because that is what puts the canonical-path check
+            // in the chain: the rejection lives in the routing middleware, which a
+            // router-less application never installs. Declaring the resolved path as
+            // a route is what makes the platform's answer observable rather than a
+            // 404 either way.
+            const router = createRouter();
+            router.get('/admin', (ctx) => {
+              ctx.json({ path: ctx.path });
+            });
+            app.route('/', router);
+          },
+          { path: target, verbatimTarget: true }
+        );
+
+        if (driver.rawRequestTarget) {
+          expect(res.status).toBe(400);
+          continue;
+        }
+
+        // The platform resolved the segment, or the proxy in front of it did; the
+        // framework never saw it, so the documented outcome is the resolved path —
+        // and whatever the status, the handler must not have been handed a path
+        // that still carries a dot segment.
+        expect([200, 400]).toContain(res.status);
+        if (res.status === 200) expect(res.text()).not.toContain('..');
+      }
+    }
+  );
 }
 
 /** Response-side behaviors (audit F-01, spec rows #5-#10, #12). */

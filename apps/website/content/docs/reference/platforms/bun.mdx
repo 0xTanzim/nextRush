@@ -304,6 +304,21 @@ accumulate duplicate listeners.
 
 ---
 
+## Request Paths and Dot Segments
+
+<Callout type="warn" title="Bun.serve resolves dot segments before your application runs">
+  `Bun.serve()` parses the request target into a `URL` before the handler is called, and that parser
+  resolves every spelling of a dot segment: a request for `/files/../admin`, or the encoded
+  `/files/%2e%2e/admin`, reaches the application as `/admin` and is dispatched to that route. The
+  framework's `400` rejection cannot fire, because the segment is already gone by then.
+
+  Authorise path rules against the path the application actually routed on (`ctx.path`), and reject
+  unwanted raw targets in front of Bun — at the proxy or WAF. See
+  [Request Paths and Dot Segments](/docs/guides/security/security#request-paths-and-dot-segments).
+</Callout>
+
+---
+
 ## Client IP Access
 
 The adapter automatically extracts client IP from Bun's `requestIP()`:

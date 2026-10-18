@@ -270,6 +270,45 @@ See the [Validation guide](/docs/guides/api-development/validation) for complete
 
 ---
 
+## Request Paths and Dot Segments
+
+A path ACL is only as good as the path it reads. NextRush publishes one canonical path per request — `ctx.path` — with the case folded, repeated slashes collapsed, and **any dot segment rejected with `400`** before your first middleware runs. No target that spells `/files/../admin` reaches a handler registered at `/files/admin`, so a guard cannot be bypassed by re-spelling the path it was meant to protect.
+
+Rejecting the segment rather than resolving it is deliberate. Resolving it locally would answer a *different* question than the layer in front of the application already answered, and the two can disagree about which route was requested. See [breaking changes](/docs/migrate/breaking-changes) for the behavior note.
+
+### The platform decides first
+
+One part of this is not the framework's to remove. Whether a dot segment is *visible* at all is decided by the HTTP front end, before any application code runs: a runtime that parses the request line into a `URL` has already resolved the segment — every percent-encoded spelling included — and the original bytes are gone.
+
+| Platform | Request target | A dot-segment target ends up as |
+| --- | --- | --- |
+| Node (`serve`) | preserved | `400` from the framework |
+| Deno (`Deno.serve`) | preserved | `400` from the framework |
+| Bun (`Bun.serve`) | resolved by Bun | the resolved path, dispatched normally |
+| Edge (workerd, reached by Cloudflare, Vercel Edge, Netlify) | resolved by the isolate's parser | the resolved path, dispatched normally |
+| Serverless (Lambda behind API Gateway) | resolved by the adapter's event mapping | the resolved path, dispatched normally |
+| Next.js (`handle`) | whatever the platform that received it decided | the resolved path, dispatched normally |
+
+Ask the runtime instead of assuming:
+
+```typescript
+import { getRuntimeCapabilities } from '@nextrush/runtime';
+
+const { rawRequestTarget } = getRuntimeCapabilities();
+// true  -> the application receives the target as the client wrote it
+// false -> the platform resolved it, or the property could not be proven
+```
+
+`false` is also the answer where the property cannot be probed, an unrecognised runtime included — a capability that backs a security control is claimed only when it is known.
+
+### Where to enforce a path rule
+
+- **Authorise on `ctx.path`.** It is the path the application actually routed on, on every platform, so a comparison against it cannot disagree with the router.
+- **Do not compare against the raw client target.** On a resolving platform no layer inside the process ever sees it.
+- **If the raw target itself must be rejected**, do it where it is still visible: terminate at Node or Deno, or reject that target at the proxy or WAF in front of the application — the same place TLS terminates and network rules already live.
+
+---
+
 ## Authentication
 
 Use guards for route-level access control.
@@ -374,6 +413,7 @@ uploadRouter.post('/document', bodyParser({ limit: '50mb' }), handleUpload);
 - [ ] CSRF protection on cookie-authenticated routes (`@nextrush/csrf`)
 - [ ] Body parser with size limits
 - [ ] All user input validated with schema (`@nextrush/validation` recommended)
+- [ ] Path ACLs compare against `ctx.path`, never the raw client target — see [Request Paths and Dot Segments](#request-paths-and-dot-segments), and note that a platform which resolves dot segments makes the framework's own rejection unreachable
 - [ ] Authentication middleware before business logic routes
 - [ ] Error handler hides stack traces and internal paths
 - [ ] No secrets in code — all from environment variables

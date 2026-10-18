@@ -225,6 +225,39 @@ to carry it — so the safe value is documented, recommended, and scheduled for 
 the request entry our own measurement uses opts in immediately. Rejected: defaulting to `'reject'` in
 a minor.
 
+**D20 — A dot segment is rejected by structure, in any spelling, inside the scan that already runs.**
+`canonicalizePath()` already walked the path, so the encoded spellings were a gap in that walk rather
+than a missing feature. The same single pass now treats a segment as a dot segment when its first
+character is `.` or `%` and its decoded form is `.` or `..`, decoding only `%2e`/`%2E` — so
+`/files/%2e%2e/admin` is rejected while `..hidden`, `archive.tar.gz` and `%252e%252e` still route. A
+segment longer than a fixed short bound cannot be a dot segment in any spelling, which is what keeps
+the scan linear and stops a decoy of repeated `%2e` encodings from turning a rejection into work.
+Rejected: decoding the segment generally and comparing it against `..` (that is the general-purpose
+parser this project has decided not to write, and it would have to decode `%2f`/`%5c` into separators,
+which no parser in the chain does); rejecting any path that contains a dot (breaks filenames); and a
+regex over the whole path (a second pass whose failure mode is exactly this class of gap).
+
+**D21 — The published path is the platform's bytes; whatever the platform reshaped is a reported
+capability, not an assumption.** Deriving `path`/`search` with two `indexOf` scans replaces `new URL()`
+on the hot path — and `new URL()` was not merely slow, it was *wrong* here: it resolves dot segments
+and percent-encodes bytes, so a target was published in a form the client never sent and then matched
+against. Measured on a raw socket before the fix: on Deno, `/files/../admin` was published as
+`/admin` and dispatched to a route the client never named, while Node rejected the same target with
+`400` — one request, two answers. Two consequences are deliberate. A target whose bytes `URL.pathname`
+would percent-encode (non-ASCII, space, `"`, `<`, `` ` ``, `{`, `}`) is published **as delivered**;
+re-encoding was rejected after the conformance oracle caught the divergence, because it is the same
+reshaping that made resolution wrong, and hand-rolling the WHATWG encode sets (surrogates included)
+would add a second encoder to get it wrong. And whether the segment survives to the application at all
+is owned by the platform: `rawRequestTarget` reports whether the runtime hands the target over
+un-reshaped — `true` on Node and Deno, `false` on `Bun.serve`, the edge isolates and the serverless
+event mapping (each measured over a raw socket, the workerd arm from the workerd runner's own
+listener), and `false` wherever it cannot be proven, `deno-deploy` and an unrecognised runtime
+included. The flag is informational: nothing in the request path branches on it, which is what keeps
+the runtime-identity lint green, and it is read by the conformance suite to derive its expectation and
+by the security guide to state the limit. The scenario that exercises it is socket-required, so a
+driver that cannot write a raw request line is refused with a reason instead of asserting the weak
+branch — the guarantee is claimed only where the real runtime proves it.
+
 ## Risks / Trade-offs
 
 - **[Case-correct parameters change observable output for anyone who relied on folded values]** →
@@ -303,3 +336,4 @@ the Web adapters) should close them in passing.
 | `packages/adapters/{bun,deno,edge}/src/adapter.ts` | A duplicate `!ctx.responded && ctx.status === 404` finalize branch each; the Web builder's last-resort answer now produces the same body | Delete the three branches when group 5 unifies the runners |
 | `packages/stream/src/run.ts` | A `sendStream()` refusal or throw leaves the detached `run(writer)` started inside `new ReadableStream({ start })` writing into a stream nobody consumes | Cancel the writer/controller when the stream is not adopted |
 | `docs/**` (5 files) | Dangling `reports/investigations/...` references to a path deleted by the pre-existing report restructure | Repoint at the new report location or the relevant RFC |
+| `packages/adapters/serverless/src/mappers/_v2.ts` | `v2ToRequest` builds `new Request('http://localhost' + rawPath + qs)`, so the event's target is reshaped by the URL parser before the context sees it — the adapter cannot observe a raw target even where API Gateway preserved one, which is why its reported capability is the conservative `false` | Carry the event's target to the context unparsed and verify it against a live API Gateway; the capability value can then be measured instead of assumed |
