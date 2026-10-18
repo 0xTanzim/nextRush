@@ -71,6 +71,21 @@ test('GET dispatch: method + path + query on real workerd', async () => {
   assert.equal(body.a, '1');
 });
 
+test('route params: a case-insensitive match binds the case the client sent on real workerd', async () => {
+  const instance = await getMf();
+
+  const paramRes = await instance.dispatchFetch('http://localhost/API/Users/ABC123');
+  assert.equal(paramRes.status, 200);
+  const paramBody = await paramRes.json();
+  // The value is data the handler acts on, so it keeps the client's casing...
+  assert.equal(paramBody.name, 'ABC123');
+  // ...while the route decision stays folded, including through the mount prefix.
+  assert.equal(paramBody.path, '/users/abc123');
+
+  const wildcardRes = await instance.dispatchFetch('http://localhost/API/Files/Foo/Bar.TXT');
+  assert.equal((await wildcardRes.json()).wildcard, 'Foo/Bar.TXT');
+});
+
 test('POST body JSON round-trip on real workerd', async () => {
   const res = await (await getMf()).dispatchFetch('http://localhost/echo', {
     method: 'POST',
@@ -111,4 +126,72 @@ test('error propagation: an unknown thrown Error maps to 500 with no message lea
   assert.equal(res.status, 500);
   const text = await res.text();
   assert.ok(!text.includes('secret-leak-123'));
+});
+
+test('never unanswered: a serialization failure is answered with a 500 on real workerd', async () => {
+  const res = await (await getMf()).dispatchFetch('http://localhost/unserializable');
+  assert.equal(res.status, 500);
+  assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.notEqual(await res.text(), '');
+});
+
+test('never unanswered: an error status that nothing wrote is answered on real workerd', async () => {
+  const res = await (await getMf()).dispatchFetch('http://localhost/nothing-written');
+  assert.equal(res.status, 503);
+  assert.deepEqual(await res.json(), { error: 'Service Unavailable' });
+});
+
+test('boot-before-dispatch: a route declared on the app router is reached on real workerd', async () => {
+  // The worker's handler is built on first request and `ready()` is never
+  // awaited, so this route is only reachable if the entry point booted the
+  // application (and thereby mounted its own router) before dispatching. Without
+  // that boot the request falls through to an empty 200.
+  const res = await (await getMf()).dispatchFetch('http://localhost/booted');
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { booted: true });
+});
+
+test('boot-before-dispatch: an unrouted path is a 404, not an empty 200, on real workerd', async () => {
+  const res = await (await getMf()).dispatchFetch('http://localhost/unrouted');
+  assert.equal(res.status, 404);
+  assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.deepEqual(await res.json(), { error: 'Not Found' });
+});
+
+test('error body: a malformed body answers one framework body, with no engine text, on real workerd', async () => {
+  const res = await (await getMf()).dispatchFetch('http://localhost/bad-json', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{ "unterminated": ',
+  });
+
+  assert.equal(res.status, 400);
+  assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8');
+  // The exact body the cross-adapter suite pins on every other adapter.
+  assert.equal(
+    await res.text(),
+    '{"error":"BodyParserError","message":"Invalid JSON","code":"INVALID_JSON","status":400}'
+  );
+});
+
+test('unparsed content type: the rejecting policy answers 415 before the handler on real workerd', async () => {
+  const res = await (await getMf()).dispatchFetch('http://localhost/reject-xml', {
+    method: 'POST',
+    headers: { 'content-type': 'application/xml' },
+    body: '<note/>',
+  });
+
+  assert.equal(res.status, 415);
+  assert.equal((await res.json()).code, 'UNSUPPORTED_CONTENT_TYPE');
+});
+
+test('unparsed content type: the default policy leaves the body undefined and continues on real workerd', async () => {
+  const res = await (await getMf()).dispatchFetch('http://localhost/ignore-xml', {
+    method: 'POST',
+    headers: { 'content-type': 'application/xml' },
+    body: '<note/>',
+  });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { body: null });
 });

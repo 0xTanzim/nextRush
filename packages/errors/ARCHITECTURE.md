@@ -99,7 +99,7 @@ Two inheritance roots express that idea. `NextRushError` is the base value objec
 src/
 ├── index.ts        # Public API barrel (exports only, no implementation)
 ├── base.ts         # NextRushError + HttpError bases; toJSON/fromJSON/toResponse; cause serialization; status-message table
-├── codes.ts        # ERROR_CODES registry, codeForStatus(), GENERIC_ERROR_CODE, VALIDATION_ERROR_CODE
+├── codes.ts        # ERROR_CODES registry, codeForStatus(), resolveErrorCode(), GENERIC_ERROR_CODE, VALIDATION_ERROR_CODE
 ├── http-errors.ts  # 39 concrete 4xx/5xx HttpError subclasses + the HttpErrorOptions type
 ├── validation.ts   # ValidationError + 7 field-specific subclasses; the ValidationIssue type
 ├── factory.ts      # createError() + per-status factory helpers; isHttpError / getErrorStatus / getSafeErrorMessage
@@ -350,6 +350,8 @@ These are part of the package's architecture. They do not change without an RFC:
 - **`expose` defaults to `status < 500`** — 5xx messages/details/cause are hidden from clients by default.
 - **`toJSON()` is the single source of truth for the response body** — `errorHandler()` delegates to it for any `NextRushError`.
 - **One canonical code per status** — every construction path resolves through `ERROR_CODES`; classes and `createError()` never diverge (CI-asserted).
+- **One derivation decides the code a client sees** — `resolveErrorCode()`; `core`'s default error response and `errorHandler()` both call it instead of each building a code, so the two responses cannot disagree.
+- **A 5xx body never describes the failure** — from 500 up the code is `'INTERNAL_ERROR'` and the message is the status phrase, whatever the error carries.
 - **`details` and `issues` are frozen at construction** — a thrown error is an immutable snapshot.
 - **`ValidationError.received` is never serialized** — rejected input values do not reach the client.
 - **`cause` serialization is bounded and cycle-safe** — depth-limited (`MAX_CAUSE_DEPTH`), visited-set guarded, exposed-only.
@@ -361,6 +363,8 @@ These are part of the package's architecture. They do not change without an RFC:
 | -------- | ------ | ------------------ | --------- |
 | `ValidationError` base | Extends `NextRushError`, not `HttpError` | `isHttpError()` returns `false` for it; callers use `getErrorStatus()` / `instanceof NextRushError` | `validation.ts` |
 | Code resolution | Central frozen `ERROR_CODES` registry | Class code strings must be kept in sync with the table (CI-enforced) | `codes.ts` (audit E-4) |
+| Response code for a non-`NextRushError` | `resolveErrorCode(error, status)` — the error's own code below 500, the status's canonical code otherwise | A plain error can now be reported with a code the registry does not contain (whatever its `code` says), so the client-visible code set is not closed; in exchange a parser failure reaches the client as `INVALID_JSON`/`UNSUPPORTED_CONTENT_TYPE` rather than every 4xx reading as an internal fault | `codes.ts` |
+| One derivation, two call sites | `@nextrush/core`'s `writeDefaultErrorResponse` and this package's `errorHandler()` both call `resolveErrorCode` | `core` imports the derivation from here rather than duplicating it, so the two error responses cannot drift apart | `codes.ts`, `middleware.ts` |
 | Response serialization | Delegated to the error's `toJSON()` | The middleware can't centralize the shape; subclasses must override correctly | `middleware.ts` |
 | Stack capture | Skipped for exposed 4xx | 4xx errors have no `stack` (acceptable — they're expected control flow) | `base.ts` |
 | `cause` exposure | Serialized only on exposed errors, depth-bounded | A hidden 5xx's `cause` is available only via `error.cause` server-side | `base.ts` (audit E-2) |

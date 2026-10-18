@@ -23,6 +23,7 @@
  */
 
 import type { Application } from '@nextrush/core';
+import { bodyParser } from '@nextrush/body-parser';
 import { cookies } from '@nextrush/cookies';
 import { createRouter } from '@nextrush/router';
 import { registerScenario } from './scenario';
@@ -514,6 +515,88 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
 
       expect(res.status).toBe(404);
       expect(json<{ error: string }>(res).error).toBe('Not Found');
+    }
+  );
+
+  registerScenario(
+    driver,
+    '#12 (F-V07, F-V08): a malformed JSON body answers one error body on every adapter',
+    {},
+    async () => {
+      const res = await driver.dispatch(
+        (app) => {
+          app.use(bodyParser());
+          app.use((ctx) => {
+            ctx.json({ parsed: ctx.body });
+          });
+        },
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: '{ "unterminated": ',
+        }
+      );
+
+      // Byte-for-byte the same body wherever the request runs: the message is a
+      // framework constant, not the engine's own parse text, and the 4xx reports
+      // its own code rather than reading to a client like a server fault.
+      expect(res.status).toBe(400);
+      expect(res.header('content-type')).toBe('application/json; charset=utf-8');
+      expect(res.text()).toBe(
+        '{"error":"BodyParserError","message":"Invalid JSON","code":"INVALID_JSON","status":400}'
+      );
+    }
+  );
+
+  registerScenario(
+    driver,
+    '#12 (F-V09): the rejecting policy answers 415 for an unparsed content type before the handler runs',
+    {},
+    async () => {
+      let handlerRan = false;
+
+      const res = await driver.dispatch(
+        (app) => {
+          app.use(bodyParser({ onUnsupportedContentType: 'reject' }));
+          app.use((ctx) => {
+            handlerRan = true;
+            ctx.json({ parsed: ctx.body });
+          });
+        },
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/xml' },
+          body: '<note/>',
+        }
+      );
+
+      expect(res.status).toBe(415);
+      expect(handlerRan).toBe(false);
+      expect(json<{ code: string }>(res).code).toBe('UNSUPPORTED_CONTENT_TYPE');
+    }
+  );
+
+  registerScenario(
+    driver,
+    "#12 the default policy leaves an unparsed content type to the handler, as it always has",
+    {},
+    async () => {
+      const res = await driver.dispatch(
+        (app) => {
+          app.use(bodyParser());
+          app.use((ctx) => {
+            ctx.json({ body: ctx.body ?? null });
+          });
+        },
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/xml' },
+          body: '<note/>',
+        }
+      );
+
+      expect(res.status).toBe(200);
+      expect(json<{ body: unknown }>(res).body).toBeNull();
     }
   );
 }

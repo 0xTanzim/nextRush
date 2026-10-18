@@ -132,6 +132,7 @@ listen(app, 8080);
 
 **Error handling**
 - **One default error path** — any thrown error is serialized through the `@nextrush/errors` contract
+- **Honest error codes** — a 4xx keeps its own code (a failed body parse answers `INVALID_JSON`, not `INTERNAL_ERROR`); a 5xx never describes itself
 - **Custom handler** — `app.setErrorHandler((err, ctx) => ...)` overrides the default
 
 **Performance**

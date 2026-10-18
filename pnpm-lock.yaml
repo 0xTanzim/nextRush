@@ -564,6 +564,9 @@ importers:
         specifier: workspace:^
         version: link:../../types
     devDependencies:
+      '@nextrush/router':
+        specifier: workspace:^
+        version: link:../../router
       '@types/bun':
         specifier: catalog:node
         version: 1.4.2
@@ -597,6 +600,9 @@ importers:
       '@nextrush/adapter-serverless':
         specifier: workspace:^
         version: link:../serverless
+      '@nextrush/body-parser':
+        specifier: workspace:^
+        version: link:../../middleware/body-parser
       '@nextrush/cookies':
         specifier: workspace:^
         version: link:../../middleware/cookies
@@ -778,6 +784,9 @@ importers:
         specifier: workspace:^
         version: link:../../types
     devDependencies:
+      '@nextrush/router':
+        specifier: workspace:^
+        version: link:../../router
       tsdown:
         specifier: catalog:tooling
         version: 0.23.0(oxc-resolver@11.24.2)(tsx@4.23.15)(typescript@7.0.2)
@@ -862,6 +871,9 @@ importers:
         specifier: workspace:*
         version: link:../../types
     devDependencies:
+      '@nextrush/router':
+        specifier: workspace:*
+        version: link:../../router
       tsdown:
         specifier: catalog:tooling
         version: 0.23.0(oxc-resolver@11.24.2)(tsx@4.23.15)(typescript@7.0.2)

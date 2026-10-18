@@ -33,6 +33,7 @@ describe('Public API surface (runtime exports)', () => {
       'GENERIC_ERROR_CODE',
       'VALIDATION_ERROR_CODE',
       'codeForStatus',
+      'resolveErrorCode',
 
       // HTTP errors — 4xx
       'BadRequestError',

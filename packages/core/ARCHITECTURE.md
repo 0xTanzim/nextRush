@@ -98,7 +98,7 @@ The remaining modules are deliberately small and single-purpose: `route-mount.ts
 
 1. **Composition is pure; the app is stateful.** `compose()` holds no lifecycle state, so it's reusable and unit-testable in isolation (`__tests__/middleware.test.ts`, `compose-ctx-next.test.ts`).
 2. **Configure, then freeze.** `assertConfigurable()` throws if `use`/`route`/`extend`/route-shortcuts run after `ready()`/`start()`, so an app can't gain middleware or extensions that never boot.
-3. **One error contract.** The default handler delegates to `@nextrush/errors` via `writeDefaultErrorResponse`, so core's default response is byte-identical to `errorHandler()` (audit C-1).
+3. **One error contract.** The default handler delegates to `@nextrush/errors` via `writeDefaultErrorResponse`, so core's default response is byte-identical to `errorHandler()` (audit C-1) — including the `code`, which both surfaces derive from `resolveErrorCode()` rather than each building one.
 4. **The hot path allocates as little as possible.** Dedicated zero- and single-middleware fast paths avoid the recursive `dispatch` closure; the array is snapshotted at compose time (design D2/D3/D7).
 5. **Boot and shutdown are idempotent and concurrency-safe.** `ready()` and `close()` memoize their in-flight promise, so racing callers share one boot/teardown (H-1/H-3).
 6. **No runtime coupling.** Core reads no `process.env`; `warnDoubleResponse` is an explicit option the `Application` passes from its own `env`, never sniffed (audit C-4).

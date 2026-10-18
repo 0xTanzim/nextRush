@@ -15,7 +15,7 @@ const app = createApp({ router: createRouter() });
 app.use(timer({ exposeHeader: true }));
 app.use(serverTiming({ exposeHeader: true }));
 app.use(compression({ threshold: 0 }));
-app.use(bodyParser());
+app.use(bodyParser({ onUnsupportedContentType: 'reject' }));
 
 const echo = (ctx: any) =>
   ctx.json({ path: ctx.path, original: ctx.originalPath, params: ctx.params, query: ctx.query });

@@ -153,6 +153,24 @@ Every `NextRushError` has these properties:
     }
     ```
 
+    A 4xx that is **not** a `NextRushError` — a body-parser failure, an error
+    your own middleware throws with a `status` — is answered the same way, and its
+    `code` is derived from the error itself rather than hardcoded:
+
+    ```json
+    {
+      "error": "BodyParserError",
+      "message": "Invalid JSON",
+      "code": "INVALID_JSON",
+      "status": 400
+    }
+    ```
+
+    The rule is one function (`resolveErrorCode()`): a non-empty string `code` on
+    the error wins, otherwise the status's canonical code is used. A 5xx always
+    reports `'INTERNAL_ERROR'`. See
+    [Error Codes Registry](/docs/reference/errors#error-codes-registry).
+
   </Step>
   <Step>
     ### Configure error handler options

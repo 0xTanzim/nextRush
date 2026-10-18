@@ -538,7 +538,7 @@ describe('Application', () => {
 
       expect(ctx.status).toBe(404);
       expect(ctx.json).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Not Found', code: 'INTERNAL_ERROR', status: 404 })
+        expect.objectContaining({ message: 'Not Found', code: 'NOT_FOUND', status: 404 })
       );
     });
 

@@ -13,7 +13,6 @@
   },
   "knownFailures": {
     "FB-03": "*",
-    "FB-04": ["node"],
-    "FB-05": "*"
+    "FB-04": ["node"]
   }
 }
