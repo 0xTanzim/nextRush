@@ -15,6 +15,7 @@
 
 import type { HttpMethod, Middleware, RouteMatch } from '@nextrush/types';
 import { EMPTY_PARAMS, NULL_PROTO } from './constants';
+import type { CanonicalPaths } from './canonicalize';
 import { matchNodeIndexed, collapseAndStrip, isProvablyLowerAscii } from './matching';
 import type { WalkPool } from './walk-pool';
 import type { StaticRouteMap, TrieNode } from './segment-trie';
@@ -46,16 +47,14 @@ export function matchRoute(
   decode: boolean,
   routerMiddleware: Middleware[],
   /**
-   * When `true`, `rawPath` is trusted as already the output of
-   * `canonicalizePath()` (same `caseSensitive`/`strict` options) — the fold
-   * and structural-collapse steps below are skipped entirely rather than
-   * re-derived. Only valid when the caller has actually run
-   * `canonicalizePath()` on this exact input first (F-10); the router's own
-   * `routes()` dispatch path is the only caller that does. Defaults to
-   * `false`, preserving every other caller's existing behavior — including
-   * `Router.match()`, which never canonicalizes first.
+   * The request's already-canonicalized path pair, when the caller ran
+   * `canonicalizePath()` on this exact input first (the router's own dispatch
+   * path is the only caller that does). Supplying it removes the fold/collapse
+   * re-derivation below AND carries the case-preserved value path, so the
+   * matcher never has to reconstruct one. Omitted — as `Router.match()` omits it
+   * — this function normalizes `rawPath` itself, exactly as it always has.
    */
-  preNormalized = false,
+  canonical?: CanonicalPaths,
   /**
    * When supplied, the param walk reuses this router instance's pooled
    * `WalkFrame[]`/binding-array scratch space instead of allocating fresh
@@ -64,35 +63,40 @@ export function matchRoute(
    */
   walkPool?: WalkPool
 ): RouteMatch | null {
-  let path = rawPath;
-  // Query string must not affect path matching (RFC 3986 §3.4). Strip it here,
-  // before normalization, so both the lookup path and extracted param values
-  // exclude it. This strip is caller-specific: `findAllowedMethods` receives an
-  // already query-free `ctx.path`, so the shared `normalizePathForMatch` does
-  // not strip — only `matchRoute` does.
-  if (!preNormalized) {
+  // Two strings describe one request: the folded one every matching decision
+  // uses, and the case-preserved one values come from. `foldSegments` is true
+  // only when a fold actually changed something, so an all-lowercase path (the
+  // common case) skips folding entirely and walks its one and only path.
+  let lookupPath: string;
+  let walkPath: string;
+  let foldSegments: boolean;
+
+  if (canonical) {
+    lookupPath = canonical.path;
+    walkPath = canonical.valuePath;
+    foldSegments = canonical.valuePath !== canonical.path;
+  } else {
+    let path = rawPath;
+    // Query string must not affect path matching (RFC 3986 §3.4). Strip it here,
+    // before normalization, so both the lookup path and extracted param values
+    // exclude it. This strip is caller-specific: `findAllowedMethods` receives an
+    // already query-free `ctx.path`, so the shared `normalizePathForMatch` does
+    // not strip — only `matchRoute` does.
     const queryIdx = path.indexOf('?');
     if (queryIdx !== -1) path = path.slice(0, queryIdx);
-  }
 
-  // HP-12: decide case-stability ONCE. When the path is provably case-stable
-  // (case-sensitive router, or an all-lowercase-ASCII path), folding is a no-op
-  // and the original-case path equals the normalized one — so we skip both the
-  // `toLowerCase()` allocation and the second original-case normalize pass.
-  //
-  // F-10: when `preNormalized` is true, the caller already ran this exact
-  // fold+collapse via `canonicalizePath()` — trust `path` as both the
-  // normalized AND original-case string, skipping the fold+collapse
-  // re-derivation entirely rather than repeating work already done upstream.
-  let normalized: string;
-  let caseStable: boolean;
-  if (preNormalized) {
-    normalized = path;
-    caseStable = true;
-  } else {
-    caseStable = caseSensitive || isProvablyLowerAscii(path);
-    const folded = caseStable ? path : path.toLowerCase();
-    normalized = collapseAndStrip(folded, strict);
+    // Decide case-stability ONCE. When the path is provably case-stable
+    // (case-sensitive router, or an all-lowercase-ASCII path), folding is a no-op
+    // and the value path is the lookup path — one string, no extra allocation.
+    const caseStable = caseSensitive || isProvablyLowerAscii(path);
+    walkPath = collapseAndStrip(path, strict);
+    if (caseStable) {
+      lookupPath = walkPath;
+      foldSegments = false;
+    } else {
+      lookupPath = collapseAndStrip(path.toLowerCase(), strict);
+      foldSegments = true;
+    }
   }
 
   // FAST PATH: O(1) static route lookup (no tree traversal). Method-nested map
@@ -102,7 +106,7 @@ export function matchRoute(
   const methodMap = staticRoutes.get(method);
   if (methodMap) {
     const staticKey =
-      normalized.length > 1 && normalized.endsWith('/') ? normalized.slice(0, -1) : normalized;
+      lookupPath.length > 1 && lookupPath.endsWith('/') ? lookupPath.slice(0, -1) : lookupPath;
     const staticEntry = methodMap.get(staticKey);
     if (staticEntry) {
       return {
@@ -116,13 +120,6 @@ export function matchRoute(
 
   // Only walk tree if we have param/wildcard routes
   if (!hasParamRoutes) return null;
-
-  // Original-case (query-stripped) path so extracted param values keep their
-  // casing while lookup uses the lowercased `normalized`. Needed ONLY when a
-  // fold actually happened (HP-12): when case-stable, `normalized` already IS
-  // the original-case structure, so the walk extracts from it and no second
-  // normalize pass runs.
-  const originalPath = caseStable ? undefined : collapseAndStrip(path, strict);
 
   // Deferred param binding (HP-11): the walk records the accepted path's
   // `:param`/`*` bindings onto these parallel stacks (pushed on descent, popped
@@ -141,15 +138,18 @@ export function matchRoute(
     bindValues.length = 0;
   }
 
+  // The walk reads its segments out of the case-preserved path and folds each
+  // one for the lookup, so a bound value is always the text the client wrote and
+  // a fold can never shift a value's position.
   const entry = matchNodeIndexed(
     root,
-    normalized,
+    walkPath,
     1, // Start after leading '/'
     bindNames,
     bindValues,
     method,
     decode,
-    originalPath,
+    foldSegments,
     walkPool
   );
   if (!entry) return null;
@@ -220,10 +220,10 @@ export function resolveMatch(
   method: HttpMethod,
   path: string,
   /**
-   * Forwarded to {@link matchRoute} — see its own doc comment for the
-   * caller contract. Defaults to `false`.
+   * Forwarded to {@link matchRoute} — see its own doc comment for the caller
+   * contract. Omitted, the match normalizes `path` itself.
    */
-  preNormalized = false
+  canonical?: CanonicalPaths
 ): RouteMatch | null {
   return matchRoute(
     method,
@@ -235,7 +235,7 @@ export function resolveMatch(
     state.strict,
     state.decode,
     state.routerMiddleware,
-    preNormalized,
+    canonical,
     state.walkPool
   );
 }

@@ -137,6 +137,18 @@ Matching GET /users/123/posts:
 
 **Rule:** static routes (no `:param`, no `*`) skip the walk entirely — they live in a method-nested hash map for an O(1) lookup.
 
+**One request path becomes two strings.** Matching, mount-prefix tests, and the `ctx.path` your app
+sees all use the **folded** path — with the default `caseSensitive: false`, `/Users/ABC` and
+`/users/abc` are the same route, and one folded string decides that. Parameter and wildcard
+**values** come from the **case-preserved** path instead, because a value is data your handler acts
+on: `/users/ABC123` binds `{ id: 'ABC123' }`, and folding it would silently change what your code
+receives. Both strings come from a single `canonicalizePath()` pass, have identical segment
+structure, and are the *same* string when nothing needed folding — so an all-lowercase request pays
+nothing for this. If you need a case-insensitive identifier, fold it yourself
+(`ctx.params.id.toLowerCase()`); the router deliberately does not.
+
+`ctx.path` is the folded string; the untouched request target stays available as `ctx.originalPath`.
+
 > [!TIP]
 > The full match lifecycle, the two-path design, and the executor-compilation trick are in
 > [`ARCHITECTURE.md`](./ARCHITECTURE.md).
@@ -218,6 +230,7 @@ The sealed public surface (ADR-0005). Advanced trie internals are exported for t
 | `createRouter` | `(options?: RouterOptions) => Router` | `3.0.0` | Stable ✅ | Create a router instance. |
 | `Router` | `class` | `3.0.0` | Stable ✅ | The router class (see methods below). |
 | `endpoint` | `(metadata) => RouteEntry` | `3.1.0` | Stable ✅ | Attach inline route metadata (consumed by `getRoutes()` / OpenAPI). |
+| `canonicalizePath` | `(rawTarget, caseSensitive, strict) => CanonicalPathResult` | `4.1.0` | Stable ✅ | The single owner of request-path normalization. Returns the folded `path` (matching, policy decisions — what `ctx.path` becomes) and the case-preserved `valuePath` (where parameter and wildcard values come from), both `query`-stripped and structurally identical. Rejects `.`/`..` segments via `rejected`. |
 | `createNode` | `(segment, type?) => TrieNode` | `3.0.0` | Advanced 🔧 | Build a trie node (tooling). |
 | `parseSegments` | `(path, caseSensitive?) => ParsedSegment[]` | `3.0.0` | Advanced 🔧 | Split a path into typed segments (tooling). |
 | `NodeType` | `const enum` | `3.0.0` | Advanced 🔧 | `STATIC` / `PARAM` / `WILDCARD`. |

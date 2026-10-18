@@ -21,7 +21,7 @@
 import type { Context, HttpMethod, Middleware, RouteMatch } from '@nextrush/types';
 import { NOOP_NEXT, type TrieNode } from './segment-trie';
 import { findAllowedMethods } from './find-node';
-import { canonicalizePath } from './canonicalize';
+import { canonicalizePath, type CanonicalPaths } from './canonicalize';
 
 /**
  * Shared resolved promise for the no-`next` miss path (NF-1). Reused rather than
@@ -38,20 +38,24 @@ const RESOLVED: Promise<void> = Promise.resolve();
  * middleware runs — resolving it locally would diverge from how a front-end
  * proxy already handled the same segment, so it is never resolved, only
  * rejected. Otherwise it resolves the route via the injected `match`
- * function, publishes the canonical path onto `ctx.path` (preserving the raw
- * target as `ctx.originalPath`), sets `ctx.params`, and runs the
- * pre-compiled executor (which already bakes in any router-level
- * middleware). A miss sets `ctx.status = 404` and yields to the next
- * middleware so `allowedMethods()`/a 404 handler can act.
+ * function, hands that function BOTH canonical strings (the folded path it must
+ * match on, and the case-preserved one parameter values come from), publishes
+ * the folded path onto `ctx.path` (preserving the raw target as
+ * `ctx.originalPath`), sets `ctx.params`, and runs the pre-compiled executor
+ * (which already bakes in any router-level middleware). A miss sets
+ * `ctx.status = 404` and yields to the next middleware so
+ * `allowedMethods()`/a 404 handler can act.
  *
  * @param match - Route resolver, supplied by `Router.match` so this factory
- *   never touches `Router` internals directly.
+ *   never touches `Router` internals directly. It receives the canonical pair
+ *   rather than a bare path, so the matcher can never be handed a lookup string
+ *   without the value string that belongs to it.
  * @param caseSensitive - Router case-sensitivity option, forwarded to
  *   canonicalization so the published `ctx.path` matches what `match` used.
  * @param strict - Router strict-trailing-slash option, forwarded likewise.
  */
 export function createRoutesMiddleware(
-  match: (method: HttpMethod, path: string) => RouteMatch | null,
+  match: (method: HttpMethod, path: string, canonical?: CanonicalPaths) => RouteMatch | null,
   caseSensitive: boolean,
   strict: boolean
 ): Middleware {
@@ -72,7 +76,7 @@ export function createRoutesMiddleware(
     (ctx as { path: string }).path = canonical.path;
     (ctx as { originalPath: string }).originalPath = originalPath;
 
-    const routeMatch = match(ctx.method, canonical.path);
+    const routeMatch = match(ctx.method, canonical.path, canonical);
 
     if (!routeMatch) {
       // No route matched — set 404 so allowedMethods()/notFoundHandler() can act,

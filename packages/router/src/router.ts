@@ -39,6 +39,29 @@ import { canonicalizePath } from './canonicalize';
 /** '/'.charCodeAt(0) — used by {@link Router.matchesMountPrefix}'s boundary check. */
 const SLASH_CHAR_CODE = 0x2f;
 
+/** How many `/` separators a canonical path contains. */
+function countSeparators(path: string): number {
+  let count = 0;
+  for (let i = 0; i < path.length; i++) {
+    if (path.charCodeAt(i) === SLASH_CHAR_CODE) count += 1;
+  }
+  return count;
+}
+
+/**
+ * The tail of `path` starting at its `separators`-th `/` — the character offset
+ * of a segment boundary in a string whose fold may have changed lengths.
+ * `undefined` when the path has no such separator (the prefix consumed it all).
+ */
+function remainderAfterSeparators(path: string, separators: number): string | undefined {
+  let idx = -1;
+  for (let n = 0; n <= separators; n++) {
+    idx = path.indexOf('/', idx + 1);
+    if (idx === -1) return undefined;
+  }
+  return path.slice(idx);
+}
+
 /** Inline route metadata declaration — re-exported from its own module (RT-3). */
 export { endpoint } from './route-metadata';
 
@@ -69,11 +92,12 @@ export class Router {
 
   /**
    * Single-entry memo for {@link matchesMountPrefix}'s canonicalization of the
-   * mount prefix, which is fixed at registration time. Declared as two fields
-   * rather than an object so a miss stores without allocating.
+   * mount prefix, which is fixed at registration time. Declared as separate
+   * fields rather than an object so a miss stores without allocating.
    */
   private _prefixMemoRaw: string | undefined = undefined;
   private _prefixMemoCanonical = '';
+  private _prefixMemoSeparators = 0;
 
   /** Memoized state the extracted registration/matching functions read (see {@link createRouterState}). */
   private readonly state: RegistrationState & MatchState;
@@ -242,9 +266,15 @@ export class Router {
    * rule it dispatches with (RFC-029, task 3.8). Implements the optional
    * `Routable.matchesMountPrefix` contract from `@nextrush/core`.
    *
+   * The *boundary test* is a matching decision, so it uses the folded path. The
+   * returned *remainder* is published as `ctx.path` for the mounted router,
+   * which re-canonicalizes it — so it is taken from the case-preserved path
+   * instead. A fold on the way in would be unrecoverable: the mounted router
+   * would see an already-lowercase remainder and bind lowercase values from it.
+   *
    * @param path - The full request path being tested for this mount.
    * @param prefix - The normalized mount prefix (leading `/`, no trailing `/`).
-   * @returns The path's remainder past the prefix (e.g. `/users` for a
+   * @returns The path's remainder past the prefix (e.g. `/Users` for a
    *   `/ADMIN/Users` request mounted at `/admin`), or `undefined` when `path`
    *   is not under `prefix` per this router's canonicalization.
    */
@@ -259,12 +289,16 @@ export class Router {
     // string from any caller. One entry is enough: a router is normally mounted
     // once, and a second prefix only costs a miss.
     let canonicalPrefix: string;
+    let prefixSeparators: number;
     if (this._prefixMemoRaw === prefix) {
       canonicalPrefix = this._prefixMemoCanonical;
+      prefixSeparators = this._prefixMemoSeparators;
     } else {
       canonicalPrefix = canonicalizePath(prefix, this.opts.caseSensitive, this.opts.strict).path;
+      prefixSeparators = countSeparators(canonicalPrefix);
       this._prefixMemoRaw = prefix;
       this._prefixMemoCanonical = canonicalPrefix;
+      this._prefixMemoSeparators = prefixSeparators;
     }
 
     const prefixLen = canonicalPrefix.length;
@@ -275,7 +309,12 @@ export class Router {
       return undefined;
     }
 
-    return canonical.path.slice(prefixLen) || '/';
+    // The boundary is a segment boundary, and both forms have identical segment
+    // structure, so the separator that ends the prefix is the same one in each —
+    // only its character offset can differ. When nothing folded, the two forms
+    // are the same string and this is exactly the offset slice it replaced.
+    const remainder = remainderAfterSeparators(canonical.valuePath, prefixSeparators);
+    return remainder === undefined || remainder === '' ? '/' : remainder;
   }
 
   /**
@@ -289,14 +328,14 @@ export class Router {
       this._sealed = true;
       sealRouterMiddlewareImpl(this.root, this.staticRoutes, this.routerMiddleware);
     }
-    // F-10: the internal closure calls `resolveMatch` directly with
-    // `preNormalized: true` rather than going through the public `this.match()`
-    // — this is the one call path where the caller (`createRoutesMiddleware`)
-    // has already run `canonicalizePath()` on `path`, so `matchRoute`'s own
-    // fold+collapse re-derivation is skippable. `Router.match()` itself is
-    // untouched and still defaults to `false` for every other caller.
+    // The dispatch path already canonicalized the exact input this closure is
+    // handed, so it forwards the canonical pair instead of letting `matchRoute`
+    // re-derive it — and, crucially, forwards the case-preserved value path that
+    // re-deriving could not recover. `Router.match()` stays a two-argument public
+    // method and still normalizes its own input for every other caller.
     return createRoutesMiddleware(
-      (method, path) => resolveMatch(this.state, this.hasParamRoutes, method, path, true),
+      (method, path, canonical) =>
+        resolveMatch(this.state, this.hasParamRoutes, method, path, canonical),
       this.opts.caseSensitive,
       this.opts.strict
     );

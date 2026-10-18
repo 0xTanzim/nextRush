@@ -62,6 +62,45 @@ documentation or steering files, it's describing a previous implementation and i
 router has always been, and remains, a **segment trie**: O(k) lookup per path segment,
 independent of route count.
 
+## Router request paths: parameter values keep the casing the client sent
+
+`@nextrush/router` matches case-insensitively by default, and it used to match *and bind* from the
+same case-folded path — so `GET /users/ABC123` reached the handler with
+`ctx.params.id === 'abc123'`. Values are now bound from a case-preserved form of the same path:
+`ctx.params.id === 'ABC123'`.
+
+Nothing about matching changed. `/Users/ABC` still resolves the same route, `ctx.path` is still the
+folded canonical path, and `caseSensitive` behaves exactly as before. What changed is the value a
+handler receives in `ctx.params` — and in the equivalent place a `:name` appears, such as a
+redirect target. The framework's own README already documented this ("parameter names and values
+always preserve their original case"), so this closes the gap between the documented contract and
+what dispatch actually did.
+
+```diff
+  router.get('/users/:id', async (ctx) => {
+-   // Dispatch folded the value on the way in: 'abc123'
++   // The value is what the client sent: 'ABC123'
+    const user = await db.users.findByHandle(ctx.params.id);
+  });
+```
+
+**If you relied on the folded value**, fold it yourself — the router will not do it for you:
+
+```ts
+const id = ctx.params.id.toLowerCase();
+// or normalize at the boundary, with a schema:
+app.post(
+  '/users/:id',
+  validate({ params: z.object({ id: z.string().transform((s) => s.toLowerCase()) }) }),
+  handler
+);
+```
+
+This applies to every route shape: a parameter after static segments (`/users/:id`), a wildcard
+(`/files/*`), and a router mounted at a prefix — the mount boundary is still matched
+case-insensitively, but the remainder handed to the mounted router now carries the request's
+casing. There is no option and no configuration that restores the old value.
+
 ## `reference/` URL structure flattened
 
 Reference documentation URLs lost a redundant middle segment:

@@ -99,8 +99,10 @@ src/
 ├── index.ts             # Public API barrel (exports only)
 ├── router.ts            # Router facade class + createRouter; re-exports endpoint
 ├── registration.ts      # addRoute, path normalization, redirect registration, .all() consolidation
-├── matching.ts          # Match hot path: normalize, indexed node match, param decode (ReDoS/pollution-safe)
+├── canonicalize.ts      # canonicalizePath — the single request-path normalization owner (folded path + case-preserved value path)
+├── matching.ts          # Match hot path: fold/collapse, indexed node walk, param decode (ReDoS/pollution-safe)
 ├── segment-trie.ts      # TrieNode/NodeType/HandlerEntry/StaticRouteMap, createNode, parseSegments, compileExecutor
+├── walk-pool.ts         # Reused WalkFrame cursor + the pooled variant of the trie walk
 ├── match-route.ts       # resolveMatch — orchestrates static-map probe → trie walk
 ├── group-router.ts      # GroupRouter facade, runRouteGroup, prefix composition
 ├── find-node.ts         # findNode / findAllowedMethods trie descent
@@ -119,8 +121,10 @@ src/
 | ------ | -------------------------------------- |
 | `router.ts` | The public chainable facade; holds root trie, static map, options; delegates everything else. |
 | `registration.ts` | Insert a route: normalize the path, build trie nodes, compile the executor, populate the static map. |
-| `matching.ts` | The read hot path: normalize a request path, descend nodes, decode params safely. |
+| `canonicalize.ts` | The single owner of request-path normalization: reject dot segments, decide case-foldability once, and return both the folded path and the case-preserved value path. Every consumer that asks "what path is this request" calls it. |
+| `matching.ts` | The read hot path: walk the segment trie, fold each segment for its child lookup, bind and safely decode params. |
 | `segment-trie.ts` | The data structures (`TrieNode`, `HandlerEntry`, `StaticRouteMap`) and `compileExecutor`. |
+| `walk-pool.ts` | The reused `WalkFrame` cursor plus the pooled walk variant, so dispatch allocates no per-request stack. |
 | `match-route.ts` | Orchestrate a match: try the static map, else walk the trie; assemble the `RouteMatch`. |
 | `dispatch.ts` | Wrap `match()` as NextRush `Middleware` for `routes()` and `allowedMethods()`. |
 | `group-router.ts` | Prefix + middleware grouping, delegating registration back to the parent `Router`. |
@@ -156,14 +160,15 @@ sequenceDiagram
     participant SM as staticRoutes map
     participant Trie as segment trie
     App->>MW: ctx (method, path)
-    MW->>R: match(method, path)
-    R->>RM: resolveMatch(state, hasParamRoutes, method, path)
+    MW->>MW: canonicalizePath(path) — folded path + case-preserved value path
+    MW->>R: match(method, canonical)
+    R->>RM: resolveMatch(state, hasParamRoutes, method, canonical)
     alt static-only or static hit
-        RM->>SM: inner = map.get(method); inner.get(normalizedPath)
+        RM->>SM: inner = map.get(method); inner.get(foldedPath)
         SM-->>RM: HandlerEntry | undefined  (O(1))
     else has params / no static hit
-        RM->>Trie: normalize → descend segment by segment
-        Trie-->>RM: node + captured params  (O(k))
+        RM->>Trie: descend the case-preserved path, folding each segment for the lookup
+        Trie-->>RM: node + captured params  (O(k), original case)
     end
     RM-->>R: RouteMatch { handler, params, middleware } | null
     R-->>MW: RouteMatch | null
@@ -174,7 +179,7 @@ sequenceDiagram
     end
 ```
 
-The ordering a reader would otherwise get wrong: the **static map is tried first** whenever it can be (`hasParamRoutes === false`, or the exact path is a known static route), because it's O(1) and covers the majority case. The trie walk is the fallback for parameterized and wildcard routes. On a miss, `routes()` sets `404` and calls `next()` rather than responding — so downstream middleware like `allowedMethods()` can still turn a known-path/unknown-method into a `405`.
+The ordering a reader would otherwise get wrong: the **static map is tried first** whenever it can be (`hasParamRoutes === false`, or the exact path is a known static route), because it's O(1) and covers the majority case. The trie walk is the fallback for parameterized and wildcard routes. Dispatch canonicalizes the target **once** and forwards both strings, so the matcher re-derives neither — the folded path it probes with and the case-preserved path it binds from are guaranteed to describe the same request. On a miss, `routes()` sets `404` and calls `next()` rather than responding — so downstream middleware like `allowedMethods()` can still turn a known-path/unknown-method into a `405`.
 
 ### Lifecycle states
 
@@ -205,6 +210,42 @@ There is no shared mutable per-request state inside the router: matching only re
 ---
 
 ## Core components
+
+### Request paths — one canonicalization, two strings
+
+`canonicalizePath()` is the only place request-path normalization is defined, and one pass over a
+request target produces both strings a match needs:
+
+- **`path`** — folded (unless `caseSensitive`), `query`-stripped, slash-collapsed, and
+  trailing-slash-normalized per `strict`. Matching, mount-prefix tests, and `ctx.path` use this
+  one: two requests that differ only in case are the same route.
+- **`valuePath`** — the same segment and separator structure with the request's own casing
+  preserved. Parameter and wildcard **values** are bound from this one, because a value is data
+  the handler acts on — folding it would silently change what the application receives.
+
+```mermaid
+flowchart LR
+    T["raw request target<br/>/Users/ABC123?page=2"] --> C["canonicalizePath()"]
+    C -->|"contains a . or .. segment"| R["rejected — 400, never matched"]
+    C --> P["path — folded<br/>/users/abc123"]
+    C --> V["valuePath — case preserved<br/>/Users/ABC123"]
+    P --> M["static-map probe<br/>+ trie child lookup<br/>+ mount-prefix tests + ctx.path"]
+    V --> B["param / wildcard binding<br/>ctx.params = { id: 'ABC123' }"]
+```
+
+Two properties make this affordable rather than a second normalization pass:
+
+- **One fold decision, at most two structural passes.** A `caseSensitive` router, or a path that
+  is provably lowercase ASCII, means folding is a no-op — the two strings are then the *same*
+  string, so the common all-lowercase request allocates nothing extra. Only a path a fold would
+  actually change pays for the second pass.
+- **The walk folds per segment, not per path.** `matchNodeIndexed` slices every segment out of
+  `valuePath` and folds only the copy it hands to the child map (`foldSegment`). Value and
+  position therefore come from the same string, so a fold that changes a character's *length*
+  cannot shift a later binding into the wrong slice — the silent failure mode that indexing the
+  folded path while slicing the original would produce. Folding per segment is also exactly what
+  `parseSegments` does at registration, so the key built at request time is byte-identical to the
+  key it is looked up against.
 
 ### Registration — building the trie and the fast path
 
@@ -339,6 +380,7 @@ These are part of the router's architecture. They do not change without an RFC:
 - **Duplicate `method + path` throws at registration** — no silent last-wins shadowing.
 - **The route table is immutable while serving** — after `routes()` seals middleware into executors; re-registration requires `reset()`.
 - **The trie branches on whole segments, not characters** — this is what makes it a segment trie, not a radix tree.
+- **Matching decisions use the folded path; bound values use the case-preserved one** — both come from one `canonicalizePath()` pass, so a value can never describe a different request than the route it matched, and a consumer that wants a folded identifier folds it itself.
 - **The package imports no runtime API** — Web-standard JavaScript only, so every adapter behaves identically.
 
 ## Engineering decisions
@@ -347,6 +389,7 @@ These are part of the router's architecture. They do not change without an RFC:
 | -------- | ------ | ------------------ | --------- |
 | Match structure | Segment trie (branch on whole segments) | Slightly more memory than a char-compressed radix tree for huge static tables | [RFC-015](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/runtime-adapters/015-router-radix.md) |
 | Static routes | Separate O(1) method-nested map | A second structure to keep in sync with the trie | HP-9 (source) |
+| Request-path normalization | One owner returning both a folded path and a case-preserved value path | A second string to carry (and one extra structural pass) whenever a fold actually applies | [RFC-029](https://github.com/0xTanzim/nextRush/blob/main/docs/RFC/request-data/029-canonical-request-path.md) |
 | Executor | Compiled once at registration | Registration does more work up front | `segment-trie.ts` `compileExecutor` |
 | `Router` class | Thin facade delegating to modules | More files to navigate | project-rules §1 |
 | Introspection | Separate `routeDefinitions` registry | Metadata stored twice (trie + registry) | `router.ts` |

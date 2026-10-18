@@ -35,10 +35,10 @@ export function decodeParam(value: string, decode: boolean): string {
 
 /**
  * Return the path segment starting at `start`, up to the next `/` (or end).
- * Scalar — no tuple array (the iterative walk tracks the next position itself).
- * Used to recover an original-case param value from the original-case path at a
- * position already validated against the (folded) lookup path, and by the
- * {@link findNode} allowed-methods walk to scan segments off the lookup path.
+ * Scalar — no tuple array (the walkers track the next position themselves).
+ * Used by the {@link findNode} allowed-methods walk, which scans segments off the
+ * already-folded lookup path; the match walk binds values instead, so it slices
+ * its segments out of the path it is walking (see `matchNodeIndexed`).
  */
 export function segmentAt(path: string, start: number): string {
   const slashPos = path.indexOf('/', start);
@@ -60,6 +60,30 @@ export function isProvablyLowerAscii(path: string): boolean {
     if ((c >= 0x41 && c <= 0x5a) || c > 0x7f) return false;
   }
   return true;
+}
+
+/**
+ * Fold one path segment into the key its trie lookup uses, or return it
+ * unchanged when no folding is in play.
+ *
+ * Folding per segment — rather than folding the whole path once and indexing the
+ * result — is what keeps a bound value and its position in agreement: the walk
+ * slices every segment out of the case-preserved path (so a value is always the
+ * text the client wrote), folding only the copy it hands to the child map. The
+ * two never have to be reconciled by offset, so a fold that changes a
+ * character's length (U+0130 lowercases to two code points) cannot shift a later
+ * value.
+ *
+ * Per-segment folding is also what registration does (`parseSegments` folds each
+ * static segment on its own), so the key built here is byte-identical to the key
+ * it is looked up against.
+ *
+ * The `isProvablyLowerAscii` guard keeps the allocation off the common
+ * already-lowercase segment.
+ */
+export function foldSegment(segment: string, foldSegments: boolean): string {
+  if (!foldSegments || isProvablyLowerAscii(segment)) return segment;
+  return segment.toLowerCase();
 }
 
 /**
@@ -139,8 +163,11 @@ export function normalizePathForMatch(
  * (design.md D9), so an encoded slash/dot decodes into the value only and can
  * never create new path segments.
  *
- * `originalPath` (present only when case-folding actually occurred) supplies the
- * original-case param value at the same position as the folded lookup path.
+ * `path` is the case-preserved (`valuePath`) form of the request, so every
+ * segment sliced here is the text the client wrote and binds directly as the
+ * value. When `foldSegments` is set, the copy handed to the child map is folded
+ * per segment instead (`foldSegment`) — matching stays case-insensitive without
+ * ever having to locate a value inside a second, differently-folded string.
  */
 export function matchNodeIndexed(
   root: TrieNode,
@@ -150,7 +177,12 @@ export function matchNodeIndexed(
   bindValues: string[],
   method: HttpMethod,
   decode: boolean,
-  originalPath?: string,
+  /**
+   * Whether a static child lookup must fold the segment it probes with
+   * ({@link foldSegment}). Set only when the request actually contains something
+   * a fold would change, so an all-lowercase path folds nothing at all.
+   */
+  foldSegments: boolean,
   /**
    * When provided, the walk indexes into `pool.frames` by depth (reusing
    * each pre-allocated frame object in place) instead of `push`/`pop`-ing
@@ -162,7 +194,7 @@ export function matchNodeIndexed(
   pool?: WalkPool
 ): HandlerEntry | null {
   if (pool) {
-    return matchNodeIndexedPooled(root, path, startPos, bindNames, bindValues, method, decode, pool, originalPath);
+    return matchNodeIndexedPooled(root, path, startPos, bindNames, bindValues, method, decode, foldSegments, pool);
   }
   const stack: WalkFrame[] = [
     { node: root, pos: startPos, stage: 0, seg: '', next: 0, bound: false },
@@ -195,7 +227,7 @@ export function matchNodeIndexed(
         continue;
       }
       frame.stage = 1;
-      const staticChild = frame.node.children.get(frame.seg);
+      const staticChild = frame.node.children.get(foldSegment(frame.seg, foldSegments));
       if (staticChild) {
         stack.push({ node: staticChild, pos: frame.next, stage: 0, seg: '', next: 0, bound: false });
       }
@@ -210,10 +242,7 @@ export function matchNodeIndexed(
       if (paramChild) {
         const paramName = paramChild.paramName;
         if (paramName === undefined) return null; // degenerate param node → whole walk fails (as before)
-        const value =
-          originalPath !== undefined
-            ? decodeParam(segmentAt(originalPath, frame.pos), decode)
-            : decodeParam(frame.seg, decode);
+        const value = decodeParam(frame.seg, decode);
         bindNames.push(paramName);
         bindValues.push(value);
         frame.bound = true;
@@ -223,7 +252,7 @@ export function matchNodeIndexed(
     }
 
     // Stage 2 — param branch (if taken) failed: undo its deferred bind, then try
-    // the wildcard child (a terminal — it captures the original-case remainder).
+    // the wildcard child (a terminal — it captures the remaining path verbatim).
     if (frame.bound) {
       bindNames.pop();
       bindValues.pop();
@@ -231,9 +260,8 @@ export function matchNodeIndexed(
     }
     const wildcardChild = frame.node.wildcardChild;
     if (wildcardChild) {
-      const src = originalPath ?? path;
       bindNames.push('*');
-      bindValues.push(decodeParam(src.slice(frame.pos), decode));
+      bindValues.push(decodeParam(path.slice(frame.pos), decode));
       const handler = wildcardChild.handlers.get(method);
       if (handler) return handler;
       bindNames.pop();
