@@ -79,7 +79,10 @@ export function serializeJson(value: unknown): string {
   let json: string | undefined;
 
   try {
-    json = JSON.stringify(value);
+    // `JSON.stringify` is declared as returning `string`, but a top-level value with
+    // no representation (`undefined`, a function, a symbol) makes it return
+    // `undefined` — the runtime fact this check exists for.
+    json = JSON.stringify(value) as string | undefined;
   } catch (cause) {
     throw serializationError(unrepresentableMessage(value, cause), cause);
   }

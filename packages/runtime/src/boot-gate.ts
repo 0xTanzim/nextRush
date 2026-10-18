@@ -101,7 +101,7 @@ export interface BootGate<THandler> {
  * scope) creates a NEW gate on every invocation, so per-gate state could never
  * observe a second application.
  */
-const bootedApps = new WeakSet<object>();
+const bootedApps = new WeakSet();
 let hasBootedAnyApp = false;
 let warnedBootReuse = false;
 
