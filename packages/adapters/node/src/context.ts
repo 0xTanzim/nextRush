@@ -15,6 +15,7 @@ import {
   METHODS_WITHOUT_BODY,
   NULL_PROTO,
   resolveClientIp,
+  serializeJson,
   UNINITIALIZED_COOKIES,
 } from '@nextrush/runtime';
 import {
@@ -322,10 +323,15 @@ export class NodeContext implements AdapterContext {
 
   json(data: unknown): void {
     if (this._responded || this._res.headersSent) return;
-    this._responded = true;
+
+    // Serialize before committing: a value JSON cannot represent throws here,
+    // with the response still unwritten, so the application error handler can
+    // still answer. Marking it responded first is what used to turn a
+    // serialization failure into a socket that hung.
+    const json = serializeJson(data);
 
     const res = this._res;
-    const json = JSON.stringify(data);
+    this._responded = true;
 
     // HP-14: one outgoing-header-map write instead of two setHeader calls.
     // Node merges these with any headers set earlier via setHeader() (e.g. a
@@ -379,11 +385,14 @@ export class NodeContext implements AdapterContext {
 
     // Uint8Array (non-Buffer) — convert to Buffer for Node.js response
     if (data instanceof Uint8Array) {
+      // Build the outgoing buffer before committing: `Buffer.from` is the only
+      // step that can throw here (a detached backing store), and a throw after
+      // the response looks committed would leave the request unanswered.
+      const buf = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
       this._responded = true;
       if (!res.getHeader('Content-Type')) {
         res.setHeader('Content-Type', 'application/octet-stream');
       }
-      const buf = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
       res.setHeader('Content-Length', buf.length);
       res.end(suppress ? undefined : buf);
       return;
@@ -391,11 +400,11 @@ export class NodeContext implements AdapterContext {
 
     // ArrayBuffer — wrap as Buffer
     if (data instanceof ArrayBuffer) {
+      const buf = Buffer.from(data);
       this._responded = true;
       if (!res.getHeader('Content-Type')) {
         res.setHeader('Content-Type', 'application/octet-stream');
       }
-      const buf = Buffer.from(data);
       res.setHeader('Content-Length', buf.length);
       res.end(suppress ? undefined : buf);
       return;
@@ -403,15 +412,14 @@ export class NodeContext implements AdapterContext {
 
     // Readable stream (Node.js style)
     if (typeof (data as NodeStreamLike).pipe === 'function') {
-      this._responded = true;
-      if (!res.getHeader('Content-Type')) {
-        res.setHeader('Content-Type', 'application/octet-stream');
-      }
       const stream = data as {
         pipe(dest: ServerResponse): void;
         on(event: string, listener: (err: Error) => void): void;
         destroy?(err?: Error): void;
       };
+      // Wiring happens before committing: `.on` is only proven present by its own
+      // call, so a duck-typed object carrying `pipe` and nothing else must not be
+      // able to leave a response marked sent and never written.
       stream.on('error', (err: Error) => {
         if (!res.headersSent) {
           res.statusCode = 500;
@@ -425,6 +433,10 @@ export class NodeContext implements AdapterContext {
       res.on('close', () => {
         if (stream.destroy) stream.destroy();
       });
+      this._responded = true;
+      if (!res.getHeader('Content-Type')) {
+        res.setHeader('Content-Type', 'application/octet-stream');
+      }
       stream.pipe(res);
       return;
     }
@@ -434,11 +446,13 @@ export class NodeContext implements AdapterContext {
       typeof (data as WebStreamLike).getReader === 'function' &&
       'locked' in (data as WebStreamLike)
     ) {
+      // Acquiring the reader can throw (a locked or disturbed stream), so it
+      // happens before the response looks committed.
+      const reader = (data as ReadableStream<Uint8Array>).getReader();
       this._responded = true;
       if (!res.getHeader('Content-Type')) {
         res.setHeader('Content-Type', 'application/octet-stream');
       }
-      const reader = (data as ReadableStream<Uint8Array>).getReader();
       // Clean up reader on client disconnect
       res.on('close', () => {
         void reader.cancel().catch((): undefined => undefined);
@@ -480,8 +494,8 @@ export class NodeContext implements AdapterContext {
     }
 
     // Default: convert to string
-    this._responded = true;
     const str = String(data);
+    this._responded = true;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Length', Buffer.byteLength(str));
     res.end(str);
@@ -571,11 +585,15 @@ export class NodeContext implements AdapterContext {
    */
   sendStream(source: ReadableStream<Uint8Array>): Promise<void> {
     if (this._responded || this._res.headersSent) return Promise.resolve();
-    this._responded = true;
 
     const res = this._res;
-    res.statusCode = this.status;
+    // Acquiring the reader can throw (an already-locked or disturbed stream), so
+    // it happens before the response looks committed — otherwise the throw would
+    // leave a response that is marked sent and was never written.
     const reader = source.getReader();
+    this._responded = true;
+
+    res.statusCode = this.status;
     // Cancel the source if the client disconnects mid-stream.
     res.on('close', () => {
       void reader.cancel().catch((): undefined => undefined);

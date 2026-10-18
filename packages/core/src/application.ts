@@ -732,10 +732,19 @@ export class Application {
     if (this._errorHandler) {
       try {
         await this._errorHandler(err, ctx);
-        return;
       } catch (handlerError) {
         this.logger.error('Error handler threw:', handlerError);
       }
+    }
+
+    // The error path must answer the client. A custom handler can complete
+    // without writing anything, and can throw before it writes — so the default
+    // handler runs whenever the response is still uncommitted. This is the first
+    // of three deliberately redundant layers (the others are the adapter
+    // finalizers and the Web response builder), because a handler bug here is
+    // what a client observes as a hanging socket.
+    if (ctx.responded) {
+      return;
     }
 
     // The default handler can itself throw (e.g. ctx.json when the response is

@@ -6,154 +6,24 @@
  * per-runtime context composes one `WebResponseBuilder` instead of copy-pasting
  * ~200 lines of `json`/`send`/`html`/`redirect`/`set`/`getResponse` logic.
  *
- * Behavior is intentionally identical to the previous per-adapter copies — this
- * is a behavior-preserving extraction. Cross-adapter fixes (e.g. the empty-body
- * header drop F-02 and the redundant Content-Length encode F-18) land here once
- * in later stages.
+ * Two guarantees hold for every body method:
+ *
+ * 1. **A body is resolved before the response is committed.** The responded flag
+ *    is set only once the bytes to write exist, so a value that cannot be
+ *    serialized throws with the response untouched and the application error
+ *    handler can still answer (see `serializeJson`).
+ * 2. **Finalization never returns an unanswered error.** An error status that
+ *    nothing wrote is answered with the framework's error envelope rather than
+ *    returned as an empty response (see `unansweredErrorBody`).
  *
  * @packageDocumentation
  */
 
-import type { NodeStreamLike, ResponseBody } from '@nextrush/types';
-import { HeaderValidationError } from '@nextrush/errors';
-
-/**
- * Detect a Node-style readable stream (duck-typed on `.pipe`) that is not a Web
- * `ReadableStream`.
- *
- * @remarks
- * `ResponseBody` permits `NodeStreamLike` (audit F-12). On Web adapters a Node
- * `Readable` previously fell through to the object branch and was
- * `JSON.stringify`'d into `{}`. Node `Readable`s are async-iterable, so we can
- * adapt them to a Web `ReadableStream` without importing `node:stream`.
- */
-function isNodeReadable(data: unknown): data is NodeStreamLike & AsyncIterable<unknown> {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    typeof (data as NodeStreamLike).pipe === 'function' &&
-    typeof (data as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === 'function'
-  );
-}
-
-/**
- * Adapt a Node-style async-iterable readable stream into a Web
- * `ReadableStream<Uint8Array>` using only Web APIs (audit F-12).
- *
- * @param stream - A Node `Readable`-like async iterable.
- * @returns A Web `ReadableStream` that pulls from the Node stream.
- */
-function nodeStreamToWebStream(
-  stream: AsyncIterable<unknown>
-): ReadableStream<Uint8Array> {
-  // Narrow TReturn to `undefined` so the destructured `value` is `unknown`,
-  // not `any` (IteratorResult defaults TReturn to `any`).
-  const iterator = stream[Symbol.asyncIterator]() as AsyncIterator<unknown, undefined>;
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      try {
-        const { done, value } = await iterator.next();
-        if (done) {
-          controller.close();
-          return;
-        }
-        controller.enqueue(
-          value instanceof Uint8Array ? value : new Uint8Array(value as ArrayBufferLike)
-        );
-      } catch (err) {
-        controller.error(err);
-      }
-    },
-    async cancel() {
-      if (typeof iterator.return === 'function') {
-        await iterator.return();
-      }
-    },
-  });
-}
-
-/**
- * Whether the response must not carry a body per HTTP semantics.
- *
- * @remarks
- * HEAD requests, 204 No Content, 304 Not Modified, and 1xx informational
- * responses never include a body (RFC 7231). Shared by the Web response builder
- * and the Node context so suppression is defined once.
- *
- * @param method - The (upper-cased) request method.
- * @param status - The response status code.
- */
-export function isBodylessResponse(method: string, status: number): boolean {
-  return method === 'HEAD' || status === 204 || status === 304 || (status >= 100 && status < 200);
-}
-
-/**
- * RFC 9110 §5.6.2 `token` grammar for a header field name: one or more
- * `tchar` — no separators, no whitespace, no control characters.
- */
-const FIELD_NAME_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
-
-/**
- * RFC 9110 §5.5 field-value grammar (as a validation, not a permissive
- * transport rule): printable ASCII plus the Latin-1 supplement range, no
- * control characters (including NUL and DEL), and — checked separately
- * below — no leading/trailing whitespace and no embedded CR/LF (obs-fold).
- * `\t` and space are allowed *inside* the value but not at the edges.
- */
-const FIELD_VALUE_CHARS = /^[\t\x20-\x7E\x80-\xFF]*$/;
-
-/**
- * Validate one header value string against the RFC 9110 field-value
- * grammar (SEC-12): no control characters (NUL, DEL, C0 controls), no
- * leading/trailing whitespace, no embedded CR/LF (which also catches
- * obs-fold, a CRLF followed by whitespace).
- */
-function assertValueGrammar(value: string): void {
-  if (value.includes('\r') || value.includes('\n')) {
-    throw new HeaderValidationError('Header value contains invalid characters');
-  }
-  if (value.startsWith(' ') || value.startsWith('\t')) {
-    throw new HeaderValidationError('Header value contains invalid characters');
-  }
-  if (value !== '' && /[ \t]$/.test(value)) {
-    throw new HeaderValidationError('Header value contains invalid characters');
-  }
-  if (!FIELD_VALUE_CHARS.test(value)) {
-    throw new HeaderValidationError('Header value contains invalid characters');
-  }
-}
-
-/**
- * Guard a header field/value against the full RFC 9110 field grammar
- * (SEC-12), not only CRLF injection.
- *
- * @remarks
- * Shared by every adapter's `set()` so the guard — and its error messages —
- * cannot drift. Validates the field name against the `token` grammar
- * (rejecting separators, whitespace, and control characters, not only
- * `:`/CR/LF) and each value against the field-value grammar (rejecting
- * control characters, leading/trailing whitespace, and obs-fold). Numeric
- * values are always safe. Array values are validated element-wise — a
- * single invalid element rejects the whole write, per the framework's
- * fail-closed rule (`security-boundaries` capability).
- *
- * @param field - Header field name.
- * @param value - Header value (string, number, or array of strings).
- * @throws {HeaderValidationError} If the field or any value violates the
- *   grammar.
- */
-export function assertHeaderSafe(field: string, value: string | number | string[]): void {
-  if (!FIELD_NAME_TOKEN.test(field)) {
-    throw new HeaderValidationError('Header field contains invalid characters');
-  }
-  if (typeof value === 'string') {
-    assertValueGrammar(value);
-  } else if (Array.isArray(value)) {
-    for (const v of value) {
-      assertValueGrammar(v);
-    }
-  }
-}
+import type { ResponseBody } from '@nextrush/types';
+import { assertHeaderSafe, isBodylessResponse } from './header-guards';
+import { measureBodyLength, prepareBody } from './response-body';
+import { serializeJson } from './serialize-json';
+import { LAST_RESORT_ERROR_STATUS, unansweredErrorBody } from './unanswered-response';
 
 /**
  * Owns the Web response state and the response-writing methods for the
@@ -191,111 +61,70 @@ export class WebResponseBuilder {
   /** Send a JSON response. */
   json(data: unknown, status: number): void {
     if (this._responded) return;
-    this._responded = true;
 
-    // F-18: do not set Content-Length for a string body — `new Response(string)`
-    // derives it from the BodyInit, so encoding it here just to measure length
-    // is a wasted full-body encode + allocation on the hot path.
+    // Resolve before committing: `serializeJson` throws on a value JSON cannot
+    // represent, and it must throw before this response looks committed.
+    const body = serializeJson(data);
+
     this._status = status;
     this._headers.set('Content-Type', 'application/json; charset=utf-8');
-    this._body = JSON.stringify(data);
+    // F-18: no Content-Length for a string body — `new Response(string)`
+    // derives it from the BodyInit, so encoding it here just to measure length
+    // is a wasted full-body encode + allocation on the hot path.
+    this._body = body;
+    this._responded = true;
   }
 
   /** Send text/binary/stream/object response, auto-detecting the content type. */
   send(data: ResponseBody, status: number): void {
     if (this._responded) return;
-    this._responded = true;
+
+    // Resolve first (it can throw), commit after — see `prepareBody`.
+    const { body, contentType, contentLength } = prepareBody(
+      data,
+      this._headers.has('Content-Type')
+    );
 
     this._status = status;
-
-    if (data === null || data === undefined) {
-      this._body = null;
-      return;
+    if (contentType !== undefined) {
+      this._headers.set('Content-Type', contentType);
     }
-
-    if (typeof data === 'string') {
-      if (!this._headers.has('Content-Type')) {
-        this._headers.set('Content-Type', 'text/plain; charset=utf-8');
-      }
-      // F-18: let the runtime derive Content-Length from the string body.
-      this._body = data;
-      return;
+    if (contentLength !== undefined) {
+      this._headers.set('Content-Length', String(contentLength));
     }
-
-    if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
-      const bytes =
-        data instanceof ArrayBuffer
-          ? new Uint8Array(data)
-          : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-      if (!this._headers.has('Content-Type')) {
-        this._headers.set('Content-Type', 'application/octet-stream');
-      }
-      // Length is free for binary bodies (no encode needed) — keep it explicit.
-      this._headers.set('Content-Length', String(bytes.length));
-      // Uint8Array is a valid BodyInit in Web APIs.
-      this._body = bytes as unknown as BodyInit;
-      return;
-    }
-
-    if (data instanceof ReadableStream) {
-      if (!this._headers.has('Content-Type')) {
-        this._headers.set('Content-Type', 'application/octet-stream');
-      }
-      this._body = data as ReadableStream<Uint8Array>;
-      return;
-    }
-
-    // F-12: Node-style readable stream — adapt to a Web ReadableStream rather
-    // than JSON.stringify'ing it into `{}`.
-    if (isNodeReadable(data)) {
-      if (!this._headers.has('Content-Type')) {
-        this._headers.set('Content-Type', 'application/octet-stream');
-      }
-      this._body = nodeStreamToWebStream(data);
-      return;
-    }
-
-    // Object — serialize as JSON.
-    if (typeof data === 'object') {
-      this._headers.set('Content-Type', 'application/json; charset=utf-8');
-      // F-18: let the runtime derive Content-Length from the string body.
-      this._body = JSON.stringify(data);
-      return;
-    }
-
-    // Default: coerce to string.
-    this._headers.set('Content-Type', 'text/plain; charset=utf-8');
-    this._body = String(data);
+    this._body = body;
+    this._responded = true;
   }
 
   /** Send an HTML response. */
   html(content: string, status: number): void {
     if (this._responded) return;
-    this._responded = true;
 
     this._status = status;
     this._headers.set('Content-Type', 'text/html; charset=utf-8');
     // F-18: let the runtime derive Content-Length from the string body.
     this._body = content;
+    this._responded = true;
   }
 
   /** Send a redirect. Body is `text/plain` to avoid HTML injection via URLs. */
   redirect(url: string, status: number): void {
     if (this._responded) return;
-    this._responded = true;
 
     this._status = status;
     this._headers.set('Location', url);
     this._headers.set('Content-Type', 'text/plain; charset=utf-8');
     this._body = `Redirecting to ${url}`;
+    this._responded = true;
   }
 
   /** Wire a byte stream as the response body (drained by the runtime). */
   sendStream(source: ReadableStream<Uint8Array>, status: number): void {
     if (this._responded) return;
-    this._responded = true;
+
     this._status = status;
     this._body = source;
+    this._responded = true;
   }
 
   /** Set a response header, guarding CRLF injection and accumulating cookies. */
@@ -316,9 +145,7 @@ export class WebResponseBuilder {
     // allocates a lowercased string. 'set-cookie' is 10 chars starting with 's'
     // (0x73); only a field passing both cheap checks falls back to toLowerCase.
     const isSetCookie =
-      field.length === 10 &&
-      (field.charCodeAt(0) | 0x20) === 0x73 &&
-      field.toLowerCase() === 'set-cookie';
+      field.length === 10 && (field.charCodeAt(0) | 0x20) === 0x73 && field.toLowerCase() === 'set-cookie';
     if (isSetCookie) {
       this._headers.append(field, stringValue);
     } else {
@@ -334,7 +161,7 @@ export class WebResponseBuilder {
    */
   getResponse(fallbackStatus: number): Response {
     if (!this._responded) {
-      this._status = fallbackStatus;
+      this.synthesizeUnanswered(fallbackStatus);
     }
 
     const status = this._status;
@@ -374,25 +201,25 @@ export class WebResponseBuilder {
       headers: this._headers,
     });
   }
-}
 
-/** UTF-8 encoder reused for measuring string body lengths on the HEAD path. */
-const HEAD_LENGTH_ENCODER = new TextEncoder();
+  /**
+   * Apply the fallback status, answering an error status that nothing wrote.
+   *
+   * @remarks
+   * This is the last of three deliberately redundant layers (the application
+   * error path and the adapter finalizers are the others). It runs only when the
+   * response is uncommitted: a success status is left as the documented empty
+   * response, while an error status gets the framework's envelope — an error the
+   * client can read beats an empty response it cannot.
+   */
+  private synthesizeUnanswered(fallbackStatus: number): void {
+    this._status = fallbackStatus;
 
-/**
- * The byte length of a materialized response body, or `undefined` when it cannot
- * be measured (a `ReadableStream` has no known length, and `null` has none).
- *
- * @remarks
- * Used only on the HEAD/bodyless path (F-03) to emit a `Content-Length` equal to
- * what the equivalent GET would carry.
- */
-function measureBodyLength(body: BodyInit | null): number | undefined {
-  if (body === null) return undefined;
-  if (typeof body === 'string') return HEAD_LENGTH_ENCODER.encode(body).length;
-  if (body instanceof Uint8Array) return body.byteLength;
-  if (body instanceof ArrayBuffer) return body.byteLength;
-  return undefined;
+    if (fallbackStatus < LAST_RESORT_ERROR_STATUS) return;
+
+    this._headers.set('Content-Type', 'application/json; charset=utf-8');
+    this._body = JSON.stringify(unansweredErrorBody(fallbackStatus));
+  }
 }
 
 /**

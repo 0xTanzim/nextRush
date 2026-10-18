@@ -10,7 +10,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HeaderValidationError } from '@nextrush/errors';
-import { assertHeaderSafe, isBodylessResponse, jsonErrorResponse, WebResponseBuilder } from '../response-builder.js';
+import { jsonErrorResponse, WebResponseBuilder } from '../response-builder.js';
+import { assertHeaderSafe, isBodylessResponse } from '../header-guards.js';
 
 describe('isBodylessResponse', () => {
   it('suppresses body for HEAD, 204, 304, and 1xx', () => {

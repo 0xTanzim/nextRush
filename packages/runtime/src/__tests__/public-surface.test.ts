@@ -111,6 +111,13 @@ describe('Public API surface (runtime exports)', () => {
       'jsonErrorResponse',
       'WebResponseBuilder',
 
+      // Shared response-body resolution and error envelope
+      'measureBodyLength',
+      'prepareBody',
+      'serializeJson',
+      'LAST_RESORT_ERROR_STATUS',
+      'unansweredErrorBody',
+
       // Shared Web Context base (F-08, ADR-0010)
       'WebContextBase',
 

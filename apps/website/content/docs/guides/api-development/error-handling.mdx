@@ -391,6 +391,44 @@ router.get('/users/:id', async (ctx) => {
   `errorHandler()` without it. Remove any remaining calls from existing code.
 </Callout>
 
+## When nothing writes a response
+
+Your error handler can fail to write one — it returns early, it takes a path that forgets to
+respond, or its own `ctx.json()` throws. The client must still get an answer, so NextRush
+guarantees the request is answered even when the error path is not.
+
+This means you will never see a request that hangs until the client times out, and never a `200`
+with an empty body pretending to be a success:
+
+| What happened                                                                   | What the client receives                          |
+| ------------------------------------------------------------------------------- | ------------------------------------------------- |
+| A handler throws, your `setErrorHandler` writes nothing                          | `500` with the default JSON error body            |
+| Your `setErrorHandler` throws while writing                                      | `500` with the default JSON error body            |
+| A handler sets an error status and writes no body                                | That status with `{ "error": "<status message>" }` |
+| A handler responds with a success status and no body                             | The documented empty response                     |
+
+The guarantee is enforced in three places — the application error path, each adapter's response
+finalizer, and the shared Web response builder — so no configuration can leave a request open.
+
+**A body that cannot be serialized is an error, not a hang.** `ctx.json()` serializes before it
+marks the response sent, so a value JSON has no representation for (`BigInt`, a circular
+structure, a function, a `Symbol`, a top-level `undefined`) throws instead of half-writing a
+response — and the error path then answers it:
+
+```typescript
+router.get('/orders/:id', async (ctx) => {
+  const order = await db.orders.findById(ctx.params.id);
+  // Throws: "A JSON response body cannot be a BigInt..." and the client gets a 500
+  ctx.json({ id: order.id, total: order.totalCents });
+});
+```
+
+Convert the value before sending it — this is what the thrown message tells you to do:
+
+```typescript
+ctx.json({ id: order.id, total: order.totalCents.toString() });
+```
+
 ## Controller-Specific Errors
 
 When using controllers from `nextrush/class`, these additional errors are thrown automatically:

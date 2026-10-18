@@ -12,7 +12,9 @@ import {
   DEFAULT_KEEP_ALIVE_TIMEOUT_MS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
+  LAST_RESORT_ERROR_STATUS,
   normalizeStartupError,
+  unansweredErrorBody,
 } from '@nextrush/runtime';
 import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
 import {
@@ -270,23 +272,28 @@ export function createHandler(
     const ctx = createNodeContext(req, res, contextOptions);
 
     const finalizeSuccess = (): void => {
-      // Ensure response is sent
-      if (!ctx.responded && !res.headersSent) {
-        if (ctx.status === 404) {
-          res.statusCode = 404;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ error: 'Not Found' }));
-        } else {
-          // F-09: a handler that resolves without responding (and without
-          // throwing) must still carry an explicit Content-Type — a bare
-          // status with no header violates project-rules §3 ("every response
-          // sets a Content-Type"). text/plain is the honest default: there is
-          // no body to type more specifically.
-          res.statusCode = ctx.status;
-          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-          res.end();
-        }
+      if (ctx.responded || res.headersSent) return;
+
+      // An error status that nothing wrote is answered with the framework's
+      // envelope — never an empty body the client cannot interpret. This is the
+      // adapter finalizer of three deliberately redundant layers that keep a
+      // request from going unanswered, and its body is byte-identical to the
+      // framework's own 404/500 payloads.
+      if (ctx.status >= LAST_RESORT_ERROR_STATUS) {
+        res.statusCode = ctx.status;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify(unansweredErrorBody(ctx.status)));
+        return;
       }
+
+      // F-09: a handler that resolves without responding (and without throwing)
+      // must still carry an explicit Content-Type — a bare status with no header
+      // violates project-rules §3 ("every response sets a Content-Type").
+      // text/plain is the honest default: there is no body to type more
+      // specifically.
+      res.statusCode = ctx.status;
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.end();
     };
 
     const finalizeError = (error: unknown): void => {
