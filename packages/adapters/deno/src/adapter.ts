@@ -8,6 +8,7 @@
 
 import type { Application, Logger } from '@nextrush/core';
 import {
+  createBootGate,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
   jsonErrorResponse,
@@ -201,11 +202,15 @@ export function createHandler(
   app: Application,
   options: HandlerOptions = {}
 ): (request: Request, info: DenoServeHandlerInfo) => Promise<Response> {
-  const handler = app.callback();
+  const boot = createBootGate(app, { label: 'deno' });
   const proxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
   const TIMEOUT_SENTINEL = Symbol('timeout');
+
+  // Booted handler, read synchronously once boot has completed. Only the first
+  // request awaits the barrier, so a steady-state request adds no promise hop.
+  let handler = boot.handler;
 
   return async (request: Request, info: DenoServeHandlerInfo): Promise<Response> => {
     const ctx = createDenoContext(
@@ -217,6 +222,8 @@ export function createHandler(
     );
 
     try {
+      handler ??= await boot.ensure();
+
       if (timeout > 0) {
         let timerId: ReturnType<typeof setTimeout> | undefined;
         try {

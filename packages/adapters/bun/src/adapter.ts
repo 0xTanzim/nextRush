@@ -8,6 +8,7 @@
 
 import type { Application, Logger } from '@nextrush/core';
 import {
+  createBootGate,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
   jsonErrorResponse,
@@ -197,17 +198,23 @@ function createBunRequestRunner(
   app: Application,
   options: HandlerOptions
 ): BunFetchHandler {
-  const handler = app.callback();
+  const boot = createBootGate(app, { label: 'bun' });
   const proxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
   const TIMEOUT_SENTINEL = Symbol('timeout');
+
+  // Booted handler, read synchronously once boot has completed. Only the first
+  // request awaits the barrier, so a steady-state request adds no promise hop.
+  let handler = boot.handler;
 
   return async (request: Request, server: ReturnType<typeof Bun.serve>): Promise<Response> => {
     const clientIp = server.requestIP(request)?.address ?? '';
     const ctx = createBunContext(request, clientIp, proxy);
 
     try {
+      handler ??= await boot.ensure();
+
       if (timeout > 0) {
         let timerId: ReturnType<typeof setTimeout> | undefined;
         try {

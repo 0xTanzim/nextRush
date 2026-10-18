@@ -65,7 +65,9 @@ await serve(app, {
 **Capabilities**
 - **`serve(app, options)`** -- starts a Bun HTTP server bound to the app
 - **`createHandler(app, options)`** -- a bare `(request, server) => Promise<Response>` fetch
-  handler for a hand-rolled `Bun.serve()` call
+  handler for a hand-rolled `Bun.serve()` call. It boots the app on the first request, so a
+  plain `Bun.serve({ fetch: createHandler(app) })` needs no `await app.ready()` — an eagerly
+  booted app (e.g. one already `await app.ready()`-ed, as `serve()` does) skips that step
 - **`listen(app, port)`** -- `serve()` shorthand with a console-logged startup message
 - **Graceful shutdown** -- opt-in `SIGTERM`/`SIGINT` wiring to the same connection-drain `close()`
 - **TLS** -- `cert`/`key`/`ca` passed straight through to `Bun.serve()`

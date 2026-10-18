@@ -19,7 +19,8 @@
 import { createHandler as createBunHandler } from '@nextrush/adapter-bun';
 import { createHandler as createDenoHandler } from '@nextrush/adapter-deno';
 import { createFetchHandler } from '@nextrush/adapter-edge';
-import { createApp, type Application } from '@nextrush/core';
+import { type Application, createApp } from '@nextrush/core';
+import { buildConformanceApp } from './app-shape';
 import type { Configure, ConformanceDriver, DispatchInit, DispatchResult } from './types';
 
 /** Builds a Web `Response` from an app + request for one specific adapter. */
@@ -61,18 +62,25 @@ function createWebDriver(
 ): ConformanceDriver {
   return {
     name,
+    // The factory invokes the adapter's handler function directly from this test
+    // process, which is always Node/vitest even when the adapter being simulated
+    // runs on Bun, Deno, or an edge isolate. Nothing about the transport is
+    // therefore observable here — see `../scenario.ts`.
+    transport: 'in-process',
+    runtimeFidelity: 'simulated',
     handlerTimeout504: true,
     teardownOnShutdown: name !== 'edge', // edge has no teardown seam (F-14)
     transportAbortFiresSignal: true,
     honorsCloudflareIp,
 
     async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
-      const app = createApp({ proxy: init?.proxy ?? false });
+      const app = buildConformanceApp(init);
       configure(app);
       // Boot extensions before building the handler so setup() runs first and
       // extension-registered middleware is included (edge boots lazily itself,
-      // but ready() is idempotent).
-      await app.ready();
+      // but ready() is idempotent). Skipped for a `beforeBoot` dispatch, where
+      // the handler being built is the thing under test.
+      if (init?.beforeBoot !== true) await app.ready();
       const response = await invoke(app, buildRequest(init), {}, init?.directIp ?? '');
       return toResult(response);
     },

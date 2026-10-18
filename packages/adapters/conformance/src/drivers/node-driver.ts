@@ -11,9 +11,11 @@
  * @packageDocumentation
  */
 
-import { serve } from '@nextrush/adapter-node';
-import { createApp } from '@nextrush/core';
+import { createHandler, serve } from '@nextrush/adapter-node';
+import { createServer } from 'node:http';
+import { type Application, createApp } from '@nextrush/core';
 import { request as httpRequest, type IncomingHttpHeaders } from 'node:http';
+import { buildConformanceApp } from './app-shape';
 import type { Configure, ConformanceDriver, DispatchInit, DispatchResult } from './types';
 
 interface RawResponse {
@@ -51,6 +53,37 @@ function rawRequest(port: number, init: DispatchInit | undefined): Promise<RawRe
   });
 }
 
+/**
+ * Dispatch through the bare handler `serve()` itself installs, over a listener
+ * this driver owns.
+ *
+ * @remarks
+ * `serve()` boots eagerly, so it can never exercise a pre-boot entry point. The
+ * handler-level race is disabled here so the assertion observes routing, not the
+ * timeout arm.
+ */
+async function dispatchThroughBareHandler(
+  app: Application,
+  init?: DispatchInit
+): Promise<RawResponse> {
+  const server = createServer(createHandler(app, { timeout: 0 }));
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  try {
+    const address = server.address();
+    const port = typeof address === 'object' && address !== null ? address.port : 0;
+    return await rawRequest(port, init);
+  } finally {
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        resolve();
+      });
+    });
+  }
+}
+
 /** Normalize a raw Node response into a runtime-agnostic result. */
 function toResult(raw: RawResponse): DispatchResult {
   return {
@@ -69,14 +102,22 @@ function toResult(raw: RawResponse): DispatchResult {
 
 export const nodeDriver: ConformanceDriver = {
   name: 'node',
+  // Real loopback listener on the adapter's own runtime: this driver is the
+  // strongest evidence the suite has, so it is the one that can satisfy a
+  // socket-required scenario.
+  transport: 'socket',
+  runtimeFidelity: 'real-runtime',
   handlerTimeout504: true, // F-04/ADR-0010: Node now races the handler and returns a clean 504
   teardownOnShutdown: true,
   transportAbortFiresSignal: true,
   honorsCloudflareIp: false, // Node ignores cf-connecting-ip (F-11)
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
-    const app = createApp({ proxy: init?.proxy ?? false });
+    const app = buildConformanceApp(init);
     configure(app);
+    if (init?.beforeBoot === true) {
+      return toResult(await dispatchThroughBareHandler(app, init));
+    }
     const server = await serve(app, { port: 0 });
     try {
       return toResult(await rawRequest(server.port, init));

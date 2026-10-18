@@ -688,19 +688,31 @@ export class Application {
    * Create the request handler callback.
    *
    * The middleware stack is snapshot at call time — call `ready()` before
-   * `callback()` so extension-registered middleware is included. Adapters do
-   * this automatically.
+   * `callback()` so extension-registered middleware and the application's own
+   * router are included. Adapters do this automatically.
    *
    * @returns Request handler function
+   * @throws if this application owns a router that boot has not mounted yet —
+   * the composed handler would answer 404 for every declared route
    */
   callback(): (ctx: Context) => Promise<void> {
-    if (!this._isReady && this.extensions.length > 0) {
-      this.logger.warn(
-        `callback() was called before ready(), but ${String(this.extensions.length)} extension(s) ` +
-          `were registered via extend() — their setup() will NOT run, and anything they ` +
-          `would decorate (e.g. app.events) will be missing. Call \`await app.ready()\` ` +
-          `before \`callback()\`. Adapters (listen/serve) do this automatically.`
-      );
+    if (!this._isReady) {
+      if (this.router) {
+        throw new Error(
+          `callback() was called before ready(), so the router this application owns has not been ` +
+            `mounted yet — the returned handler would fall through your routes to a 404. Call ` +
+            `\`await app.ready()\` before \`callback()\`, or let an adapter entry point boot for ` +
+            `you: listen(), serve() and every createHandler() do this on the first request.`
+        );
+      }
+      if (this.extensions.length > 0) {
+        this.logger.warn(
+          `callback() was called before ready(), but ${String(this.extensions.length)} extension(s) ` +
+            `were registered via extend() — their setup() will NOT run, and anything they ` +
+            `would decorate (e.g. app.events) will be missing. Call \`await app.ready()\` ` +
+            `before \`callback()\`. Adapters (listen/serve) do this automatically.`
+        );
+      }
     }
 
     const fn = compose(this.middlewareStack, {

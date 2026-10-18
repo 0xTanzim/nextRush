@@ -123,6 +123,13 @@ export { UNINITIALIZED_COOKIES, UNINITIALIZED_SIGNED_COOKIES } from './capabilit
 export { assertHeaderSafe, isBodylessResponse, jsonErrorResponse, WebResponseBuilder } from './response-builder';
 
 // ============================================================================
+// Boot Gate (one boot barrier for every adapter entry point)
+// ============================================================================
+
+export { createBootGate } from './boot-gate';
+export type { BootableApp, BootGate, BootGateOptions } from './boot-gate';
+
+// ============================================================================
 // Shared Web Context Base (F-08, ADR-0010)
 // ============================================================================
 

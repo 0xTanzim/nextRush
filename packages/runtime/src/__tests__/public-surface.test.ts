@@ -25,6 +25,9 @@ import {
 import type {
   BodySource,
   BodySourceOptions,
+  BootableApp,
+  BootGate,
+  BootGateOptions,
   CapabilityProfile,
   ClientIpOptions,
   CombinedAbort,
@@ -111,6 +114,9 @@ describe('Public API surface (runtime exports)', () => {
       // Shared Web Context base (F-08, ADR-0010)
       'WebContextBase',
 
+      // Boot gate
+      'createBootGate',
+
       // Body source
       'AbstractBodySource',
       'BodyConsumedError',
@@ -157,6 +163,9 @@ describe('Public API surface (type-only exports)', () => {
       ProxyTrust,
       CombinedAbort,
       ServerStartErrorCode,
+      BootableApp<string>,
+      BootGate<string>,
+      BootGateOptions,
     ];
     expectTypeOf<Surface>().not.toBeNever();
   });

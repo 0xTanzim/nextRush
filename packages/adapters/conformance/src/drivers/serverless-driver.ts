@@ -21,6 +21,7 @@
 
 import { createLambdaHandler, type LambdaEvent, type LambdaResult } from '@nextrush/adapter-serverless';
 import { createApp } from '@nextrush/core';
+import { buildConformanceApp } from './app-shape';
 import type { Configure, ConformanceDriver, DispatchInit, DispatchResult } from './types';
 
 /** Build an API Gateway v2 event from the dispatch spec. */
@@ -55,15 +56,19 @@ function toResult(result: LambdaResult): DispatchResult {
 
 export const serverlessDriver: ConformanceDriver = {
   name: 'serverless',
+  transport: 'in-process', // an API Gateway event is constructed, not received
+  runtimeFidelity: 'simulated', // its real deployment runtime is Node (see certification.ts)
   handlerTimeout504: true, // reuses the edge engine's timeout→504 race (F-08)
   teardownOnShutdown: false, // no server lifetime, like edge (F-14)
   transportAbortFiresSignal: false, // buffered event model — no mid-request transport abort
   honorsCloudflareIp: true, // reuses the edge context → cf-connecting-ip precedence (F-11)
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
-    const app = createApp({ proxy: init?.proxy ?? false });
+    const app = buildConformanceApp(init);
     configure(app);
-    await app.ready(); // idempotent; the handler boots lazily too
+    // Idempotent when the caller already booted; skipped for a `beforeBoot`
+    // dispatch, where the handler must boot the application itself.
+    if (init?.beforeBoot !== true) await app.ready();
     const handler = createLambdaHandler(app);
     const result = await handler(toEvent(init));
     return toResult(result);

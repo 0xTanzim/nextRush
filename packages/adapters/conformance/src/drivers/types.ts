@@ -35,6 +35,23 @@ export interface DispatchInit {
    * deterministic across runtimes.
    */
   directIp?: string;
+  /**
+   * Dispatch through an entry point that was built BEFORE the application
+   * booted, and never call `ready()`.
+   *
+   * @remarks
+   * The documented Web form is `Bun.serve({ fetch: createHandler(app) })` with no
+   * explicit boot, so the handler itself must boot the application before
+   * dispatching. A driver that ignores this flag would boot eagerly and let a
+   * pre-boot entry point pass the assertion without ever proving it — a false
+   * positive, which is why every driver honors it.
+   *
+   * The application is built through the router-owning factory so a scenario can
+   * declare routes with `app.get(...)` and observe both the routing and the
+   * not-found path: with no boot, the application's own router is never mounted,
+   * so the declared route cannot be reached and an unrouted path is not a 404.
+   */
+  beforeBoot?: boolean;
 }
 
 /** Normalized, runtime-agnostic view of an adapter's response. */
@@ -53,11 +70,41 @@ export interface DispatchResult {
 export type Configure = (app: Application) => void;
 
 /**
+ * Which runtime a driver's request actually executes on.
+ *
+ * @remarks
+ * `real-runtime` — the adapter's own runtime executes the handler, in-process
+ * with the test (the native Node driver, `bun-runner/`, `deno-runner/`).
+ * `simulated` — the adapter is driven from another runtime's test process, which
+ * is what `web-driver.ts` always does under Node/vitest.
+ */
+export type RuntimeFidelity = 'real-runtime' | 'simulated';
+
+/**
+ * How a driver reaches the adapter under test.
+ *
+ * @remarks
+ * `socket` — a real HTTP listener, spoken to over loopback.
+ * `in-process` — the adapter's handler function is invoked directly. Anything
+ * that lives in the transport rather than in the handler — response framing,
+ * connection teardown, the request target exactly as the platform delivered it —
+ * is then not observable at all, so a scenario that depends on one of those is
+ * NOT proven by an `in-process` driver. See `../scenario.ts`.
+ */
+export type Transport = 'socket' | 'in-process';
+
+/**
  * Drives one adapter through its real handler and normalizes the outcome.
  */
 export interface ConformanceDriver {
   /** Adapter name (used as the `describe.each` label). */
   readonly name: string;
+
+  /** How this driver reaches the adapter — see {@link Transport}. */
+  readonly transport: Transport;
+
+  /** Which runtime this driver's request executes on — see {@link RuntimeFidelity}. */
+  readonly runtimeFidelity: RuntimeFidelity;
 
   /**
    * Whether the adapter enforces the request `timeout` at the handler level and

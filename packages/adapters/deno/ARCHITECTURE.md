@@ -213,8 +213,18 @@ identical either way, since both paths call the same `drainAndClose()`.
 | ----- | -------------- | ----- |
 | `Application` (`@nextrush/core`) | Registered middleware, extensions, lifecycle flags (`isRunning`, etc.) | app |
 | `serve()`'s closure | The `AbortController` used to signal `Deno.serve()`'s `signal` option | one call to `serve()` |
+| `createBootGate` (`@nextrush/runtime`) | The memoized boot promise and the resolved handler `createHandler` dispatches through | one `createHandler()`/`serve()` call |
 | `DenoContext` | Request/response state (headers, status, body), resolved `ip` | per-request |
 | `buildCloseWithGracefulShutdown()`'s closure | The memoized `drainPromise` and installed signal listeners | one call to `serve()`, until `close()` completes |
+
+### Boot before dispatch
+
+`createHandler` composes its handler through `@nextrush/runtime`'s shared `createBootGate`, so the
+documented `Deno.serve({ handler: createHandler(app) })` form — which has no startup phase to await
+`ready()` in — boots the app on the first request instead of dispatching against an empty middleware
+stack. `serve()` still boots eagerly before building the handler, and the gate detects that (it
+composes at construction when the app reports `isReady`), so the eager path keeps exactly its old
+timing. Every request after the first reads the already-resolved handler with no `await`.
 
 ---
 

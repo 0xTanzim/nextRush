@@ -8,6 +8,7 @@
 
 import type { Application, Logger } from '@nextrush/core';
 import {
+  createBootGate,
   DEFAULT_KEEP_ALIVE_TIMEOUT_MS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
@@ -212,7 +213,11 @@ export function createHandler(
    */
   diagnostics?: { disableHandlerTimeoutRace?: boolean }
 ): (req: IncomingMessage, res: ServerResponse) => void {
-  const handler = app.callback();
+  // The boot barrier for a hand-rolled server: `createHandler(app)` is the
+  // documented seam for `createServer(createHandler(app))`, which has no
+  // startup phase. `serve()` still boots eagerly, so a caller who waits for
+  // `serve()` never reaches the cold path below.
+  const boot = createBootGate(app, { label: 'node' });
   const proxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
@@ -224,7 +229,44 @@ export function createHandler(
   // requests; the NodeContext constructor only reads `options.proxy`.
   const contextOptions: NodeContextOptions = Object.freeze({ proxy });
 
-  return (req: IncomingMessage, res: ServerResponse): void => {
+  /**
+   * The booted handler, assigned once and read synchronously on every later
+   * request — the steady-state path adds one `undefined` check, nothing more.
+   */
+  let handler = boot.handler;
+
+  /**
+   * Answer a request that never reached the handler (boot failure) the same way
+   * a handler rejection is answered. Factory-scoped so the one-off cold path
+   * allocates no closure of its own.
+   */
+  const failRequest = (res: ServerResponse, error: unknown): void => {
+    logger.error('Request error:', error);
+
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ error: 'Internal Server Error' }));
+    }
+  };
+
+  const listener = (req: IncomingMessage, res: ServerResponse): void => {
+    if (handler === undefined) {
+      // First request only. Boot, then re-enter this listener with the handler
+      // resolved; concurrent first requests share the one boot promise, so this
+      // branch cannot double-boot.
+      boot.ensure().then(
+        (booted) => {
+          handler = booted;
+          listener(req, res);
+        },
+        (error: unknown) => {
+          failRequest(res, error);
+        }
+      );
+      return;
+    }
+
     const ctx = createNodeContext(req, res, contextOptions);
 
     const finalizeSuccess = (): void => {
@@ -248,13 +290,7 @@ export function createHandler(
     };
 
     const finalizeError = (error: unknown): void => {
-      logger.error('Request error:', error);
-
-      if (!res.headersSent) {
-        res.statusCode = 500;
-        res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.end(JSON.stringify({ error: 'Internal Server Error' }));
-      }
+      failRequest(res, error);
     };
 
     if (timeout <= 0 || disableHandlerTimeoutRace) {
@@ -331,6 +367,8 @@ export function createHandler(
       }
     );
   };
+
+  return listener;
 }
 
 /**

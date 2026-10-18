@@ -82,7 +82,7 @@ connections, then returns a `ServerInstance` you can later `close()` for a grace
 **Capabilities**
 - **`serve(app, options?)`** -- full-control server start: port/host binding, timeouts, graceful shutdown, error/listen callbacks
 - **`listen(app, port?)`** -- one-line shorthand over `serve()` that logs a startup message
-- **`createHandler(app, options?)`** -- a raw `(req, res)` handler for HTTPS, HTTP/2, or test harnesses that bring their own `http.Server`
+- **`createHandler(app, options?)`** -- a raw `(req, res)` handler for HTTPS, HTTP/2, or test harnesses that bring their own `http.Server`; it boots the app on the first request, so `http.createServer(createHandler(app))` needs no `await app.ready()`
 
 **Developer experience**
 - Fully typed `ServeOptions`/`ServerInstance`/`GracefulShutdownOptions`
@@ -98,8 +98,9 @@ request ---> http.Server ---> wrapped (req, res) handler ---> app.callback()(ctx
 ```
 
 **Rule:** `serve()` owns the Node `http.Server` lifecycle (listen, timeouts, shutdown);
-`createHandler()` owns only the per-request `(req, res) -> response` translation and can be
-reused with any Node-compatible server.
+`createHandler()` owns the per-request `(req, res) -> response` translation, plus the one-time
+boot barrier on its first request (so a caller that never awaited `app.ready()` still routes),
+and can be reused with any Node-compatible server.
 
 > [!TIP]
 > The full request-handling sequence and the graceful-shutdown state machine are in

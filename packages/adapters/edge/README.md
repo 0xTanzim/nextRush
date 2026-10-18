@@ -292,7 +292,12 @@ behavior). Outside production the first such call per context warns:
 building the app inside the exported handler instead of at module scope. Warns once per module
 instance, outside production:
 
-> `[nextrush/edge] A different Application booted in this process/isolate than the one that booted first. This usually means createApp() (or createFetchHandler/createCloudflareHandler/createVercelHandler/createNetlifyHandler) is being called inside the exported handler instead of at module scope — rebuilding the app on every invocation defeats warm-instance reuse and increases cold-start-like latency on every request. Build the app once, at module scope, above the export. (This message appears in development only.)`
+> `[nextrush/edge] A different Application booted in this process/isolate than the one that booted first. This usually means createApp() (or the adapter's handler factory) is being called inside the exported handler instead of at module scope — rebuilding the app on every invocation defeats warm-instance reuse and increases cold-start-like latency on every request. Build the app once, at module scope, above the export. (This message appears in development only.)`
+
+The check itself lives in the shared boot gate (`@nextrush/runtime`'s `createBootGate`), so Bun,
+Deno, and Node emit the same message with their own label (`[nextrush/bun]`, `[nextrush/node]`, …).
+Note the wording is a heuristic, not a verdict: any process that legitimately builds more than one
+application — a test suite, a per-request SSR factory — trips it once per module instance.
 
 **Timeout attribution** — when the timeout race wins, `app.logger.warn` records the effective
 timeout, whether it came from the default or an explicit option, and the request:

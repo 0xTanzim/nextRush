@@ -40,8 +40,25 @@ export {
   defineRuntimeConformance,
 } from './suite';
 
+// Scenario proof-level ledger: which assertion was proven over a real socket, on
+// the real runtime, simulated, or not proven at all.
+export {
+  SOCKET_UNSATISFIED_REASON,
+  createScenarioLedger,
+  proofLevelOf,
+  registerScenario,
+  scenarioRecords,
+  scenarioReport,
+  type ScenarioLedger,
+  type ScenarioOptions,
+  type ScenarioRecord,
+  type ScenarioRegistrar,
+} from './scenario';
+export type { RuntimeFidelity, Transport } from './drivers/types';
+
 // The built-in drivers + certification matrix (for reference/inspection)
 export { drivers } from './drivers';
+export { buildConformanceApp } from './drivers/app-shape';
 export {
   FEATURES,
   certInputs,

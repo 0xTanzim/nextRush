@@ -10,20 +10,26 @@
  * closing the "claim outruns proof" gap the runtime-platform review (F-01)
  * identified — the previous version of this file asserted only 5 basic cases.
  *
- * `preload.mjs` (wired via `bunfig.toml`) redirects the conformance package's
- * internal `./test-primitives` import to Bun's own `it`/`expect`
- * (`test-primitives.bun.mjs`), so `defineConformanceSuite` registers its
- * assertions through Bun's real test runner.
+ * `@nextrush/adapter-conformance`'s `./test-primitives` export carries a `bun`
+ * condition (`package.json`), so under `bun test` the shared suite registers its
+ * cases through Bun's own `it`/`expect` instead of vitest's — the same swap the
+ * Deno runner gets from its import map, with no per-runner file rewriting.
  *
- * Run: cd packages/adapters/conformance/bun-runner && bun test
+ * Resolves `@nextrush/*` through `dist/`, so `pnpm build` must have run (CI builds
+ * before it runs this). Run: cd packages/adapters/conformance/bun-runner && bun test
  */
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import { createApp } from '@nextrush/core';
-import { serve } from '@nextrush/adapter-bun';
+import { createHandler, serve } from '@nextrush/adapter-bun';
 import type { ServerInstance } from '@nextrush/adapter-bun';
 import { detectRuntime } from '@nextrush/runtime';
-import { defineConformanceSuite } from '@nextrush/adapter-conformance';
+import {
+  buildConformanceApp,
+  defineConformanceSuite,
+  scenarioRecords,
+  scenarioReport,
+} from '@nextrush/adapter-conformance';
 import type { ConformanceDriver, Configure, DispatchInit, DispatchResult } from '@nextrush/adapter-conformance';
 
 let instance: ServerInstance | undefined;
@@ -66,14 +72,28 @@ function toResult(response: Response, bodyText: string): DispatchResult {
 /** Real-Bun ConformanceDriver: every dispatch spins a real `serve()` and hits it over the network. */
 const realBunDriver: ConformanceDriver = {
   name: 'bun',
+  transport: 'socket', // every dispatch spins a real serve() and hits it over loopback
+  runtimeFidelity: 'real-runtime', // this file runs under `bun test`
   handlerTimeout504: true,
   teardownOnShutdown: true,
   transportAbortFiresSignal: true,
   honorsCloudflareIp: false,
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
-    const app = createApp({ proxy: init?.proxy ?? false });
+    const app = buildConformanceApp(init);
     configure(app);
+    if (init?.beforeBoot === true) {
+      // The documented Web form with no explicit boot: `Bun.serve({ fetch:
+      // createHandler(app) })`, and `ready()` is deliberately NOT awaited, so the
+      // entry point has to boot the application itself.
+      const bare = Bun.serve({ port: 0, fetch: createHandler(app) });
+      try {
+        const res = await rawFetch(bare.port, init);
+        return toResult(res, await res.text());
+      } finally {
+        await bare.stop(true);
+      }
+    }
     const server = await serve(app, { port: 0 });
     try {
       const res = await rawFetch(server.port, init);
@@ -138,4 +158,12 @@ const realBunDriver: ConformanceDriver = {
 
 describe('bun adapter — full cross-adapter conformance suite on real Bun', () => {
   defineConformanceSuite(realBunDriver);
+
+  // Proof level is reported, not implied: which scenarios this run actually
+  // proved over a real socket on the real runtime, and which were refused.
+  test('proof levels', () => {
+    // eslint-disable-next-line no-console -- this runner's report IS the output
+    console.log(scenarioReport());
+    expect(scenarioRecords().length).toBeGreaterThan(0);
+  });
 });

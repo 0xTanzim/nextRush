@@ -17,7 +17,7 @@
  */
 
 import type { Application } from '@nextrush/core';
-import { jsonErrorResponse } from '@nextrush/runtime';
+import { createBootGate, jsonErrorResponse } from '@nextrush/runtime';
 import type { AdapterContextFactory, FetchAdapter, PlatformId, ProxyTrust } from '@nextrush/types';
 import { createEdgeContext, EdgeContext, type EdgeExecutionContext } from './context';
 
@@ -40,22 +40,6 @@ import { createEdgeContext, EdgeContext, type EdgeExecutionContext } from './con
  * alone applies) or a positive value to override the default.
  */
 export const DEFAULT_EDGE_TIMEOUT_MS = 24_000;
-
-/**
- * Module-level tracking for the boot-reuse warning (P1-3a).
- *
- * @remarks
- * `bootedApps` records every distinct `Application` that has completed at
- * least one request through this module instance; `warnedBootReuse` ensures
- * the warning fires at most once per module instance, not once per extra app.
- * Module-level (not per-closure) is deliberate: the mistake this catches
- * (calling `createApp()`/`createFetchHandler()` inside the exported handler)
- * produces a NEW `createRequestRunner` closure on every invocation, so
- * per-closure state could never observe a second app.
- */
-const bootedApps = new WeakSet<Application>();
-let hasBootedAnyApp = false;
-let warnedBootReuse = false;
 
 /**
  * Options for the fetch handler
@@ -173,50 +157,25 @@ function createRequestRunner(
   /** Sentinel value returned by the timeout racer */
   const TIMEOUT_SENTINEL = Symbol('timeout');
 
-  // Edge has no serve()/start() phase, so the deferred boot barrier runs lazily
-  // on the first request (idempotent). The boot promise caches the snapshotted
-  // request handler, so every request awaits and reuses the same one.
-  let bootPromise: Promise<ReturnType<Application['callback']>> | null = null;
-  const ensureBooted = (): Promise<ReturnType<Application['callback']>> => {
-    bootPromise ??= app.ready().then(() => {
-      // P1-3a: outside production, warn once per module instance if a
-      // DIFFERENT Application already booted here — the mechanical signature
-      // of building the app inside the exported handler instead of at module
-      // scope (rebuilding the app on every invocation defeats warm reuse).
-      if (!app.isProduction && !warnedBootReuse && hasBootedAnyApp && !bootedApps.has(app)) {
-        warnedBootReuse = true;
-        console.warn(
-          '[nextrush/edge] A different Application booted in this process/isolate than the one ' +
-            'that booted first. This usually means createApp() (or createFetchHandler/createCloudflareHandler/' +
-            'createVercelHandler/createNetlifyHandler) is being called inside the exported handler ' +
-            'instead of at module scope — rebuilding the app on every invocation defeats warm-instance ' +
-            'reuse and increases cold-start-like latency on every request. Build the app once, at module ' +
-            'scope, above the export. (This message appears in development only.)'
-        );
-      }
-      bootedApps.add(app);
-      hasBootedAnyApp = true;
+  // Edge has no serve()/start() phase, so the shared boot barrier runs on the
+  // first request. `markRunning` keeps `app.isRunning` consistent with the
+  // server adapters even though there is no server lifetime (F-14).
+  const boot = createBootGate(app, { label: 'edge', markRunning: true });
 
-      const handler = app.callback();
-      // F-14: mark the app running so `app.isRunning` is consistent with the
-      // server adapters. Edge has no server lifetime, so close()/destroy() are
-      // intentionally never called — that no-teardown contract is documented
-      // on createFetchHandler.
-      app.start();
-      return handler;
-    });
-    return bootPromise;
-  };
+  // Booted handler, read synchronously once boot has completed. Only the first
+  // request awaits the barrier, so a steady-state request adds no promise hop.
+  let handler = boot.handler;
 
   return async (
     request: Request,
     executionContext?: EdgeExecutionContext,
     env?: unknown
   ): Promise<Response> => {
-    const handler = await ensureBooted();
     const ctx = createEdgeContext(request, executionContext, proxy, env, app.isProduction, options.platform);
 
     try {
+      handler ??= await boot.ensure();
+
       if (timeout > 0) {
         let timerId: ReturnType<typeof setTimeout> | undefined;
         try {
