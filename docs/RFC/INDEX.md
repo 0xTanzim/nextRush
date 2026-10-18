@@ -67,7 +67,8 @@ invent a new structure per RFC.
 | [036](request-data/036-logger-log-v03-surface.md) | `@nextrush/logger` — public surface policy & `@nextrush/log` v0.3 migration | Approved (breaking) | request-data |
 | [037](repo-tooling/037-typescript-7-oxlint-migration.md) | Repo toolchain — TypeScript 7 adoption via Oxlint (replace ESLint + typescript-eslint) | Shipped — plan: [037-typescript-7-oxlint-migration-plan.md](repo-tooling/037-typescript-7-oxlint-migration-plan.md), parity audit: [037-rule-mapping.md](repo-tooling/037-rule-mapping.md) | repo-tooling |
 | [038](dev-tooling/038-in-repo-dev-loader.md) | `@nextrush/dev` — dev runtime loader owned in-repo on `@swc/core` | Shipped | dev-tooling |
-| [040](runtime-adapters/040-aot-compilation-and-resource-budgets.md) | Ahead-of-time compilation — precompiled routes & resource-footprint budgets | Draft | runtime-adapters |
+| [039](runtime-adapters/039-precompile-per-request-tax.md) | Precompile the per-request tax — registration-time work vs request-time work | Draft | runtime-adapters |
+| [040](runtime-adapters/040-resource-budgets-and-request-path-footprint.md) | Resource budgets and request-path footprint — measure first, gate AOT on evidence (AOT deferred) | Draft | runtime-adapters |
 
 ## Note on RFC-005 (Plugin System)
 
