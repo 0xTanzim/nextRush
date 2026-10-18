@@ -25,7 +25,14 @@
     "test": {
       "dependsOn": ["build"],
       "outputs": [],
-      "inputs": ["src/**/*.ts", "tests/**/*.ts", "**/*.test.ts"]
+      "inputs": [
+        "src/**/*",
+        "tests/**/*",
+        "scripts/**/*",
+        "**/*.test.ts",
+        "**/*.test.js",
+        "**/*.test.mjs"
+      ]
     },
     "test:watch": {
       "cache": false,
