@@ -128,13 +128,30 @@ instead of accumulating across two separate benchmark sessions. **Below 1.0 is f
 | `bundle.<entry>.kb` | Bundled size of one entry point | `max` 40–70 KB |
 | `cold.n25.vs_hono` | Startup ms ÷ Hono's, at 25 routes | `max` 1.6 |
 | `cold.n1000.vs_hono` | Startup ms ÷ Hono's, at 1,000 routes — where registration work shows up | `max` 1.2 |
-| `inproc.nextrush.vs_hono` | Per-request µs ÷ Hono's, in-process | `max` 1.9, `target` 1.4 |
+| `inproc.nextrush.vs_hono` | Per-request µs ÷ Hono's, in-process (**Bun only** — see below) | `max` 1.9, `target` 1.4 |
 | `wire.nextrush.vs_hono` | Requests/s ÷ Hono's, over a socket (**above 1.0 is faster**) | `min` 0.5, `target` 0.85 |
 
 `inproc` takes the best of three runs per entry. Two samples left a ~40% spread on a loaded
 machine, and this ratio is a gate — three halves it for a few seconds of runtime. The committed
 `max` was ratcheted from 2.5 to 1.9 only after five consecutive runs landed in 1.02–1.56 across
 both runtimes, so it guards a real regression instead of describing the machine it ran on.
+
+**Which adapter an in-proc row measures.** A row must exercise the adapter for the runtime under
+test, so each entry selects one and prints it: `inproc.nextrush.us` reports
+`adapter-node on node` under `--rt node` and `adapter-bun on bun` under Bun. On Node, `adapter-node`
+is driven through its real `createHandler` with a structural `IncomingMessage`/`ServerResponse`
+stand-in — the adapter's per-request path (context, dispatch, body parsing, response building)
+without `node:http`'s own object construction, which the `wire` stage measures over a real socket.
+`inproc.nextrush.web.us` is the labelled control: the Web runner on whatever runtime executes it, so
+the two adapters can be compared on one machine. Measured `2026-10-19` under `--rt node` on this box:
+**11.40 µs** for the Web runner on Node against **0.81 µs** for the Node adapter — the difference is
+the adapter and its request model, not the framework.
+
+**The Node ratio is deliberately not gated.** The NextRush arm takes node:http objects while the raw
+floor and Hono build a `Request` per iteration, and that platform cost dominates both of them. A
+ratio between them would report the harness difference (`0.08`) as a framework result. Use the Bun
+ratio, or `wire`, for a cross-framework number on Node; use the Node in-proc row for NextRush against
+itself over time.
 
 The three `INFO`-only numbers worth watching:
 
@@ -193,10 +210,17 @@ under the runtime's own CPU profiler. Pick the entry that isolates the shape you
 
 | Entry | Shape | Env |
 | --- | --- | --- |
-| `inproc-nextrush` | `GET /`, zero middleware | `N`, `HEADERS`, `TIMEOUT` |
+| `inproc-nextrush` | `GET /`, zero middleware, through the adapter for the runtime | `N`, `HEADERS`, `TIMEOUT` |
 | `inproc-nextrush-post` | `POST /echo` through `bodyParser()` with a JSON body | `N`, `HEADERS`, `BODY_BYTES` |
 | `inproc-nextrush-post-unparsed` | `POST /echo`, same body read as text, no parser | `N`, `HEADERS`, `BODY_BYTES` |
 | `inproc-nextrush-mw` | `GET /` behind five state-writing middleware | `N`, `HEADERS` |
+| `inproc-nextrush-web` | Control: the Web runner on any runtime | `N`, `HEADERS` |
+
+Every entry resolves its adapter through `entries/_inproc-adapter.ts`: `adapter-bun` on Bun,
+`adapter-node` on Node, with the Node arm driven through `createHandler` and a structural
+`IncomingMessage`/`ServerResponse` pair (`entries/_inproc-node.ts`). Each prints
+`ADAPTER=… RUNTIME=…` next to its `US=` line, so a number can never be read as belonging to an
+adapter that did not produce it.
 
 Run one with `node check.mjs profile --entry inproc-nextrush-post`. Compare
 `post` against `post-unparsed` to attribute parser cost, and `mw` against `inproc-nextrush` to

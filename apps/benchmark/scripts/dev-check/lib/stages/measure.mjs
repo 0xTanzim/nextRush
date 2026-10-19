@@ -58,7 +58,8 @@ function inprocUs(ctx, file, env) {
   });
   const m = /US=([\d.]+)/.exec(r.stdout);
   if (!m) throw new Error(`inproc failed: ${r.stderr}`);
-  return Number(m[1]);
+  const adapter = /ADAPTER=(\S+) RUNTIME=(\S+)/.exec(r.stdout);
+  return { us: Number(m[1]), adapter: adapter ? `${adapter[1]} on ${adapter[2]}` : 'unreported' };
 }
 
 export function stageInproc(ctx) {
@@ -66,21 +67,38 @@ export function stageInproc(ctx) {
     raw: ctx.build('inproc-raw', ctx.target).out,
     hono: ctx.build('inproc-hono', ctx.target).out,
     nr: ctx.build('inproc-nextrush', ctx.target).out,
+    web: ctx.build('inproc-nextrush-web', ctx.target).out,
   };
   // Best of three: a single run can eat a GC pause or a scheduling hiccup
   // unrelated to the code under test, and the ratio this feeds is a gate — two
   // samples leaves a 40% spread on a loaded machine, three halves it.
-  const best = (f, env) =>
-    Math.min(inprocUs(ctx, f, env), inprocUs(ctx, f, env), inprocUs(ctx, f, env));
-  const raw = best(files.raw, {});
-  const hono = best(files.hono, {});
-  const nr = best(files.nr, {});
-  const nrNt = best(files.nr, { TIMEOUT: '0' });
+  const best = (f, env) => {
+    const runs = [inprocUs(ctx, f, env), inprocUs(ctx, f, env), inprocUs(ctx, f, env)];
+    return { us: Math.min(...runs.map((run) => run.us)), adapter: runs[0].adapter };
+  };
+  const raw = best(files.raw, {}).us;
+  const hono = best(files.hono, {}).us;
+  const mine = best(files.nr, {});
+  const nr = mine.us;
+  const nrNt = best(files.nr, { TIMEOUT: '0' }).us;
+  const web = best(files.web, {});
   ctx.row('INFO', 'inproc.raw.us', `${raw.toFixed(2)} us/req (floor)`);
   ctx.row('INFO', 'inproc.hono.us', `${hono.toFixed(2)} us/req`);
-  ctx.row('INFO', 'inproc.nextrush.us', `${ctx.record('inproc.nextrush.us', nr)} us/req`);
+  ctx.row('INFO', 'inproc.nextrush.us', `${ctx.record('inproc.nextrush.us', nr)} us/req (${mine.adapter})`);
+  ctx.row('INFO', 'inproc.nextrush.web.us', `${web.us.toFixed(2)} us/req (${web.adapter} — control, same runtime)`);
   ctx.row('INFO', 'inproc.nextrush.no-timeout.us', `${nrNt.toFixed(2)} us/req (timeout race cost = ${(nr - nrNt).toFixed(2)} us)`);
-  ctx.gate('inproc.nextrush.vs_hono', Number((nr / hono).toFixed(2)), ctx.budgets.ratios?.['inproc.nextrush.vs_hono']);
+  const ratio = Number((nr / hono).toFixed(2));
+  if (ctx.rt === 'bun') {
+    ctx.gate('inproc.nextrush.vs_hono', ratio, ctx.budgets.ratios?.['inproc.nextrush.vs_hono']);
+  } else {
+    // Not a gate on Node: the NextRush arm now drives the Node adapter's own
+    // handler, which takes node:http objects, while Hono's arm still builds a
+    // `Request` per iteration. That platform cost dominates both the raw floor
+    // and Hono, so the ratio would measure the harness difference, not the
+    // frameworks. Compare NextRush to itself over time here, and use `wire` for
+    // a cross-framework number on Node.
+    ctx.row('INFO', 'inproc.nextrush.vs_hono', `${ratio} (not gated: arms use different request models — see inproc.*.web.us)`);
+  }
 }
 
 function wrkRps(ctx, port) {

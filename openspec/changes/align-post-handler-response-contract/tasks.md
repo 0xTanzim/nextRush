@@ -71,14 +71,15 @@
 
 ## 5. Measurement validity: an in-proc entry exercises the adapter it names
 
-- [ ] 5.1 (RED) Change `apps/benchmark/scripts/dev-check/entries/inproc-nextrush.ts` and its sibling
+- [x] 5.1 (RED) Change `apps/benchmark/scripts/dev-check/entries/inproc-nextrush.ts` and its sibling
       in-proc entries to select the adapter for the runtime under test instead of unconditionally
       importing `@nextrush/adapter-bun`, and record which adapter and runtime each row exercised.
       Verify: with the Node runtime selected the entry exercises the Node adapter entry point, and
       the existing Bun/Web runner entry remains as the labelled control.
-- [ ] 5.2 Record the before/after in-proc numbers for `--rt node` (runner-on-Node vs Node adapter)
-      on the same machine and flags. Verify: `bench:validate` passes and both numbers are recorded.
-- [ ] 5.3 Document the entry-selection rule and which adapter each in-proc row measures in the
+- [x] 5.2 Record the before/after in-proc numbers for `--rt node` (runner-on-Node vs Node adapter)
+      on the same machine and flags. Verify: `node apps/benchmark/scripts/dev-check/check.mjs inproc
+      --rt node` runs clean and both numbers are recorded (there is no `bench:validate` script).
+- [x] 5.3 Document the entry-selection rule and which adapter each in-proc row measures in the
       dev-check README. Verify: the README names each row's adapter and runtime.
 
 ## 6. CPU, allocation, and kernel attribution for the touched paths
