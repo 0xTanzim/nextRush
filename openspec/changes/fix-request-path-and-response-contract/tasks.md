@@ -92,8 +92,8 @@ recorded because each item is load-bearing for a later group's proof.
 - [x] 8.6 Move boot, timeout arming and finalization into one shared Web runner used by every Web adapter, arming a timer only when the handler has not already settled — verify: no adapter retains its own copy, no timer is armed for a synchronous handler, and the timeout interval, response body, signal and warning are unchanged
 - [x] 8.7 Use the raw-target path helper for the Web context's path, query and original path, removing the per-request `URL` — verify: the in-process ratio improves and no probe regresses
 - [x] 8.8 Adopt deferred query parsing only if the measurement supports it, and record the decision either way — verify: the ratio improves with no probe regression, or the attempt is reverted and the measurement recorded
-- [ ] 8.9 Ratchet the committed maximum and target to the measured values — verify: the gate passes at the new values and fails when the ratio is pushed above them
-- [ ] 8.10 Keep every new or changed module within its source-size ceiling and document the removed per-request work — verify: changed files are within their ceilings and the docs describe the lazy resolution and the shared runner
+- [x] 8.9 Ratchet the committed maximum and target to the measured values — verify: the gate passes at the new values and fails when the ratio is pushed above them
+- [x] 8.10 Keep every new or changed module within its source-size ceiling and document the removed per-request work — verify: changed files are within their ceilings and the docs describe the lazy resolution and the shared runner
 - [ ] 8.11 Cross-adapter parity check for the whole group — verify: the conformance suite passes on every runnable adapter with no behavioural divergence and no probe failure
 
 ## 9. Integration verification

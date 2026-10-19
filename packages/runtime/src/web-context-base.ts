@@ -45,7 +45,7 @@ import { createEmptyBodySource } from './body-source';
 import { WebBodySource } from './body-source';
 import { WebResponseBuilder } from './response-builder';
 import { METHODS_WITHOUT_BODY } from './constants';
-import { headersToRecord } from './headers';
+import { RequestInputs, type ClientAddress } from './request-inputs';
 import { NULL_PROTO } from './null-proto';
 import { parseQueryString } from './query';
 
@@ -61,18 +61,6 @@ const RESOLVED_NEXT: Promise<void> = Promise.resolve();
 
 /** The `{ req, res }` shape every Web adapter's `ctx.raw` returns (`res` is always `undefined`). */
 export type WebRawHttp = RawHttp<Request, undefined>;
-
-/**
- * A resolved client address, or a resolver called on the first `ctx.ip` read.
- *
- * @remarks
- * Adapters resolve the address from a platform call (Bun's
- * `server.requestIP`, Deno's `remoteAddr`) or from proxy headers. Handing over a
- * resolver instead of a string keeps that work off the request path for the
- * majority of handlers that never look at `ctx.ip`. A plain string stays
- * accepted so a caller that already knows the address pays nothing.
- */
-export type ClientAddress = string | (() => string);
 
 /**
  * The streaming/runtime primitives a concrete Web context wires in — the
@@ -115,24 +103,17 @@ export abstract class WebContextBase implements FetchContext {
   readonly runtime: Runtime;
   readonly bodySource: BodySource;
 
+
+
   /**
-   * Memoized incoming-header record.
+   * The lazily resolved request inputs (headers and client address).
    *
    * @remarks
-   * Declared as a slot, not a field, because building it walks every header —
-   * work a handler that reads one header (or none) never asked for. Reading
-   * {@link headers} fills it once; a single-name {@link get} never fills it at
-   * all. The slot is declared on the instance shape so filling it is a value
-   * write, not a property addition that transitions the hidden class.
+   * Held rather than spread across the context: building the header record walks
+   * every header and resolving the address may call the platform, so both are
+   * resolved on first read (see {@link RequestInputs}).
    */
-  private _headers?: IncomingHeaders;
-
-  /** Backing field for {@link ip}: an address already known, or a resolver
-   * called once on the first read (P2-3 keeps the getter so a subclass can
-   * observe a read without changing the value or its identity). */
-  private readonly _clientAddress: ClientAddress;
-  /** Memoized result of {@link _clientAddress}, once resolved. */
-  private _clientIp?: string;
+  protected readonly _inputs: RequestInputs;
 
   /**
    * Named deployment platform, when known (RFC-026).
@@ -192,7 +173,7 @@ export abstract class WebContextBase implements FetchContext {
     this.method = request.method.toUpperCase() as HttpMethod;
     this.runtime = runtime;
     this.platform = platform;
-    this._clientAddress = ip;
+    this._inputs = new RequestInputs(request, ip);
 
     // Derive the target by scanning `request.url` instead of parsing it: WHATWG
     // parsing resolves dot segments (every encoded spelling of one included),
@@ -226,13 +207,7 @@ export abstract class WebContextBase implements FetchContext {
    * behavior.
    */
   get ip(): string {
-    return this.resolveClientIp();
-  }
-
-  /** Resolve the address once; subclasses that wrap {@link ip} call this. */
-  protected resolveClientIp(): string {
-    return (this._clientIp ??=
-      typeof this._clientAddress === 'string' ? this._clientAddress : this._clientAddress());
+    return this._inputs.ip;
   }
 
   /**
@@ -316,19 +291,9 @@ export abstract class WebContextBase implements FetchContext {
     return this._streamRunners.runNDJSONStream(this, run);
   }
 
-  /**
-   * Incoming request headers, as a record.
-   *
-   * @remarks
-   * Built on first read and memoized — the walk over every header is the cost
-   * a handler that never reads `ctx.headers` should not pay. `ctx.get(name)`
-   * does not build it (see {@link get}); only asking for the record does.
-   * Shape is unchanged: prototype-less (nothing inherited is reachable),
-   * lower-case keys, and `set-cookie` kept as an array when the platform
-   * exposes it.
-   */
+  /** Incoming request headers, as a record — built on first read (see {@link RequestInputs}). */
   get headers(): IncomingHeaders {
-    return (this._headers ??= headersToRecord(this._req.headers));
+    return this._inputs.headers;
   }
 
   // ===========================================================================
@@ -339,32 +304,9 @@ export abstract class WebContextBase implements FetchContext {
     this._response.set(field, value);
   }
 
-  /**
-   * Read one incoming header.
-   *
-   * @remarks
-   * Reads the platform headers directly unless the record already exists, so a
-   * single-name read costs one lookup instead of the full walk. Case folding is
-   * the platform's (`Headers.get` is case-insensitive). `set-cookie` keeps the
-   * record's "first value" semantics by asking the platform for the separated
-   * entries where it can — `Headers.get` would comma-join them.
-   */
+  /** Read one incoming header; never builds the record (see {@link RequestInputs}). */
   get(field: string): string | undefined {
-    const name = field.toLowerCase();
-    const record = this._headers;
-    if (record === undefined) {
-      const headers = this._req.headers;
-      if (name === 'set-cookie') {
-        const getSetCookie = (headers as { getSetCookie?: () => string[] }).getSetCookie;
-        if (typeof getSetCookie === 'function') return getSetCookie.call(headers)[0];
-      }
-      return headers.get(name) ?? undefined;
-    }
-    const value = record[name];
-    if (Array.isArray(value)) {
-      return value[0];
-    }
-    return value;
+    return this._inputs.get(field);
   }
 
   // ===========================================================================

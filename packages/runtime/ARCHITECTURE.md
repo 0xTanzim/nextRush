@@ -111,6 +111,9 @@ src/
 ├── headers.ts          # headersToRecord + the single client-IP resolution policy & IP validation
 ├── query.ts            # parseQueryString — single-pass, DoS-limited, proto-pollution-safe
 ├── request-target.ts   # requestTargetFromUrl — path/search split with no URL object and no dot-segment resolution
+├── request-inputs.ts   # RequestInputs — the incoming-header record and client address, resolved on first read
+├── boot-gate.ts        # createBootGate — the first-request boot barrier for entry points with no startup phase
+├── web-runner.ts       # createWebRunner — the one per-request flow every Web adapter runs
 ├── request-signal.ts   # combineAbortSignal — merge client-disconnect + timeout
 ├── server-error.ts     # ServerStartError + normalizeStartupError (uniform bind failures)
 ├── constants.ts        # Shared adapter defaults (timeout / shutdown / keep-alive / methods)
@@ -128,6 +131,9 @@ src/
 | `headers.ts` | Convert Web `Headers` to a safe record and resolve the client IP with one shared precedence. |
 | `query.ts` | Parse a query string safely and cheaply. |
 | `request-target.ts` | Derive the published `path`/`search` from a request URL without reshaping it. |
+| `request-inputs.ts` | Own the lazily-resolved request inputs a handler may never read: the header record and the client address. |
+| `boot-gate.ts` | Make the first request the boot barrier, memoized and retryable, for entry points with no startup phase. |
+| `web-runner.ts` | Own the per-request flow every Web adapter runs: boot, dispatch, timeout race, finalize, error response. |
 | `request-signal.ts` | Combine the platform request signal with an adapter-owned timeout controller. |
 | `server-error.ts` | Normalize bind/startup failures into one typed, actionable error. |
 | `constants.ts` | Own the adapter default numbers so they cannot drift. |
@@ -291,10 +297,13 @@ The primitives on the per-request path are written to avoid allocation and super
 | `requestTargetFromUrl(url)` | O(n) single pass | none | Two `indexOf` scans over the URL string; no `URL` construction (which would parse, percent-encode, and resolve dot segments) and no intermediate array. |
 | `combineAbortSignal(base)` | O(1) | one `AbortController` | Created lazily by the Context only on first `signal` access, so the non-timeout/non-stream hot path stays allocation-free. |
 | `resolveClientIp(get, opts)` | O(1) | none | A few header reads + structural validation. |
+| `ctx.headers` (first read) | O(h) over headers | one record | Memoized by `RequestInputs`; a handler that never reads it causes no walk, and `ctx.get(name)` reads the platform `Headers` directly without building it. |
+| `ctx.ip` (first read) | O(1) | none | A string, or the adapter's resolver called exactly once; never read means never resolved (no `requestIP`, no proxy-header walk). |
+| `createWebRunner` dispatch | O(1) added | none when settled | The timeout timer is armed only if the handler is still pending after a bounded microtask turn, so the common request calls no `setTimeout`. |
 
 **Memory model:**
 - **Shared (one copy):** the detection cache, the frozen `EMPTY_QUERY`, and the constant tables.
-- **Per request:** a `WebBodySource` (when a body is read), the parsed `QueryParams` (only when the query is non-empty), and a combined `AbortSignal` (only when a timeout/stream needs it).
+- **Per request:** a `WebBodySource` (when a body is read), the parsed `QueryParams` (only when the query is non-empty), a combined `AbortSignal` (only when a timeout/stream needs it), the header record (only when `ctx.headers` is read), the resolved client address (only when `ctx.ip` is read), and a timeout timer (only when the handler is still pending).
 
 ## Concurrency & edge behaviour
 

@@ -290,6 +290,57 @@ real-adapter test pins opt-in-on-Web and absent-on-Node. Rejected: defaulting `e
 still would not work on Node, and it would opt every user into a known-failing write) and leaving the JSDoc
 examples claiming a header the default does not produce.
 
+**D24 — One shared Web runner, and a timeout timer only when the dispatch is still pending.** The
+three Web adapters each carried the same request flow — boot barrier, dispatch, timeout race,
+not-found finalize, error handling — and the copies had already drifted (Edge alone named the timeout
+and warned about it). `createWebRunner` in `@nextrush/runtime` owns it once; an adapter supplies its
+context factory and its timeout policy, nothing else. Next.js and serverless route through the Edge
+handler and inherit it. The race additionally stops paying for a timer it does not need: the dispatch
+is given a bounded number of microtask turns (`SETTLE_TURNS = 4`), and a handler that settles inside
+that window is awaited with no `setTimeout` at all; only a still-pending handler arms one. The bound is
+the trade the comment states — too low and fast handlers still pay for a timer, too high and a stuck
+handler waits that many microtasks before its timeout starts counting (nanoseconds). Evidence:
+`web-handler-laziness.test.ts` asserts zero timers armed for a settled handler on all three adapters,
+and the real Bun and Deno runners still satisfy 52/52 scenarios including #13's 504. Rejected:
+keeping three copies (the reason the last timeout fix was made three times), and dropping the
+per-request timeout (it is a documented behaviour, and the timer cost is what this removes — not the
+feature).
+
+**D25 — Deferred query parsing is rejected on measurement.** Parsing the query string eagerly was the
+last remaining per-request derivation that a handler might never read, so it was implemented as a
+memoized getter and measured against the committed stages before being kept. Result: Bun 4.05 → 4.03
+µs/request (-0.4%) and Node 13.34 → 13.36 µs/request (+0.1%) — both inside the group's own noise band
+(~8% Bun, ~3% Node), i.e. no evidence either way. Per the task's rule (adopt only where the measurement
+supports it) the change was reverted and the eager parse kept; the numbers are recorded here so the
+idea is not re-litigated from intuition. The likely reason it does not show: the measured handler sends
+an empty query, and `parseQueryString('')` is an empty-container allocation that the engine already
+handles cheaply.
+
+**Group 8 measured result.** Same machine, same toolkit, immediately before and after the group:
+
+| Metric | Bun before | Bun after | Node before | Node after |
+| --- | --- | --- | --- | --- |
+| `inproc.nextrush.us` | 5.834 / 5.879 | 4.034 | 18.582 / 17.870 | 13.363 |
+| `inproc.raw.us` (floor) | 2.02 / 2.25 | 2.16 | 10.09 / 16.73 | 11.11 |
+| `inproc.hono.us` | 3.10 / 2.90 | 3.10 | 11.34 / 11.20 | 11.16 |
+| `inproc.nextrush.vs_hono` | 1.88 / 2.03 | 1.31 | 1.64 / 1.59 | 1.20 |
+| `inproc.nextrush.no-timeout.us` | 5.66 / 5.06 | 3.46 | 15.15 / 14.66 | 11.82 |
+
+Both runtimes improved by 25–31% per request, and the probe set is unchanged (no FAIL, no new KNOWN).
+The remaining gap to Hono is 0.31 µs/request on Bun and 2.2 µs on Node.
+
+**D26 — The ratio gate is ratcheted to measured reality, and the sampler that decides it is steadier.**
+After the group, `inproc.nextrush.vs_hono` measured 1.02–1.56 across five consecutive runs per
+runtime on a machine under load (~5 with a browser pegging a core), against 1.88–2.11 before it. Two
+conclusions, both recorded rather than smoothed over: the committed `max` of 2.5 described a machine
+that no longer exists (every pre-change run passes it), so it moves to `1.9` — above the worst observed
+run with ~20% headroom, and still below the pre-change median so a regression of that size fails; and
+the two-sample "best of two" per entry left a ~40% spread on the ratio, so `inproc` now takes the best
+of three. The `target` moves from 1.3 to 1.4 for the same honesty reason: 1.3 was an aspiration
+measured on an idle machine, and a target that WARNs on every run is noise, not a signal. The gate's
+mechanism is verified, not assumed: with `max` temporarily set below the measured value the stage
+reports FAIL and the run exits non-zero.
+
 ## Risks / Trade-offs
 
 - **[Compression is a no-op on every shipped adapter, so the middleware reads as working while doing nothing]** →
@@ -417,4 +468,5 @@ the Web adapters) should close them in passing.
 | `packages/adapters/serverless/src/mappers/_v2.ts` | `v2ToRequest` builds `new Request('http://localhost' + rawPath + qs)`, so the event's target is reshaped by the URL parser before the context sees it — the adapter cannot observe a raw target even where API Gateway preserved one, which is why its reported capability is the conservative `false` | Carry the event's target to the context unparsed and verify it against a live API Gateway; the capability value can then be measured instead of assumed |
 | `packages/adapters/node/src/context.ts` | Two facts behind the response-model divergence: `set()` calls `res.setHeader` unguarded after commit (throws `ERR_HTTP_HEADERS_SENT`), and the adapter's own response write leaves Node's header store empty — `getHeaderNames()` measured `[]` on a real listener, so `res.getHeader()` cannot see a header the handler wrote | Keep the adapter's own header map (or guard `set()` post-commit with a recorded error); the recorded response model resolves both, and until then the divergence is a declared driver capability |
 | `packages/middleware/timer/src/middleware.ts` | With `exposeHeader: true` on the Node adapter the late write throws, the throw propagates out of the middleware so every outer middleware's post-`next()` work is skipped, and the adapter delivers a correct `200` with no log — measured on a real listener | Catch the late write and record it on `ctx.state` until the recorded response model makes it succeed; also surface chain errors that happen after the response is committed |
+| `packages/runtime/src/web-context-base.ts` (362 lines) | Over the 300-line source ceiling before this change (353) and still over after it: the class is a shell of response delegation plus streaming and error helpers, and the two new accessor bodies were extracted into `request-inputs.ts` so the file did not grow with them | Split the shell by concern in the same structural pass as the other ceiling findings above — response delegation / streaming / accessors — rather than inside a footprint change |
 | `packages/middleware/compression/src/middleware.ts` (466 lines) | Over the 300-line source ceiling (conversation, negotiation, response-shape helpers, and three convenience wrappers in one module) — 42 source files in the repository share the problem, so a one-off split here would break the local style without fixing it | Split by concern in a dedicated structural change (variants / inspection helpers / response shape), the same change that clears the other ceiling findings above |

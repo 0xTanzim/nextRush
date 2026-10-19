@@ -139,7 +139,7 @@ export class EdgeContext<Env = unknown> extends WebContextBase {
    * logging) with no signal that `trustProxy` is the fix.
    */
   override get ip(): string {
-    const value = this.resolveClientIp();
+    const value = super.ip;
     if (value === '' && this._proxy === false && !this._isProduction && !this._ipWarned) {
       this._ipWarned = true;
       console.warn(

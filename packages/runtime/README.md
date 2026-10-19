@@ -141,6 +141,8 @@ Detection is memoized after the first call, and the feature decision keys off `c
 - **Body reading** — `WebBodySource` / `EmptyBodySource` / `AbstractBodySource` and `createWebBodySource()` with a `DEFAULT_BODY_LIMIT`; throws `BodyTooLargeError` / `BodyConsumedError`
 - **Response building** — `WebResponseBuilder` for Fetch-API adapters, plus `assertHeaderSafe()`, `isBodylessResponse()`, and `jsonErrorResponse()` for a uniform framework-error `Content-Type` (F-05)
 - **Shared Context shell** — `WebContextBase` (F-08): the Bun/Deno/Edge contexts extend this one class for their response methods, lazy `raw`/`signal`, streaming, and `get`/`next`/`throw`/`assert`, instead of triplicating it
+- **Lazy request inputs** — the incoming-header record and the client address are resolved on first read and memoized: a handler that reads neither causes no header walk and no platform address lookup, and `ctx.get(name)` answers from the platform headers without building the record
+- **Shared Web runner** — `createWebRunner()` owns the per-request flow every Web adapter runs (boot barrier, dispatch, timeout race, not-found finalize, error response), and arms the timeout timer only when the handler is still pending after its microtask turn
 - **Client IP** — one policy: `resolveClientIp()` / `getClientIp()` / `getEdgeClientIp()`, with structural `isValidClientIp()`
 - **Headers & query** — `headersToRecord()` (prototype-pollution-safe, keeps multi-value `set-cookie`) and `parseQueryString()` (single-pass, DoS-limited)
 - **Cancellation** — `combineAbortSignal()` merges client-disconnect and timeout into one `ctx.signal`
@@ -256,6 +258,8 @@ The sealed public surface (ADR-0005), guarded by `__tests__/public-surface.test.
 | `resolveClientIp` | `(get, opts) => string` | `3.1.0` | Stable ✅ | The one client-IP precedence + validation policy. |
 | `combineAbortSignal` | `(base: AbortSignal) => CombinedAbort` | `3.1.0` | Stable ✅ | Merge client-disconnect and timeout into one signal. |
 | `normalizeStartupError` | `(err, ctx) => ServerStartError` | `3.1.0` | Stable ✅ | Uniform bind-failure error across adapters. |
+| `createBootGate` | `(app, opts) => BootGate` | `4.0.0` | Stable ✅ | Memoized boot barrier for adapter entry points with no startup phase. |
+| `createWebRunner` | `(app, opts) => (request, extra) => Response` | `4.1.0` | Stable ✅ | The one per-request flow every Web adapter runs: boot, dispatch, timeout race, finalize, errors. |
 
 ### Exports by domain
 
@@ -266,6 +270,7 @@ The sealed public surface (ADR-0005), guarded by `__tests__/public-surface.test.
 | **Body source** (`body-source.ts`) | `AbstractBodySource` · `WebBodySource` · `EmptyBodySource` · `createWebBodySource` · `createEmptyBodySource` · `BodyConsumedError` · `BodyTooLargeError` · `DEFAULT_BODY_LIMIT` |
 | **Response builder** (`response-builder.ts`) | `WebResponseBuilder` · `assertHeaderSafe` · `isBodylessResponse` · `jsonErrorResponse` |
 | **Web Context base** (`web-context-base.ts`) | `WebContextBase` · types `WebRawHttp` · `WebStreamRunners` |
+| **Boot gate & Web runner** (`boot-gate.ts`, `web-runner.ts`) | `createBootGate` · `createWebRunner` · types `BootableApp` · `BootGate` · `BootGateOptions` · `WebRunnerApp` · `WebRunnerContext` · `WebRunnerOptions` |
 | **Headers** (`headers.ts`) | `headersToRecord` · `resolveClientIp` · `getClientIp` · `getEdgeClientIp` · `isValidClientIp` · types `ClientIpOptions` · `HeaderLookup` |
 | **Query** (`query.ts`) | `parseQueryString` |
 | **Request signal** (`request-signal.ts`) | `combineAbortSignal` · type `CombinedAbort` |
