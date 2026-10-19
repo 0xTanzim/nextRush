@@ -29,6 +29,7 @@
 
 import { assertHeaderSafe } from './header-guards';
 import { HeaderList, sameHeaderName, type OutgoingHeaderEntry } from './outgoing-headers';
+import { warnDiscardedWriteOnce } from './outgoing-warnings';
 
 /** The serialized response body the record holds. A stream is never recorded. */
 export type OutgoingBody = string | Uint8Array | null;
@@ -43,28 +44,6 @@ const LOWERCASE_C = 0x63;
 
 /** Reused only for measuring and materializing string bodies. */
 const UTF8_ENCODER = new TextEncoder();
-
-let warnedDiscardedWrite = false;
-
-/**
- * Report once per process that a response write arrived after the flush.
- *
- * @remarks
- * Discarding silently would make a registered middleware stop having an effect
- * with no signal; throwing would unwind the rest of the chain while the request
- * still answers normally, which is what the pre-record Node adapter did. Once
- * per process (not per request) keeps a deterministic code mistake from becoming
- * a log storm under load.
- */
-function warnDiscardedWriteOnce(field: string): void {
-  if (warnedDiscardedWrite) return;
-  warnedDiscardedWrite = true;
-  console.warn(
-    `[@nextrush/runtime] discarding '${field}': the response was already flushed, so the write was ` +
-      `not sent. Change the response from middleware that runs before the flush, or guard on ` +
-      `ctx.responded. Later discarded writes in this process are not reported.`
-  );
-}
 
 /**
  * A recorded outgoing response.
