@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Deferred` — gated on the §14 buffer-cost measurement |
+| **Status**           | `Implemented` — P1–P4 shipped; the §14 gate numbers are not yet recorded, so adoption is still pending that table |
 | **RFC number**       | `041`                                                                 |
 | **Date**             | `2026-10-19`                                                          |
 | **Author(s)**        | Framework maintainer (R&D audit + request-path implementation session) |
@@ -17,14 +17,32 @@
 
 ## Progress Tracker
 
-**Overall:** `[░░░░░░░░░░░░░░░░░░░░]` 0% — 0 / 4 phases complete · Doc status: `Deferred`
+**Overall:** `[████████████████████]` 100% — 4 / 4 phases complete · Doc status: `Implemented`, §14 gate pending
 
 | Phase | Deliverable | Status |
 | ----- | ----------- | ------ |
-| P1 | Record the outgoing response in the shared context, both adapter families | ⬜ Not started |
-| P2 | Node flushes the recorded response after the chain unwinds | ⬜ Not started |
-| P3 | Compression and timer act on the recorded response on every adapter | ⬜ Not started |
-| P4 | Remove the divergence flag from conformance and its documented limitations | ⬜ Not started |
+| P1 | Record the outgoing response in the shared context, both adapter families | ✅ Shipped |
+| P2 | Node flushes the recorded response after the chain unwinds | ✅ Shipped |
+| P3 | Compression and timer act on the recorded response on every adapter | ✅ Shipped |
+| P4 | Remove the divergence flag from conformance and its documented limitations | ✅ Shipped |
+
+**What shipped (verified by the suites, not asserted here):**
+
+- `@nextrush/runtime`: `OutgoingResponse` (record), `HeaderList` (allocation-free case-insensitive
+  map), `WebResponseBuilder` rewritten onto the record, `WebContextBase[OUTGOING_RESPONSE]`.
+- `@nextrush/types`: the `OUTGOING_RESPONSE` symbol key and `OutgoingResponseHandle` contract,
+  `@internal`.
+- `@nextrush/adapter-node`: `json`/`send`/`html`/`redirect`/`set` record instead of writing,
+  `flushResponse()` once after the chain settles, one `writeHead` per response, derived
+  `Content-Length`.
+- `@nextrush/compression` and `@nextrush/timer`: read/rewrite through the record; the adapter-matrix
+  limitation sections are gone from both READMEs.
+- Conformance: `honorsPostHandlerHeaderWrite` deleted from the contract and all five drivers; #29
+  asserts the header unconditionally; new #31 asserts a post-handler body rewrite.
+
+**Not yet recorded:** §14's numbers (the `inproc.nextrush.vs_hono` A/B, the copy-counter figure, and
+the three FB-03 probes). Until that table exists this RFC is implemented but not adopted, and
+`FB-03` stays in `knownFailures`.
 
 ---
 
@@ -32,6 +50,22 @@
 
 - **v1 (`2026-10-19`)** — Written as the durable record for a decision made and deliberately deferred inside `fix-request-path-and-response-contract`. Every claim about current behaviour below was measured in that change; the fix brief that first named the problem is `report/architecture/fix-briefs/fb-03-response-commit-model-and-compression.md`.
 - **v2 (`2026-10-19`)** — Recorded the interim commit contract (§3.1.1) established by `align-post-handler-response-contract`: a post-commit response-header write is discarded and reported once, and a response the handler already committed outlives the handler timeout. §3.1, §3.2, §6 and §12 updated to match. Status stays `Deferred`; this RFC remains gated on the §14 measurement, and now must preserve both interim outcomes rather than revert them.
+- **v3 (`2026-10-19`)** — P1–P4 implemented (see the Progress Tracker for the shipped surface). Three things were learned while implementing and are recorded here because they change the plan, not just the code:
+  1. **Node's socket guard had to move later than the handler deadline.** `serve()` fed one
+     `timeout` to both guards, so they expired on the same tick. That was survivable while the
+     handler wrote the response immediately; once delivery is the flush, the socket guard wins the
+     tie and destroys a socket whose response was ready to send (the conformance drivers had
+     already worked around it locally by raising `httpServer.timeout`). `server.timeout` is now
+     `timeout + SOCKET_GUARD_HEADROOM_MS`, and `handler-timeout.test.ts` pins the strict ordering.
+  2. **A committed response needs a deadline without losing F-1.** A handler that commits and then
+     hangs is delivered by the record, not by an eager write, so the flush must be bounded. The
+     deadline is armed only after a bounded microtask window (the same `SETTLE_TURNS` trade the Web
+     runner makes), which keeps a synchronously-settling chain free of `Timeout` allocations.
+  3. **A replaced body invalidates its recorded length.** `setBody` drops a previously recorded
+     `Content-Length`, so a middleware cannot flush a length that describes the body it replaced;
+     callers that know the new length write it after the replacement (compression does).
+  Status moves from `Deferred` to `Implemented`; the §14 numbers are still to be recorded before
+  adoption, and `FB-03` stays in `knownFailures` until its probes pass.
 
 ---
 
@@ -424,7 +458,13 @@ deleted only in P4, so a rollback at any earlier phase keeps the conformance sui
 
 ## 18. Open Questions
 
-- Should the record be allocated lazily only when a post-handler middleware is present on the chain?
-  (§14.2's third clause assumes yes; P1 must confirm the detection is cheap.)
-- Is `honorsPostHandlerHeaderWrite` worth keeping for adapters that genuinely cannot buffer (a
-  hypothetical minimal runtime), or is buffering a requirement of the adapter contract from now on?
+- ~~Should the record be allocated lazily only when a post-handler middleware is present on the chain?~~
+  **Answered during P1:** the record itself is one small object per request, and its *header map* is
+  what dominates — so the map is allocated lazily on the first `set()` and the content type lives in
+  its own slot. A response whose only header is the body method's default allocates no map at all.
+  Detecting "a post-handler middleware exists" per request was rejected: the composition is not
+  introspectable, and the lazy map already removes the allocation that mattered.
+- ~~Is `honorsPostHandlerHeaderWrite` worth keeping for adapters that genuinely cannot buffer?~~
+  **Answered in P4:** no. Buffering is now a requirement of the adapter contract — a third-party
+  adapter that cannot record a response is not conformant, and the flag is gone from the contract and
+  every driver.
