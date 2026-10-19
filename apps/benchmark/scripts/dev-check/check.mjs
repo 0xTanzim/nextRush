@@ -8,6 +8,8 @@
 //   node scripts/dev-check/check.mjs all --rt node   # run the runtime stages on Node instead of Bun
 //   node scripts/dev-check/check.mjs bundle inproc --built  # also measure the published dist/
 //
+// `--built` resolves package `dist/` output and prefixes its rows with `built.`. Source
+// remains the gate; a stale output prints `WARN built.stale` and says to run `pnpm build`.//
 // `bundle cold inproc probe` measures ~16 s on Bun and ~25 s on Node; `wire` adds
 // ~37 s. `profile` is minutes and is excluded from the default stage set.
 //

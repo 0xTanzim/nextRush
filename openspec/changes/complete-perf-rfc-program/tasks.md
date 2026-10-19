@@ -17,7 +17,8 @@
 - [x] 2.1 RED: add `lib/__tests__/built-outputs.test.mjs` for `assertBuiltOutputs` with temporary package trees: complete output returns the package list, a missing `dist/index.js` throws with the missing path and `pnpm build`, and a source file newer than the output is reported as stale. Verify the test fails on the missing module.
 - [x] 2.2 GREEN: implement `lib/built-outputs.mjs` (`assertBuiltOutputs`, `findStaleOutputs`) and keep it under 150 lines. Verify the 2.1 test passes.
 - [x] 2.3 Add `--built` to `check.mjs` and the harness: set `ctx.built`, run the preflight once, pass `--built` to `lib/build.ts`, skip the source alias in that mode, and prefix built metrics with `built.` while leaving built rows INFO. Verify `node check.mjs bundle inproc --built` (after `pnpm build`) prints both source and built rows, `.out/last-run.bun.json` keeps separate `built.*` keys, and a run with a temporarily renamed `packages/core/dist` fails fast with the actionable message (restore it afterwards).
-- [ ] 2.4 Document `--built` (what it resolves, why source stays the gate, the stale-output warning) in the dev-check README and `check.mjs` header. Verify the documented command runs as written.
+- [x] 2.4 Document `--built` (what it resolves, why source stays the gate, the stale-output warning) in the dev-check README and `check.mjs` header. Verify the documented command runs as written.
+  - `check.mjs` header now names `--built`, the `built.` prefix and the `WARN built.stale` recovery; README §"Built output alongside source" covers the same. `node ... check.mjs bundle cold inproc --built` exits 0 with the documented rows.
 
 ## 3. Deno as a gate runtime
 
