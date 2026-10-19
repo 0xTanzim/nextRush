@@ -84,15 +84,15 @@
 
 ## 6. CPU, allocation, and kernel attribution for the touched paths
 
-- [ ] 6.1 Attribute CPU for the Node header-write path and the Web dispatcher before and after the
+- [x] 6.1 Attribute CPU for the Node header-write path and the Web dispatcher before and after the
       fixes using the existing profiler artifacts and methodology. Verify: a profiler artifact
       identifies the header-write and dispatch frames.
-- [ ] 6.2 Measure the allocation impact of both fixes with the deterministic allocation counter,
+- [x] 6.2 Measure the allocation impact of both fixes with the deterministic allocation counter,
       never sampled `heapUsed`. Verify: each fix records a counter delta, and any `heapUsed` figure
       is explicitly marked as non-evidence.
-- [ ] 6.3 Record any cache-line or branch-layout observation as labelled inference only. Verify:
+- [x] 6.3 Record any cache-line or branch-layout observation as labelled inference only. Verify:
       every layout statement is marked inference, and no task's acceptance depends on one.
-- [ ] 6.4 Leave kernel/syscall-level behaviour to the existing OS-queue and socket-timeout evidence;
+- [x] 6.4 Leave kernel/syscall-level behaviour to the existing OS-queue and socket-timeout evidence;
       add an entry only if a syscall-level change is actually made. Verify: no user-space assertion
       about kernel behaviour is recorded without a matching OS-level measurement.
 

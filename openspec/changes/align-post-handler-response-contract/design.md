@@ -155,6 +155,60 @@ committed response outlives the timeout — is therefore recorded in that RFC as
 that the recorded-response model must preserve, so the model is built as a refinement of it rather
 than in conflict with it. No new RFC is created: the surface already has an owner.
 
+## Attribution (measured `2026-10-19`)
+
+**CPU (6.1).** `check.mjs profile` on the in-proc entry, after every fix, artifacts under
+`apps/benchmark/scripts/dev-check/.out/`:
+
+- Bun — `Request` 44.8 % and `Response` 18.7 % are platform/harness; framework frames are
+  `stringify` 5.1 %, `requestTargetFromUrl` 2.6 %, `matchRoute` 1.8 %, `WebContextBase` 3.7 %
+  combined, `BunContext` 1.1 %. **No `dispatchWithTimeout` frame appears at all**: for a settled
+  request the arming decision now costs nothing at CPU level, which is the profile-level
+  confirmation of the timing and allocation results.
+- Node, on the `adapter-node` arm — `serializeJson` 9.0 %, `NodeContext` 4.5 %, `json` 3.0 % (the
+  header-write path this change guards), `composedSingle` 2.5 %, the adapter's `listener` 2.0 %,
+  `resolveMatch` 1.5 %, `getClientIp` 1.5 %. The harness's own `createReq`/`createRes` stand-ins
+  account for 14.5 % and are disclosed: they are built per request, the same caveat `new Request`
+  carries on the Web arm.
+
+**Allocation (6.2).** Deterministic harnesses only, each run under `--expose-gc` with a GC-free
+window verified (`gcCount` 0). No sampled `heapUsed` figure is used as evidence; the delta-below is
+the harnesses' own GC-bracketed method, which is the repository's deterministic one.
+
+- **Fix 2 (Web runner)** — new `scripts/alloc/web-runner-alloc-child.js`; the runner had no
+  allocation harness before, which is why its settle wrapper was only ever visible as a timing
+  delta. The causal comparison is *within one build*, where the only difference is the arming path:
+
+  | Build | `armed` (timeout > 0) | `disabled` (control) | armed − control |
+  | --- | --- | --- | --- |
+  | before (`bdbf75da^`) | 22.45 / 21.98 / 22.47 | 20.68 / 20.26 / 19.97 | ≈ +2.0 B/req |
+  | after | 9.56 / 9.17 / 8.71 | 9.58 / 9.27 / 9.04 | ≈ ±0.5 B/req |
+
+  Both variants also fell by ≈ 11 B/req across the build boundary. That shift is **observed, not
+  attributed**: it correlates with the runner function's shape, and V8's async frame/context sizing
+  was not measured, so it must not be cited as a win. The absolute figure is also not gross
+  allocation — the harness reuses one `Response` and excludes what a real `getResponse()` builds,
+  reporting only what the runner's own path allocates and retains in the window.
+- **Fix 1 (Node header write)** — `handler-alloc`, `timeout > 0` path: 503.7 ± 23.5 B/req before
+  (cv 4.66 %) against 518.0 ± 7.1 B/req after (cv 1.37 %). The +14.3 B/req delta is inside one
+  standard deviation, i.e. no measurable change: the guard adds a boolean read to the normal path,
+  and its allocation benefit exists only on the post-commit path, where it replaces a thrown `Error`
+  and a rejected promise with a read and a once-per-process report — a path this harness does not
+  exercise.
+
+**Cache lines and branch layout (6.3) — labelled inference, not evidence.** The settled path no
+longer materialises the holder object, the `.then` reaction, or the four-turn microtask loop, so its
+hot working set is smaller and the loop's branch check disappears; the Node `set()` guard adds one
+load on a path that is already branch-light. No hardware counters were collected (`perf stat` was
+not run, and it may be unavailable in this environment), and no acceptance criterion in this change
+depends on either statement.
+
+**Kernel and syscalls (6.4) — no entry added.** Neither fix changes a syscall: both are user-space
+control flow and neither alters how bytes reach the socket. The existing evidence stands unchanged —
+the `wire` stage for kernel-mediated throughput and the adapter's socket-timeout tests for the
+slow-client guard. Per the task, an OS-level entry is added only if a syscall-level change is
+actually made, and none was.
+
 ## Risks / Trade-offs
 
 - **A silently dropped header replaces a loud throw.** → The warning fires once per process and names

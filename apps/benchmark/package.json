@@ -23,6 +23,7 @@
     "bench:alloc:router": "node scripts/alloc/router-match-alloc.js",
     "bench:alloc:param-match": "node scripts/alloc/param-match-alloc.js",
     "bench:alloc:handler": "node scripts/alloc/handler-alloc.js",
+    "bench:alloc:web-runner": "node --expose-gc --max-semi-space-size=256 scripts/alloc/web-runner-alloc-child.js armed 200000",
     "bench:alloc:native-hello": "node scripts/alloc/native-hello-alloc.js",
     "bench:express-bridge": "node scripts/express-bridge-ab.js",
     "bench:express-bridge:ladder": "node scripts/express-bridge-ladder.js",
