@@ -67,8 +67,11 @@ export function stageInproc(ctx) {
     hono: ctx.build('inproc-hono', ctx.target).out,
     nr: ctx.build('inproc-nextrush', ctx.target).out,
   };
-  // Best of two: the first run can eat a GC pause unrelated to the code under test.
-  const best = (f, env) => Math.min(inprocUs(ctx, f, env), inprocUs(ctx, f, env));
+  // Best of three: a single run can eat a GC pause or a scheduling hiccup
+  // unrelated to the code under test, and the ratio this feeds is a gate — two
+  // samples leaves a 40% spread on a loaded machine, three halves it.
+  const best = (f, env) =>
+    Math.min(inprocUs(ctx, f, env), inprocUs(ctx, f, env), inprocUs(ctx, f, env));
   const raw = best(files.raw, {});
   const hono = best(files.hono, {});
   const nr = best(files.nr, {});

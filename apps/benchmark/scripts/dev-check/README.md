@@ -128,8 +128,13 @@ instead of accumulating across two separate benchmark sessions. **Below 1.0 is f
 | `bundle.<entry>.kb` | Bundled size of one entry point | `max` 40–70 KB |
 | `cold.n25.vs_hono` | Startup ms ÷ Hono's, at 25 routes | `max` 1.6 |
 | `cold.n1000.vs_hono` | Startup ms ÷ Hono's, at 1,000 routes — where registration work shows up | `max` 1.2 |
-| `inproc.nextrush.vs_hono` | Per-request µs ÷ Hono's, in-process | `max` 2.5, `target` 1.3 |
+| `inproc.nextrush.vs_hono` | Per-request µs ÷ Hono's, in-process | `max` 1.9, `target` 1.4 |
 | `wire.nextrush.vs_hono` | Requests/s ÷ Hono's, over a socket (**above 1.0 is faster**) | `min` 0.5, `target` 0.85 |
+
+`inproc` takes the best of three runs per entry. Two samples left a ~40% spread on a loaded
+machine, and this ratio is a gate — three halves it for a few seconds of runtime. The committed
+`max` was ratcheted from 2.5 to 1.9 only after five consecutive runs landed in 1.02–1.56 across
+both runtimes, so it guards a real regression instead of describing the machine it ran on.
 
 The three `INFO`-only numbers worth watching:
 
