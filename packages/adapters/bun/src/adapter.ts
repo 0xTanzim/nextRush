@@ -198,14 +198,14 @@ export type BunFetchHandler = (
 function createBunRequestRunner(app: Application, options: HandlerOptions): BunFetchHandler {
   const proxy = app.options.proxy ?? false;
 
-  return createWebRunner(app, {
+  return createWebRunner<BunContext, ReturnType<typeof Bun.serve>>(app, {
     label: 'bun',
     timeout: options.timeout ?? DEFAULT_TIMEOUT_MS,
     logger: options.logger,
     makeContext: (request, server) =>
       // The platform address is resolved on the first `ctx.ip` read, not here.
       createBunContext(request, () => server.requestIP(request)?.address ?? '', proxy),
-  }) as BunFetchHandler;
+  });
 }
 
 /**

@@ -17,7 +17,6 @@
  */
 
 import type { IncomingHeaders } from '@nextrush/types';
-import type { Request } from '@nextrush/types';
 import { headersToRecord } from './headers';
 
 /**

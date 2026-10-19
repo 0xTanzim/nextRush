@@ -112,10 +112,12 @@ const handlers: Record<string, (lookups: { count: number }) => Handler> = {
   }),
 };
 
-describe.each(Object.keys(handlers))('%s handler', (name) => {
+const handlerCases = Object.entries(handlers);
+
+describe.each(handlerCases)('%s handler', (name, build) => {
   it('performs no client-address lookup for a handler that never reads ctx.ip', async () => {
     const lookups = { count: 0 };
-    const handler = handlers[name](lookups);
+    const handler = build(lookups);
     const counting = headerCountingRequest();
 
     const response = await handler.invoke(counting.request, 1000, lookups);
@@ -129,7 +131,7 @@ describe.each(Object.keys(handlers))('%s handler', (name) => {
 
   it('arms no timeout timer for a handler that settled synchronously', async () => {
     const lookups = { count: 0 };
-    const handler = handlers[name](lookups);
+    const handler = build(lookups);
     const realSetTimeout = globalThis.setTimeout;
     const realClearTimeout = globalThis.clearTimeout;
     let armed = 0;

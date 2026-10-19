@@ -74,7 +74,7 @@ export interface WebRunnerOptions<TCtx extends WebRunnerContext, TExtra> {
   makeContext: (request: Request, extra: TExtra) => TCtx;
 
   /** Adapter-specific error response; the default logs and answers 500. */
-  onError?: (error: Error, ctx: TCtx) => Response;
+  onError?: (error: Error, ctx: TCtx) => Response | Promise<Response>;
 
   /** Logger override; defaults to the application's logger. */
   logger?: Logger;
@@ -105,17 +105,34 @@ async function dispatchWithTimeout(
   timeoutMs: number,
   onTimeout: () => void
 ): Promise<boolean> {
-  let settled = false;
-  const settlement = dispatch.then(() => {
-    settled = true;
-  });
+  // A holder, not a bare `let`: the settlement is observed from a callback, and a
+  // flat variable would be narrowed to its initial value by control-flow analysis
+  // (and by the lint rule that reads the same narrowing).
+  const outcome: { done: boolean; failed: boolean; error?: unknown } = {
+    done: false,
+    failed: false,
+  };
 
-  for (let turn = 0; turn < SETTLE_TURNS && !settled; turn += 1) {
+  // Both outcomes are handled here, so this promise never rejects unobserved
+  // while the microtask window is still open.
+  const settlement = dispatch.then(
+    () => {
+      outcome.done = true;
+    },
+    (error: unknown) => {
+      outcome.done = true;
+      outcome.failed = true;
+      outcome.error = error;
+    }
+  );
+
+  for (let turn = 0; turn < SETTLE_TURNS && !outcome.done; turn += 1) {
     await Promise.resolve();
   }
 
-  if (settled) {
+  if (outcome.done) {
     await settlement;
+    if (outcome.failed) throw outcome.error;
     return false;
   }
 
@@ -123,7 +140,7 @@ async function dispatchWithTimeout(
   let timerId: ReturnType<typeof setTimeout> | undefined;
   try {
     const winner = await Promise.race([
-      settlement.then(() => undefined),
+      settlement,
       new Promise<typeof TIMEOUT>((resolve) => {
         timerId = setTimeout(() => {
           resolve(TIMEOUT);
@@ -131,9 +148,12 @@ async function dispatchWithTimeout(
       }),
     ]);
 
-    if (winner !== TIMEOUT) return false;
-    onTimeout();
-    return true;
+    if (winner === TIMEOUT) {
+      onTimeout();
+      return true;
+    }
+    if (outcome.failed) throw outcome.error;
+    return false;
   } finally {
     if (timerId !== undefined) clearTimeout(timerId);
   }
