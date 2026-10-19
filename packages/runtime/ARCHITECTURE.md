@@ -328,7 +328,7 @@ The primitives on the per-request path are written to avoid allocation and super
 | `getRuntime()` | O(1) after first call | none | Memoized; detection runs once per process. |
 | `capabilitiesFor(known)` | O(1) | one matrix object | Curated switch; no probing. |
 | `parseQueryString(qs)` | O(n) single pass | none on empty/over-limit (shared frozen `EMPTY_QUERY`) | `indexOf`-based scanner, no `split('&')` intermediate array; capped at 256 params / 2048 chars. |
-| `requestTargetFromUrl(url)` | O(n) single pass | none | Two `indexOf` scans over the URL string; no `URL` construction (which would parse, percent-encode, and resolve dot segments) and no intermediate array. |
+| `requestTargetFromUrl(url)` | O(n) single pass | none | Two bounded `charCodeAt` scans over the URL string (one for the authority/path boundary, one for the query/fragment mark); no `URL` construction (which would parse, percent-encode, and resolve dot segments) and no intermediate array. |
 | `combineAbortSignal(base)` | O(1) | one `AbortController` | Created lazily by the Context only on first `signal` access, so the non-timeout/non-stream hot path stays allocation-free. |
 | `resolveClientIp(get, opts)` | O(1) | none | A few header reads + structural validation. |
 | `WebBodySource.buffer(limit)` | O(n) copy | one `Uint8Array` | One native `request.arrayBuffer()` when an honest `Content-Length` proves the body fits the limit; otherwise the incremental reader enforces the limit as it reads. The shared utf-8 `TextDecoder` is reused across reads. |

@@ -5,6 +5,7 @@
 import { BodyConsumedError, BodyTooLargeError, EmptyBodySource as RuntimeEmptyBodySource } from '@nextrush/runtime';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createEmptyBodySource, EmptyBodySource } from '../body-source';
+import { createDenoContext } from '../context';
 
 describe('EmptyBodySource', () => {
   let emptySource: EmptyBodySource;
@@ -81,5 +82,34 @@ describe('createEmptyBodySource', () => {
 describe('F-04a — shared WebBodySource reuse', () => {
   it('EmptyBodySource is the shared runtime EmptyBodySource', () => {
     expect(EmptyBodySource).toBe(RuntimeEmptyBodySource);
+  });
+});
+
+describe('RFC-043 — the Deno context reads provable-length bodies natively', () => {
+  it('reads a body carrying Content-Length and caches the result', async () => {
+    const payload = '{"hello":"deno"}';
+    const request = new Request('http://localhost/echo', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-length': String(payload.length) },
+      body: payload,
+    });
+
+    const ctx = createDenoContext(request);
+    const first = await ctx.bodySource.buffer();
+    const second = await ctx.bodySource.buffer();
+
+    expect(new TextDecoder().decode(first)).toBe(payload);
+    expect(second).toBe(first);
+  });
+
+  it('reads a body without Content-Length through the incremental reader', async () => {
+    const request = new Request('http://localhost/echo', {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: 'chunked-style',
+    });
+
+    const ctx = createDenoContext(request);
+    await expect(ctx.bodySource.text()).resolves.toBe('chunked-style');
   });
 });

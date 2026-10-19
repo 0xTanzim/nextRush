@@ -18,7 +18,7 @@
 - [x] 3.2 Add failing tests for the fallback and errors: absent/understating `Content-Length` still uses the incremental reader; an honest over-limit `Content-Length` rejects before any read; a mid-stream over-limit chunked body rejects with `BodyTooLargeError`; a platform read failure maps to the existing body-read error. Verify each fails for the intended reason.
 - [x] 3.3 Add failing cache/consumption tests: `buffer()` twice returns the cached buffer; a second read after cache is not a `BodyConsumedError`; a stream consumer after `buffer()` still reports consumed. Verify all three fail before the change.
 - [ ] 3.4 Add failing body-parser integration tests in `packages/middleware/body-parser/src/__tests__/limit-and-hotpath.test.ts`: 1 KB JSON parses identically; `rawBody` bytes are identical; a 10 KB limit still rejects a chunked 900 KB body incrementally. Verify the tests fail only on the fast-path expectation, not on existing behavior.
-- [ ] 3.5 Add the same behavior matrix to `packages/adapters/bun/src/__tests__/body-source.test.ts` and the Deno equivalent. Verify both fail before implementation and assert the native path is used only when the length is provable.
+- [x] 3.5 Add the same behavior matrix to `packages/adapters/bun/src/__tests__/body-source.test.ts` and the Deno equivalent. Verify both fail before implementation and assert the native path is used only when the length is provable.
 
 ## 4. Implementation
 
