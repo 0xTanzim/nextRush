@@ -69,6 +69,7 @@ invent a new structure per RFC.
 | [038](dev-tooling/038-in-repo-dev-loader.md) | `@nextrush/dev` — dev runtime loader owned in-repo on `@swc/core` | Shipped | dev-tooling |
 | [039](runtime-adapters/039-precompile-per-request-tax.md) | Precompile the per-request tax — registration-time work vs request-time work | Approved — Part A in progress | runtime-adapters |
 | [040](runtime-adapters/040-resource-budgets-and-request-path-footprint.md) | Resource budgets and request-path footprint — measure first, gate AOT on evidence (AOT deferred) | Approved — gates in use, P2 in progress | runtime-adapters |
+| [041](runtime-adapters/041-recorded-response-model.md) | A recorded response model — one outgoing response both adapter families can rewrite | Deferred — gated on the buffer-cost measurement | runtime-adapters |
 
 ## Note on RFC-005 (Plugin System)
 

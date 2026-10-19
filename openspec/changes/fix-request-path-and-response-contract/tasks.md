@@ -107,6 +107,6 @@ recorded because each item is load-bearing for a later group's proof.
 
 ## Workflow follow-up
 
-- Record the deferred recorded-response model as its own `docs/RFC/` entry before this change is archived, so the durable decision does not exist only in this change's history.
+- [x] Record the deferred recorded-response model as its own `docs/RFC/` entry before this change is archived, so the durable decision does not exist only in this change's history. → [RFC-041](../../../docs/RFC/runtime-adapters/041-recorded-response-model.md), `Deferred`, with the un-defer gate in §14.
 - Commit each group only when the maintainer asks; the maintainer decides when the working tree is committed.
 - Archive the change once the maintainer's review requirements are satisfied.
