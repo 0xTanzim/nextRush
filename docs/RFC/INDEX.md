@@ -67,7 +67,7 @@ invent a new structure per RFC.
 | [036](request-data/036-logger-log-v03-surface.md) | `@nextrush/logger` — public surface policy & `@nextrush/log` v0.3 migration | Approved (breaking) | request-data |
 | [037](repo-tooling/037-typescript-7-oxlint-migration.md) | Repo toolchain — TypeScript 7 adoption via Oxlint (replace ESLint + typescript-eslint) | Shipped — plan: [037-typescript-7-oxlint-migration-plan.md](repo-tooling/037-typescript-7-oxlint-migration-plan.md), parity audit: [037-rule-mapping.md](repo-tooling/037-rule-mapping.md) | repo-tooling |
 | [038](dev-tooling/038-in-repo-dev-loader.md) | `@nextrush/dev` — dev runtime loader owned in-repo on `@swc/core` | Shipped | dev-tooling |
-| [039](runtime-adapters/039-precompile-per-request-tax.md) | Precompile the per-request tax — registration-time work vs request-time work | Approved — Part A shipped, P0 profiles in progress | runtime-adapters |
+| [039](runtime-adapters/039-precompile-per-request-tax.md) | Precompile the per-request tax — registration-time work vs request-time work | Approved — Part A shipped, P0 complete; P2/P3 unproven | runtime-adapters |
 | [040](runtime-adapters/040-resource-budgets-and-request-path-footprint.md) | Resource budgets and request-path footprint — measure first, gate AOT on evidence (AOT deferred) | Approved — gates in use, P0–P2 shipped | runtime-adapters |
 | [041](runtime-adapters/041-recorded-response-model.md) | A recorded response model — one outgoing response both adapter families can rewrite | Deferred — gated on the §14 buffer-cost measurement | runtime-adapters |
 

@@ -13,7 +13,7 @@
 - [x] 2.2 Update RFC-040's progress tracker: P0, P1, and P2 (Web footprint) are shipped, P3/P4 unchanged; verify the stated fraction equals the rows and that the P2 row names the lazy-header, lazy-IP, runner, and gate evidence.
 - [x] 2.3 Update RFC-029: confirm P0 (`canonicalizePath` + dot-segment rejection), P1 (`ctx.path` folded / `ctx.originalPath` raw), and P2 (prefix/mount canonicalization) against `packages/router/src/dispatch.ts`, `canonicalize.ts`, and their tests; mark P3 (`caseSensitive` default flip) explicitly not shipped; verify each status has a file:line or test anchor, and that the spec's "default remains false" statement matches.
 - [x] 2.4 Align each RFC's own status line with its `docs/RFC/INDEX.md` row (029 file/index disagree today); verify a diff of the two rendered status strings reports no mismatch for 029, 039, 040, 041.
-- [ ] 2.5 Record in RFC-041 §14 the number this baseline supplies and the fact that the before-state is now measured on both runtimes; verify §14 points at the recorded table rather than an unquantified claim.
+- [x] 2.5 Record in RFC-041 §14 the number this baseline supplies and the fact that the before-state is now measured on both runtimes; verify §14 points at the recorded table rather than an unquantified claim.
 
 ## 3. Extend the profiling harness (tests first)
 
@@ -40,9 +40,9 @@
 
 ## 6. Fix only what measurement justifies
 
-- [ ] 6.1 For each `fix-now` finding, write the failing test or deterministic allocation assertion first and verify it fails for the stated reason. If the table is empty, record that outcome in the findings table and skip 6.2–6.4.
-- [ ] 6.2 Implement the minimal change that makes that test pass; verify the touched package's suite is green and no unrelated file changed.
-- [ ] 6.3 A/B the affected scenario with best-of-three, CPU-pinned where available; verify the reported win exceeds the run-to-run spread and that `dev-check inproc` does not regress.
+- [x] 6.1 For each `fix-now` finding, write the failing test or deterministic allocation assertion first and verify it fails for the stated reason. If the table is empty, record that outcome in the findings table and skip 6.2–6.4.
+- [x] 6.2 Implement the minimal change that makes that test pass; verify the touched package's suite is green and no unrelated file changed.
+- [x] 6.3 A/B the affected scenario with best-of-three, CPU-pinned where available; verify the reported win exceeds the run-to-run spread and that `dev-check inproc` does not regress.
 - [ ] 6.4 Refactor for clarity with tests green, then re-run the A/B; verify the numbers still hold and the diff remains behaviour-preserving (no status/header/body/ordering change).
 - [ ] 6.5 If a candidate fix turns out to change observable behaviour, stop, reclassify it as `rfc`, and verify no such diff is present in the change.
 

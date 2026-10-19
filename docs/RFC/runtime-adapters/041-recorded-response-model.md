@@ -340,6 +340,23 @@ implementations change; the adapter contract keeps its entry points.
 4. Conformance scenario #29 passes with `honorsPostHandlerHeaderWrite` removed from the driver contract.
 5. Streaming scenarios (#streaming, SSE, NDJSON) still pass on every runnable adapter, unbuffered.
 
+**Baseline this gate compares against (recorded 2026-10-19).** The before-state is now measured on
+both runtimes: `inproc.nextrush.vs_hono` 1.39 on Bun and 0.96 on Node, with per-shape attribution
+in RFC-039 §3.8 — Node dispatcher 1.5–2.4 % on hello and 3.9–4.7 % in the middleware shape,
+`serializeJson` 0.9–2.1 %, and undici/platform ≈ 25 % of in-process samples. A recorded-response
+model must be judged against those numbers, not against an unquantified "before".
+
+**Criterion 2 needs a counter, not a heap sample.** "No copy when no post-handler middleware
+touched the response" is an allocation claim, and sampled `heapUsed` is not a usable metric on this
+toolkit (RFC-039 §3.8 limits; the deterministic alloc harness only resolves bytes for the path it
+instrumented). The gate must increment a copy counter inside the recorder and assert zero, which is
+checkable and does not depend on machine noise.
+
+**Next change (not this one).** A measurement-only change that runs this gate: (a) add the copy
+counter to the recorder, (b) A/B the Node flush-after-chain path against today's write path, (c) run
+the existing `compression-gzip`, `timer-header`, and `server-timing-header` probes on both runtimes
+and record the before/after table. No response-model code changes until that table exists.
+
 ---
 
 ## 15. Phased Implementation Plan

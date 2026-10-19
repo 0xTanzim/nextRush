@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Approved` — Part A shipped (`db9bbda9`, `64ca11de`, `836dd6a5`, gate in `d41af71a`); P0 profile coverage in progress |
+| **Status**           | `Approved` — Part A shipped (`db9bbda9`, `64ca11de`, `836dd6a5`, gate in `d41af71a`); P0 complete, P2/P3 unproven (§3.10) |
 | **RFC number**       | `039`                                                                 |
 | **Date**             | `2026-09-29`                                                          |
 | **Author(s)**        | `Tanzim Hossain (NextRush maintainers) + explore session`             |
@@ -17,14 +17,14 @@
 
 ## Progress Tracker
 
-**Overall:** `[████░░░░░░░░░░░░░░░░]` 20% — 1 / 5 phases complete · Doc status: `Approved`
+**Overall:** `[████████░░░░░░░░░░░░]` 40% — 2 / 5 phases complete · Doc status: `Approved`
 
 | Phase | Part / deliverable                                              | Status       |
 | ----- | --------------------------------------------------------------- | ------------ |
-| P0    | Profiles: Bun hello-world done (§3.7, `dev-check profile`); Node + POST + middleware-stack still open | in progress — P0 completion is the first deliverable of the profile baseline change |
+| P0    | Profiles: hello, POST (parsed/unparsed), middleware ×5 on Bun and Node | ✅ Complete — Bun hello §3.7; Node/POST/middleware §3.8; verdict §3.10 |
 | P1    | Lazy context fill + const-header skip (no API change)           | ✅ shipped — lazy incoming headers `db9bbda9`, lazy client IP `64ca11de`, shared settled-handler runner `836dd6a5`; parity `7c36e897` |
-| P2    | Compiled request validator (Tier 2+) from existing metadata     | not started  |
-| P3    | Compiled response serializer (Tier 3) + docs incentive          | not started — gated on a POST/large-payload profile |
+| P2    | Compiled request validator (Tier 2+) from existing metadata     | not started — verdict: not justified yet (§3.10) |
+| P3    | Compiled response serializer (Tier 3) + docs incentive          | not started — verdict: gate unmet (§3.10) |
 | P4    | Scoped middleware DX; Rust only if profile names it             | not started  |
 
 ---
@@ -233,6 +233,26 @@ middleware numbers still include `Request`/`Response` construction inside the ti
 | **F5** | Serialization is a visible Node cost but small and gated | `serializeJson` 0.9–2.1 % (Node); `JSON.stringify` ≈3.5 % on Bun hello (§3.7) | Response-building requests | Below the 5 % bar this RFC set for building a compiled serializer | Compiled serializer remains RFC-039 P3, gated on a POST/large-payload profile | **No action here** — P3's gate is still unmet |
 | **F6** | Router matching is not a top cost | `matchRoute` 1.5 % in the five-middleware shape; absent elsewhere | None at this shape | Consistent with RFC-015's ≈4 % and the evidence-negative radix decision | — | **No action** — confirms RFC-015 |
 | **F7** | Cache-line and branch behaviour cannot be measured in JavaScript | No portable counter; profiler reports time only | Investigation method | `bench:alloc:web` resolves 8.1 B/req at cv 0.02 %, so allocation is measurable even when layout is not | Any layout claim stays inference | **Limitation recorded** — §3.8 limits paragraph |
+
+### 3.10 P0 verdict (2026-10-19)
+
+P0 asked for the shapes that were missing, not for an optimization. They now exist, and they say:
+
+- **P2 — compiled request validator: not justified yet.** No profile row names NextRush's
+  validation wrapper. The POST entries carry no schema, so the wrapper was never in the
+  measured path; the schema library already owns its own compilation behind
+  `~standard.validate()`. Building P2 now would optimize an unmeasured wrapper. What would
+  change this verdict: a POST entry with a realistic schema where the wrapper (not the
+  library) reaches ≈5 % of request CPU.
+- **P3 — compiled response serializer: gate unmet.** `JSON.stringify` is ≈3.5 % on the Bun
+  hello profile (§3.7) and `serializeJson` is 0.9–2.1 % on Node (§3.8). The POST profiles
+  attribute their time to body plumbing and dispatch, not serialization. This RFC's own rule
+  is to build C only when a POST/large-payload profile names serialization as a top cost.
+- **P4 — unchanged.** No profile row names the router, a header scan, or a query scan as
+  dominant, so neither Rust nor a routing rewrite has evidence.
+- **The one item the profiles do name is F2**: `dispatchWithTimeout` at 1.2–4.7 % self across
+  every shape on both runtimes. It is the largest framework-attributable cost measured here,
+  and it is deferred for a behavioural reason, not a performance one (§3.9).
 
 ## 4. Goals and Non-Goals
 
