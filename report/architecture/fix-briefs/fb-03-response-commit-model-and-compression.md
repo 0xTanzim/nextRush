@@ -1,5 +1,11 @@
 # FB-03 — Eager response commit: Node and Web adapters diverge, and `@nextrush/compression` does nothing
 
+> **RESOLVED (2026-10-19) by RFC-041.** Stage 0 landed earlier (the clean 504, the discard-once
+> report). Stage 1 landed as the recorded response model: one `OutgoingResponse` per request, flushed
+> once by every adapter after the chain unwinds. All three probe ids pass on Node and Bun, and
+> `FB-03` is deleted from `knownFailures`. The brief is kept as the measurement record; see
+> `docs/RFC/runtime-adapters/041-recorded-response-model.md` §14.1 for the gate table.
+
 | Field | Value |
 | --- | --- |
 | **Severity / Priority** | Medium–High · P1 (Stage 0 now) → P1 architecture (Stage 1) |
