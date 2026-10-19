@@ -328,6 +328,10 @@ handles cheaply.
 
 Both runtimes improved by 25–31% per request, and the probe set is unchanged (no FAIL, no new KNOWN).
 The remaining gap to Hono is 0.31 µs/request on Bun and 2.2 µs on Node.
+Final verification run after the shared runner's dispatch rewrite and the ratchet: Bun
+`inproc.nextrush.vs_hono` 1.39 (PASS at target 1.4) and Node 0.96 — faster than Hono in-process —
+with `PASS 23 / WARN 0 / KNOWN 1 / FAIL 0` on Bun and `PASS 20 / WARN 0 / KNOWN 3 / FAIL 0` on Node.
+
 
 **D26 — The ratio gate is ratcheted to measured reality, and the sampler that decides it is steadier.**
 After the group, `inproc.nextrush.vs_hono` measured 1.02–1.56 across five consecutive runs per
