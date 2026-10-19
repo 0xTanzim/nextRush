@@ -694,7 +694,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     }
   });
 
-  registerScenario(driver, '#29 timeout: a response the handler already committed outlives the handler timeout', {}, async () => {
+  registerScenario(driver, '#30 timeout: a response the handler already committed outlives the handler timeout', {}, async () => {
     // The 504 is reserved for a request that produced nothing: a handler that
     // answered and then ran past the timeout must still have its response
     // delivered on every adapter. Restoring the Web 504 path fails this.

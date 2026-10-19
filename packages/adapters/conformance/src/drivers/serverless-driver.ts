@@ -112,9 +112,12 @@ export const serverlessDriver: ConformanceDriver = {
   async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
     const app = createApp();
     app.use(async (ctx) => {
+      // Commit after a microtask so the adapter arms its timer: the harder
+      // case is a response committed while that timer is already running.
+      await Promise.resolve();
       ctx.json({ ok: true });
-      // Outlives the timeout below: the response is already committed when the
-      // timer fires, so the 504 must not replace it.
+      // Outlives the timeout below, so the timer fires with the response
+      // already committed.
       await new Promise<void>((resolve) => setTimeout(resolve, 40));
     });
     await app.ready();

@@ -265,6 +265,10 @@ response and then keeps working past `timeout` has already produced the answer, 
 delivered and the timeout does not replace it. The handler is still cancelled cooperatively: the
 timeout aborts `ctx.signal`. `@nextrush/adapter-node` already behaved this way.
 
+No timer is armed for a request whose handler has already committed its response when the runner
+takes over, so an already-settled handler performs no timeout racing. A handler that has not
+settled is still raced exactly as before.
+
 > **Behaviour change (observable):** this shape previously returned `504 Gateway Timeout` on every Web
 > adapter and discarded the handler's response, while Node delivered it. **Migration:** a handler that
 > answers once and returns needs no change. If you used the `504` to detect a handler that kept working

@@ -52,20 +52,21 @@
 
 ## 4. Web adapters: arm the timeout only when the handler has not already settled
 
-- [ ] 4.1 A/B the candidate shapes from design.md D3 on a CPU-pinned run, best-of-three, recording
+- [x] 4.1 A/B the candidate shapes from design.md D3 on a CPU-pinned run, best-of-three, recording
       the spread and the number of runs — including a null result. Verify: `dev-check` reports the
       `inproc.nextrush` request cost for each shape with the spread recorded.
-- [ ] 4.2 (GREEN) Implement the shape the A/B selects, so a synchronously-answered handler performs
+- [x] 4.2 (GREEN) Implement the shape the A/B selects, so a synchronously-answered handler performs
       no timeout racing while the timer, 504 body, cancellation signal and warning text are
       unchanged for a request that does not settle. Verify: the `web-adapters` timeout-arming
       scenarios pass and 3.1 stays green.
-- [ ] 4.3 Adopt the change only if the committed `inproc.nextrush.vs_hono` gate improves beyond the
+- [x] 4.3 Adopt the change only if the committed `inproc.nextrush.vs_hono` gate improves beyond the
       machine's 8–12 % run-to-run noise floor; otherwise record the null result and revert the
-      shape. Verify: `bench:validate` passes with a committed-gate number, or the task records a
-      documented null result with the gate unchanged.
-- [ ] 4.4 Add a web-runner unit test asserting the already-settled case schedules no timer while the
+      shape. Verify: `node apps/benchmark/scripts/dev-check/check.mjs inproc` passes with a
+      committed-gate number (there is no `bench:validate` script in this repository), or the task
+      records a documented null result with the gate unchanged.
+- [x] 4.4 Add a web-runner unit test asserting the already-settled case schedules no timer while the
       pending case still does. Verify: the test fails if the racing is restored.
-- [ ] 4.5 Document the arming rule in the web-adapters docs. Verify: the doc states that no timeout
+- [x] 4.5 Document the arming rule in the web-adapters docs. Verify: the doc states that no timeout
       racing is performed for an already-settled handler.
 
 ## 5. Measurement validity: an in-proc entry exercises the adapter it names

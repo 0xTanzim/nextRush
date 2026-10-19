@@ -201,7 +201,7 @@ export interface ConformanceDriver {
 
   /**
    * Deliver a response the handler committed before it ran past the configured
-   * timeout (#29).
+   * timeout (#30).
    *
    * @remarks
    * The 504 is reserved for a request that produced nothing. A handler that

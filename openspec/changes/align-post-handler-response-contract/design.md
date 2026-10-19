@@ -116,6 +116,28 @@ null result is a finding rather than a surprise. The target is the committed
 `inproc.nextrush.vs_hono` gate and a CPU-pinned A/B; a run-to-run spread of 8–12 % is the noise
 floor on this machine, so an improvement below that is not evidence.
 
+**Measured (`2026-10-19`, `taskset -c 0-3`, `dev-check inproc`, best-of-three per run, three runs per
+shape).** Each run prints the same entry twice — once with the default timeout and once with
+`TIMEOUT=0` — so the cost of the race itself is measurable *inside one run*, a paired comparison far
+less noisy than comparing two runs.
+
+| Shape | `inproc.nextrush.us` (3 runs) | Median | `TIMEOUT=0` control | Race cost (3 runs) | `vs_hono` (3 runs) |
+| --- | --- | --- | --- | --- | --- |
+| 0 — current | 3.209 / 3.627 / 3.592 | 3.592 | 2.79 / 3.11 / 2.98 | +0.42 / +0.51 / +0.61 | 1.25 / 1.38 / 1.42 |
+| 1 — synchronous settled check | 2.871 / 3.172 / 3.068 | 3.068 | 2.96 / 3.60 / 3.06 | −0.09 / −0.43 / +0.01 | 1.21 / 1.22 / 0.99 |
+
+Shape 1 is adopted. The decisive evidence is the paired delta rather than the cross-run medians: every
+baseline run paid 0.42–0.61 µs for a race it could never use, and after shape 1 the raced path costs
+what the `TIMEOUT=0` control costs, with the three deltas straddling zero. Median-to-median that is
+3.592 → 3.068 µs (−14.6 %), and the `vs_hono` median moves 1.38 → 1.21. Both exceed the 8–12 %
+run-to-run spread recorded for this machine, and the paired delta is free of that noise entirely.
+
+Shapes 2 and 3 are not adopted, and not because they lost a measurement: both only shorten work on the
+path a request takes when it *does* arm a timer, and after shape 1 no request in this workload takes
+that path. Measuring them would need a different workload — a timeout that actually fires — which the
+committed gate does not cover and which costs the full timeout per sample. Shape 3 was already expected
+to be worthless because the observation loop exits at turn 1 for a settled chain.
+
 ### D4 — The in-proc measurement exercises the adapter it names
 
 An in-proc entry selects the adapter for the runtime it runs under, so a Node row measures the Node

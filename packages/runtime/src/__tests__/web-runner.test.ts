@@ -219,6 +219,9 @@ describe('createWebRunner', () => {
 
   it('delivers a response the handler committed before the timeout fired, instead of a 504', async () => {
     const app = new FakeApp(async (ctx) => {
+      // Commit after a microtask, so the runner's synchronous "already settled"
+      // check does not apply and a timer really is armed for this request.
+      await Promise.resolve();
       ctx.json({ ok: true });
       // Outlives the 5ms timeout: the response is already committed when the
       // timer fires, so the 504 must not replace it.
@@ -236,11 +239,52 @@ describe('createWebRunner', () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
-    // The timeout still cancelled the still-running handler. This handler
-    // commits before its first await, so Node takes its synchronous fast path
-    // and arms nothing; the client-visible outcome is what must match, and it
-    // does.
+    // A timer was armed, and firing it cancelled the still-running handler.
     expect(ctx?.timeoutTriggered).toBe(1);
+  });
+
+  it('arms no timer for a handler that committed its response and then outlived the timeout', async () => {
+    const app = new FakeApp(async (ctx) => {
+      ctx.json({ ok: true });
+      // Still running when a timer would fire, so a racing runner arms one and
+      // cancels this handler. A settled handler must not be raced at all — and
+      // a setTimeout spy cannot prove that, because a synchronously-settled
+      // handler never reaches the arming point even when the runner races.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    let ctx: TestCtx | undefined;
+    const run = createWebRunner<TestCtx, undefined>(app as never, {
+      label: 'test',
+      timeout: 5,
+      makeContext: () => (ctx = makeContext()),
+    });
+
+    const response = await run(new Request('http://localhost/'), undefined);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(ctx?.timeoutTriggered).toBe(0);
+  });
+
+  it('arms a timer when the handler has not settled', async () => {
+    const app = new FakeApp(() => new Promise<void>(() => undefined));
+    const realSetTimeout = globalThis.setTimeout;
+    let armed = 0;
+    globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+      armed += 1;
+      return realSetTimeout(...args);
+    }) as typeof setTimeout;
+
+    let response: Response | undefined;
+    try {
+      response = await runnerFor(app, { timeout: 5 })(new Request('http://localhost/'), undefined);
+    } finally {
+      globalThis.setTimeout = realSetTimeout;
+    }
+
+    expect(response?.status).toBe(504);
+    expect(armed).toBe(1);
   });
 
   it('does not race at all when the timeout is disabled', async () => {
