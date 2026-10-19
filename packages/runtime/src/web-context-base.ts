@@ -63,6 +63,18 @@ const RESOLVED_NEXT: Promise<void> = Promise.resolve();
 export type WebRawHttp = RawHttp<Request, undefined>;
 
 /**
+ * A resolved client address, or a resolver called on the first `ctx.ip` read.
+ *
+ * @remarks
+ * Adapters resolve the address from a platform call (Bun's
+ * `server.requestIP`, Deno's `remoteAddr`) or from proxy headers. Handing over a
+ * resolver instead of a string keeps that work off the request path for the
+ * majority of handlers that never look at `ctx.ip`. A plain string stays
+ * accepted so a caller that already knows the address pays nothing.
+ */
+export type ClientAddress = string | (() => string);
+
+/**
  * The streaming/runtime primitives a concrete Web context wires in — the
  * pieces that are genuinely shared logic (`runTextStream`/`runSSEStream`/
  * `runNDJSONStream` from `@nextrush/stream`) but that `@nextrush/runtime`
@@ -100,13 +112,27 @@ export abstract class WebContextBase implements FetchContext {
    */
   readonly originalPath: string;
   readonly query: QueryParams;
-  readonly headers: IncomingHeaders;
   readonly runtime: Runtime;
   readonly bodySource: BodySource;
 
-  /** Backing field for {@link ip} (P2-3: a getter, not a plain field, so a
-   * subclass can warn on read without changing the value or its identity). */
-  protected readonly _ip: string;
+  /**
+   * Memoized incoming-header record.
+   *
+   * @remarks
+   * Declared as a slot, not a field, because building it walks every header —
+   * work a handler that reads one header (or none) never asked for. Reading
+   * {@link headers} fills it once; a single-name {@link get} never fills it at
+   * all. The slot is declared on the instance shape so filling it is a value
+   * write, not a property addition that transitions the hidden class.
+   */
+  private _headers?: IncomingHeaders;
+
+  /** Backing field for {@link ip}: an address already known, or a resolver
+   * called once on the first read (P2-3 keeps the getter so a subclass can
+   * observe a read without changing the value or its identity). */
+  private readonly _clientAddress: ClientAddress;
+  /** Memoized result of {@link _clientAddress}, once resolved. */
+  private _clientIp?: string;
 
   /**
    * Named deployment platform, when known (RFC-026).
@@ -156,7 +182,7 @@ export abstract class WebContextBase implements FetchContext {
    */
   protected constructor(
     request: Request,
-    ip: string,
+    ip: ClientAddress,
     runtime: Runtime,
     streamRunners: WebStreamRunners,
     platform?: PlatformId
@@ -166,7 +192,7 @@ export abstract class WebContextBase implements FetchContext {
     this.method = request.method.toUpperCase() as HttpMethod;
     this.runtime = runtime;
     this.platform = platform;
-    this._ip = ip;
+    this._clientAddress = ip;
 
     // Derive the target by scanning `request.url` instead of parsing it: WHATWG
     // parsing resolves dot segments (every encoded spelling of one included),
@@ -177,9 +203,6 @@ export abstract class WebContextBase implements FetchContext {
     this.originalPath = target.path;
     this.url = target.search === '' ? target.path : target.path + target.search;
     this.query = parseQueryString(target.search.slice(1));
-
-    // Convert Headers to record format
-    this.headers = headersToRecord(request.headers);
 
     // Create body source
     this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
@@ -193,14 +216,23 @@ export abstract class WebContextBase implements FetchContext {
    * The resolved client IP, per the concrete adapter's own policy.
    *
    * @remarks
-   * A getter (not a plain field) so a subclass can observe a read without
-   * changing the value — see {@link EdgeContext}'s override, which warns
-   * once per context in development when this is `''` because `trustProxy`
-   * is `false` (P2-3). Bun/Deno/Node never see that override; they always
-   * return a real resolved IP here, unchanged in value or behavior.
+   * A getter (not a plain field) for two reasons: it resolves a lazily-supplied
+   * address on first read and memoizes it (a handler that never reads `ctx.ip`
+   * causes no platform lookup, and two reads cause one), and a subclass can
+   * observe a read without changing the value — see {@link EdgeContext}'s
+   * override, which warns once per context in development when this is `''`
+   * because `trustProxy` is `false` (P2-3). Bun/Deno/Node never see that
+   * override; they always return a real resolved IP here, unchanged in value or
+   * behavior.
    */
   get ip(): string {
-    return this._ip;
+    return this.resolveClientIp();
+  }
+
+  /** Resolve the address once; subclasses that wrap {@link ip} call this. */
+  protected resolveClientIp(): string {
+    return (this._clientIp ??=
+      typeof this._clientAddress === 'string' ? this._clientAddress : this._clientAddress());
   }
 
   /**
@@ -284,6 +316,21 @@ export abstract class WebContextBase implements FetchContext {
     return this._streamRunners.runNDJSONStream(this, run);
   }
 
+  /**
+   * Incoming request headers, as a record.
+   *
+   * @remarks
+   * Built on first read and memoized — the walk over every header is the cost
+   * a handler that never reads `ctx.headers` should not pay. `ctx.get(name)`
+   * does not build it (see {@link get}); only asking for the record does.
+   * Shape is unchanged: prototype-less (nothing inherited is reachable),
+   * lower-case keys, and `set-cookie` kept as an array when the platform
+   * exposes it.
+   */
+  get headers(): IncomingHeaders {
+    return (this._headers ??= headersToRecord(this._req.headers));
+  }
+
   // ===========================================================================
   // Header Helpers
   // ===========================================================================
@@ -292,8 +339,28 @@ export abstract class WebContextBase implements FetchContext {
     this._response.set(field, value);
   }
 
+  /**
+   * Read one incoming header.
+   *
+   * @remarks
+   * Reads the platform headers directly unless the record already exists, so a
+   * single-name read costs one lookup instead of the full walk. Case folding is
+   * the platform's (`Headers.get` is case-insensitive). `set-cookie` keeps the
+   * record's "first value" semantics by asking the platform for the separated
+   * entries where it can — `Headers.get` would comma-join them.
+   */
   get(field: string): string | undefined {
-    const value = this.headers[field.toLowerCase()];
+    const name = field.toLowerCase();
+    const record = this._headers;
+    if (record === undefined) {
+      const headers = this._req.headers;
+      if (name === 'set-cookie') {
+        const getSetCookie = (headers as { getSetCookie?: () => string[] }).getSetCookie;
+        if (typeof getSetCookie === 'function') return getSetCookie.call(headers)[0];
+      }
+      return headers.get(name) ?? undefined;
+    }
+    const value = record[name];
     if (Array.isArray(value)) {
       return value[0];
     }

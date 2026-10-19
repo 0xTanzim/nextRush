@@ -112,7 +112,7 @@ describe('reading what a handler asked for is the only reason the work happens',
     const ctx = new TestContext(counting.request);
 
     expect(ctx.get('X-A')).toBe('1');
-    expect(ctx.headerReads()).toBe(1);
+    expect(counting.headerReads()).toBe(1);
     // One `get` on the platform object — not a walk that builds the whole record.
     expect(counting.headerOperations()).toBe(1);
   });
@@ -128,5 +128,22 @@ describe('reading what a handler asked for is the only reason the work happens',
     expect(record['x-a']).toBe('1');
     expect(record['user-agent']).toBe('curl/8');
     expect(counting.headerReads()).toBe(1);
+  });
+
+  it('keeps set-cookie as an array in the record and its first value through get()', () => {
+    const headers = new Headers();
+    headers.append('set-cookie', 'a=1; Path=/');
+    headers.append('set-cookie', 'b=2; Path=/');
+    const request = {
+      method: 'GET',
+      url: 'http://localhost/',
+      signal: new AbortController().signal,
+      body: null,
+      headers,
+    } as unknown as Request;
+
+    const ctx = new TestContext(request);
+    expect(ctx.get('SET-COOKIE')).toBe('a=1; Path=/');
+    expect(ctx.headers['set-cookie']).toEqual(['a=1; Path=/', 'b=2; Path=/']);
   });
 });
