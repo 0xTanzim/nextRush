@@ -17,14 +17,14 @@
 
 ## Progress Tracker
 
-**Overall:** `[████████████░░░░░░░░]` 60% — 3 / 5 phases complete (P3 not started, P4 deferred) · Doc status: `Approved`
+**Overall:** `[████████████░░░░░░░░]` 60% — 3 / 5 phases complete (P0, P1, P2; P3 not started, P4 deferred) · Doc status: `Approved`
 
 | Phase | Part / deliverable                                                     | Status                    |
 | ----- | ---------------------------------------------------------------------- | ------------------------- |
 | P0    | `dev-check` toolkit (bundle / cold / inproc / wire / probe / profile) + committed budgets | ✅ Built and committed — see §15 |
 | P1    | CI wiring of the deterministic stages (`bundle cold inproc probe`)     | ✅ Wired — `.github/workflows/ci.yml` request-cost job (Bun and Node) |
 | P2    | Web-adapter footprint changes (RFC-039 P1: lazy headers / ip / timeout arm) judged by the gates | ✅ Shipped — `db9bbda9` (headers), `64ca11de` (client IP), `836dd6a5` (shared runner, no timer when settled); gate ratcheted in `d41af71a`, parity in `7c36e897` |
-| P3    | Deno + Edge + Node-on-Web entries; optional Elysia arm                  | ⬜ Not started            |
+| P3    | Deno + Edge + Node-on-Web entries; optional Elysia arm                  | ⬜ Not started — no Deno/Edge entry exists yet; Elysia scoped to `bundle`/`cold`/`wire` |
 | P4    | AOT re-evaluation gate (only if a §17 criterion trips)                 | ➖ Deferred               |
 
 ---
@@ -414,10 +414,10 @@ Attribution from the profile (`profile` stage): incoming-header copy ≈ 18 % to
 
 | Phase | Goal (what ships) | Depends on | Exit condition (checkable) | Status |
 | ----- | ----------------- | ---------- | -------------------------- | ------ |
-| **P0** | `dev-check` + `budgets.json` + `.gitignore` entry | — | `node check.mjs` prints a table in ≤ 60 s on Bun; probes run on Bun and Node | ✅ Built (uncommitted) |
-| **P1** | CI job running `bundle cold inproc probe`; `new Function` guard | P0 | Job fails on a seeded regression and on a seeded `new Function` | ⬜ |
-| **P2** | RFC-039 P1 changes (lazy headers, lazy ip, lazy-armed timeout) | P0, RFC-039 | `inproc.nextrush.vs_hono` ≤ 1.6 and no new probe FAIL; `target` ratcheted | ⬜ |
-| **P3** | Deno + Edge entries, `--built` mode, optional Elysia arm | P0 | Probe list green per runtime with per-runtime expectations | ⬜ |
+| **P0** | `dev-check` + `budgets.json` + `.gitignore` entry | — | `node check.mjs` prints a table in ≤ 60 s on Bun; probes run on Bun and Node | ✅ Built and committed — see §15 |
+| **P1** | CI job running `bundle cold inproc probe`; `new Function` guard | P0 | Job fails on a seeded regression and on a seeded `new Function` | ✅ Wired — `.github/workflows/ci.yml` `request-cost-gate` (Bun and Node, plus `bookkeeping`) |
+| **P2** | RFC-039 P1 changes (lazy headers, lazy ip, lazy-armed timeout) | P0, RFC-039 | `inproc.nextrush.vs_hono` ≤ 1.6 and no new probe FAIL; `target` ratcheted | ✅ Shipped — `db9bbda9`, `64ca11de`, `836dd6a5`, timeout-arming shape 1 in `bdbf75da`; gate ratcheted to `max` 1.9 / `target` 1.4 in `d41af71a` |
+| **P3** | Deno + Edge entries, `--built` mode, optional Elysia arm | P0 | Probe list green per runtime with per-runtime expectations | ⬜ Not started — no Deno/Edge entry exists yet; the Elysia arm is scoped to `bundle`, `cold` and `wire` and labelled Bun-only (no in-proc row until the harness is trusted for a third arm) |
 | **P4** | AOT re-evaluation | a §17 criterion | A written decision (new RFC or Rejected) | ➖ Deferred |
 
 ### 15.1 Testing strategy

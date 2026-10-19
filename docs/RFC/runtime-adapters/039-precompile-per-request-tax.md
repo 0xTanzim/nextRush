@@ -158,6 +158,12 @@ Profile of the NextRush in-process loop (self/total, Bun `--cpu-prof-md`): `Head
 
 What this changes in this RFC: (1) the **header record** and the **eager `requestIP`** are the largest per-request items on Bun, ahead of the timeout race; (2) serialization (Part C) is not a top cost on the hello-world profile, so it is gated; (3) router matching does not appear in the top rows, consistent with RFC-015's ≈ 4 %.
 
+> **Superseded for the current numbers.** This table is the pre-work baseline that motivated Part A and
+> is kept as the record of what was measured on 2026-10-18. Every item it names has since been fixed:
+> the header record (§3.8), the eager `requestIP`, the timeout race (§3.9 F2), and the `new URL`
+> derivation. The current same-run figure is `inproc.nextrush.vs_hono` 1.17 on Bun and 0.96 on Node,
+> with `wire` at 0.88 — read those from `dev-check`, not from this table.
+
 ### 3.8 Measured attribution — Node, POST, middleware (2026-10-19)
 
 Environment: Bun 1.4.3, Node v26.12.0, Intel i5-8300H (8 logical cores), Linux, load average
@@ -227,7 +233,7 @@ middleware numbers still include `Request`/`Response` construction inside the ti
 | ID | Finding | Cost and anchor | Impact | Counter-evidence | Trade-off / risk | Validation |
 | --- | --- | --- | --- | --- | --- | --- |
 | **F1** | Body parsers read `ctx.headers` (full lazy record) to obtain one header | Header-record walk 1.8 % (4 headers) / 3.5 % (12) on Bun, ≈1.9 % on Node; `parsers/*.ts` `getContentType(ctx.headers)`, `reader.ts` `getContentLength(ctx.headers)` | Every body-bearing request paid a walk it did not need | Unparsed POST (never reads headers) stays flat across 4→12 headers, proving the delta is the walk | Read through optional `ctx.get`; narrow test doubles keep the record fallback | **Fixed** — `header-lookup.test.ts` (record getter throws), POST/12 best-of-7 29.05 → 23.59 µs |
-| **F2** | Dispatcher pays four microtask turns before deciding not to arm a timer | `dispatchWithTimeout` 1.2–4.7 % self across shapes; `web-runner.ts:103` | Every request, both runtimes | A settled-flag fast path would skip the loop, but a handler that responds then hangs would no longer be cut off by the timeout | Losing timeout coverage on a pathological handler is a behaviour change, not an optimization | **Deferred** — confirm with a design that keeps the hang case bounded, then A/B |
+| **F2** | Dispatcher pays four microtask turns before deciding not to arm a timer | `dispatchWithTimeout` 1.2–4.7 % self across shapes; `web-runner.ts:103` | Every request, both runtimes | A settled-flag fast path would skip the loop, but a handler that responds then hangs would no longer be cut off by the timeout | Losing timeout coverage on a pathological handler is a behaviour change, not an optimization | **Fixed** — shape 1 (synchronous `ctx.responded` check, settlement wrapper only on the arming path). Paired `TIMEOUT=0` delta moved from +0.42…+0.61 µs to −0.09…+0.01 µs, median 3.592 → 3.068 µs (−14.6 %), `vs_hono` median 1.38 → 1.21; the hang case still arms a timer because the check runs once, before the promise is awaited |
 | **F3** | Node body-parser middleware closure shows 3.6–4.5 % self | `json.ts` returned middleware, Node only | Body-bearing requests on Node | The same closure is ≈0 % on Bun, where the parser work appears in `parse`/`_buffer` instead — attribution split, not a second cost | Inherent async-function resume cost; removing it needs a different parser shape | **No action** — would need a parser redesign for a share that moves between runtimes |
 | **F4** | In-process POST is dominated by platform request construction | Bun body-stream controller 32–50 %; undici + encoding ≈25 % on Node | Measurement validity, not runtime | Platform rows say `[native code]` / undici | Pre-built the POST entries and capped the timed batch; GET entries unchanged | **Fixed (harness)** — `profile-entries.test.mjs`, §3.8 method note |
 | **F5** | Serialization is a visible Node cost but small and gated | `serializeJson` 0.9–2.1 % (Node); `JSON.stringify` ≈3.5 % on Bun hello (§3.7) | Response-building requests | Below the 5 % bar this RFC set for building a compiled serializer | Compiled serializer remains RFC-039 P3, gated on a POST/large-payload profile | **No action here** — P3's gate is still unmet |
@@ -250,9 +256,17 @@ P0 asked for the shapes that were missing, not for an optimization. They now exi
   is to build C only when a POST/large-payload profile names serialization as a top cost.
 - **P4 — unchanged.** No profile row names the router, a header scan, or a query scan as
   dominant, so neither Rust nor a routing rewrite has evidence.
-- **The one item the profiles do name is F2**: `dispatchWithTimeout` at 1.2–4.7 % self across
-  every shape on both runtimes. It is the largest framework-attributable cost measured here,
-  and it is deferred for a behavioural reason, not a performance one (§3.9).
+- **The one item the profiles named is now fixed**: `dispatchWithTimeout` at 1.2–4.7 % self
+  across every shape on both runtimes. It was the largest framework-attributable cost measured
+  here, and the settled-handler fast path (shape 1 in the archived
+  `align-post-handler-response-contract` A/B) removed the race from every request that answers
+  synchronously: median 3.592 → 3.068 µs, `vs_hono` median 1.38 → 1.21, with the paired
+  `TIMEOUT=0` delta straddling zero. A handler that does not settle still arms a timer, because
+  the check runs once, before the dispatch promise is awaited.
+
+  The remaining framework-attributable cost this RFC's profiles name is **response
+  construction** (`Response` at 18.7 % self on Bun), which sits outside P3's JSON-encoding gate
+  and is captured as its own spike-first change.
 
 ## 4. Goals and Non-Goals
 
