@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Approved` — gates in use; footprint work (P2) in progress via `fix-request-path-and-response-contract` |
+| **Status**           | `Approved` — gates in use; P0–P2 shipped (footprint work landed in `db9bbda9`, `64ca11de`, `836dd6a5`) |
 | **RFC number**       | `040`                                                                 |
 | **Date**             | `2026-10-18`                                                          |
 | **Author(s)**        | Framework maintainer (R&D audit session + validation session)         |
@@ -17,13 +17,13 @@
 
 ## Progress Tracker
 
-**Overall:** `[████████░░░░░░░░░░░░]` 40% — 2 / 5 phases complete (P2 in progress) · Doc status: `Approved`
+**Overall:** `[████████████░░░░░░░░]` 60% — 3 / 5 phases complete (P3 not started, P4 deferred) · Doc status: `Approved`
 
 | Phase | Part / deliverable                                                     | Status                    |
 | ----- | ---------------------------------------------------------------------- | ------------------------- |
 | P0    | `dev-check` toolkit (bundle / cold / inproc / wire / probe / profile) + committed budgets | ✅ Built and committed — see §15 |
 | P1    | CI wiring of the deterministic stages (`bundle cold inproc probe`)     | ✅ Wired — `.github/workflows/ci.yml` request-cost job (Bun and Node) |
-| P2    | Web-adapter footprint changes (RFC-039 P1: lazy headers / ip / timeout arm) judged by the gates | 🔄 In progress (task group 8) |
+| P2    | Web-adapter footprint changes (RFC-039 P1: lazy headers / ip / timeout arm) judged by the gates | ✅ Shipped — `db9bbda9` (headers), `64ca11de` (client IP), `836dd6a5` (shared runner, no timer when settled); gate ratcheted in `d41af71a`, parity in `7c36e897` |
 | P3    | Deno + Edge + Node-on-Web entries; optional Elysia arm                  | ⬜ Not started            |
 | P4    | AOT re-evaluation gate (only if a §17 criterion trips)                 | ➖ Deferred               |
 

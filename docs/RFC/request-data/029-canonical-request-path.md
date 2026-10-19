@@ -17,14 +17,14 @@
 
 ## Progress Tracker
 
-**Overall:** `[░░░░░░░░░░░░░░░░░░░░]` 0% — 0 / 4 phases complete · Doc status: `Draft`
+**Overall:** `[███████████████░░░░░]` 75% — 3 / 4 phases complete · Doc status: `Approved`
 
 | Phase | Part / deliverable                     | Status         |
 | ----- | -------------------------------------- | -------------- |
-| P0    | `canonicalizePath()` + dot-segment rejection in `@nextrush/router` | ⬜ Not started  |
-| P1    | `ctx.path` / `ctx.originalPath` publication in every adapter | ⬜ Not started  |
-| P2    | Prefix/mount matching + CSRF exemption matching on canonical path | ⬜ Not started  |
-| P3    | `caseSensitive` default flip + migration guide + conformance parity | ⬜ Not started  |
+| P0    | `canonicalizePath()` + dot-segment rejection in `@nextrush/router` | ✅ Shipped — `9e400ba2` (single normalization owner), `57d4713e` (dot-segment rejection) |
+| P1    | `ctx.path` / `ctx.originalPath` publication in every adapter | ✅ Shipped — `packages/router/src/dispatch.ts:63-77` publishes the folded path and preserves the raw target; `canonical-path-security.test.ts`, `match-canonical-pair.test.ts` |
+| P2    | Prefix/mount matching + CSRF exemption matching on canonical path | ✅ Shipped — `Router.matchesMountPrefix` (`packages/router/src/router.ts:281`) used by `route-mount.ts`; `canonicalize-memo.test.ts`; CSRF depth semantics in `csrf-hardening.test.ts` §5.9 |
+| P3    | `caseSensitive` default flip + migration guide + conformance parity | ⬜ Not shipped — decision-gated to a major release (§15); the default remains `false`, as the router spec states |
 
 ---
 
@@ -438,10 +438,10 @@ changing case. Not viable.
 
 | Phase | Goal (what ships)                     | Depends on | Exit condition (checkable)                     | Status         |
 | ------ | ---------------------------------------- | ------------ | -------------------------------------------------- | -------------- |
-| **P0** | `canonicalizePath()` + dot-segment rejection in `@nextrush/router` | — | Unit tests green: dot-segment matrix rejects, clean paths unaffected | ⬜ Not started  |
-| **P1** | `ctx.path` / `ctx.originalPath` in every adapter | P0 | Integration test green on Node; conformance scaffolding extended | ⬜ Not started  |
-| **P2** | Prefix/mount matching + CSRF exemption matching on canonical path | P1 | Public usage test green (`/admin` mount matches all forms); `excludePaths` depth test green | ⬜ Not started  |
-| **P3** | `caseSensitive` default flip (**decision-gated**) + migration guide + full conformance parity | P2 | Docs updated; conformance suite passes on all 4 adapters; decision recorded either way | ⬜ Not started  |
+| **P0** | `canonicalizePath()` + dot-segment rejection in `@nextrush/router` | — | Unit tests green: dot-segment matrix rejects, clean paths unaffected | ✅ Shipped (`9e400ba2`, `57d4713e`) |
+| **P1** | `ctx.path` / `ctx.originalPath` in every adapter | P0 | Integration test green on Node; conformance scaffolding extended | ✅ Shipped (`dispatch.ts:63-77`) |
+| **P2** | Prefix/mount matching + CSRF exemption matching on canonical path | P1 | Public usage test green (`/admin` mount matches all forms); `excludePaths` depth test green | ✅ Shipped (`Router.matchesMountPrefix`, `csrf-hardening.test.ts` §5.9) |
+| **P3** | `caseSensitive` default flip (**decision-gated**) + migration guide + full conformance parity | P2 | Docs updated; conformance suite passes on all 4 adapters; decision recorded either way | ⬜ Not shipped — decision-gated to a major |
 
 ### 15.1 Testing strategy
 

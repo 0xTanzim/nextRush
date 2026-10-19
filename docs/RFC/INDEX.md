@@ -57,7 +57,7 @@ invent a new structure per RFC.
 | [026](runtime-adapters/026-serverless-ctx-runtime-honesty.md) | `ctx.runtime` honesty on `@nextrush/adapter-serverless` — add `ctx.platform` | **Draft** — design-only, not built | runtime-adapters |
 | [027](runtime-adapters/027-serverless-gcf-azure-drop-in-handlers.md) | `@nextrush/adapter-serverless` — true drop-in GCF & Azure handlers | **Draft** — design-only, not built | runtime-adapters |
 | [028](runtime-adapters/028-tls-transport-negotiation.md) | TLS & negotiated transport for runtime adapters (Node TLS/HTTP2, Bun/Deno shape standardization) | **In Review** — design-only, not built | runtime-adapters |
-| [029](request-data/029-canonical-request-path.md) | Canonical request-path ownership, dot-segment rejection, and `caseSensitive` default flip | **Draft** — see ADR-0017 | request-data |
+| [029](request-data/029-canonical-request-path.md) | Canonical request-path ownership, dot-segment rejection, and `caseSensitive` default flip | Approved — P0–P2 shipped, P3 decision-gated to a major; see ADR-0017 | request-data |
 | [030](runtime-adapters/030-typed-proxy-trust.md) | Typed proxy-trust boundary for client-IP resolution (`proxy: false \| number \| string[]`) | **Draft** — see ADR-0018 | runtime-adapters |
 | [031](request-data/031-context-bound-signatures.md) | Context-bound signature construction for signed cookies | **Draft** — see ADR-0019 | request-data |
 | [032](class-runtime/032-session-position.md) | `@nextrush/session` position — what the framework owns and what it defers | **Draft** — see ADR-0020, no code shipped | class-runtime |
@@ -67,9 +67,9 @@ invent a new structure per RFC.
 | [036](request-data/036-logger-log-v03-surface.md) | `@nextrush/logger` — public surface policy & `@nextrush/log` v0.3 migration | Approved (breaking) | request-data |
 | [037](repo-tooling/037-typescript-7-oxlint-migration.md) | Repo toolchain — TypeScript 7 adoption via Oxlint (replace ESLint + typescript-eslint) | Shipped — plan: [037-typescript-7-oxlint-migration-plan.md](repo-tooling/037-typescript-7-oxlint-migration-plan.md), parity audit: [037-rule-mapping.md](repo-tooling/037-rule-mapping.md) | repo-tooling |
 | [038](dev-tooling/038-in-repo-dev-loader.md) | `@nextrush/dev` — dev runtime loader owned in-repo on `@swc/core` | Shipped | dev-tooling |
-| [039](runtime-adapters/039-precompile-per-request-tax.md) | Precompile the per-request tax — registration-time work vs request-time work | Approved — Part A in progress | runtime-adapters |
-| [040](runtime-adapters/040-resource-budgets-and-request-path-footprint.md) | Resource budgets and request-path footprint — measure first, gate AOT on evidence (AOT deferred) | Approved — gates in use, P2 in progress | runtime-adapters |
-| [041](runtime-adapters/041-recorded-response-model.md) | A recorded response model — one outgoing response both adapter families can rewrite | Deferred — gated on the buffer-cost measurement | runtime-adapters |
+| [039](runtime-adapters/039-precompile-per-request-tax.md) | Precompile the per-request tax — registration-time work vs request-time work | Approved — Part A shipped, P0 profiles in progress | runtime-adapters |
+| [040](runtime-adapters/040-resource-budgets-and-request-path-footprint.md) | Resource budgets and request-path footprint — measure first, gate AOT on evidence (AOT deferred) | Approved — gates in use, P0–P2 shipped | runtime-adapters |
+| [041](runtime-adapters/041-recorded-response-model.md) | A recorded response model — one outgoing response both adapter families can rewrite | Deferred — gated on the §14 buffer-cost measurement | runtime-adapters |
 
 ## Note on RFC-005 (Plugin System)
 

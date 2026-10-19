@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Deferred` — the design is recorded, the implementation is gated on the measurement in §14 |
+| **Status**           | `Deferred` — gated on the §14 buffer-cost measurement |
 | **RFC number**       | `041`                                                                 |
 | **Date**             | `2026-10-19`                                                          |
 | **Author(s)**        | Framework maintainer (R&D audit + request-path implementation session) |

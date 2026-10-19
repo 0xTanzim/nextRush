@@ -9,17 +9,17 @@
 
 ## 2. Reconcile the RFC record
 
-- [ ] 2.1 Update RFC-039's progress tracker: P1 (lazy context fill / const-header skip) is shipped, P0 has Bun hello-world only; verify every changed row names the commit or test that proves it.
-- [ ] 2.2 Update RFC-040's progress tracker: P0, P1, and P2 (Web footprint) are shipped, P3/P4 unchanged; verify the stated fraction equals the rows and that the P2 row names the lazy-header, lazy-IP, runner, and gate evidence.
-- [ ] 2.3 Update RFC-029: confirm P0 (`canonicalizePath` + dot-segment rejection), P1 (`ctx.path` folded / `ctx.originalPath` raw), and P2 (prefix/mount canonicalization) against `packages/router/src/dispatch.ts`, `canonicalize.ts`, and their tests; mark P3 (`caseSensitive` default flip) explicitly not shipped; verify each status has a file:line or test anchor, and that the spec's "default remains false" statement matches.
-- [ ] 2.4 Align each RFC's own status line with its `docs/RFC/INDEX.md` row (029 file/index disagree today); verify a diff of the two rendered status strings reports no mismatch for 029, 039, 040, 041.
+- [x] 2.1 Update RFC-039's progress tracker: P1 (lazy context fill / const-header skip) is shipped, P0 has Bun hello-world only; verify every changed row names the commit or test that proves it.
+- [x] 2.2 Update RFC-040's progress tracker: P0, P1, and P2 (Web footprint) are shipped, P3/P4 unchanged; verify the stated fraction equals the rows and that the P2 row names the lazy-header, lazy-IP, runner, and gate evidence.
+- [x] 2.3 Update RFC-029: confirm P0 (`canonicalizePath` + dot-segment rejection), P1 (`ctx.path` folded / `ctx.originalPath` raw), and P2 (prefix/mount canonicalization) against `packages/router/src/dispatch.ts`, `canonicalize.ts`, and their tests; mark P3 (`caseSensitive` default flip) explicitly not shipped; verify each status has a file:line or test anchor, and that the spec's "default remains false" statement matches.
+- [x] 2.4 Align each RFC's own status line with its `docs/RFC/INDEX.md` row (029 file/index disagree today); verify a diff of the two rendered status strings reports no mismatch for 029, 039, 040, 041.
 - [ ] 2.5 Record in RFC-041 §14 the number this baseline supplies and the fact that the before-state is now measured on both runtimes; verify §14 points at the recorded table rather than an unquantified claim.
 
 ## 3. Extend the profiling harness (tests first)
 
 - [ ] 3.1 RED — add `apps/benchmark/scripts/dev-check/lib/__tests__/profile-entries.test.mjs` asserting: every profiling entry is listed in the dev-check README's entry table; each entry bundles and emits a `US=` line under Bun and Node at `N=2000`; the parsed and unparsed POST entries perform identical handler work. Run `pnpm --filter nextrush-benchmark test` and verify it fails for the missing entries.
 - [ ] 3.2 Add `inproc-nextrush-post.ts` (POST `/echo`, `bodyParser()`, ~1 KB JSON, env `N`/`HEADERS`/`BODY_BYTES`) and verify the new test covers it on both runtimes.
-- [ ] 3.3 Add `inproc-nextrush-post-unparsed.ts` (same response and body, no `bodyParser()`) and verify the parity assertion proves parsed vs unparsed do identical handler work.
+- [ ] 3.3 Add `inproc-nextrush-post-unparsed.ts` (same response and body, no `bodyParser()`) and verify the parity assertion proves parsed vs unparsed answer identically, so only the parser differs.
 - [ ] 3.4 Add `inproc-nextrush-mw.ts` (five middleware that set a header/state value around a JSON handler) and verify the test covers it; its output names the middleware count so a profile run is self-describing.
 - [ ] 3.5 Document the four entries and their env contract in `apps/benchmark/scripts/dev-check/README.md`; verify `pnpm --filter nextrush-benchmark test` is green.
 

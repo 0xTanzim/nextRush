@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Approved` — implementation in progress via `fix-request-path-and-response-contract` (Part A) |
+| **Status**           | `Approved` — Part A shipped (`db9bbda9`, `64ca11de`, `836dd6a5`, gate in `d41af71a`); P0 profile coverage in progress |
 | **RFC number**       | `039`                                                                 |
 | **Date**             | `2026-09-29`                                                          |
 | **Author(s)**        | `Tanzim Hossain (NextRush maintainers) + explore session`             |
@@ -17,14 +17,14 @@
 
 ## Progress Tracker
 
-**Overall:** `[░░░░░░░░░░░░░░░░░░░░]` 0% — 0 / 5 phases complete · Doc status: `Approved`
+**Overall:** `[████░░░░░░░░░░░░░░░░]` 20% — 1 / 5 phases complete · Doc status: `Approved`
 
 | Phase | Part / deliverable                                              | Status       |
 | ----- | --------------------------------------------------------------- | ------------ |
-| P0    | Profiles: Bun hello-world done (§3.7, `dev-check profile`); Node + POST + middleware-stack still open | in progress |
-| P1    | Lazy context fill + const-header skip (no API change)           | in progress (task group 8) |
+| P0    | Profiles: Bun hello-world done (§3.7, `dev-check profile`); Node + POST + middleware-stack still open | in progress — P0 completion is the first deliverable of the profile baseline change |
+| P1    | Lazy context fill + const-header skip (no API change)           | ✅ shipped — lazy incoming headers `db9bbda9`, lazy client IP `64ca11de`, shared settled-handler runner `836dd6a5`; parity `7c36e897` |
 | P2    | Compiled request validator (Tier 2+) from existing metadata     | not started  |
-| P3    | Compiled response serializer (Tier 3) + docs incentive          | not started  |
+| P3    | Compiled response serializer (Tier 3) + docs incentive          | not started — gated on a POST/large-payload profile |
 | P4    | Scoped middleware DX; Rust only if profile names it             | not started  |
 
 ---
