@@ -43,22 +43,22 @@
 - [x] 6.1 For each `fix-now` finding, write the failing test or deterministic allocation assertion first and verify it fails for the stated reason. If the table is empty, record that outcome in the findings table and skip 6.2–6.4.
 - [x] 6.2 Implement the minimal change that makes that test pass; verify the touched package's suite is green and no unrelated file changed.
 - [x] 6.3 A/B the affected scenario with best-of-three, CPU-pinned where available; verify the reported win exceeds the run-to-run spread and that `dev-check inproc` does not regress.
-- [ ] 6.4 Refactor for clarity with tests green, then re-run the A/B; verify the numbers still hold and the diff remains behaviour-preserving (no status/header/body/ordering change).
-- [ ] 6.5 If a candidate fix turns out to change observable behaviour, stop, reclassify it as `rfc`, and verify no such diff is present in the change.
+- [x] 6.4 Refactor for clarity with tests green, then re-run the A/B; verify the numbers still hold and the diff remains behaviour-preserving (no status/header/body/ordering change).
+- [x] 6.5 If a candidate fix turns out to change observable behaviour, stop, reclassify it as `rfc`, and verify no such diff is present in the change.
 
 ## 7. Record the verdict and the next move
 
-- [ ] 7.1 Write the RFC-039 P0 verdict: whether P2 (compiled request validator) and P3 (compiled response serializer) are justified, with the measured evidence for and against, including the standalone-schema-library caveat; verify the verdict cites specific rows from §4.
-- [ ] 7.2 Record the Node baseline implication for RFC-041 §14: the before-number, the shapes it covers, and the note that §14.2's "zero copies when untouched" needs a deterministic copy counter rather than heap sampling; verify §14 now contains a checkable measurement procedure.
-- [ ] 7.3 Write the next change's scope note (the RFC-041 §14 gate measurement) in RFC-041, naming the exact probes and the before/after comparison; verify it requires no code change to the response model.
+- [x] 7.1 Write the RFC-039 P0 verdict: whether P2 (compiled request validator) and P3 (compiled response serializer) are justified, with the measured evidence for and against, including the standalone-schema-library caveat; verify the verdict cites specific rows from §4.
+- [x] 7.2 Record the Node baseline implication for RFC-041 §14: the before-number, the shapes it covers, and the note that §14.2's "zero copies when untouched" needs a deterministic copy counter rather than heap sampling; verify §14 now contains a checkable measurement procedure.
+- [x] 7.3 Write the next change's scope note (the RFC-041 §14 gate measurement) in RFC-041, naming the exact probes and the before/after comparison; verify it requires no code change to the response model.
 
 ## 8. Gates and hygiene
 
-- [ ] 8.1 Run `dev-check all` on Bun and Node; verify the recorded verdict shows no new FAIL and that `knownFailures` still contains exactly `{FB-03: "*"}` (the exemption may only be deleted by the change that fixes the behaviour).
-- [ ] 8.2 Run `turbo run test`, `turbo run lint`, and `turbo run typecheck`; verify 35/35 clean and that no touched package's coverage decreased against the recorded baseline.
-- [ ] 8.3 Run the `hygiene` and `bookkeeping` stages; verify no source comment added by this change points at a planning artifact, and no known-failure id became an orphan.
-- [ ] 8.4 If any adapter was touched, run the conformance suite; verify in-process plus real Bun/Deno/workerd runs stay green. If none was touched, record that fact instead of running it.
-- [ ] 8.5 Verify commit hygiene: one commit per completed group, conventional-commit subjects, no pre-existing unrelated edits staged, and `git status --short` clean apart from the pre-existing files noted in 1.1.
+- [x] 8.1 Run `dev-check all` on Bun and Node; verify the recorded verdict shows no new FAIL and that `knownFailures` still contains exactly `{FB-03: "*"}` (the exemption may only be deleted by the change that fixes the behaviour).
+- [x] 8.2 Run `turbo run test`, `turbo run lint`, and `turbo run typecheck`; verify 35/35 clean and that no touched package's coverage decreased against the recorded baseline.
+- [x] 8.3 Run the `hygiene` and `bookkeeping` stages; verify no source comment added by this change points at a planning artifact, and no known-failure id became an orphan.
+- [x] 8.4 If any adapter was touched, run the conformance suite; verify in-process plus real Bun/Deno/workerd runs stay green. If none was touched, record that fact instead of running it.
+- [x] 8.5 Verify commit hygiene: one commit per completed group, conventional-commit subjects, no pre-existing unrelated edits staged, and `git status --short` clean apart from the pre-existing files noted in 1.1.
 
 ## Workflow follow-up
 
