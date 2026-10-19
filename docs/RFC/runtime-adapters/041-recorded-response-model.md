@@ -31,6 +31,7 @@
 ## 0. Revision History
 
 - **v1 (`2026-10-19`)** — Written as the durable record for a decision made and deliberately deferred inside `fix-request-path-and-response-contract`. Every claim about current behaviour below was measured in that change; the fix brief that first named the problem is `report/architecture/fix-briefs/fb-03-response-commit-model-and-compression.md`.
+- **v2 (`2026-10-19`)** — Recorded the interim commit contract (§3.1.1) established by `align-post-handler-response-contract`: a post-commit response-header write is discarded and reported once, and a response the handler already committed outlives the handler timeout. §3.1, §3.2, §6 and §12 updated to match. Status stays `Deferred`; this RFC remains gated on the §14 measurement, and now must preserve both interim outcomes rather than revert them.
 
 ---
 
@@ -97,20 +98,43 @@ the adapter — and the measurement that must approve it before implementation.
 
 | Adapter family | Response model | Post-handler header write | Post-handler body rewrite |
 | --- | --- | --- | --- |
-| Node | Commit inside the handler (`res.writeHead`/`res.end`) | No — throws `ERR_HTTP_HEADERS_SENT`, and the adapter swallows it | No |
+| Node | Commit inside the handler (`res.writeHead`/`res.end`) | Interim: discarded and reported once — no throw, the chain completes (§3.1.1); becomes "yes" under this RFC | No |
 | Bun / Deno / Edge / serverless / Next.js | Record, then build `Response` after the chain | Yes | No — the record is private to the adapter |
 
 `@nextrush/compression` reads a declared outgoing-response slot (`raw.res` with `getHeader`) that no
 adapter populates, so it warns once and returns. It previously fell back to `ctx.body`, which is the
 *parsed request body* — a measured data-leak-shaped bug fixed in `fix-request-path-and-response-contract`.
 
+### 3.1.1 Interim commit contract (established `2026-10-19`)
+
+`align-post-handler-response-contract` fixed two divergences the two families had to agree on before
+this RFC could redesign the same surface. Both are interim: **this RFC must preserve them**, not
+supersede them.
+
+1. **A response-header write after the response is committed is discarded and reported once per
+   process.** It no longer throws on Node, so it no longer aborts the remaining middleware chain.
+   Measured before the fix: an inner `ctx.set()` reached `res.setHeader()` after `headersSent`, threw,
+   and skipped every outer middleware's post-`next()` work, which `handleError` then swallowed because
+   `ctx.responded` was already true. After the fix the whole chain completes and the discarded field is
+   named once. P2 makes the late write *land* instead of being discarded — strictly better — but it must
+   not reintroduce a throw, a chain abort, or a silent drop.
+2. **A response the handler already committed outlives the handler timeout.** Measured before the fix:
+   a handler that answered and then worked past the configured timeout returned the Web adapters'
+   `504 Gateway Timeout`, discarding a correct response, while the same handler on Node returned its own
+   response. After the fix a committed response is delivered on every adapter, and the `504` is reserved
+   for a request that produced nothing. The recorded model is not delivered until the chain unwinds, so
+   P1 must define what a committed response means for the timeout: buffering must not turn "already
+   answered" back into "timed out".
+
 ### 3.2 The problems (enumerated)
 
 1. **Compression does nothing on every shipped adapter.** Measured: `content-encoding` undefined for a
    20 KB JSON response on both Node and Bun.
 2. **Timer headers work on four adapters and not the fifth.** Measured: `x-response-time: 0.25ms` on
-   the Web family, absent on Node; on Node the write throws and the throw aborts every outer
-   middleware's post-`next()` work, which the adapter then swallows without a log.
+   the Web family, absent on Node; on Node the write threw and the throw aborted every outer
+   middleware's post-`next()` work, which the adapter then swallowed without a log. The throw and the
+   abort are fixed and the discard is now reported once (§3.1.1); the header still does not land on
+   Node until P2.
 3. **Two behaviours behind one API is a documentation tax.** Every middleware that wants to touch a
    response needs an adapter matrix in its README (compression and timer both now carry one).
 4. **Conformance has to encode a permanent divergence.** `honorsPostHandlerHeaderWrite` exists only
@@ -161,7 +185,7 @@ unaffordable *because* the framework is slow. It does not remove the need to mea
 | Issue | today | after |
 | --- | --- | --- |
 | Compression has no outgoing body | Declared slot no adapter fills; warns once, does nothing | Reads the recorded response; compresses on every adapter |
-| Timer header absent on Node | Late write throws, chain aborts, error swallowed | Late write mutates the record; Node flushes it |
+| Timer header absent on Node | Late write was thrown, the chain aborted, the error was swallowed; interim: discarded and reported once, chain completes (§3.1.1) | Late write mutates the record; Node flushes it |
 | Two response models | Encoded divergences and per-package adapter matrices | One model; divergence flag deleted |
 | Streaming must not buffer | Already immediate | Unchanged: streaming commits and marks responded |
 
@@ -317,7 +341,9 @@ a capability that only appears in its docs.
 
 Additive for application code. The observable changes: compression and timer start working (a fix, not
 a break); a post-handler header write stops throwing on Node; response headers that a handler used to
-"lose" now appear. Documented in the migration page with a one-line note each. Internal adapter
+"lose" now appear. It builds on the interim contract in §3.1.1 — a committed response already
+outlives the handler timeout and a post-commit header write is already discarded rather than thrown —
+and must preserve both. Documented in the migration page with a one-line note each. Internal adapter
 implementations change; the adapter contract keeps its entry points.
 
 ---
@@ -339,6 +365,9 @@ implementations change; the adapter contract keeps its entry points.
 3. `compression-gzip`, `timer-header`, and `server-timing-header` probes pass on **both** runtimes.
 4. Conformance scenario #29 passes with `honorsPostHandlerHeaderWrite` removed from the driver contract.
 5. Streaming scenarios (#streaming, SSE, NDJSON) still pass on every runnable adapter, unbuffered.
+6. The §3.1.1 interim outcomes are preserved: a committed response still outlives the handler timeout
+   on every adapter, and a post-commit header write is still discarded and reported once rather than
+   throwing, aborting the chain, or being dropped silently.
 
 **Baseline this gate compares against (recorded 2026-10-19).** The before-state is now measured on
 both runtimes: `inproc.nextrush.vs_hono` 1.39 on Bun and 0.96 on Node, with per-shape attribution
@@ -364,7 +393,7 @@ and record the before/after table. No response-model code changes until that tab
 | Phase | Work | Gate |
 | --- | --- | --- |
 | P1 | `ResponseRecorder` in the shared context; Web adapters flush it | Web conformance green, streaming unchanged |
-| P2 | Node flushes after the chain; write-after-commit throws | Node conformance green, §14.2 measured |
+| P2 | Node flushes after the chain; a post-flush write is discarded and reported, never thrown (§3.1.1) | Node conformance green, §14.2 measured |
 | P3 | Compression and timer read the recorded response on every adapter | Probes green on both runtimes |
 | P4 | Delete the divergence flag and the README limitations | Conformance #29 rewritten or removed |
 
