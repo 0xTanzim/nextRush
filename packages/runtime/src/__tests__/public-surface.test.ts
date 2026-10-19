@@ -132,6 +132,7 @@ describe('Public API surface (runtime exports)', () => {
 
       // Shared Web runner
       'createWebRunner',
+      'SETTLE_TURNS',
 
       // Body source
       'AbstractBodySource',

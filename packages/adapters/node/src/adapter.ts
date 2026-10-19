@@ -13,6 +13,7 @@ import {
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
   normalizeStartupError,
+  SETTLE_TURNS,
 } from '@nextrush/runtime';
 import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
 import {
@@ -48,19 +49,6 @@ import {
  * queue").
  */
 const DEFAULT_LISTEN_BACKLOG = 1024;
-
-/**
- * Microtask turns an already-resolving chain gets before the committed-response
- * deadline is armed.
- *
- * @remarks
- * Matches the Web runner's `SETTLE_TURNS`: a synchronous chain — including
- * post-handler work that runs immediately after `await next()` — settles within
- * a handful of microtasks (measured: two to three), so a response committed
- * synchronously never allocates a `Timeout`. The window is bounded, so a chain
- * that hangs still arms its deadline a few nanoseconds later rather than never.
- */
-const SETTLE_TURNS = 4;
 
 /**
  * Headroom the socket-level slow-client guard keeps behind the handler deadline.

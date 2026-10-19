@@ -11,7 +11,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@nextrush/types';
-import { createWebRunner, type WebRunnerContext } from '../web-runner';
+import { createWebRunner, SETTLE_TURNS, type WebRunnerContext } from '../web-runner';
 import type { WebRunnerApp } from '../web-runner';
 import { WebResponseBuilder } from '../response-builder';
 
@@ -139,6 +139,12 @@ function runnerFor(
     ...overrides,
   });
 }
+
+describe('SETTLE_TURNS', () => {
+  it('is the one shared settle-turn bound', () => {
+    expect(SETTLE_TURNS).toBe(4);
+  });
+});
 
 describe('createWebRunner', () => {
   it('boots once behind the first request and reuses the handler afterwards', async () => {

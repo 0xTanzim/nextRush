@@ -140,7 +140,7 @@ export { LAST_RESORT_ERROR_STATUS, unansweredErrorBody } from './unanswered-resp
 
 export { createBootGate } from './boot-gate';
 export type { BootableApp, BootGate, BootGateOptions } from './boot-gate';
-export { createWebRunner } from './web-runner';
+export { createWebRunner, SETTLE_TURNS } from './web-runner';
 export type {
   WebRunnerApp,
   WebRunnerContext,

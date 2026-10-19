@@ -92,8 +92,10 @@ type Dispatch = Promise<void>;
  * The bound is a trade: too low and a fast handler still pays for a timer, too
  * high and a genuinely stuck handler waits that many microtasks (nanoseconds)
  * before its timeout starts counting.
+ *
+ * @internal Shared with the Node adapter so both timeout races use one bound.
  */
-const SETTLE_TURNS = 4;
+export const SETTLE_TURNS = 4;
 
 /**
  * Whether a context has already committed its response.
