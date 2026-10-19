@@ -74,10 +74,10 @@ export interface Next {
   (): Promise<void>;
 }
 export interface Router {
-  get(path: string, handler: (ctx: Context) => void): void;
-  post(path: string, handler: (ctx: Context) => void): void;
-  put(path: string, handler: (ctx: Context) => void): void;
-  delete(path: string, handler: (ctx: Context) => void): void;
+  get(path: string, ...entries: Middleware[]): void;
+  post(path: string, ...entries: Middleware[]): void;
+  put(path: string, ...entries: Middleware[]): void;
+  delete(path: string, ...entries: Middleware[]): void;
 }
 export interface App {
   use(middleware: Middleware): void;

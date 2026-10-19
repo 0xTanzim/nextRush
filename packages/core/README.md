@@ -185,6 +185,27 @@ app.use(mwA, mwB, mwC); // register several at once; runs in this order
 
 Both signatures are supported. Middleware runs in registration order, and each layer wraps the ones after it.
 
+### Route-scoped middleware
+
+Pass middleware in a route's argument list when it should run only for that route. Route
+middleware runs in the order written, before the handler, and uses the same onion contract as
+`app.use()` — a layer that returns without calling `next()` short-circuits the route.
+
+```ts
+const auth: Middleware = async (ctx, next) => {
+  if (!ctx.get('authorization')) {
+    ctx.status = 401;
+    return ctx.json({ error: 'Unauthorized' });
+  }
+  await next();
+};
+
+app.get('/protected', auth, (ctx) => ctx.json({ ok: true }));
+```
+
+Route-scoped middleware is registered with the route, so it never runs for another path and
+does not need a path check inside the middleware.
+
 ### Mount feature routers
 
 ```ts

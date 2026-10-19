@@ -65,7 +65,10 @@ function generateEntrypoint(options: ProjectOptions): string {
   }
 
   lines.push('// Routes');
-  lines.push("router.get('/', (ctx) => {");
+  lines.push("router.get('/', async (ctx, next) => {");
+  lines.push("  ctx.set('x-request-tag', 'scaffold');");
+  lines.push('  await next();');
+  lines.push('}, (ctx) => {');
   lines.push("  ctx.json({ message: 'Welcome to NextRush!' });");
   lines.push('});');
   lines.push('');
