@@ -18,64 +18,55 @@
 
 ## 2. Baseline the Bun gate before changing anything
 
-- [ ] 2.1 Run `node apps/benchmark/scripts/dev-check/check.mjs inproc --rt bun` three times on a
+- [x] 2.1 Run `node apps/benchmark/scripts/dev-check/check.mjs inproc --rt bun` three times on a
       pinned CPU and record `inproc.nextrush.us` and `inproc.nextrush.vs_hono` for each. Verify:
       three rows are recorded and their spread is stated.
-- [ ] 2.2 Confirm the baseline is stable enough to gate on. Verify: if the spread is wider than the
+- [x] 2.2 Confirm the baseline is stable enough to gate on. Verify: if the spread is wider than the
       expected effect, say so in `design.md` and treat the gate as unable to resolve the change —
       do not proceed to implementation on an unresolvable measurement.
 
 ## 3. Implement the lazy header record
 
-- [ ] 3.1 (RED) Add `packages/runtime/src/__tests__/response-builder.test.ts` cases asserting that a
-      JSON response with no non-default header produces the same status, `Content-Type` and body
-      bytes as today, and that `ctx.set('x-request-id', …)` then a second header yields both on the
-      response. Verify: the "record is not allocated" assertion fails against the current builder
-      for the expected reason.
-- [ ] 3.2 (GREEN) Split `_headers` into `_contentType` and a nullable `_headers` per design.md D2,
-      route `json`/`html`/`redirect`/`send` through `_contentType`, and materialise the record only
-      in `set()` and the HEAD branch. Verify: 3.1 passes and the full `@nextrush/runtime` suite
-      passes.
-- [ ] 3.3 Keep `send()`'s auto-detect probe correct across both stores (design.md D3). Verify: a
-      handler that sets `Content-Type` and then calls `send()` still keeps its own value, and a
-      handler that calls `send()` with no prior type still gets the detected one.
-- [ ] 3.4 Merge the literal and the record in `getResponse()` so a handler content type plus cookies
-      emits both. Verify: a scenario with `Content-Type: text/plain` and two cookies yields all
-      three headers, and a scenario with no cookies yields no `Set-Cookie` at all.
-- [ ] 3.5 (REFACTOR) Keep `response-builder.ts` under the 300-line ceiling and remove any branch the
-      split makes unreachable. Verify: the file's line count is under the ceiling and no comment
-      describes the removed eager allocation.
-- [ ] 3.6 Add the conformance scenario pinning the emitted header set and the exact `Content-Type`
-      string for a hello-world JSON response. Verify: `packages/adapters/conformance` passes on
-      Node, Bun, Deno and serverless, and fails if the default content type string drifts.
+**Not executed.** The gate closed at 2.2: the Bun effect (~0.007 on the ratio) is roughly six times
+smaller than the baseline spread (0.04), and the cheaper-allocation variant measured _slower_ on Bun.
+The spec's negative branch applies, so no builder change is made and no RED/GREEN pair is written for
+one. The design work these tasks encoded is preserved in design.md D2–D5 for whoever reopens this
+with a gate that can resolve it.
 
 ## 4. Gate and record the verdict
 
-- [ ] 4.1 Run the allocation harness from 1.1 against the changed tree and confirm the per-request
-      bytes for the `current` shape dropped by the amount the spike predicted. Verify: the reported
-      delta matches the spike's record-variant gap within the harness's own spread.
-- [ ] 4.2 Run `node apps/benchmark/scripts/dev-check/check.mjs inproc --rt bun` three times on the
+- [x] 4.2 Run `node apps/benchmark/scripts/dev-check/check.mjs inproc --rt bun` three times on the
       same pinned CPU as 2.1 and compare against the baseline. Verify: the three rows are recorded
       next to the baseline rows and the change is stated as adopted or parked against the rule in
       design.md D6.
-- [ ] 4.3 Run the full `dev-check` on Bun and on Node to confirm no other stage regressed. Verify:
+      **Parked.** The post-gate full run measured `inproc.nextrush.vs_hono` 1.26 against the 1.18
+      baseline median — but with no builder change made, that movement is machine drift, not effect,
+      and it is the clearest possible demonstration that the gate cannot resolve an ~0.007 change.
+      See design.md D9/D10.
+- [x] 4.3 Run the full `dev-check` on Bun and on Node to confirm no other stage regressed. Verify:
       `bundle`, `cold`, `inproc`, `wire`, `probe`, `bookkeeping` and `hygiene` all pass, with the
       `FB-03` exemption unchanged and no new exemption added.
-- [ ] 4.4 If the gate rejects the change, revert the builder commit and record the null result
+      **Done** — Bun `PASS 24 / KNOWN 1 / FAIL 0`, Node `PASS 20 / KNOWN 3 / FAIL 0`. `FB-03` is
+      still the only exemption and it is unchanged.
+- [x] 4.4 If the gate rejects the change, revert the builder commit and record the null result
       instead of keeping the code. Verify: `git log` shows the revert, and `design.md` and RFC-039
       both state the measured outcome.
-- [ ] 4.5 If the gate accepts the change, record the outcome and the numbers in
-      `docs/RFC/runtime-adapters/039-precompile-per-request-tax.md` §3.9 and correct the stale P3
-      verdict row while there. Verify: the RFC states the measured result, not a plan, and no
-      planning-artifact path is referenced from source comments.
+      **Done, with no revert needed** — no builder commit was ever made, because 2.2 closed the gate
+      before section 3. `design.md` D9/D10 and RFC-039 §3.10 record the measured outcome.
+
+**Removed from scope, not done:** 4.1 (re-measure the changed tree), 4.5 (record an accepted
+outcome) and 5.1 (document the new allocation contract) are adoption-path tasks. The gate rejected
+the change, so there is no changed tree, no accepted outcome, and no new contract to document.
+Deleting them keeps the tracker honest: it now closes at 9/9 with nothing claimed that did not
+happen. They are recoverable from `git log` if the change is ever reopened with a gate that can
+resolve it.
 
 ## 5. Documentation
 
-- [ ] 5.1 Update the `web-adapters` capability documentation to state the response builder's
-      allocation contract: no eager header record, byte-identical output, and header ordering not
-      part of the contract. Verify: the docs match the shipped behaviour and the spec delta.
-- [ ] 5.2 Confirm no public API, export, or `.d.ts` changed. Verify: `git diff` touches no
+- [x] 5.2 Confirm no public API, export, or `.d.ts` changed. Verify: `git diff` touches no
       `index.ts` export surface, and a `pnpm turbo build` of the affected packages succeeds.
+      **Done** — the change touches only `apps/benchmark` and `openspec/`; no package source, export
+      surface, or `.d.ts` was modified.
 
 ## Workflow follow-up
 

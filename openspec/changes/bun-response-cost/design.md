@@ -179,6 +179,59 @@ The Node figures are also a reminder that this harness measures one response in 
 it, not the whole `Response` cost the profile attributed. The 18.7 % `Response` self-time is
 therefore mostly constructor and body write, not the header record.
 
+### D9 — Bun gate baseline, and why the gate cannot resolve this change
+
+Task 2.1's baseline, `dev-check inproc --rt bun`, pinned to one core, three consecutive runs on the
+tree before any builder change:
+
+| Run | `inproc.nextrush.us` | `inproc.hono.us` | `inproc.nextrush.vs_hono` |
+| --- | -------------------- | ---------------- | ------------------------- |
+| 1   | 3.298 µs             | 2.85 µs          | 1.16                      |
+| 2   | 3.420 µs             | 2.85 µs          | 1.20                      |
+| 3   | 3.480 µs             | 2.94 µs          | 1.18                      |
+
+Median `nextrush.us` 3.420 µs (range 0.182 µs, 5.3 %). Median ratio 1.18, **spread 0.04**.
+
+The gate's resolution is therefore ±0.04 on the ratio, i.e. about ±3.4 % of request time. The
+effect the change could produce on Bun is far below that:
+
+- The best Bun allocation delta measured in D8 is 10.9 B/response (`pairs`, `default`), against
+  ~355 B of total allocation for the response — about 3 % of the response's own allocation.
+- Response construction is 18.7 % of request self-time (the profile in the proposal), so 3 % of it
+  is ≈0.56 % of the request.
+- 0.56 % of a 1.18 ratio is ≈0.007.
+
+The expected effect (0.007) is roughly **six times smaller** than the gate's spread (0.04). The gate
+cannot distinguish this change from machine noise, so per task 2.2 it must not be used to justify
+implementation.
+
+The timing measurement agrees, and independently argues against the change. Re-running the
+allocation child five times on Bun `default`, `pairs` allocates consistently less (345 B vs 355 B)
+while being consistently **slower** (median 1295 ns vs 968 ns, slower in 4 of 5 runs). Saving ~11 B
+of allocation did not save time on Bun; it cost time. Bun's allocator is fast enough that a smaller
+transient allocation is not a win, and the `pairs` form trades the `Headers` constructor for a
+JS-built array of arrays.
+
+### D10 — Verdict: park the change without touching the builder
+
+D8 and D9 together satisfy the spec's negative branch, not its positive one:
+
+- The Bun win is real but small (11–45 B of ~310–355 B per response).
+- It does not reach wall-clock time — the cheaper-allocation variant is slower.
+- The Bun gate that would authorise adoption cannot resolve an effect this size (0.007 vs 0.04).
+- No single construction wins on both runtimes, and D2's specific choice is a Bun _regression_.
+
+The spec requires that "a null or negative result MUST be recorded and the change parked rather than
+merged", so the response builder is left exactly as it is. No implementation task runs, and there is
+no builder commit to revert. The harness and this analysis are the deliverable: they establish that
+the last framework-attributable cost RFC-039 named is mostly the `Response` constructor and body
+write, not the header record, and that the record is worth optimising on Node but not on Bun.
+
+The Node finding is recorded as a lead, not a task: on Node the record costs 181–422 B per response,
+but Node's `inproc` ratio stays ungated by design, so there is no gate to authorise that work either.
+Reopening it would need its own measurement question — whether the Node allocation delta reaches Node
+request time — which this change deliberately does not answer.
+
 ## Risks / Trade-offs
 
 - **Header order changes** → `Content-Type` may now be written by the constructor from a literal

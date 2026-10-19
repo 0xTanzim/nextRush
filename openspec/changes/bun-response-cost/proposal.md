@@ -6,7 +6,7 @@ On Bun, hello-world is 17 % slower than Hono in-process (`3.48` vs `2.97` µs) a
 socket, and the only framework-attributable cost a profile still names is **response construction**:
 `Response` at 18.7 % self-time, ahead of `JSON.stringify` (5.1 %), context construction (3.7 %) and
 routing (1.8 %). Every other item RFC-039's P0 verdict named has been closed or gated. This is the
-last measured one, and it sits outside RFC-039 P3, whose gate is about JSON *encoding*, not about the
+last measured one, and it sits outside RFC-039 P3, whose gate is about JSON _encoding_, not about the
 `Response` object.
 
 The mechanism is visible in source: `WebResponseBuilder` allocates a `Headers` instance eagerly for
@@ -19,7 +19,7 @@ object literal.
 
 - **Spike first, and it can cancel the change.** Measure, on Bun and Node with the real header shapes,
   whether the platform's JSON fast path (`Response.json`) is cheaper than `new Response(string,
-  { status, headers })`, and whether an empty-or-default header record is cheaper as a shared frozen
+{ status, headers })`, and whether an empty-or-default header record is cheaper as a shared frozen
   literal than as a `Headers` instance. The spike result decides whether anything else happens.
 - **Lazy response header record.** If the spike says the record costs, `WebResponseBuilder` allocates
   no header record until a header outside the default set is written, and the built response is

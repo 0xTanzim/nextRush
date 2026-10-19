@@ -268,6 +268,19 @@ P0 asked for the shapes that were missing, not for an optimization. They now exi
   construction** (`Response` at 18.7 % self on Bun), which sits outside P3's JSON-encoding gate
   and is captured as its own spike-first change.
 
+  **Measured, and parked (2026-10-19).** The spike split that 18.7 % into its parts by holding the
+  body constant and varying only the header record, on both runtimes. The header record is a large
+  real cost on **Node** (181–422 B allocated per response) but only **11–45 B on Bun**, against
+  ~310–355 B of total per-response allocation — about 3 %. Two independent results close the Bun
+  case: the best Bun variant is *slower* despite allocating ~11 B less (median 968 → 1295 ns), and
+  the effect it could produce on `inproc.nextrush.vs_hono` (~0.007) is roughly six times smaller
+  than this machine's measured run-to-run spread (0.04). So the gate cannot resolve the change, and
+  the 18.7 % is mostly the `Response` constructor and body write rather than anything NextRush
+  allocates. No builder change was made. The Node figure is a lead, not a task: the Node `inproc`
+  ratio is ungated by design, and whether that allocation delta reaches Node request time is a
+  separate question this RFC does not answer. Harness:
+  `apps/benchmark/scripts/alloc/response-construction-alloc.js`.
+
 ## 4. Goals and Non-Goals
 
 Goals:
