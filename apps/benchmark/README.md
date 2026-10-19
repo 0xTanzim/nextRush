@@ -517,6 +517,7 @@ apps/benchmark/
 │   ├── express-bridge-ab.js# RFC-035 A/B/C bridged-path delta harness
 │   ├── express-bridge-ladder.js# RFC-035 cost-isolation ladder harness
 │   ├── alloc/            # Bytes-per-op allocation harnesses (see Allocation Harnesses below)
+│   │   ├── bun-request-path-alloc.js bun-request-path-alloc-child.js
 │   │   ├── compose-alloc.js compose-alloc-child.js
 │   │   ├── context-alloc.js context-alloc-child.js
 │   │   ├── context-raw-alloc.js context-raw-alloc-child.js
@@ -585,6 +586,7 @@ pnpm bench:alloc:context-raw      # ctx.raw lazy-wrapper trim
 pnpm bench:alloc:context-state    # ctx.state lazy-init
 pnpm bench:alloc:dispatch         # middleware dispatch
 pnpm bench:alloc:web              # web-standard Context construction
+pnpm bench:alloc:bun-request-path # Bun adapter per-request drain wrapper + client-address thunk
 ```
 
 `bench:alloc:handler` reports two figures — the default (`timeout > 0`) handler-vs-timeout race

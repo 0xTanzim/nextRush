@@ -2,7 +2,7 @@
  * @nextrush/adapter-bun — F-06 (ADR-0010): opt-in signal-wired graceful shutdown.
  *
  * `serve()`'s `close()` already drains in-flight requests correctly (stop
- * accepting -> wait for `activeRequests` to reach 0, force-close after
+ * accepting -> wait for the platform `stop()` promise, force-close after
  * `shutdownTimeout` -> `app.close()`). This suite proves the `gracefulShutdown`
  * option wires `SIGTERM`/`SIGINT` to that SAME `close()` — installing no handler
  * when the option is omitted, and never leaking the handler past one
@@ -25,6 +25,8 @@ import { serve, type ServerInstance } from '../adapter';
 interface StubBunServer {
   port: number;
   hostname: string;
+  /** In-flight requests as the platform reports them (README: `server.pendingRequests`). */
+  pendingRequests: number;
   requestIP(request: Request): { address: string; family: string; port: number } | null;
   stop(force?: boolean): Promise<void>;
   reload(options: unknown): void;
@@ -67,9 +69,10 @@ async function fetchWithRetry(url: string, attempts = 20): Promise<Response> {
  * TCP connection carries requests to the adapter's real handler — only the
  * underlying transport is Node's HTTP server instead of Bun's.
  */
-function installBunServeStub(): { restore: () => void } {
+function installBunServeStub(): { restore: () => void; servers: StubBunServer[] } {
   const g = globalThis as { Bun?: { serve: (init: StubBunServeInit) => StubBunServer } };
   const previous = g.Bun;
+  const servers: StubBunServer[] = [];
 
   g.Bun = {
     serve(init: StubBunServeInit): StubBunServer {
@@ -79,6 +82,7 @@ function installBunServeStub(): { restore: () => void } {
       const bunServer: StubBunServer = {
         port: boundPort,
         hostname: init.hostname ?? '127.0.0.1',
+        pendingRequests: 0,
         requestIP: () => ({ address: '127.0.0.1', family: 'IPv4', port: 0 }),
         stop: (force?: boolean) =>
           new Promise<void>((resolve) => {
@@ -110,11 +114,13 @@ function installBunServeStub(): { restore: () => void } {
       // trying to fake Bun's synchronous-bind contract exactly.
       httpServer.listen(boundPort, init.hostname ?? '127.0.0.1');
 
+      servers.push(bunServer);
       return bunServer;
     },
   };
 
   return {
+    servers,
     restore: () => {
       g.Bun = previous;
     },
@@ -122,7 +128,7 @@ function installBunServeStub(): { restore: () => void } {
 }
 
 let instance: ServerInstance | undefined;
-let stub: { restore: () => void } | undefined;
+let stub: ReturnType<typeof installBunServeStub> | undefined;
 
 afterEach(async () => {
   await instance?.close();
@@ -228,5 +234,76 @@ describe('F-06: Bun serve() — gracefulShutdown option', () => {
 
     await server.close();
     expect(listenerCount('SIGTERM')).toBe(beforeTerm);
+  });
+});
+
+// ===========================================================================
+// RFC-044 — drain accounting via the platform stop promise
+// ===========================================================================
+
+describe('RFC-044: Bun drain accounting', () => {
+  it('waits on the platform stop promise when in-flight work is visible only through the platform count', async () => {
+    stub = installBunServeStub();
+    const app = createApp();
+    app.use((ctx) => ctx.json({ ok: true }));
+    const server = await serve(app, { port: 0, shutdownTimeout: 500 });
+    const bunServer = stub.servers[stub.servers.length - 1]!;
+    const originalStop = bunServer.stop.bind(bunServer);
+
+    let resolvePlatformStop: (() => void) | undefined;
+    bunServer.pendingRequests = 1;
+    bunServer.stop = () =>
+      new Promise<void>((resolve) => {
+        resolvePlatformStop = resolve;
+      });
+
+    let closed = false;
+    const closePromise = server.close().then(() => {
+      closed = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    // RED today: the JS counter is 0, so drain is skipped and close resolves
+    // before the platform says the in-flight request finished.
+    expect(closed).toBe(false);
+
+    bunServer.pendingRequests = 0;
+    resolvePlatformStop?.();
+    await closePromise;
+    expect(closed).toBe(true);
+
+    await originalStop(true);
+  });
+
+  it('force-closes only after the shutdown timeout while the platform stop promise is still pending', async () => {
+    stub = installBunServeStub();
+    const app = createApp();
+    app.use((ctx) => ctx.json({ ok: true }));
+    const server = await serve(app, { port: 0, shutdownTimeout: 60 });
+    const bunServer = stub.servers[stub.servers.length - 1]!;
+    const originalStop = bunServer.stop.bind(bunServer);
+
+    let forceCalls = 0;
+    bunServer.pendingRequests = 1;
+    bunServer.stop = (force?: boolean) => {
+      if (force) {
+        forceCalls++;
+        bunServer.pendingRequests = 0;
+        return Promise.resolve();
+      }
+      return new Promise<void>(() => {
+        // never drains: the timeout path must force-close
+      });
+    };
+
+    const started = Date.now();
+    await server.close();
+    const elapsed = Date.now() - started;
+
+    // RED today: no counter is armed, so the timeout/force path never runs.
+    expect(forceCalls).toBe(1);
+    expect(elapsed).toBeGreaterThanOrEqual(50);
+
+    await originalStop(true);
   });
 });

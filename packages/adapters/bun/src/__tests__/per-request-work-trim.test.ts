@@ -30,7 +30,7 @@ vi.mock('@nextrush/runtime', async (importOriginal) => {
 
 import { getClientIp } from '@nextrush/runtime';
 import { createHandler } from '../adapter';
-import { BunContext } from '../context';
+import { BunContext, createBunContext } from '../context';
 
 const CLIENT_IP = '203.0.113.7';
 
@@ -178,5 +178,82 @@ describe('HP-7: Bun ctx.next() thunk forwarding', () => {
     await handler(makeRequest(), makeServerStub(CLIENT_IP) as never);
     expect(secondNextError).toBeInstanceOf(Error);
     expect((secondNextError as Error).message).toMatch(/next\(\)/i);
+  });
+});
+
+// ===========================================================================
+// §4 RFC-044 — thunk-free client-address resolution
+// ===========================================================================
+
+describe('RFC-044: Bun ctx.ip resolves from the platform server without a per-request closure', () => {
+  // ---- optimization assertions (RED before the RFC-044 trim) ---------------
+
+  it('4.1 resolves from the platform server on the first ctx.ip read, never before, memoized once', () => {
+    let platformCalls = 0;
+    const server = {
+      requestIP: () => {
+        platformCalls++;
+        return { address: CLIENT_IP, family: 'IPv4', port: 0 };
+      },
+    };
+
+    const ctx = createBunContext(makeRequest(), undefined, false, server as never);
+
+    expect(platformCalls).toBe(0);
+    expect(ctx.ip).toBe(CLIENT_IP);
+    expect(platformCalls).toBe(1);
+    expect(ctx.ip).toBe(CLIENT_IP);
+    expect(platformCalls).toBe(1);
+  });
+
+  it('4.2 trusted mode resolves via the shared policy on first read with the platform address as directIp', () => {
+    let platformCalls = 0;
+    const server = {
+      requestIP: () => {
+        platformCalls++;
+        return { address: CLIENT_IP, family: 'IPv4', port: 0 };
+      },
+    };
+    const ctx = createBunContext(
+      makeRequest({ 'x-forwarded-for': '9.9.9.9' }),
+      undefined,
+      1,
+      server as never
+    );
+
+    expect(getClientIpMock).not.toHaveBeenCalled();
+    expect(ctx.ip).toBe('9.9.9.9');
+    expect(platformCalls).toBe(1);
+    expect(getClientIpMock).toHaveBeenCalledTimes(1);
+    expect(getClientIpMock).toHaveBeenCalledWith(expect.any(Request), CLIENT_IP, 1);
+  });
+
+  it('4.3 proxy: false returns the platform address and ignores forwarded headers', () => {
+    const server = {
+      requestIP: () => ({ address: CLIENT_IP, family: 'IPv4', port: 0 }),
+    };
+    const ctx = createBunContext(
+      makeRequest({ 'x-forwarded-for': '9.9.9.9', 'x-real-ip': '8.8.8.8' }),
+      undefined,
+      false,
+      server as never
+    );
+    expect(ctx.ip).toBe(CLIENT_IP);
+  });
+
+  // ---- characterization (green before and after) ---------------------------
+
+  it('4.4 legacy three-argument form keeps a function clientIp lazy and memoized', () => {
+    let calls = 0;
+    const thunk = (): string => {
+      calls++;
+      return CLIENT_IP;
+    };
+    const ctx = new BunContext(makeRequest(), thunk, false);
+
+    expect(calls).toBe(0);
+    expect(ctx.ip).toBe(CLIENT_IP);
+    expect(ctx.ip).toBe(CLIENT_IP);
+    expect(calls).toBe(1);
   });
 });

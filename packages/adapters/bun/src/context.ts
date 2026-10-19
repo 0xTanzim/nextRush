@@ -35,7 +35,17 @@ import { runNDJSONStream, runSSEStream, runTextStream } from '@nextrush/stream';
  * ```
  */
 export class BunContext extends WebContextBase {
-  constructor(request: Request, clientIp?: string | (() => string), proxy: ProxyTrust = false) {
+  #request: Request;
+  #proxy: ProxyTrust;
+  #server?: ReturnType<typeof Bun.serve>;
+  #resolvedIp: string | undefined;
+
+  constructor(
+    request: Request,
+    clientIp?: string | (() => string),
+    proxy: ProxyTrust = false,
+    server?: ReturnType<typeof Bun.serve>
+  ) {
     // Client IP resolution (Bun provides the direct address via
     // `server.requestIP`).
     //
@@ -49,13 +59,35 @@ export class BunContext extends WebContextBase {
     // Either way the address is resolved on first `ctx.ip` read, not here: the
     // platform call and the header walk are both work a handler that never reads
     // `ctx.ip` never asked for.
+    //
+    // RFC-044 trim: when the runner supplies the platform server and no explicit
+    // clientIp, the getter below resolves from those references. That keeps the
+    // value lazy and memoized without allocating a per-request resolver closure.
     const direct = clientIp ?? '';
     const ip: string | (() => string) =
-      proxy === false
-        ? direct
-        : () => getClientIp(request, typeof direct === 'string' ? direct : direct(), proxy);
+      clientIp === undefined && server !== undefined
+        ? ''
+        : proxy === false
+          ? direct
+          : () => getClientIp(request, typeof direct === 'string' ? direct : direct(), proxy);
 
     super(request, ip, getRuntime(), { runTextStream, runSSEStream, runNDJSONStream });
+
+    this.#request = request;
+    this.#proxy = proxy;
+    this.#server = clientIp === undefined ? server : undefined;
+  }
+
+  override get ip(): string {
+    if (this.#server === undefined) {
+      return super.ip;
+    }
+    if (this.#resolvedIp === undefined) {
+      const direct = this.#server.requestIP(this.#request)?.address ?? '';
+      this.#resolvedIp =
+        this.#proxy === false ? direct : getClientIp(this.#request, direct, this.#proxy);
+    }
+    return this.#resolvedIp;
   }
 }
 
@@ -64,12 +96,16 @@ export class BunContext extends WebContextBase {
  *
  * @param request - Web API Request object
  * @param clientIp - The client address, or a resolver called on the first `ctx.ip` read
+ * @param proxy - Proxy-trust policy for client-address resolution
+ * @param server - Platform server reference; when supplied (and `clientIp` is not),
+ *   `ctx.ip` resolves from `server.requestIP` on the first read with no per-request closure
  * @returns BunContext instance
  */
 export function createBunContext(
   request: Request,
   clientIp?: string | (() => string),
-  proxy: ProxyTrust = false
+  proxy: ProxyTrust = false,
+  server?: ReturnType<typeof Bun.serve>
 ): BunContext {
-  return new BunContext(request, clientIp, proxy);
+  return new BunContext(request, clientIp, proxy, server);
 }

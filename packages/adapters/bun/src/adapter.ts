@@ -203,8 +203,9 @@ function createBunRequestRunner(app: Application, options: HandlerOptions): BunF
     timeout: options.timeout ?? DEFAULT_TIMEOUT_MS,
     logger: options.logger,
     makeContext: (request, server) =>
-      // The platform address is resolved on the first `ctx.ip` read, not here.
-      createBunContext(request, () => server.requestIP(request)?.address ?? '', proxy),
+      // The platform address is resolved on the first `ctx.ip` read from these
+      // references — no per-request resolver closure.
+      createBunContext(request, undefined, proxy, server),
   });
 }
 
@@ -248,27 +249,25 @@ export function createHandler(app: Application, options: HandlerOptions = {}): B
 async function drainAndClose(
   server: ReturnType<typeof Bun.serve>,
   app: Application,
-  shutdownTimeout: number,
-  getActiveRequests: () => number,
-  setDrainResolve: (resolve: (() => void) | null) => void
+  shutdownTimeout: number
 ): Promise<void> {
-  // 1. Stop accepting new connections
-  void server.stop();
+  // 1. Stop accepting new connections. Bun's promise resolves once in-flight
+  // requests finish (verified on 1.4.3), so it doubles as the drain wait — no
+  // JS counter and no resolve slot are needed.
+  const stopped = server.stop().catch(() => 'drained' as const);
 
-  // 2. Wait for in-flight requests to drain (with timeout)
-  if (getActiveRequests() > 0) {
-    await Promise.race([
-      new Promise<void>((resolve) => {
-        setDrainResolve(resolve);
-      }),
-      new Promise<void>((resolve) =>
-        setTimeout(() => {
-          // Force-close remaining connections
-          void server.stop(true);
-          resolve();
-        }, shutdownTimeout)
-      ),
-    ]);
+  // 2. Bound the wait: force-close when the platform has not drained in time.
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<'timeout'>((resolve) => {
+    timeoutId = setTimeout(() => {
+      resolve('timeout');
+    }, shutdownTimeout);
+  });
+  const outcome = await Promise.race([stopped, timeout]);
+  clearTimeout(timeoutId);
+  if (outcome === 'timeout') {
+    // Force-close remaining connections
+    await server.stop(true);
   }
 
   // 3. Tear down extensions. Bound teardown by the same shutdownTimeout budget
@@ -290,14 +289,10 @@ function buildCloseWithGracefulShutdown(params: {
   app: Application;
   shutdownTimeout: number;
   gracefulShutdown: ServeOptions['gracefulShutdown'];
-  getActiveRequests: () => number;
-  setDrainResolve: (resolve: (() => void) | null) => void;
 }): () => Promise<void> {
-  const { server, app, shutdownTimeout, gracefulShutdown, getActiveRequests, setDrainResolve } =
-    params;
+  const { server, app, shutdownTimeout, gracefulShutdown } = params;
 
-  const close = (): Promise<void> =>
-    drainAndClose(server, app, shutdownTimeout, getActiveRequests, setDrainResolve);
+  const close = (): Promise<void> => drainAndClose(server, app, shutdownTimeout);
 
   if (!gracefulShutdown) {
     return close;
@@ -319,13 +314,7 @@ function buildCloseWithGracefulShutdown(params: {
   };
 
   const runClose = (): Promise<void> => {
-    drainPromise ??= drainAndClose(
-      server,
-      app,
-      effectiveTimeout,
-      getActiveRequests,
-      setDrainResolve
-    ).finally(removeSignalHandlers);
+    drainPromise ??= drainAndClose(server, app, effectiveTimeout).finally(removeSignalHandlers);
     return drainPromise;
   };
 
@@ -379,36 +368,18 @@ export async function serve(
   const host = options.host ?? '0.0.0.0';
   const logger = options.logger ?? app.logger;
 
-  // In-flight request tracking for graceful shutdown
-  let activeRequests = 0;
-  let drainResolve: (() => void) | null = null;
-
   // Boot extensions before building the request handler (deferred boot barrier).
   await app.ready();
 
-  // F-07: serve composes the SAME handler createHandler produces (with timeout),
-  // then wraps it only with in-flight tracking for graceful drain.
+  // F-07: serve composes the SAME handler createHandler produces (with timeout).
+  // No per-request wrapper: Bun's `stop()` promise reports drain completion.
   const baseHandler = createHandler(app, { timeout, logger });
-  const trackedHandler = async (
-    request: Request,
-    bunServer: ReturnType<typeof Bun.serve>
-  ): Promise<Response> => {
-    activeRequests++;
-    try {
-      return await baseHandler(request, bunServer);
-    } finally {
-      activeRequests--;
-      if (activeRequests === 0 && drainResolve) {
-        drainResolve();
-      }
-    }
-  };
 
   // Build Bun.serve options
   const bunOptions: Parameters<typeof Bun.serve>[0] = {
     port,
     hostname: host,
-    fetch: trackedHandler,
+    fetch: baseHandler,
     development,
   };
 
@@ -467,10 +438,6 @@ export async function serve(
       app,
       shutdownTimeout,
       gracefulShutdown,
-      getActiveRequests: () => activeRequests,
-      setDrainResolve: (resolve) => {
-        drainResolve = resolve;
-      },
     }),
     reload: (newOptions?: Partial<ServeOptions>) => {
       server.reload({

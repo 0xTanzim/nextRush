@@ -83,9 +83,7 @@ await serve(app, {
 ## Mental model
 
 ```text
-Bun.serve() ---> trackedHandler ---> BunContext ---> your middleware/routes
-                      |
-                      +-- in-flight request count (for graceful drain)
+Bun.serve() ---> createHandler ---> BunContext ---> your middleware/routes
 ```
 
 **Rule:** the adapter never re-implements HTTP -- it wraps one `fetch(request, server)` handler
