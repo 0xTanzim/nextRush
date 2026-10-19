@@ -43,6 +43,8 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0028](ADR-0028-precompile-tiers-measured-evidence.md) | Precompile tiers ship only on measured evidence | Accepted | `docs/RFC/runtime-adapters/039-precompile-per-request-tax.md` |
 | [ADR-0029](ADR-0029-runtime-scoped-budgets-deferred-aot.md) | Runtime-scoped budgets and deferred AOT | Accepted | `docs/RFC/runtime-adapters/040-resource-budgets-and-request-path-footprint.md` |
 | [ADR-0030](ADR-0030-recorded-outgoing-response.md) | Recorded outgoing response model | Accepted · Shipped | `docs/RFC/runtime-adapters/041-recorded-response-model.md` |
+| [ADR-0031](ADR-0031-web-native-body-read.md) | Native body reads for provable-length Web requests | Proposed | `docs/RFC/runtime-adapters/043-web-native-body-read.md` |
+| [ADR-0032](ADR-0032-bun-request-path-trims.md) | Bun request-path trims — native drain accounting and thunk-free address resolution | Proposed | `docs/RFC/runtime-adapters/044-bun-request-path-trims.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 
