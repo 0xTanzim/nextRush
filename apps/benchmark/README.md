@@ -611,9 +611,8 @@ node scripts/profile.js --scenario post-json --heap-snapshot=false --cpu-prof=fa
 
 Diagnostic-only — never wired into CI, never part of the six-server fairness comparison. Requires
 `wrk` on `PATH`. Opens a debugger port (`--inspect`) on the profiled server process only; `run.js`'s
-comparison flow never does this. See
-`reports/investigations/cpu-allocation-profiling-results.md` for the first findings produced with
-this tool.
+comparison flow never does this. The first findings produced with this tool are in git history
+(`git log --all -- 'reports/investigations/cpu-allocation-profiling-results.md'`).
 
 ## Class-Path Overhead (functional vs class/DI)
 

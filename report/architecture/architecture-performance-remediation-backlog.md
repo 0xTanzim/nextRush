@@ -8,7 +8,7 @@
 | **Reviewer(s)** | AI agent (performance-engineering session, PERF-001-governed)      |
 | **Commit / ref**| `700549cbd89496c989e7ca342d353bc6907d3007` (branch `feat/dev`)      |
 | **Status**      | `Draft`                                                             |
-| **Related**     | `reports/investigations/post-audit-invariant-erosion-review.md`, `reports/investigations/2026-07-31-measured-floor-params-compliance/{00..06}.md`, `docs/adr/ADR-0021-fast-property-request-containers.md`, `docs/playbooks/PERF-001-performance-engineering-playbook.md` |
+| **Related**     | `docs/adr/ADR-0021-fast-property-request-containers.md`, `docs/playbooks/PERF-001-performance-engineering-playbook.md`; the 2026-07-31 audit reports were removed from the tree and are recoverable with `git log --all -- 'reports/*'` |
 
 ---
 
@@ -34,8 +34,8 @@
 
 ## 1. Executive Summary
 
-This session fixed all P0/Critical findings from the 2026-07-31 performance investigation
-(`reports/investigations/`) that were reachable without an RFC: the RFC 9110 HEAD-on-GET compliance
+This session fixed all P0/Critical findings from the 2026-07-31 performance investigation (removed
+from the tree; recover it with `git log --all -- 'reports/*'`) that were reachable without an RFC: the RFC 9110 HEAD-on-GET compliance
 gap, the dictionary-mode `ctx.params`/`ctx.query`/`ctx.headers` containers, the per-request timeout
 race, the per-request drain-wrapper allocation, and the O(mounts) prefix-mount canonicalization cost.
 Every fix is backed by a deterministic micro-benchmark (allocation, timer count, or timing slope, all
