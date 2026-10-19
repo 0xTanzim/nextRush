@@ -360,6 +360,38 @@ footprint work. Each group is independently revertible; there is no data migrati
 state. User-visible behaviour changes are listed in the project CHANGELOG with a one-line migration
 note each, and the adapter/security docs are updated in the group that changes them.
 
+## Group 8 measurement baseline (task 8.2)
+
+Recorded before any footprint change, from `dev-check bundle cold inproc probe`, two runs per runtime,
+on an otherwise idle machine. The toolkit reports deltas against the previous run, so both runs are
+listed rather than a single number.
+
+| Metric | Bun run 1 | Bun run 2 | Node run 1 | Node run 2 |
+| --- | --- | --- | --- | --- |
+| `inproc.nextrush.us` | 5.834 | 5.879 | 18.582 | 17.870 |
+| `inproc.hono.us` | 3.100 | 2.900 | 11.340 | 11.200 |
+| `inproc.raw.us` (floor) | 2.020 | 2.250 | 10.090 | 16.730 |
+| `inproc.nextrush.vs_hono` | 1.88 | 2.03 | 1.64 | 1.59 |
+| `inproc.nextrush.no-timeout.us` | 5.66 | 5.06 | 15.15 | 14.66 |
+| cold `n1000` nextrush / hono | 12.4 / 26.3 ms | — | — | — |
+
+Reading: the ratio moves within ~8% on Bun and ~3% on Node across two runs, so a change under ~8% is
+inside the noise band and cannot be claimed as an improvement on its own. The Node floor is the least
+stable figure in the run (10.09 vs 16.73 µs, a 66% swing) — it is a different process measured
+moments apart, so the floor is treated as directional only and never used to normalise the ratio.
+
+**Allocation volume is deliberately not a toolkit figure.** Both candidate counters were tested and
+rejected as measurement instruments rather than reported as if they measured allocation: sampling
+`process.memoryUsage().heapUsed` between collections returns ~5 B/request on Bun no matter what the
+path allocates, because JSC's reported heap does not move with transient per-request allocation, and on
+Node the same sampling sums heap *growth* events, not allocations (11 KB/request against a ~1.3 KB/request
+estimate from the shorter window). Neither number is a bound, a proxy, or comparable across runtimes, so
+publishing one would answer the laziness question with a fabricated figure. The group's laziness claim is
+therefore proven **behaviourally** — a platform request whose header getter, address lookup, and `URL`
+construction are counted, asserted to see zero accesses for a handler that never reads them — which is
+deterministic and runtime-independent. Retained footprint remains visible where the toolkit already
+reports it (`cold` RSS at 25 and 1,000 routes, bundle KB).
+
 ## Open Questions
 
 - **Is the committed ratio's goal the agreed target or parity with the baseline framework?** The

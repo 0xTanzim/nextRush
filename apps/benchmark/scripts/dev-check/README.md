@@ -203,6 +203,11 @@ Worth knowing before quoting a number from it.
   predict requests/second. `wire` is the one that touches a real socket, and its client
   (`wrk`) can itself become the bottleneck — which is why the `raw` floor is printed next
   to it.
+- **Allocation volume is not measured.** `inproc` reports time, not bytes. Both candidate counters were
+  tested and rejected: sampled `heapUsed` reports ~5 B/request on Bun regardless of what the path
+  allocates (JSC's reported heap does not move with transient allocation), and on Node the same sampling
+  sums heap-growth events rather than allocations. A laziness claim is proven by counting the platform
+  reads it avoids, in a test — not by a heap figure from here.
 - **`probe` speaks raw HTTP on purpose.** Targets are sent exactly as written, because
   what a runtime does to a hostile path is part of what is being measured. A probe
   therefore sees platform behaviour (Bun normalises some dot segments before the
