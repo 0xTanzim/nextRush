@@ -120,7 +120,25 @@ export { UNINITIALIZED_COOKIES, UNINITIALIZED_SIGNED_COOKIES } from './capabilit
 // Web Response Builder (shared Fetch-API response logic for Bun/Deno/Edge)
 // ============================================================================
 
-export { assertHeaderSafe, isBodylessResponse, jsonErrorResponse, WebResponseBuilder } from './response-builder';
+export { jsonErrorResponse, WebResponseBuilder } from './response-builder';
+export { assertHeaderSafe, isBodylessResponse } from './header-guards';
+export { measureBodyLength, prepareBody } from './response-body';
+export type { PreparedBody } from './response-body';
+export { serializeJson } from './serialize-json';
+export { LAST_RESORT_ERROR_STATUS, unansweredErrorBody } from './unanswered-response';
+
+// ============================================================================
+// Boot Gate (one boot barrier for every adapter entry point)
+// ============================================================================
+
+export { createBootGate } from './boot-gate';
+export type { BootableApp, BootGate, BootGateOptions } from './boot-gate';
+export { createWebRunner } from './web-runner';
+export type {
+  WebRunnerApp,
+  WebRunnerContext,
+  WebRunnerOptions,
+} from './web-runner';
 
 // ============================================================================
 // Shared Web Context Base (F-08, ADR-0010)

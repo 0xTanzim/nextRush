@@ -75,13 +75,27 @@ describe('matchesMountPrefix prefix memo', () => {
     expect(router.matchesMountPrefix('/api/users', '/admin')).toBeUndefined();
   });
 
-  it('folds the prefix per the router own caseSensitive option', () => {
+  it('tests the prefix boundary folded, but returns the client-cased remainder', () => {
     const insensitive = createRouter();
-    expect(insensitive.matchesMountPrefix('/ADMIN/Users', '/admin')).toBe('/users');
+    // The boundary is a matching decision, so it folds: /ADMIN is under /admin.
+    // The remainder becomes the mounted router's ctx.path, and that router both
+    // re-canonicalizes it for matching and binds parameter values from it — so
+    // it keeps the casing the client wrote.
+    expect(insensitive.matchesMountPrefix('/ADMIN/Users', '/admin')).toBe('/Users');
+    expect(insensitive.matchesMountPrefix('/admin/users', '/admin')).toBe('/users');
 
     const sensitive = createRouter({ caseSensitive: true });
     expect(sensitive.matchesMountPrefix('/ADMIN/Users', '/admin')).toBeUndefined();
     expect(sensitive.matchesMountPrefix('/admin/Users', '/admin')).toBe('/Users');
+  });
+
+  it('keeps the remainder correctly offset when a fold changes a character length', () => {
+    const router = createRouter();
+    // U+0130 folds to two code points, so the folded path is longer than the
+    // case-preserved one — a remainder taken by character offset out of the
+    // folded path cannot be reused against the preserved one.
+    expect(router.matchesMountPrefix('/API/\u0130/X', '/api')).toBe('/\u0130/X');
+    expect(router.matchesMountPrefix('/API/V1/Users/42', '/api/v1')).toBe('/Users/42');
   });
 
   it('enforces the segment boundary rather than a bare string prefix', () => {
@@ -101,8 +115,8 @@ describe('matchesMountPrefix prefix memo', () => {
     const b = createRouter({ caseSensitive: true });
     // Interleaved, so a shared memo keyed only on the string would cross over.
     for (let i = 0; i < 3; i++) {
-      expect(a.matchesMountPrefix('/API/x', '/api')).toBe('/x');
-      expect(b.matchesMountPrefix('/API/x', '/api')).toBeUndefined();
+      expect(a.matchesMountPrefix('/API/X', '/api')).toBe('/X');
+      expect(b.matchesMountPrefix('/API/X', '/api')).toBeUndefined();
     }
   });
 });

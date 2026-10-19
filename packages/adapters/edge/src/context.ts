@@ -104,7 +104,7 @@ export class EdgeContext<Env = unknown> extends WebContextBase {
           '(e.g. `proxy: 1` for one trusted reverse proxy such as Cloudflare).'
       );
     }
-    const ip = proxy !== false ? getEdgeClientIp(request, proxy) : '';
+    const ip: string | (() => string) = proxy !== false ? () => getEdgeClientIp(request, proxy) : '';
 
     // Detect specific edge runtime
     const runtime = detectEdgeRuntime().runtime;
@@ -139,7 +139,8 @@ export class EdgeContext<Env = unknown> extends WebContextBase {
    * logging) with no signal that `trustProxy` is the fix.
    */
   override get ip(): string {
-    if (this._ip === '' && this._proxy === false && !this._isProduction && !this._ipWarned) {
+    const value = super.ip;
+    if (value === '' && this._proxy === false && !this._isProduction && !this._ipWarned) {
       this._ipWarned = true;
       console.warn(
         '[nextrush/edge] ctx.ip is an empty string because proxy is false (the default) — ' +
@@ -149,7 +150,7 @@ export class EdgeContext<Env = unknown> extends WebContextBase {
           'development only.)'
       );
     }
-    return this._ip;
+    return value;
   }
 
   /**

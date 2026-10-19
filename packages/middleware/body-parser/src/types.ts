@@ -250,6 +250,26 @@ export interface BodyParserOptions {
    * Set to false to disable raw parsing.
    */
   readonly raw?: RawOptions | false;
+
+  /**
+   * What to do with a request body whose `Content-Type` no configured parser
+   * can handle.
+   *
+   * @remarks
+   * `'ignore'` leaves `ctx.body` undefined and continues — how every content
+   * type except `multipart/*` has always behaved. `'reject'` answers
+   * `415 Unsupported Content Type` before any handler runs, so a JSON API
+   * reports "wrong media type" instead of letting a handler proceed with an
+   * undefined body and a validator report the misleading "body required".
+   *
+   * Only requests that carry a `Content-Type` are rejected; a bodyless method or
+   * a request with no `Content-Type` at all is untouched either way.
+   * `multipart/*` rejects under both policies — it has always had a dedicated
+   * error naming the missing parser.
+   *
+   * @default 'ignore'
+   */
+  readonly onUnsupportedContentType?: 'ignore' | 'reject';
 }
 
 /**

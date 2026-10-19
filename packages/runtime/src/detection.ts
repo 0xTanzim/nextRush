@@ -233,6 +233,9 @@ function probeCapabilities(): RuntimeCapabilities {
     workers: typeof g.Worker !== 'undefined',
     secureServing: false, // Cannot be probed — requires server-construction API
     http2: false, // Cannot be probed — requires server-construction API
+    // Cannot be probed either: whether the front end preserved the request
+    // target is a property of its HTTP parser, not of a global.
+    rawRequestTarget: false,
   };
 }
 
@@ -261,6 +264,7 @@ export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
         workers: true,
         secureServing: true,
         http2: true,
+        rawRequestTarget: true, // `req.url` is the request line verbatim
       };
 
     case 'bun':
@@ -274,6 +278,10 @@ export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
         workers: true,
         secureServing: true,
         http2: false, // Bun.serve() TLS does not negotiate h2 via ALPN — see RFC-028 §Risks
+        // Measured over a real socket: `Bun.serve` resolves every dot-segment
+        // spelling (`/files/../admin`, `/files/%2e%2e/admin`, …) before the
+        // handler runs, so the raw target is not available here at all.
+        rawRequestTarget: false,
       };
 
     case 'deno':
@@ -287,6 +295,9 @@ export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
         workers: true,
         secureServing: true,
         http2: true, // Deno.serve() negotiates HTTP/2 via ALPN automatically once cert is supplied
+        // Measured over a real socket: `Deno.serve` preserves the request line
+        // verbatim, percent-encoded dot segments included.
+        rawRequestTarget: true,
       };
 
     case 'deno-deploy':
@@ -300,6 +311,9 @@ export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
         workers: false, // Deno Deploy has limited worker support
         secureServing: false,
         http2: false,
+        // Unverifiable here: Deno Deploy sits behind a front end that this
+        // matrix cannot measure, so the guarantee is not claimed.
+        rawRequestTarget: false,
       };
 
     case 'cloudflare-workers':
@@ -315,6 +329,10 @@ export function capabilitiesFor(runtime: Runtime): RuntimeCapabilities {
         workers: false, // Limited worker support
         secureServing: false, // Platform terminates TLS
         http2: false, // Platform handles protocol negotiation
+        // Measured in workerd (via miniflare) over a real socket: the request
+        // line is parsed into a `URL` before the handler runs, resolving every
+        // dot-segment spelling.
+        rawRequestTarget: false,
       };
 
     default:

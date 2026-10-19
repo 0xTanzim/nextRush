@@ -156,6 +156,21 @@ mapper registry. When more than one mapper is supplied, an explicit
 `provider` name wins; each mapper's optional `detect()` only runs as a
 fallback when no provider is named.
 
+## Request Paths and Dot Segments
+
+<Callout type="warn" title="rawPath is parsed into a URL before dispatch">
+  The Lambda adapter builds its `Request` from the event's `rawPath`, and that construction runs the
+  URL parser — so a dot segment reaches the application as the resolved path rather than as the
+  bytes the client sent, and the framework's `400` rejection cannot fire.
+
+  Authorise path rules against the path the application actually routed on (`ctx.path`), and reject
+  unwanted raw targets at API Gateway (WAF, resource policy, routing rules) if you need them
+  rejected at all. See
+  [Request Paths and Dot Segments](/docs/guides/security/security#request-paths-and-dot-segments).
+</Callout>
+
+---
+
 ## Troubleshooting
 
 <Callout type="warn" title="Timeout returns a 504 result, not a thrown error">

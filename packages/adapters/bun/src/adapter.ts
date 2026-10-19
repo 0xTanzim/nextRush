@@ -8,6 +8,7 @@
 
 import type { Application, Logger } from '@nextrush/core';
 import {
+  createWebRunner,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
   jsonErrorResponse,
@@ -189,60 +190,22 @@ export type BunFetchHandler = (
  * @remarks
  * The single source of truth used by both `createHandler` and `serve` (audit
  * F-07: `serve` previously forked its own `trackedHandler` and the exported
- * `createHandler` silently lacked the timeout). Owns context creation, the
- * timeout race with cooperative cancellation (F-08), the header-preserving
- * finalize path (F-02), and error handling.
+ * `createHandler` silently lacked the timeout). The flow itself — boot barrier,
+ * dispatch, timeout race with cooperative cancellation, not-found finalize, and
+ * error handling — is the shared Web runner; this function supplies only what is
+ * Bun-specific: the context, with the platform address resolved on first read.
  */
-function createBunRequestRunner(
-  app: Application,
-  options: HandlerOptions
-): BunFetchHandler {
-  const handler = app.callback();
+function createBunRequestRunner(app: Application, options: HandlerOptions): BunFetchHandler {
   const proxy = app.options.proxy ?? false;
-  const logger = options.logger ?? app.logger;
-  const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
-  const TIMEOUT_SENTINEL = Symbol('timeout');
 
-  return async (request: Request, server: ReturnType<typeof Bun.serve>): Promise<Response> => {
-    const clientIp = server.requestIP(request)?.address ?? '';
-    const ctx = createBunContext(request, clientIp, proxy);
-
-    try {
-      if (timeout > 0) {
-        let timerId: ReturnType<typeof setTimeout> | undefined;
-        try {
-          const result = await Promise.race([
-            handler(ctx).then(() => undefined),
-            new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-              timerId = setTimeout(() => {
-                resolve(TIMEOUT_SENTINEL);
-              }, timeout);
-            }),
-          ]);
-
-          if (result === TIMEOUT_SENTINEL) {
-            ctx.triggerTimeout(); // F-08: cancel the still-running handler
-            return jsonErrorResponse(504, 'Gateway Timeout');
-          }
-        } finally {
-          if (timerId !== undefined) clearTimeout(timerId); // F-08: always clear
-        }
-      } else {
-        await handler(ctx);
-      }
-
-      // F-02: finalize through the context so ctx.set() headers survive an
-      // implicit/empty response; the 404 body is written through the same builder.
-      if (!ctx.responded && ctx.status === 404) {
-        ctx.json({ error: 'Not Found' });
-      }
-      return ctx.getResponse();
-    } catch (error) {
-      logger.error('Request error:', error);
-
-      return jsonErrorResponse(500, 'Internal Server Error');
-    }
-  };
+  return createWebRunner<BunContext, ReturnType<typeof Bun.serve>>(app, {
+    label: 'bun',
+    timeout: options.timeout ?? DEFAULT_TIMEOUT_MS,
+    logger: options.logger,
+    makeContext: (request, server) =>
+      // The platform address is resolved on the first `ctx.ip` read, not here.
+      createBunContext(request, () => server.requestIP(request)?.address ?? '', proxy),
+  });
 }
 
 /**

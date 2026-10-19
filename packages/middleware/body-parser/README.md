@@ -223,6 +223,36 @@ app.use(async (ctx, next) => {
 });
 ```
 
+You usually do not need that middleware: the framework's default error response already reports a
+`BodyParserError` with its own `status` and `code` (a malformed body arrives as
+`{"error":"BodyParserError","message":"Invalid JSON","code":"INVALID_JSON","status":400}`), so a
+client can branch on `code` instead of parsing English. Reach for the handler above only when you want
+a different body shape.
+
+### Failure messages are framework constants
+
+Every response-visible failure message is a fixed string — `'Invalid JSON'`,
+`'Invalid URL-encoded body'`, `'Error reading request body'`, `'Request body too large'`. The engine's
+own text (`Expected property name or '}' in JSON at position 1`, a decoder's `URI malformed`, a
+socket's read error) is runtime-specific: the same bytes produce a different message on Node, Bun and
+Deno. Putting it in the response would make the body a function of the runtime rather than of the
+request.
+
+It is still worth having server-side, so it is attached to `BodyParserError.cause`:
+
+```ts
+try {
+  await json()(ctx, next);
+} catch (error) {
+  if (error instanceof BodyParserError) {
+    logger.warn({ code: error.code, cause: error.cause }, 'body rejected');
+  }
+}
+```
+
+`cause` goes through `Error`'s own slot, so it is **non-enumerable**: it never appears in
+`JSON.stringify(error)`, in `error.toJSON()`, or in any response built from either.
+
 ## API overview
 
 The sealed public surface (ADR-0005).
@@ -299,6 +329,38 @@ Every default below is read directly from each parser's destructuring defaults i
 | `urlencoded` | `UrlEncodedOptions \| false` | No | `{}` (enabled) | No | URL-encoded options, or `false` to disable. |
 | `text` | `TextOptions \| false` | No | `undefined` (disabled) | No | Pass any object (even `{}`) to enable. |
 | `raw` | `RawOptions \| false` | No | `undefined` (disabled) | No | Pass any object (even `{}`) to enable. |
+| `onUnsupportedContentType` | `'ignore' \| 'reject'` | No | `'ignore'` | No | What to do when the request's `Content-Type` matches no configured parser. |
+
+### Unparsed content types
+
+A `POST` whose `Content-Type` no configured parser matches is the case worth being explicit about, because
+"nothing parsed it" and "the body was empty" look identical to the handler that runs next.
+
+| Policy | Behaviour |
+| ------ | --------- |
+| `'ignore'` (default) | `ctx.body` stays `undefined` and the request continues to your handlers. This is how every content type except `multipart/*` has always behaved, so the default changes nothing. |
+| `'reject'` | A `415 Unsupported Content Type` is answered before any handler runs, naming the content type that arrived. |
+
+**For a JSON API, set `'reject'`.** The failure mode the default hides is expensive: a client posts
+`application/xml` (or a browser sends a form as `multipart/form-data`) and the handler runs against an
+undefined body, so the error the client finally sees is whatever your validation says about a missing
+field — not "you sent the wrong media type". With `'reject'` the request fails at the boundary with the
+status that describes it.
+
+```ts
+import { bodyParser } from '@nextrush/body-parser';
+
+app.use(bodyParser({ onUnsupportedContentType: 'reject' }));
+```
+
+Two cases are never rejected, because there is no media type to reject:
+
+- A bodyless method (`GET`, `HEAD`, `DELETE`, …) — nothing to parse either way.
+- A request with no `Content-Type` header at all — treated as "unknown", as it always has been.
+
+`multipart/*` is a third case and rejects under **both** policies: it has always raised its own
+`415` naming the missing multipart parser, rather than silently passing an undefined body through.
+File uploads need a dedicated multipart parser package.
 
 ### Size limits
 
@@ -344,7 +406,21 @@ Body parsing sits on the request hot path, so every parser does the minimum work
 **Integration**
 - **Peer dependencies:** none -- depends only on `@nextrush/types` (types, erased at build).
 - **Works with:** any NextRush middleware chain; register a parser before route handlers so `ctx.body` is populated when they run.
-- **Incompatible with:** `multipart/form-data` -- `bodyParser()` throws `UNSUPPORTED_CONTENT_TYPE` for it; use a dedicated multipart parser instead.
+- **Incompatible with:** `multipart/form-data` -- `bodyParser()` throws `UNSUPPORTED_CONTENT_TYPE` for it under both policies; use a dedicated multipart parser instead.
+
+**Behaviour changes in this release**
+
+| Change | Impact |
+| ------ | ------ |
+| A parse failure's message is now a framework constant (`'Invalid JSON'`, `'Invalid URL-encoded body'`, `'Error reading request body'`) with the engine's own text moved to a non-enumerable `error.cause`. | Responses no longer vary by runtime for the same request. If you matched on the message text, read `error.code` (`'INVALID_JSON'`, `'INVALID_URLENCODED'`, `'BODY_READ_ERROR'`) or `error.cause` instead. |
+| `onUnsupportedContentType` added, defaulting to today's behaviour (`'ignore'`). | Additive; nothing changes unless you opt in. |
+| A 4xx from the framework's default error response reports the error's own `code` (e.g. `'INVALID_JSON'`) instead of `'INTERNAL_ERROR'`. | A client branching on `code` now sees a 4xx named as a client error. `'INTERNAL_ERROR'` is unchanged for every 5xx. |
+
+> [!NOTE]
+> **Planned for the next major:** `onUnsupportedContentType` will default to `'reject'`. Silently
+> accepting an unparsed body is the wrong default for the APIs this package is used to build, but
+> changing it now would be a quiet breaking change, so it is scheduled rather than shipped. Set the
+> option explicitly if you want the future behaviour today.
 
 > [!IMPORTANT]
 > NextRush is **ESM-only, permanently** -- no CommonJS build. On Node >=22, CommonJS consumers
@@ -380,6 +456,11 @@ app.use(json({ limit: '10mb' }));
 ```ts
 app.use(json({ type: ['application/json', 'application/vnd.api+json'] }));
 ```
+
+If you would rather find out at the boundary than from a handler that receives nothing, use
+`bodyParser({ onUnsupportedContentType: 'reject' })` -- it answers `415` for an unmatched
+`Content-Type` instead of continuing with `ctx.body === undefined` (see
+[Unparsed content types](#unparsed-content-types)).
 
 </details>
 

@@ -9,6 +9,8 @@
 import type { Context, Middleware, Next } from '@nextrush/types';
 import { SECURITY_AUDIT, type SecurityAuditVerdict } from '@nextrush/types';
 import { HttpError, NextRushError, getHttpStatusMessage } from './base';
+import { GENERIC_ERROR_CODE, resolveErrorCode } from './codes';
+import { getErrorStatus } from './factory';
 
 /**
  * Error handler options
@@ -99,7 +101,7 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
       // Determine status code
       let status = 500;
       let expose = false;
-      let code = 'INTERNAL_ERROR';
+      let code: string = GENERIC_ERROR_CODE;
       let details: Record<string, unknown> | undefined;
 
       if (err instanceof HttpError || err instanceof NextRushError) {
@@ -107,6 +109,14 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
         expose = err.expose;
         code = err.code;
         details = err.details;
+      } else {
+        // One contract with `@nextrush/core`'s default error response: a plain
+        // error that carries a status is reported with that status, and its code
+        // comes from the shared derivation rather than being relabelled
+        // INTERNAL_ERROR (or, for a 4xx, described as a server fault).
+        status = getErrorStatus(err);
+        expose = status < 500;
+        code = resolveErrorCode(err, status);
       }
 
       ctx.status = status;

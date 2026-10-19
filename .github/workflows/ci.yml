@@ -93,6 +93,95 @@ jobs:
       - name: Build, test, typecheck, lint
         run: pnpm verify
 
+  # The committed request-cost gate. Runs the `dev-check` toolkit's deterministic
+  # stages (bundle, cold start, in-process per-request cost, correctness probes)
+  # straight from source — no `pnpm build` and no multi-minute profile — and exits
+  # non-zero when a committed maximum in
+  # `apps/benchmark/scripts/dev-check/budgets.json` is exceeded. Without this job a
+  # change that doubles the Web request path's framework tax (or re-introduces a
+  # fixed defect covered by a probe) merges green.
+  #
+  # Runs on every pull request rather than behind a `paths:` filter on purpose: the
+  # request path spans router → runtime → core → five adapters → middleware, so a
+  # path allowlist either misses a package (a silently un-gated change) or has to
+  # list nearly the whole workspace anyway. The whole job is well under a minute.
+  request-cost-gate:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      # `dev-check` builds every entry with Bun and runs the Bun stages in Bun.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+
+      - name: Request-cost gate (Bun)
+        run: node apps/benchmark/scripts/dev-check/check.mjs bundle cold inproc probe --rt bun
+
+      # The Node runtime is the other supported target; its ratios and probes are
+      # measured separately because the two runtimes have different fast paths.
+      - name: Request-cost gate (Node)
+        run: node apps/benchmark/scripts/dev-check/check.mjs bundle cold inproc probe --rt node
+
+      - name: Bookkeeping — every known-failure id maps to a probe
+        run: node apps/benchmark/scripts/dev-check/check.mjs bookkeeping
+
+  # Cross-adapter parity is PROVEN, not assumed (framework constitution §7): each
+  # runner below executes the SAME shared `defineConformanceSuite` the in-process
+  # drivers run, on the adapter's own runtime, through a real listener.
+  #
+  # Why in-process alone is not enough: `drivers/web-driver.ts` invokes each
+  # adapter's handler function directly from a Node/vitest process, so nothing
+  # about the transport is observable there — response framing, connection
+  # teardown, or the request target exactly as the platform delivered it. Those
+  # are precisely the places an adapter diverges from the shared contract, and the
+  # shared suite now records a per-scenario proof level (`Transport` /
+  # `RuntimeFidelity` in `drivers/types.ts`) so a claimed pass can be told apart
+  # from a proven one.
+  #
+  # `needs: ci` — every `@nextrush/*` dist these runners resolve through is
+  # produced by the build, and this job asserts behaviour only, not build order.
+  runtime-parity:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      # Only the conformance package's dependency closure — the runner needs the
+      # adapter packages' `dist/`, not the website or the published-artifact
+      # fixtures. `...` includes dependencies.
+      - name: Build the packages the real-runtime runners resolve
+        run: pnpm turbo run build --filter=@nextrush/adapter-conformance...
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+
+      - name: Real-runtime conformance — Bun (real socket)
+        run: bun test
+        working-directory: packages/adapters/conformance/bun-runner
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Real-runtime conformance — Deno (real socket)
+        run: deno task conformance
+        working-directory: packages/adapters/conformance/deno-runner
+
+      - name: Real-runtime conformance — workerd (real isolate, over HTTP)
+        run: node --test conformance.workerd.test.mjs
+        working-directory: packages/adapters/conformance/workerd-runner
+
   # project-scaffolding-hardening (RFC-021 / ADR-0011 / task 2.1 & 7.3): the system-of-record
   # verifier for the P0 install-integrity claim — scaffolds every style x runtime x middleware
   # combination and asserts each emitted dependency range resolves against its OWN package's

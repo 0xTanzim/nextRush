@@ -32,7 +32,7 @@
     "bench:check": "node scripts/check-regression.js",
     "bench:mixed": "wrk -t4 -c64 -d10s -s wrk/mixed.lua http://localhost:8080/",
     "smoke-test": "node scripts/smoke-test.js",
-    "test": "node --test scripts/lib/__tests__/*.test.js",
+    "test": "node --test scripts/lib/__tests__/*.test.js scripts/dev-check/lib/__tests__/*.test.mjs",
     "report:generate": "node scripts/generate-report.js",
     "report:regenerate-all": "node scripts/generate-report.js --all --history",
     "report:history": "node scripts/generate-report.js --history",

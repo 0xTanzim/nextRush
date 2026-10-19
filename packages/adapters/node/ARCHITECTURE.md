@@ -221,8 +221,20 @@ extension's `destroy()` never races an in-flight request.
 | ----- | -------------- | ----- |
 | `Application` | Extension lifecycle, middleware chain, router | app |
 | `serve()`'s `DrainState` | The single `draining` boolean flag | app (one per `serve()` call) |
+| `createBootGate` (`@nextrush/runtime`) | The memoized boot promise and the resolved handler `createHandler` dispatches through | one `createHandler()`/`serve()` call |
 | `NodeContext` | Request/response wrapper, params, body source | per-request |
 | Node `http.Server` | Open sockets, listen state | app |
+
+### Boot before dispatch
+
+`createHandler` composes its handler through `@nextrush/runtime`'s shared `createBootGate`, so
+`http.createServer(createHandler(app))` — a form with no startup phase to await `ready()` in —
+boots the app on the first request instead of dispatching against an empty middleware stack.
+`serve()` still boots eagerly before building the handler, and the gate detects that (it composes
+at construction when the app reports `isReady`) so the eager path keeps exactly its old timing —
+which matters here more than elsewhere: `serve()` sets the socket-level `server.timeout` to the
+same value as the handler timeout, so a first request deferred by even one microtask can lose that
+race and surface as a client-side socket hang-up.
 
 ---
 

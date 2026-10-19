@@ -39,12 +39,13 @@ import type {
   TextStreamWriter,
 } from '@nextrush/types';
 import { combineAbortSignal, type CombinedAbort } from './request-signal';
+import { requestTargetFromUrl } from './request-target';
 import { UNINITIALIZED_COOKIES } from './capabilities';
 import { createEmptyBodySource } from './body-source';
 import { WebBodySource } from './body-source';
 import { WebResponseBuilder } from './response-builder';
 import { METHODS_WITHOUT_BODY } from './constants';
-import { headersToRecord } from './headers';
+import { RequestInputs, type ClientAddress } from './request-inputs';
 import { NULL_PROTO } from './null-proto';
 import { parseQueryString } from './query';
 
@@ -99,13 +100,20 @@ export abstract class WebContextBase implements FetchContext {
    */
   readonly originalPath: string;
   readonly query: QueryParams;
-  readonly headers: IncomingHeaders;
   readonly runtime: Runtime;
   readonly bodySource: BodySource;
 
-  /** Backing field for {@link ip} (P2-3: a getter, not a plain field, so a
-   * subclass can warn on read without changing the value or its identity). */
-  protected readonly _ip: string;
+
+
+  /**
+   * The lazily resolved request inputs (headers and client address).
+   *
+   * @remarks
+   * Held rather than spread across the context: building the header record walks
+   * every header and resolving the address may call the platform, so both are
+   * resolved on first read (see {@link RequestInputs}).
+   */
+  protected readonly _inputs: RequestInputs;
 
   /**
    * Named deployment platform, when known (RFC-026).
@@ -155,7 +163,7 @@ export abstract class WebContextBase implements FetchContext {
    */
   protected constructor(
     request: Request,
-    ip: string,
+    ip: ClientAddress,
     runtime: Runtime,
     streamRunners: WebStreamRunners,
     platform?: PlatformId
@@ -165,17 +173,17 @@ export abstract class WebContextBase implements FetchContext {
     this.method = request.method.toUpperCase() as HttpMethod;
     this.runtime = runtime;
     this.platform = platform;
-    this._ip = ip;
+    this._inputs = new RequestInputs(request, ip);
 
-    // Parse URL
-    const urlObj = new URL(request.url);
-    this.url = urlObj.pathname + urlObj.search;
-    this.path = urlObj.pathname;
-    this.originalPath = this.path;
-    this.query = parseQueryString(urlObj.search.slice(1));
-
-    // Convert Headers to record format
-    this.headers = headersToRecord(request.headers);
+    // Derive the target by scanning `request.url` instead of parsing it: WHATWG
+    // parsing resolves dot segments (every encoded spelling of one included),
+    // which would resolve a segment before the router could reject it, and it
+    // allocates a `URL` object per request to do that.
+    const target = requestTargetFromUrl(request.url);
+    this.path = target.path;
+    this.originalPath = target.path;
+    this.url = target.search === '' ? target.path : target.path + target.search;
+    this.query = parseQueryString(target.search.slice(1));
 
     // Create body source
     this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
@@ -189,14 +197,17 @@ export abstract class WebContextBase implements FetchContext {
    * The resolved client IP, per the concrete adapter's own policy.
    *
    * @remarks
-   * A getter (not a plain field) so a subclass can observe a read without
-   * changing the value — see {@link EdgeContext}'s override, which warns
-   * once per context in development when this is `''` because `trustProxy`
-   * is `false` (P2-3). Bun/Deno/Node never see that override; they always
-   * return a real resolved IP here, unchanged in value or behavior.
+   * A getter (not a plain field) for two reasons: it resolves a lazily-supplied
+   * address on first read and memoizes it (a handler that never reads `ctx.ip`
+   * causes no platform lookup, and two reads cause one), and a subclass can
+   * observe a read without changing the value — see {@link EdgeContext}'s
+   * override, which warns once per context in development when this is `''`
+   * because `trustProxy` is `false` (P2-3). Bun/Deno/Node never see that
+   * override; they always return a real resolved IP here, unchanged in value or
+   * behavior.
    */
   get ip(): string {
-    return this._ip;
+    return this._inputs.ip;
   }
 
   /**
@@ -280,6 +291,11 @@ export abstract class WebContextBase implements FetchContext {
     return this._streamRunners.runNDJSONStream(this, run);
   }
 
+  /** Incoming request headers, as a record — built on first read (see {@link RequestInputs}). */
+  get headers(): IncomingHeaders {
+    return this._inputs.headers;
+  }
+
   // ===========================================================================
   // Header Helpers
   // ===========================================================================
@@ -288,12 +304,9 @@ export abstract class WebContextBase implements FetchContext {
     this._response.set(field, value);
   }
 
+  /** Read one incoming header; never builds the record (see {@link RequestInputs}). */
   get(field: string): string | undefined {
-    const value = this.headers[field.toLowerCase()];
-    if (Array.isArray(value)) {
-      return value[0];
-    }
-    return value;
+    return this._inputs.get(field);
   }
 
   // ===========================================================================

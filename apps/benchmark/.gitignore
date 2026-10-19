@@ -12,3 +12,6 @@ node_modules/
 
 # Stray profiler output from manual `scripts/profile.js` invocations.
 /scripts/results/
+
+# dev-check scratch (bundles, profiles, last-run.json)
+/scripts/dev-check/.out/

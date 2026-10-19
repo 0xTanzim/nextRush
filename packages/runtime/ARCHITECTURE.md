@@ -110,6 +110,10 @@ src/
 ├── response-builder.ts # WebResponseBuilder + header-safety / bodyless-status checks (Fetch adapters)
 ├── headers.ts          # headersToRecord + the single client-IP resolution policy & IP validation
 ├── query.ts            # parseQueryString — single-pass, DoS-limited, proto-pollution-safe
+├── request-target.ts   # requestTargetFromUrl — path/search split with no URL object and no dot-segment resolution
+├── request-inputs.ts   # RequestInputs — the incoming-header record and client address, resolved on first read
+├── boot-gate.ts        # createBootGate — the first-request boot barrier for entry points with no startup phase
+├── web-runner.ts       # createWebRunner — the one per-request flow every Web adapter runs
 ├── request-signal.ts   # combineAbortSignal — merge client-disconnect + timeout
 ├── server-error.ts     # ServerStartError + normalizeStartupError (uniform bind failures)
 ├── constants.ts        # Shared adapter defaults (timeout / shutdown / keep-alive / methods)
@@ -126,6 +130,10 @@ src/
 | `response-builder.ts` | Build a Fetch `Response` safely (header validation, bodyless-status rules) for web adapters. |
 | `headers.ts` | Convert Web `Headers` to a safe record and resolve the client IP with one shared precedence. |
 | `query.ts` | Parse a query string safely and cheaply. |
+| `request-target.ts` | Derive the published `path`/`search` from a request URL without reshaping it. |
+| `request-inputs.ts` | Own the lazily-resolved request inputs a handler may never read: the header record and the client address. |
+| `boot-gate.ts` | Make the first request the boot barrier, memoized and retryable, for entry points with no startup phase. |
+| `web-runner.ts` | Own the per-request flow every Web adapter runs: boot, dispatch, timeout race, finalize, error response. |
 | `request-signal.ts` | Combine the platform request signal with an adapter-owned timeout controller. |
 | `server-error.ts` | Normalize bind/startup failures into one typed, actionable error. |
 | `constants.ts` | Own the adapter default numbers so they cannot drift. |
@@ -286,12 +294,16 @@ The primitives on the per-request path are written to avoid allocation and super
 | `getRuntime()` | O(1) after first call | none | Memoized; detection runs once per process. |
 | `capabilitiesFor(known)` | O(1) | one matrix object | Curated switch; no probing. |
 | `parseQueryString(qs)` | O(n) single pass | none on empty/over-limit (shared frozen `EMPTY_QUERY`) | `indexOf`-based scanner, no `split('&')` intermediate array; capped at 256 params / 2048 chars. |
+| `requestTargetFromUrl(url)` | O(n) single pass | none | Two `indexOf` scans over the URL string; no `URL` construction (which would parse, percent-encode, and resolve dot segments) and no intermediate array. |
 | `combineAbortSignal(base)` | O(1) | one `AbortController` | Created lazily by the Context only on first `signal` access, so the non-timeout/non-stream hot path stays allocation-free. |
 | `resolveClientIp(get, opts)` | O(1) | none | A few header reads + structural validation. |
+| `ctx.headers` (first read) | O(h) over headers | one record | Memoized by `RequestInputs`; a handler that never reads it causes no walk, and `ctx.get(name)` reads the platform `Headers` directly without building it. |
+| `ctx.ip` (first read) | O(1) | none | A string, or the adapter's resolver called exactly once; never read means never resolved (no `requestIP`, no proxy-header walk). |
+| `createWebRunner` dispatch | O(1) added | none when settled | The timeout timer is armed only if the handler is still pending after a bounded microtask turn, so the common request calls no `setTimeout`. |
 
 **Memory model:**
 - **Shared (one copy):** the detection cache, the frozen `EMPTY_QUERY`, and the constant tables.
-- **Per request:** a `WebBodySource` (when a body is read), the parsed `QueryParams` (only when the query is non-empty), and a combined `AbortSignal` (only when a timeout/stream needs it).
+- **Per request:** a `WebBodySource` (when a body is read), the parsed `QueryParams` (only when the query is non-empty), a combined `AbortSignal` (only when a timeout/stream needs it), the header record (only when `ctx.headers` is read), the resolved client address (only when `ctx.ip` is read), and a timeout timer (only when the handler is still pending).
 
 ## Concurrency & edge behaviour
 
@@ -315,10 +327,13 @@ User input --> HTTP --> [ headers / query / body / client-IP ] --> Context --> v
                               |   - parseQueryString / headersToRecord: Object.create(null), deny __proto__/constructor/prototype
                               |   - isValidClientIp: structural IPv4/IPv6 validation; trustProxy gates proxy headers
                               |   - WebBodySource: enforces DEFAULT_BODY_LIMIT (BodyTooLargeError)
+                              |   - requestTargetFromUrl: the path is published as the platform delivered it (no decoding, no dot-segment resolution, no re-encoding)
                               |   - assertHeaderSafe: rejects header-injection vectors on the way out
 ```
 
 Everything crossing from the network is treated as hostile: query keys and header names are written onto containers that expose no `Object.prototype` members, with dangerous keys denied (prototype-pollution defense; see ADR-0021 for why the container derives from a shared null-prototype base instead of `Object.create(null)`), client IPs are structurally validated and only believed when `trustProxy` is explicitly set, body reads are size-bounded, and outgoing headers are checked for injection. Semantic body *validation* (schemas) is not this package's job — that boundary is enforced later by `@nextrush/validation`.
+
+The published path is un-reshaped on purpose. `requestTargetFromUrl` neither resolves a dot segment nor percent-encodes one, so a target that spells `/files/../admin` reaches the router **as those bytes** and is rejected there rather than silently matching a resolved route — a resolution performed here would answer a different question than the layer in front of the application already answered. Whether the target survived to this point at all is a separate, platform-owned fact, reported as the `rawRequestTarget` capability: Node and Deno hand it over unparsed, `Bun.serve` and the edge isolates parse it into a `URL` first. No request-path decision branches on that flag — it exists so a rejection guarantee is claimed only on the platforms where it is real (see `packages/adapters/conformance`).
 
 ## Extension points
 

@@ -16,7 +16,13 @@ export { CapabilityNotInitializedError } from './capability';
 export { HeaderValidationError } from './header-validation';
 
 // Central error-code registry
-export { ERROR_CODES, GENERIC_ERROR_CODE, VALIDATION_ERROR_CODE, codeForStatus } from './codes';
+export {
+  ERROR_CODES,
+  GENERIC_ERROR_CODE,
+  VALIDATION_ERROR_CODE,
+  codeForStatus,
+  resolveErrorCode,
+} from './codes';
 
 // HTTP errors - 4xx
 export {

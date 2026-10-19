@@ -186,7 +186,17 @@ drain state -- it only decides *whether* `close()` gets called automatically on 
 | ----- | ------------- | ----- |
 | `Application` (`@nextrush/core`) | Extension lifecycle, middleware chain | app |
 | `serve()`'s closure | `activeRequests` counter, `drainResolve` callback | app (one per `serve()` call) |
+| `createBootGate` (`@nextrush/runtime`) | The memoized boot promise and the resolved handler `createHandler` dispatches through | one `createHandler()`/`serve()` call |
 | `BunContext` | Request/response state, params, `raw` Bun `Request` access | per-request |
+
+### Boot before dispatch
+
+`createHandler` composes its handler through `@nextrush/runtime`'s shared `createBootGate`, so
+the documented `Bun.serve({ fetch: createHandler(app) })` form — which has no startup phase to
+await `ready()` in — boots the app on the first request instead of dispatching against an empty
+middleware stack. `serve()` still boots eagerly before building the handler, and the gate detects
+that (it composes at construction when the app reports `isReady`) so the eager path keeps exactly
+its old timing. Every request after the first reads the already-resolved handler with no `await`.
 
 ## Data structures
 

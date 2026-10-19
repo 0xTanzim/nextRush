@@ -363,6 +363,26 @@ codeForStatus(413);      // 'PAYLOAD_TOO_LARGE'
 codeForStatus(499);      // 'HTTP_499' (no dedicated class)
 ```
 
+### `resolveErrorCode(error, status)`
+
+The error *response* uses one more step, and it is the same step in both places
+that build one — `app`'s default error response and `errorHandler()`:
+
+```typescript
+import { resolveErrorCode } from '@nextrush/errors';
+
+resolveErrorCode({ code: 'INVALID_JSON' }, 400); // 'INVALID_JSON' — the error's own code
+resolveErrorCode(new Error('missing'), 404);     // 'NOT_FOUND'     — derived from the status
+resolveErrorCode({ code: 'DB_DOWN' }, 503);      // 'INTERNAL_ERROR' — a 5xx never reflects its code
+```
+
+An error that carries its own non-empty string `code` keeps it, so a client can
+branch on `INVALID_JSON` / `UNSUPPORTED_CONTENT_TYPE` / `PAYLOAD_TOO_LARGE`
+instead of reading every 4xx as a server fault. An error without one gets its
+status's canonical code. Above 500 the code of the failure describes the
+server's own condition and is replaced with `'INTERNAL_ERROR'` — a 5xx body is
+never a description of what broke inside.
+
 ## Serialization Across Services
 
 `toJSON()` includes the serialized `cause` chain (for exposed errors) and any

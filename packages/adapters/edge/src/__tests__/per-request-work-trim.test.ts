@@ -102,8 +102,12 @@ describe('HP-1: Edge ctx.ip resolution', () => {
     expect(getEdgeClientIpMock).not.toHaveBeenCalled();
   });
 
-  it('2.6 [trim] proxy: 1 (hop count) still resolves via getEdgeClientIp', () => {
-    void new EdgeContext(makeRequest({ 'cf-connecting-ip': '198.51.100.5' }), undefined, 1);
+  it('2.6 [trim] proxy: 1 (hop count) resolves via getEdgeClientIp on the first ctx.ip read, once', () => {
+    const ctx = new EdgeContext(makeRequest({ 'cf-connecting-ip': '198.51.100.5' }), undefined, 1);
+    expect(getEdgeClientIpMock).not.toHaveBeenCalled();
+
+    expect(ctx.ip).toBe('198.51.100.5');
+    expect(ctx.ip).toBe('198.51.100.5');
     expect(getEdgeClientIpMock).toHaveBeenCalledTimes(1);
     expect(getEdgeClientIpMock).toHaveBeenCalledWith(expect.any(Request), 1);
   });

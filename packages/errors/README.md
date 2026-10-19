@@ -144,7 +144,7 @@ You never write the response shape. You declare an error state by throwing a typ
 
 **Integration**
 - **`errorHandler()` middleware** — one Koa-style middleware catches, logs, and serializes every thrown error
-- **Stable machine codes** — a central `ERROR_CODES` registry maps every status to one canonical code
+- **Stable machine codes** — a central `ERROR_CODES` registry maps every status to one canonical code, and `resolveErrorCode()` is the single derivation both error responses use
 - **Cross-service transport** — `toJSON()` / `fromJSON()` round-trips a typed error across an HTTP boundary
 
 **Developer experience**
@@ -262,6 +262,7 @@ The sealed public surface (ADR-0005), grouped by role.
 | `getHttpStatusMessage` | `(status) => string` | `3.0.0` | Stable ✅ | Canonical reason phrase for a status. |
 | `ERROR_CODES` | `Readonly<Record<number, string>>` | `3.1.0` | Stable ✅ | Frozen status→canonical-code registry. |
 | `codeForStatus` | `(status) => string` | `3.1.0` | Stable ✅ | Canonical code for a status (`HTTP_<status>` if none). |
+| `resolveErrorCode` | `(error, status) => string` | `4.1.0` | Stable ✅ | The code an error response reports: the error's own non-empty string `code` for a 4xx, else the status's canonical code; always `'INTERNAL_ERROR'` from 500 up. |
 | `GENERIC_ERROR_CODE` · `VALIDATION_ERROR_CODE` | `string` | `3.1.0` | Stable ✅ | `'INTERNAL_ERROR'` · `'VALIDATION_ERROR'`. |
 | `type HttpErrorOptions` · `ValidationIssue` · `ErrorHandlerOptions` | — | `3.0.0` | Stable ✅ | Public option/data contracts. |
 

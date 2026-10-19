@@ -73,5 +73,29 @@ export function codeForStatus(status: number): string {
 /** Generic internal-error code used when no status-specific code applies. */
 export const GENERIC_ERROR_CODE = 'INTERNAL_ERROR';
 
+/**
+ * Resolve the code a client sees for an error that is not a `NextRushError`.
+ *
+ * @remarks
+ * The single derivation behind both `@nextrush/core`'s default error response
+ * and this package's `errorHandler()`. An error's own machine-readable code wins
+ * — that is what lets a client branch on `INVALID_JSON` versus
+ * `UNSUPPORTED_CONTENT_TYPE` instead of reading every 4xx as a server fault —
+ * but only below 500: the code of an internal failure describes the server's own
+ * condition and is not for clients, so a 5xx stays `INTERNAL_ERROR` whatever the
+ * error carries.
+ *
+ * @param error - The thrown value; only a non-empty string `code` is used.
+ * @param status - The status the caller resolved for this error.
+ * @returns The error's own code, or the status's canonical code.
+ */
+export function resolveErrorCode(error: unknown, status: number): string {
+  if (status >= 500) {
+    return GENERIC_ERROR_CODE;
+  }
+  const code = (error as { code?: unknown } | null | undefined)?.code;
+  return typeof code === 'string' && code.length > 0 ? code : codeForStatus(status);
+}
+
 /** Canonical code for validation failures. */
 export const VALIDATION_ERROR_CODE = 'VALIDATION_ERROR';

@@ -101,8 +101,12 @@ describe('HP-1: Deno ctx.ip resolution', () => {
     expect(getClientIpMock).not.toHaveBeenCalled();
   });
 
-  it('2.6 [trim] proxy: 1 (hop count) still resolves via getClientIp (directIp = remoteAddr.hostname)', () => {
-    void new DenoContext(makeRequest({ 'x-forwarded-for': '9.9.9.9' }), connInfo(DIRECT_IP), 1);
+  it('2.6 [trim] proxy: 1 (hop count) resolves via getClientIp on the first ctx.ip read, once', () => {
+    const ctx = new DenoContext(makeRequest({ 'x-forwarded-for': '9.9.9.9' }), connInfo(DIRECT_IP), 1);
+    expect(getClientIpMock).not.toHaveBeenCalled();
+
+    expect(ctx.ip).toBe('9.9.9.9');
+    expect(ctx.ip).toBe('9.9.9.9');
     expect(getClientIpMock).toHaveBeenCalledTimes(1);
     expect(getClientIpMock).toHaveBeenCalledWith(expect.any(Request), DIRECT_IP, 1);
   });

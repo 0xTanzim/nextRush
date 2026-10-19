@@ -27,6 +27,19 @@ export interface DispatchInit {
   headers?: Record<string, string>;
   /** Request body (POST/PUT). */
   body?: string;
+  /**
+   * Put `path` in the request line exactly as given, over a real socket, instead
+   * of sending it through a client that parses it into a `URL`.
+   *
+   * @remarks
+   * Every `fetch` implementation resolves a dot segment on the client before the
+   * request leaves — measured: `fetch('http://h/files/../admin')` arrives at the
+   * server as `/admin` on Node, Bun and Deno alike — so a scenario about what the
+   * *server* does with the target can only be observed by writing the request
+   * line directly. A driver on a real listener satisfies this with a raw write;
+   * one that cannot is already refused by the scenario's socket requirement.
+   */
+  verbatimTarget?: boolean;
   /** Proxy-trust specification the app boots with (`app.options.proxy`, RFC-030). */
   proxy?: ProxyTrust;
   /**
@@ -35,6 +48,23 @@ export interface DispatchInit {
    * deterministic across runtimes.
    */
   directIp?: string;
+  /**
+   * Dispatch through an entry point that was built BEFORE the application
+   * booted, and never call `ready()`.
+   *
+   * @remarks
+   * The documented Web form is `Bun.serve({ fetch: createHandler(app) })` with no
+   * explicit boot, so the handler itself must boot the application before
+   * dispatching. A driver that ignores this flag would boot eagerly and let a
+   * pre-boot entry point pass the assertion without ever proving it — a false
+   * positive, which is why every driver honors it.
+   *
+   * The application is built through the router-owning factory so a scenario can
+   * declare routes with `app.get(...)` and observe both the routing and the
+   * not-found path: with no boot, the application's own router is never mounted,
+   * so the declared route cannot be reached and an unrouted path is not a 404.
+   */
+  beforeBoot?: boolean;
 }
 
 /** Normalized, runtime-agnostic view of an adapter's response. */
@@ -53,11 +83,41 @@ export interface DispatchResult {
 export type Configure = (app: Application) => void;
 
 /**
+ * Which runtime a driver's request actually executes on.
+ *
+ * @remarks
+ * `real-runtime` — the adapter's own runtime executes the handler, in-process
+ * with the test (the native Node driver, `bun-runner/`, `deno-runner/`).
+ * `simulated` — the adapter is driven from another runtime's test process, which
+ * is what `web-driver.ts` always does under Node/vitest.
+ */
+export type RuntimeFidelity = 'real-runtime' | 'simulated';
+
+/**
+ * How a driver reaches the adapter under test.
+ *
+ * @remarks
+ * `socket` — a real HTTP listener, spoken to over loopback.
+ * `in-process` — the adapter's handler function is invoked directly. Anything
+ * that lives in the transport rather than in the handler — response framing,
+ * connection teardown, the request target exactly as the platform delivered it —
+ * is then not observable at all, so a scenario that depends on one of those is
+ * NOT proven by an `in-process` driver. See `../scenario.ts`.
+ */
+export type Transport = 'socket' | 'in-process';
+
+/**
  * Drives one adapter through its real handler and normalizes the outcome.
  */
 export interface ConformanceDriver {
   /** Adapter name (used as the `describe.each` label). */
   readonly name: string;
+
+  /** How this driver reaches the adapter — see {@link Transport}. */
+  readonly transport: Transport;
+
+  /** Which runtime this driver's request executes on — see {@link RuntimeFidelity}. */
+  readonly runtimeFidelity: RuntimeFidelity;
 
   /**
    * Whether the adapter enforces the request `timeout` at the handler level and
@@ -74,6 +134,20 @@ export interface ConformanceDriver {
   readonly teardownOnShutdown: boolean;
 
   /**
+   * Whether the platform this driver runs on hands the application the request
+   * target un-reshaped — the capability the dot-segment scenarios are derived
+   * from.
+   *
+   * @remarks
+   * Read from the runtime capability matrix, never hard-coded per driver, so a
+   * driver and the framework's own claim cannot disagree by accident. The
+   * scenario asserts the *observed* behaviour matches this declaration, which is
+   * what catches a platform that changed under us: a driver that claims the
+   * target is preserved and then answers `200` for `/files/../admin` fails.
+   */
+  readonly rawRequestTarget: boolean;
+
+  /**
    * Whether the adapter consults Cloudflare's `cf-connecting-ip` at the front of
    * the client-IP precedence when proxies are trusted. Only the edge adapter
    * (and serverless, which reuses the edge engine) honor it; Node/Bun/Deno
@@ -81,6 +155,23 @@ export interface ConformanceDriver {
    * difference (F-11), so a future edit cannot silently drop the precedence.
    */
   readonly honorsCloudflareIp: boolean;
+
+  /**
+   * Whether a header written AFTER the handler responded still reaches the
+   * client.
+   *
+   * @remarks
+   * This is where the two response models diverge. The Web adapters record the
+   * response and materialise it once the middleware chain unwinds, so a late
+   * write still lands. The Node adapter has already written the response by
+   * then, and the write itself fails — Node's header store is only readable for
+   * headers it was told about, and the response it wrote is already on the wire.
+   * An encoded difference (same shape as {@link honorsCloudflareIp}) rather than
+   * an expected-value table kept in the suite: the scenario reads this flag and
+   * asserts the OBSERVED behaviour agrees with it, so an adapter that changes
+   * under the framework fails the scenario instead of silently flipping.
+   */
+  readonly honorsPostHandlerHeaderWrite: boolean;
 
   /** Configure an app, dispatch one request, and return the normalized result. */
   dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult>;

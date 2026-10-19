@@ -301,6 +301,38 @@ without any stream I/O. The depth-check traversal in `checkJsonDepth()` only run
 buffer is long enough to possibly exceed `maxDepth` — for the common small-JSON case the walk
 (and its two working arrays) never executes.
 
+### Parser selection in `bodyParser()` (and what happens when none matches)
+
+`bodyParser()` routes once, then delegates to the sub-parser it selected with a `prechecked` flag,
+so the sub-parser does not re-test the method, the existing body, or the content type:
+
+```mermaid
+flowchart TD
+    A[request] --> B{bodyless method<br/>or ctx.body already set?}
+    B -- yes --> N[await next&#40;&#41; — no read, no allocation]
+    B -- no --> C[getContentType&#40;ctx.headers&#41;]
+    C --> D{matches a configured parser?}
+    D -- json --> E[json&#40;ctx, next, prechecked&#41;]
+    D -- urlencoded --> F[urlencoded&#40;ctx, next, prechecked&#41;]
+    D -- text / raw --> G["text()/raw() when opted in"]
+    D -- no --> H{multipart/*?}
+    H -- yes --> I[throw Errors.unsupportedContentType&#40;&#41; — 415, both policies]
+    H -- no --> J{onUnsupportedContentType}
+    J -- "'ignore' (default)" --> N
+    J -- "'reject'" --> K[throw Errors.unsupportedContentType&#40;contentType&#41; — 415, before any handler]
+```
+
+Two properties of that decision are deliberate and load-bearing:
+
+- **The unmatched case is a policy, not a silent fallthrough.** Which of `ctx.body === undefined`
+  and a `415` is right depends on the API, so it is the caller's explicit choice
+  (`onUnsupportedContentType`) rather than a framework opinion. The default is `'ignore'` because
+  that is what everything except `multipart/*` has always done; `multipart/*` rejects under both
+  policies because it has never been accepted silently.
+- **A `Content-Type`-less request reaches neither rejection path.** There is no media type to name
+  in a `415`, and a body sent without a type is already unparseable by design, so it continues with
+  `ctx.body` untouched — the same outcome as `'ignore'`.
+
 ### Size-limit enforcement (the state a request's read passes through)
 
 ```mermaid
@@ -463,7 +495,9 @@ These are part of the package's architecture. They do not change without an RFC:
 - **A parser either fully parses and sets `ctx.body`, or calls `next()` and leaves `ctx.body` untouched — never a partial parse.**
 - **The size limit is enforced both synchronously (`Content-Length` pre-check) and incrementally during the read — never only after full buffering.**
 - **`__proto__`, `constructor`, and `prototype` are rejected as URL-encoded keys at every nesting level, with no configuration override.**
-- **`multipart/form-data` is never silently accepted — `bodyParser()` always throws `UNSUPPORTED_CONTENT_TYPE` for it.**
+- **`multipart/form-data` is never silently accepted — `bodyParser()` always throws `UNSUPPORTED_CONTENT_TYPE` for it, under every value of `onUnsupportedContentType`.**
+- **An unparsed content type is never silently *rejected* either — the default leaves `ctx.body` undefined and continues; a `415` requires the caller to opt in with `onUnsupportedContentType: 'reject'`.**
+- **Every response-visible failure message is a framework constant.** The engine's or adapter's own text (a `JSON.parse` message, a decoder error, a socket read failure) is runtime-specific and is attached only as a non-enumerable `error.cause`, so it can never reach a response body or `JSON.stringify(error)`.
 - **The package imports no runtime API** — zero `node:*` imports; the only environment-conditional code is the `typeof Buffer !== 'undefined'` feature-detection branches in `utils/buffer.ts`, used for a faster decode path, never to change parsing behavior.
 - **`DELETE` is never treated as bodyless** — `BODYLESS_METHODS` is `{GET, HEAD, OPTIONS, TRACE}` only, matching RFC 7231 §4.3.5's permission for a body on `DELETE`.
 
@@ -476,6 +510,8 @@ These are part of the package's architecture. They do not change without an RFC:
 | Prototype-pollution guard scope | Checked at every nesting level in both flat and bracket-notation URL-encoded parsing, no opt-out | No configuration flexibility here — the check cannot be disabled, even for a caller who claims to trust their input | `utils/url-decode.ts` |
 | Byte decoding strategy | `Buffer.toString('utf8')` fast path on Node when input is already a `Buffer` and charset is UTF-8; cached `TextDecoder` otherwise | An extra `typeof Buffer !== 'undefined'` branch per decode call, in exchange for measurably faster decoding on the common case without sacrificing edge-runtime compatibility | `utils/buffer.ts` |
 | `bodyParser()` default enablement | `json`/`urlencoded` on by default; `text`/`raw` require an explicit (even empty) options object | An app must opt in to `text: {}` or `raw: {}` rather than getting them for free — avoids silently treating an unexpected `Content-Type` as raw bytes or plain text | `parsers/combined.ts` |
+| Failure-message content | A framework constant per failure kind, with the engine/adapter text kept as a non-enumerable `BodyParserError.cause` | Losing the raw engine text from the response means a client cannot read *why* the parse failed — it branches on `error.code` instead — in exchange for a body that is identical on every runtime for the same request | `errors.ts`, `parsers/json.ts`, `parsers/urlencoded.ts`, `parsers/reader.ts` |
+| Default for an unparsed content type | `'ignore'` — continue with `ctx.body` undefined — with `'reject'` available per parser instance | The safer policy for a JSON API is the one that is *not* the default, so a caller who wants `415` must say so; changing the default would silently turn previously-accepted requests into errors, so it is scheduled for the next major rather than shipped | `parsers/combined.ts`, `types.ts` |
 
 ## Rejected alternatives
 

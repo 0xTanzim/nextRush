@@ -19,7 +19,9 @@
 import { createHandler as createBunHandler } from '@nextrush/adapter-bun';
 import { createHandler as createDenoHandler } from '@nextrush/adapter-deno';
 import { createFetchHandler } from '@nextrush/adapter-edge';
-import { createApp, type Application } from '@nextrush/core';
+import { type Application, createApp } from '@nextrush/core';
+import { capabilitiesFor } from '@nextrush/runtime';
+import { buildConformanceApp } from './app-shape';
 import type { Configure, ConformanceDriver, DispatchInit, DispatchResult } from './types';
 
 /** Builds a Web `Response` from an app + request for one specific adapter. */
@@ -57,22 +59,36 @@ function buildRequest(init: DispatchInit | undefined, signal?: AbortSignal): Req
 function createWebDriver(
   name: string,
   invoke: WebInvoke,
-  honorsCloudflareIp: boolean
+  honorsCloudflareIp: boolean,
+  simulatedRuntime: 'bun' | 'deno' | 'edge'
 ): ConformanceDriver {
   return {
     name,
+    // The factory invokes the adapter's handler function directly from this test
+    // process, which is always Node/vitest even when the adapter being simulated
+    // runs on Bun, Deno, or an edge isolate. Nothing about the transport is
+    // therefore observable here — see `../scenario.ts`.
+    transport: 'in-process',
+    runtimeFidelity: 'simulated',
     handlerTimeout504: true,
     teardownOnShutdown: name !== 'edge', // edge has no teardown seam (F-14)
     transportAbortFiresSignal: true,
     honorsCloudflareIp,
+    // The response is recorded and materialised after the chain unwinds, so a
+    // header written after `await next()` still reaches the client.
+    honorsPostHandlerHeaderWrite: true,
+    // The capability of the platform being simulated, not of this Node process —
+    // a simulated driver must not claim Node's answer for a Bun adapter.
+    rawRequestTarget: capabilitiesFor(simulatedRuntime).rawRequestTarget,
 
     async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
-      const app = createApp({ proxy: init?.proxy ?? false });
+      const app = buildConformanceApp(init);
       configure(app);
       // Boot extensions before building the handler so setup() runs first and
       // extension-registered middleware is included (edge boots lazily itself,
-      // but ready() is idempotent).
-      await app.ready();
+      // but ready() is idempotent). Skipped for a `beforeBoot` dispatch, where
+      // the handler being built is the thing under test.
+      if (init?.beforeBoot !== true) await app.ready();
       const response = await invoke(app, buildRequest(init), {}, init?.directIp ?? '');
       return toResult(response);
     },
@@ -138,14 +154,14 @@ export const bunDriver: ConformanceDriver = createWebDriver('bun', (app, request
   // for the conformance path; erase the Bun-specific server type at this seam.
   const serverStub = { requestIP: () => ({ address: ip, family: 'IPv4', port: 0 }) };
   return (handler as unknown as (r: Request, s: unknown) => Promise<Response>)(request, serverStub);
-}, false);
+}, false, 'bun');
 
 export const denoDriver: ConformanceDriver = createWebDriver('deno', (app, request, options, ip) => {
   const handler = createDenoHandler(app, options);
   return handler(request, { remoteAddr: { hostname: ip, port: 0 } });
-}, false);
+}, false, 'deno');
 
 export const edgeDriver: ConformanceDriver = createWebDriver('edge', async (app, request, options) => {
   const handler = createFetchHandler(app, options);
   return handler(request);
-}, true);
+}, true, 'edge');

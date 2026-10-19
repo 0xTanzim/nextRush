@@ -199,8 +199,11 @@ sequenceDiagram
 
 The non-obvious ordering: the boot barrier (`app.ready()` + `app.callback()` + `app.start()`)
 runs lazily on the *first* request rather than eagerly at module load, because edge runtimes
-have no `listen()`/`serve()` phase to hook into. The resulting `bootPromise` is memoized, so
-every request after the first awaits the same cached promise instead of re-running setup.
+have no `listen()`/`serve()` phase to hook into. The barrier is `@nextrush/runtime`'s shared
+`createBootGate`, so this adapter and Bun/Deno/Node differ only in `markRunning` (edge sets it —
+there is no `serve()` here to call `start()`) and in the label the warning carries. The gate
+memoizes its promise, so every request after the first reads the already-resolved handler with no
+`await` at all.
 
 ### Platform identity and diagnostics on this path
 
@@ -212,21 +215,21 @@ Two things ride along the same construction path, both added after the original 
   `detectEdgeRuntime()`, cached the same way. Serverless platforms are never detected: they arrive
   only as an explicit literal from `@nextrush/adapter-serverless`'s Tier-1 handlers. `ctx.runtime` is
   untouched by this.
-- **Boot-reuse detection.** Module-scope `bootedApps` (a `WeakSet<Application>`), `hasBootedAnyApp`,
-  and `warnedBootReuse` let the boot barrier notice that a *different* `Application` booted in this
-  isolate than the one that booted first — the mechanical signature of `createApp()` being called
-  inside the exported handler. It warns once, outside production only, and never changes behavior.
-  The timeout path additionally records `timeoutSource` (`'default'` vs
-  `'explicit options.timeout'`) so a 504 is attributable from the log alone. Exact message text is
-  in `README.md`'s Diagnostics section.
+- **Boot-reuse detection.** The shared boot gate (`@nextrush/runtime`) keeps module-scope
+  `bootedApps` (a `WeakSet`), `hasBootedAnyApp`, and `warnedBootReuse` so the barrier can notice
+  that a *different* `Application` booted in this isolate than the one that booted first — the
+  mechanical signature of `createApp()` being called inside the exported handler. It warns once,
+  outside production only, and never changes behavior. The timeout path additionally records
+  `timeoutSource` (`'default'` vs `'explicit options.timeout'`) so a 504 is attributable from the
+  log alone. Exact message text is in `README.md`'s Diagnostics section.
 
 ## State ownership
 
 | Owner | State it owns | Scope |
 | ----- | -------------- | ----- |
-| `createRequestRunner`'s closure | `bootPromise` (the memoized boot barrier) | isolate-lifetime, shared across requests |
+| `createRequestRunner`'s closure | the boot gate (`@nextrush/runtime`'s `createBootGate`) — the memoized boot barrier, plus the handler it resolves once | isolate-lifetime, shared across requests |
 | `EdgeContext` | request/response state, `params`, `env`, `executionContext`, `platform`, the once-per-context `waitUntil` warning flag | per-request |
-| Module scope in `adapter.ts` | `bootedApps` (WeakSet), `hasBootedAnyApp`, `warnedBootReuse` — the once-per-module-instance boot-reuse warning bookkeeping | module instance (isolate) |
+| Module scope in `@nextrush/runtime`'s boot gate | `bootedApps` (WeakSet), `hasBootedAnyApp`, `warnedBootReuse` — the once-per-module-instance boot-reuse warning bookkeeping, shared by every adapter | module instance (isolate) |
 | `@nextrush/runtime`'s `WebResponseBuilder` (composed into `EdgeContext`) | accumulated response headers/body/status | per-request |
 
 ---

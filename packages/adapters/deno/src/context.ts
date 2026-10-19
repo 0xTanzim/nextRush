@@ -40,17 +40,20 @@ export class DenoContext extends WebContextBase {
     connInfo?: { remoteAddr?: { hostname: string } },
     proxy: ProxyTrust = false
   ) {
-    // Get client IP from connection info or headers.
+    // Client IP resolution from the connection's remote address.
     //
-    // HP-1 trim: when `proxy` is false (default) the connection address IS
-    // the client IP, so it is returned directly — no per-request header-lookup
-    // closure, no `getClientIp` policy call — byte-identical to the policy's own
-    // `trust: false` branch. Otherwise resolution goes through the shared
-    // policy so precedence/validation match Node/Bun/Edge. The connection
-    // address doubles as `directIp` and `peerIp` (Deno's peer IS the direct
-    // connection).
-    const directIp = connInfo?.remoteAddr?.hostname ?? '';
-    const ip = proxy !== false ? getClientIp(request, directIp, proxy) : directIp;
+    // HP-1 trim: when `proxy` is false (default) the connection address IS the
+    // client IP, so it is used directly — no header-lookup closure, no
+    // `getClientIp` policy call — byte-identical to the policy's own `trust:
+    // false` branch. Otherwise resolution goes through the shared policy so
+    // precedence/validation match Node/Bun/Edge. The connection address doubles
+    // as `directIp` and `peerIp` (Deno's peer IS the direct connection).
+    //
+    // The connection info is read on the first `ctx.ip` read rather than here: it
+    // is a platform property read that most handlers never need.
+    const direct = (): string => connInfo?.remoteAddr?.hostname ?? '';
+    const ip: string | (() => string) =
+      proxy === false ? direct : () => getClientIp(request, direct(), proxy);
 
     super(request, ip, getRuntime(), { runTextStream, runSSEStream, runNDJSONStream });
   }

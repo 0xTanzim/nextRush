@@ -50,12 +50,16 @@ export class BodyParserError extends Error {
   /**
    * Create a new BodyParserError
    *
-   * @param message - Human-readable error message
+   * @param message - Human-readable error message, safe to send to a client
    * @param status - HTTP status code
    * @param code - Machine-readable error code
+   * @param cause - The underlying detail (an engine parse message, a decode
+   *   failure) kept for server-side diagnosis. Attached through `Error`'s own
+   *   `cause` slot, which is non-enumerable, so it never reaches `toJSON()` or
+   *   `JSON.stringify()` and cannot leak into a response.
    */
-  constructor(message: string, status: number, code: BodyParserErrorCode) {
-    super(message);
+  constructor(message: string, status: number, code: BodyParserErrorCode, cause?: unknown) {
+    super(message, cause === undefined ? undefined : { cause });
     this.name = 'BodyParserError';
     this.status = status;
     this.code = code;
@@ -113,9 +117,14 @@ export const Errors = {
 
   /**
    * Invalid JSON syntax
+   *
+   * The message is a framework constant: the engine's own parse text names
+   * positions and expected tokens differently on every runtime, so putting it in
+   * the response would break cross-runtime parity and leak internals. It is kept
+   * as the error's `cause` for server-side logging.
    */
   invalidJson(parseError: string): BodyParserError {
-    return new BodyParserError(`Invalid JSON: ${parseError}`, 400, 'INVALID_JSON');
+    return new BodyParserError('Invalid JSON', 400, 'INVALID_JSON', parseError);
   },
 
   /**
@@ -131,12 +140,16 @@ export const Errors = {
 
   /**
    * Invalid URL-encoded data
+   *
+   * Same rule as {@link Errors.invalidJson}: the decoder's own text (which names
+   * the offending escape) is a `cause`, not part of the client-visible message.
    */
   invalidUrlEncoded(parseError: string): BodyParserError {
     return new BodyParserError(
-      `Invalid URL-encoded body: ${parseError}`,
+      'Invalid URL-encoded body',
       400,
-      'INVALID_URLENCODED'
+      'INVALID_URLENCODED',
+      parseError
     );
   },
 
@@ -171,13 +184,13 @@ export const Errors = {
 
   /**
    * Error reading request body stream
+   *
+   * A stream failure's own text is runtime-specific (a socket error reads
+   * differently on Node, Bun and Deno), so the client-visible message is a
+   * constant and the original text is kept as the `cause`.
    */
   bodyReadError(originalError: string): BodyParserError {
-    return new BodyParserError(
-      `Error reading request body: ${originalError}`,
-      400,
-      'BODY_READ_ERROR'
-    );
+    return new BodyParserError('Error reading request body', 400, 'BODY_READ_ERROR', originalError);
   },
 
   /**

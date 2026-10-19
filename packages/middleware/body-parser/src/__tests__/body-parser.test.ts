@@ -1414,7 +1414,12 @@ describe('BodySource path (modern cross-runtime)', () => {
       // Pre-consume the body
       await ctx.bodySource!.buffer();
 
-      await expect(json()(ctx, next)).rejects.toThrow('already been consumed');
+      const error = (await json()(ctx, next).catch((err: unknown) => err)) as Error;
+
+      // The client-visible message is a framework constant; the body source's own
+      // text stays on the cause, which is never serialized into a response.
+      expect(error.message).toBe('Error reading request body');
+      expect(String((error as { cause?: unknown }).cause)).toContain('already been consumed');
     });
 
     it('should enforce size limit via bodySource', async () => {

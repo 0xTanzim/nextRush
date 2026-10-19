@@ -25,6 +25,9 @@ import {
 import type {
   BodySource,
   BodySourceOptions,
+  BootableApp,
+  BootGate,
+  BootGateOptions,
   CapabilityProfile,
   ClientIpOptions,
   CombinedAbort,
@@ -35,6 +38,9 @@ import type {
   RuntimeCapabilities,
   RuntimeInfo,
   ServerStartErrorCode,
+  WebRunnerApp,
+  WebRunnerContext,
+  WebRunnerOptions,
 } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
@@ -108,8 +114,21 @@ describe('Public API surface (runtime exports)', () => {
       'jsonErrorResponse',
       'WebResponseBuilder',
 
+      // Shared response-body resolution and error envelope
+      'measureBodyLength',
+      'prepareBody',
+      'serializeJson',
+      'LAST_RESORT_ERROR_STATUS',
+      'unansweredErrorBody',
+
       // Shared Web Context base (F-08, ADR-0010)
       'WebContextBase',
+
+      // Boot gate
+      'createBootGate',
+
+      // Shared Web runner
+      'createWebRunner',
 
       // Body source
       'AbstractBodySource',
@@ -157,6 +176,12 @@ describe('Public API surface (type-only exports)', () => {
       ProxyTrust,
       CombinedAbort,
       ServerStartErrorCode,
+      BootableApp<string>,
+      BootGate<string>,
+      BootGateOptions,
+      WebRunnerApp<(ctx: never) => Promise<void>>,
+      WebRunnerContext,
+      WebRunnerOptions<never, undefined>,
     ];
     expectTypeOf<Surface>().not.toBeNever();
   });

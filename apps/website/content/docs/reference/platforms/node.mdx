@@ -322,6 +322,21 @@ router.get('/raw', (ctx) => {
   NextRush response methods.
 </Callout>
 
+## Request Paths and Dot Segments
+
+<Callout type="warn" title="Dot segments are rejected here — this platform preserves the target">
+  Node's HTTP server hands the request line to the application unparsed, so a target containing a
+  dot segment — `/files/../admin`, or the encoded `/files/%2e%2e/admin` — is rejected with `400`
+  before any middleware runs, and `ctx.path` holds the bytes the client sent.
+
+  That guarantee ends at this process's edge: put a proxy in front that resolves the segment first
+  and the framework never sees it. Authorise path rules against `ctx.path`, and reject unwanted raw
+  targets at the proxy. See
+  [Request Paths and Dot Segments](/docs/guides/security/security#request-paths-and-dot-segments).
+</Callout>
+
+---
+
 ## Performance Tuning
 
 ### Timeouts

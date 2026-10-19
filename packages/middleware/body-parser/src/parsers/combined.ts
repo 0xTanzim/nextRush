@@ -69,6 +69,7 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
     // Text and raw disabled by default for backward compatibility
     text: textOptions,
     raw: rawOptions,
+    onUnsupportedContentType = 'ignore',
   } = options;
 
   // Helper to normalize type option to string array
@@ -178,6 +179,13 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
         'multipart/form-data',
         'Use a dedicated multipart parser package for file uploads'
       );
+    }
+
+    // Nothing matched. Under the rejecting policy this is a 415 rather than a
+    // handler running against an undefined body; a request with no content type
+    // at all carries no media type to reject, so it is left alone either way.
+    if (onUnsupportedContentType === 'reject' && contentType) {
+      throw Errors.unsupportedContentType(contentType);
     }
 
     // No matching parser, continue without parsing

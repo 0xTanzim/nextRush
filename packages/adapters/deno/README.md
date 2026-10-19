@@ -80,7 +80,7 @@ deno run --allow-net server.ts
 **Capabilities**
 - **`serve(app, options)`** -- starts a `Deno.serve()`-backed server and returns a `ServerInstance`
 - **`listen(app, port?)`** -- `serve()` shorthand that logs a startup line to `app.logger`
-- **`createHandler(app, options?)`** -- returns a raw `(Request, DenoServeHandlerInfo) => Promise<Response>` handler for a hand-rolled `Deno.serve()` call (e.g. on Deno Deploy)
+- **`createHandler(app, options?)`** -- returns a raw `(Request, DenoServeHandlerInfo) => Promise<Response>` handler for a hand-rolled `Deno.serve()` call (e.g. on Deno Deploy); it boots the app on the first request, so a plain `Deno.serve({ handler: createHandler(app) })` needs no `await app.ready()`
 - **Graceful shutdown** -- `close()` aborts new connections, races `server.shutdown()` against `shutdownTimeout`, then calls `app.close()`; `gracefulShutdown: true` (or an options object) wires `SIGTERM`/`SIGINT` to the same path
 
 **Developer experience**

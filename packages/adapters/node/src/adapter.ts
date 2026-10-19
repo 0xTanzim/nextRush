@@ -8,10 +8,13 @@
 
 import type { Application, Logger } from '@nextrush/core';
 import {
+  createBootGate,
   DEFAULT_KEEP_ALIVE_TIMEOUT_MS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
+  LAST_RESORT_ERROR_STATUS,
   normalizeStartupError,
+  unansweredErrorBody,
 } from '@nextrush/runtime';
 import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
 import {
@@ -212,7 +215,11 @@ export function createHandler(
    */
   diagnostics?: { disableHandlerTimeoutRace?: boolean }
 ): (req: IncomingMessage, res: ServerResponse) => void {
-  const handler = app.callback();
+  // The boot barrier for a hand-rolled server: `createHandler(app)` is the
+  // documented seam for `createServer(createHandler(app))`, which has no
+  // startup phase. `serve()` still boots eagerly, so a caller who waits for
+  // `serve()` never reaches the cold path below.
+  const boot = createBootGate(app, { label: 'node' });
   const proxy = app.options.proxy ?? false;
   const logger = options.logger ?? app.logger;
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
@@ -224,37 +231,73 @@ export function createHandler(
   // requests; the NodeContext constructor only reads `options.proxy`.
   const contextOptions: NodeContextOptions = Object.freeze({ proxy });
 
-  return (req: IncomingMessage, res: ServerResponse): void => {
+  /**
+   * The booted handler, assigned once and read synchronously on every later
+   * request — the steady-state path adds one `undefined` check, nothing more.
+   */
+  let handler = boot.handler;
+
+  /**
+   * Answer a request that never reached the handler (boot failure) the same way
+   * a handler rejection is answered. Factory-scoped so the one-off cold path
+   * allocates no closure of its own.
+   */
+  const failRequest = (res: ServerResponse, error: unknown): void => {
+    logger.error('Request error:', error);
+
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ error: 'Internal Server Error' }));
+    }
+  };
+
+  const listener = (req: IncomingMessage, res: ServerResponse): void => {
+    if (handler === undefined) {
+      // First request only. Boot, then re-enter this listener with the handler
+      // resolved; concurrent first requests share the one boot promise, so this
+      // branch cannot double-boot.
+      boot.ensure().then(
+        (booted) => {
+          handler = booted;
+          listener(req, res);
+        },
+        (error: unknown) => {
+          failRequest(res, error);
+        }
+      );
+      return;
+    }
+
     const ctx = createNodeContext(req, res, contextOptions);
 
     const finalizeSuccess = (): void => {
-      // Ensure response is sent
-      if (!ctx.responded && !res.headersSent) {
-        if (ctx.status === 404) {
-          res.statusCode = 404;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ error: 'Not Found' }));
-        } else {
-          // F-09: a handler that resolves without responding (and without
-          // throwing) must still carry an explicit Content-Type — a bare
-          // status with no header violates project-rules §3 ("every response
-          // sets a Content-Type"). text/plain is the honest default: there is
-          // no body to type more specifically.
-          res.statusCode = ctx.status;
-          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-          res.end();
-        }
+      if (ctx.responded || res.headersSent) return;
+
+      // An error status that nothing wrote is answered with the framework's
+      // envelope — never an empty body the client cannot interpret. This is the
+      // adapter finalizer of three deliberately redundant layers that keep a
+      // request from going unanswered, and its body is byte-identical to the
+      // framework's own 404/500 payloads.
+      if (ctx.status >= LAST_RESORT_ERROR_STATUS) {
+        res.statusCode = ctx.status;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify(unansweredErrorBody(ctx.status)));
+        return;
       }
+
+      // F-09: a handler that resolves without responding (and without throwing)
+      // must still carry an explicit Content-Type — a bare status with no header
+      // violates project-rules §3 ("every response sets a Content-Type").
+      // text/plain is the honest default: there is no body to type more
+      // specifically.
+      res.statusCode = ctx.status;
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.end();
     };
 
     const finalizeError = (error: unknown): void => {
-      logger.error('Request error:', error);
-
-      if (!res.headersSent) {
-        res.statusCode = 500;
-        res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.end(JSON.stringify({ error: 'Internal Server Error' }));
-      }
+      failRequest(res, error);
     };
 
     if (timeout <= 0 || disableHandlerTimeoutRace) {
@@ -331,6 +374,8 @@ export function createHandler(
       }
     );
   };
+
+  return listener;
 }
 
 /**

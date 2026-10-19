@@ -33,6 +33,7 @@
     "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
+    "@nextrush/router": "workspace:^",
     "@types/bun": "catalog:node",
     "tsdown": "catalog:tooling",
     "typescript": "catalog:tooling",

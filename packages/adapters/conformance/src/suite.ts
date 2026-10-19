@@ -11,23 +11,29 @@
  * describe('my-adapter conformance', () => defineConformanceSuite(myDriver));
  * ```
  *
- * These functions register `it(...)` cases via vitest (both this package and an
- * external author use vitest), so the caller only wraps them in a `describe`.
- * This is the single source of truth: the internal `conformance-*.test.ts` files
- * delegate here, so a divergence fails everywhere at once.
+ * These functions register test cases through the scenario ledger
+ * (`./scenario.ts`) via the runner's own `it` (both this package and an external
+ * author use vitest), so the caller only wraps them in a `describe`. That ledger
+ * is also what records the PROOF LEVEL of each scenario — real-runtime over a
+ * socket, real-runtime in-process, simulated, or not satisfied at all. This is
+ * the single source of truth: the internal `conformance-*.test.ts` files delegate
+ * here, so a divergence fails everywhere at once.
  *
  * @packageDocumentation
  */
 
 import type { Application } from '@nextrush/core';
+import { bodyParser } from '@nextrush/body-parser';
 import { cookies } from '@nextrush/cookies';
-import { expect, it } from '@nextrush/adapter-conformance/test-primitives';
+import { createRouter } from '@nextrush/router';
+import { registerScenario } from './scenario';
+import { expect } from '@nextrush/adapter-conformance/test-primitives';
 import type { ConformanceDriver } from './drivers/types';
 import { json } from './support';
 
 /** Request-side behaviors (audit F-01, spec rows #1-#4, #11, #16-#18). */
 export function defineRequestConformance(driver: ConformanceDriver): void {
-  it('#1 request line: method upper-cased; path split from query', async () => {
+  registerScenario(driver, '#1 request line: method upper-cased; path split from query', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
         ctx.json({ method: ctx.method, path: ctx.path, url: ctx.url });
@@ -41,7 +47,7 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(body.url).toContain('x=1');
   });
 
-  it('#2 query parsing: repeats become arrays; proto-pollution keys rejected', async () => {
+  registerScenario(driver, '#2 query parsing: repeats become arrays; proto-pollution keys rejected', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
         ctx.json({ a: ctx.query.a, b: ctx.query.b });
@@ -54,7 +60,7 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect((Object.prototype as Record<string, unknown>).evil).toBeUndefined();
   });
 
-  it('#3 route params: default empty; writable and readable across middleware', async () => {
+  registerScenario(driver, '#3 route params: default empty; writable and readable across middleware', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use(async (ctx) => {
         ctx.state.emptyCount = Object.keys(ctx.params).length;
@@ -71,7 +77,53 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(body.id).toBe('42');
   });
 
-  it('#4 request headers: ctx.get() is case-insensitive', async () => {
+  registerScenario(driver, '#3 route params: a case-insensitive match binds the case the client sent', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      const router = createRouter();
+      router.get('/users/:id', (ctx) => {
+        ctx.json({ id: ctx.params.id, path: ctx.path });
+      });
+      app.use(router.routes());
+    }, { path: '/Users/ABC123' });
+
+    const body = json<{ id: string; path: string }>(res);
+    // The value is data the handler acts on, so it keeps the client's casing...
+    expect(body.id).toBe('ABC123');
+    // ...while the route decision stays folded, and that folded string is what
+    // the app sees on ctx.path.
+    expect(body.path).toBe('/users/abc123');
+  });
+
+  registerScenario(driver, '#3 route params: a wildcard keeps its case and its inner slashes', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      const router = createRouter();
+      router.get('/files/*', (ctx) => {
+        ctx.json({ wildcard: ctx.params['*'] });
+      });
+      app.use(router.routes());
+    }, { path: '/files/Foo/Bar.TXT' });
+
+    expect(json<{ wildcard: string }>(res).wildcard).toBe('Foo/Bar.TXT');
+  });
+
+  registerScenario(driver, '#3 route params: a mounted router binds the case the client sent through the mount prefix', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      const mounted = createRouter();
+      mounted.get('/Users/:name', (ctx) => {
+        ctx.json({ name: ctx.params.name, path: ctx.path });
+      });
+      app.route('/API', mounted);
+    }, { path: '/API/Users/ABC' });
+
+    const body = json<{ name: string; path: string }>(res);
+    // The mount boundary is matched case-insensitively, and the remainder the
+    // mounted router then sees must still carry the client's casing — folding it
+    // at the boundary would make the value unrecoverable.
+    expect(body.name).toBe('ABC');
+    expect(body.path).toBe('/users/abc');
+  });
+
+  registerScenario(driver, '#4 request headers: ctx.get() is case-insensitive', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
         ctx.json({ lower: ctx.get('x-custom-header'), upper: ctx.get('X-CUSTOM-HEADER') });
@@ -83,7 +135,7 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(body.upper).toBe('val');
   });
 
-  it('#11 body reading: text and json read identically', async () => {
+  registerScenario(driver, '#11 body reading: text and json read identically', {}, async () => {
     const textRes = await driver.dispatch((app) => {
       app.use(async (ctx) => {
         ctx.json({ text: await ctx.bodySource.text() });
@@ -99,7 +151,7 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(json<{ echo: { a: number } }>(jsonRes).echo).toEqual({ a: 1 });
   });
 
-  it('#11 body reading: over-limit body → 413 (BodyTooLarge)', async () => {
+  registerScenario(driver, '#11 body reading: over-limit body → 413 (BodyTooLarge)', {}, async () => {
     const big = 'x'.repeat(1024 * 1024 + 16); // > DEFAULT_BODY_LIMIT (1 MB)
     const res = await driver.dispatch((app) => {
       app.use(async (ctx) => {
@@ -114,7 +166,7 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(res.status).toBe(413);
   });
 
-  it('#11 body reading: re-read after stream() → 400 (BodyConsumed)', async () => {
+  registerScenario(driver, '#11 body reading: re-read after stream() → 400 (BodyConsumed)', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use(async (ctx) => {
         ctx.bodySource.stream();
@@ -125,7 +177,7 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(res.status).toBe(400);
   });
 
-  it('#16 state bag: mutable and shared across middleware', async () => {
+  registerScenario(driver, '#16 state bag: mutable and shared across middleware', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use(async (ctx) => {
         ctx.state.user = 'alice';
@@ -138,7 +190,7 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(json<{ user: string }>(res).user).toBe('alice');
   });
 
-  it('#17 middleware order: onion (before down, after up)', async () => {
+  registerScenario(driver, '#17 middleware order: onion (before down, after up)', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use(async (ctx) => {
         const order: string[] = [];
@@ -161,7 +213,7 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(json<string[]>(res)).toEqual(['a', 'b', 'h', 'c', 'd']);
   });
 
-  it('#18 extension lifecycle: setup() runs before the handler', async () => {
+  registerScenario(driver, '#18 extension lifecycle: setup() runs before the handler', {}, async () => {
     const res = await driver.dispatch((app) => {
       let setupDone = false;
       app.extend({ name: 'probe', setup: () => { setupDone = true; } });
@@ -172,7 +224,7 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(json<{ setupRan: boolean }>(res).setupRan).toBe(true);
   });
 
-  it('#20 (F-02) streaming: ctx.stream() delivers written chunks concatenated, in order', async () => {
+  registerScenario(driver, '#20 (F-02) streaming: ctx.stream() delivers written chunks concatenated, in order', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use(async (ctx) => {
         await ctx.stream(async (writer) => {
@@ -185,7 +237,7 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(res.text()).toBe('alpha-beta-gamma');
   });
 
-  it('#20 (F-02) SSE: ctx.sse() delivers well-formed text/event-stream events', async () => {
+  registerScenario(driver, '#20 (F-02) SSE: ctx.sse() delivers well-formed text/event-stream events', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use(async (ctx) => {
         await ctx.sse(async (writer) => {
@@ -199,11 +251,59 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
     expect(body).toContain('event: greeting\ndata: hello\n\n');
     expect(body).toContain('data: world\n\n');
   });
+
+  // Socket-required, and the target is written into the request line rather than
+  // sent through `fetch`, which resolves a dot segment client-side on every
+  // runtime. Two spellings, because a client that spells `..` as `%2e%2e` must not
+  // get a different answer than one that spells it literally.
+  //
+  // The expectation comes from the driver's declared capability rather than from a
+  // table kept here: a platform that hands the target over un-reshaped has to
+  // reject the segment (400), and one that resolved it before the framework ran
+  // answers with the resolved path. Whichever the driver declares, the observed
+  // behaviour must agree — so a platform that changes under the framework fails
+  // this test instead of quietly turning the rejection into a no-op.
+  registerScenario(
+    driver,
+    '#28 request line: a dot-segment target is rejected where the platform preserves it',
+    { socketRequired: true },
+    async () => {
+      for (const target of ['/files/../admin', '/files/%2e%2e/admin']) {
+        const res = await driver.dispatch(
+          (app) => {
+            // A mounted router, because that is what puts the canonical-path check
+            // in the chain: the rejection lives in the routing middleware, which a
+            // router-less application never installs. Declaring the resolved path as
+            // a route is what makes the platform's answer observable rather than a
+            // 404 either way.
+            const router = createRouter();
+            router.get('/admin', (ctx) => {
+              ctx.json({ path: ctx.path });
+            });
+            app.route('/', router);
+          },
+          { path: target, verbatimTarget: true }
+        );
+
+        if (driver.rawRequestTarget) {
+          expect(res.status).toBe(400);
+          continue;
+        }
+
+        // The platform resolved the segment, or the proxy in front of it did; the
+        // framework never saw it, so the documented outcome is the resolved path —
+        // and whatever the status, the handler must not have been handed a path
+        // that still carries a dot segment.
+        expect([200, 400]).toContain(res.status);
+        if (res.status === 200) expect(res.text()).not.toContain('..');
+      }
+    }
+  );
 }
 
 /** Response-side behaviors (audit F-01, spec rows #5-#10, #12). */
 export function defineResponseConformance(driver: ConformanceDriver): void {
-  it('#5/#9 (F-02): ctx.set() headers survive an implicit empty response', async () => {
+  registerScenario(driver, '#5/#9 (F-02): ctx.set() headers survive an implicit empty response', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
         ctx.set('X-Custom', 'kept');
@@ -215,7 +315,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(res.text()).toBe('');
   });
 
-  it('#5 (F-02): ctx.set() headers survive a redirect', async () => {
+  registerScenario(driver, '#5 (F-02): ctx.set() headers survive a redirect', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
         ctx.set('X-Trace', 't1');
@@ -227,7 +327,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(res.header('x-trace')).toBe('t1');
   });
 
-  it('#6 Set-Cookie: an array sets multiple cookies and survives empty responses', async () => {
+  registerScenario(driver, '#6 Set-Cookie: an array sets multiple cookies and survives empty responses', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
         ctx.set('Set-Cookie', ['a=1; Path=/', 'b=2; Path=/']);
@@ -237,7 +337,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(res.setCookies()).toEqual(['a=1; Path=/', 'b=2; Path=/']);
   });
 
-  it('#6 Set-Cookie: a later array replaces the earlier one', async () => {
+  registerScenario(driver, '#6 Set-Cookie: a later array replaces the earlier one', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
         ctx.set('Set-Cookie', ['a=1']);
@@ -247,7 +347,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(res.setCookies()).toEqual(['b=2']);
   });
 
-  it('#7 content-type parity: json/send/html carry identical charset (F-16)', async () => {
+  registerScenario(driver, '#7 content-type parity: json/send/html carry identical charset (F-16)', {}, async () => {
     const jsonRes = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.json({ ok: true }); });
     });
@@ -264,7 +364,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(htmlRes.header('content-type')).toBe('text/html; charset=utf-8');
   });
 
-  it('#8 redirect: default 302, Location set, text/plain body', async () => {
+  registerScenario(driver, '#8 redirect: default 302, Location set, text/plain body', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.redirect('/dest'); });
     });
@@ -274,7 +374,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(res.text()).toBe('Redirecting to /dest');
   });
 
-  it('#9 empty response: status preserved, no body', async () => {
+  registerScenario(driver, '#9 empty response: status preserved, no body', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
         ctx.status = 204;
@@ -284,7 +384,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(res.text()).toBe('');
   });
 
-  it('#10 body suppression: HEAD / 204 / 304 never carry a body', async () => {
+  registerScenario(driver, '#10 body suppression: HEAD / 204 / 304 never carry a body', {}, async () => {
     const headRes = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.json({ hidden: true }); });
     }, { method: 'HEAD' });
@@ -309,7 +409,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(notModifiedRes.text()).toBe('');
   });
 
-  it('#10 (F-03): HEAD carries a Content-Length equal to the equivalent GET body length', async () => {
+  registerScenario(driver, '#10 (F-03): HEAD carries a Content-Length equal to the equivalent GET body length', {}, async () => {
     const route = (app: Application): void => {
       app.use((ctx) => {
         ctx.json({ hello: 'world', n: 42, nested: { a: [1, 2, 3] } });
@@ -324,7 +424,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(headRes.header('content-length')).toBe(String(expectedLength));
   });
 
-  it('#12 error propagation: HttpError exposes status+message; unknown → 500, no leak', async () => {
+  registerScenario(driver, '#12 error propagation: HttpError exposes status+message; unknown → 500, no leak', {}, async () => {
     const thrown = await driver.dispatch((app) => {
       app.use((ctx) => ctx.throw(403, 'Forbidden-XYZ'));
     });
@@ -345,11 +445,247 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     // (application/json; charset=utf-8) on every adapter — no bare application/json.
     expect(unknown.header('content-type')).toBe('application/json; charset=utf-8');
   });
+
+  registerScenario(driver, '#5/#12 serialization failure: a body JSON cannot represent is answered, never left empty', {}, async () => {
+    let cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    const cases: readonly [label: string, body: unknown][] = [
+      ['a BigInt', { id: 10n }],
+      ['a circular structure', cyclic],
+    ];
+
+    for (const [label, body] of cases) {
+      const res = await driver.dispatch((app) => {
+        app.use((ctx) => {
+          ctx.json(body);
+        });
+      });
+
+      expect(res.status, label).toBe(500);
+      expect(res.header('content-type'), label).toBe('application/json; charset=utf-8');
+      expect(res.text(), label).not.toBe('');
+    }
+    cyclic = {};
+  });
+
+  registerScenario(driver, '#5/#12 serialization failure: a body that serializes to nothing is rejected, not sent as 200', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json(undefined);
+      });
+    });
+
+    expect(res.status).not.toBe(200);
+    expect(res.text()).not.toBe('');
+  });
+
+  registerScenario(driver, '#12 the error path answers when the error handler writes nothing', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.setErrorHandler(() => undefined);
+      app.use(() => {
+        throw new Error('handler boom');
+      });
+    });
+
+    expect(res.status).toBe(500);
+    expect(res.header('content-type')).toBe('application/json; charset=utf-8');
+    expect(json<{ status: number }>(res).status).toBe(500);
+    expect(res.text()).not.toBe('');
+  });
+
+  registerScenario(driver, '#12 the error path answers when the error handler itself throws', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.setErrorHandler(() => {
+        throw new Error('error handler boom');
+      });
+      app.use(() => {
+        throw new Error('handler boom');
+      });
+    });
+
+    expect(res.status).toBe(500);
+    expect(json<{ status: number }>(res).status).toBe(500);
+  });
+
+  registerScenario(driver, '#12 an error status that nothing wrote is answered with the framework body', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.status = 503;
+      });
+    });
+
+    expect(res.status).toBe(503);
+    expect(res.header('content-type')).toBe('application/json; charset=utf-8');
+    expect(json<{ error: string }>(res).error).toBe('Service Unavailable');
+  });
+
+  registerScenario(driver, '#12 a success status that nothing wrote stays the documented empty response', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use(() => undefined);
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.text()).toBe('');
+  });
+
+  registerScenario(
+    driver,
+    '#16 an entry point built before the application booted still routes a declared route (F-02)',
+    {},
+    async () => {
+      const res = await driver.dispatch(
+        (app) => {
+          app.get('/booted', (ctx) => {
+            ctx.json({ booted: true });
+          });
+        },
+        { beforeBoot: true, path: '/booted' }
+      );
+
+      expect(res.status).toBe(200);
+      expect(json<{ booted: boolean }>(res).booted).toBe(true);
+    }
+  );
+
+  registerScenario(
+    driver,
+    '#16 an entry point built before the application booted answers 404 for an unrouted path (F-02)',
+    {},
+    async () => {
+      const res = await driver.dispatch(
+        (app) => {
+          app.get('/booted', (ctx) => {
+            ctx.json({ booted: true });
+          });
+        },
+        { beforeBoot: true, path: '/definitely-unrouted' }
+      );
+
+      expect(res.status).toBe(404);
+      expect(json<{ error: string }>(res).error).toBe('Not Found');
+    }
+  );
+
+  registerScenario(
+    driver,
+    '#12 (F-V07, F-V08): a malformed JSON body answers one error body on every adapter',
+    {},
+    async () => {
+      const res = await driver.dispatch(
+        (app) => {
+          app.use(bodyParser());
+          app.use((ctx) => {
+            ctx.json({ parsed: ctx.body });
+          });
+        },
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: '{ "unterminated": ',
+        }
+      );
+
+      // Byte-for-byte the same body wherever the request runs: the message is a
+      // framework constant, not the engine's own parse text, and the 4xx reports
+      // its own code rather than reading to a client like a server fault.
+      expect(res.status).toBe(400);
+      expect(res.header('content-type')).toBe('application/json; charset=utf-8');
+      expect(res.text()).toBe(
+        '{"error":"BodyParserError","message":"Invalid JSON","code":"INVALID_JSON","status":400}'
+      );
+    }
+  );
+
+  registerScenario(
+    driver,
+    '#12 (F-V09): the rejecting policy answers 415 for an unparsed content type before the handler runs',
+    {},
+    async () => {
+      let handlerRan = false;
+
+      const res = await driver.dispatch(
+        (app) => {
+          app.use(bodyParser({ onUnsupportedContentType: 'reject' }));
+          app.use((ctx) => {
+            handlerRan = true;
+            ctx.json({ parsed: ctx.body });
+          });
+        },
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/xml' },
+          body: '<note/>',
+        }
+      );
+
+      expect(res.status).toBe(415);
+      expect(handlerRan).toBe(false);
+      expect(json<{ code: string }>(res).code).toBe('UNSUPPORTED_CONTENT_TYPE');
+    }
+  );
+
+  registerScenario(
+    driver,
+    "#12 the default policy leaves an unparsed content type to the handler, as it always has",
+    {},
+    async () => {
+      const res = await driver.dispatch(
+        (app) => {
+          app.use(bodyParser());
+          app.use((ctx) => {
+            ctx.json({ body: ctx.body ?? null });
+          });
+        },
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/xml' },
+          body: '<note/>',
+        }
+      );
+
+      expect(res.status).toBe(200);
+      expect(json<{ body: unknown }>(res).body).toBeNull();
+    }
+  );
+
+  // The two response models diverge on exactly this: writing a header after the
+  // handler has responded. The expectation comes from the driver's declared
+  // capability, not from a table kept here, so an adapter that changes under the
+  // framework fails this scenario instead of silently flipping — the same shape
+  // as the dot-segment scenario above.
+  registerScenario(
+    driver,
+    '#29 middleware: a header written after the handler responds reaches the client where the adapter records the response',
+    {},
+    async () => {
+      const res = await driver.dispatch((app) => {
+        app.use(async (ctx, next) => {
+          await next();
+          // Adapters that have already written the response fail this write
+          // outright; the assertion below is about the outcome, not the throw.
+          try {
+            ctx.set('X-Late-Header', 'written-after-handler');
+          } catch {
+            // Recorded by the capability flag this scenario asserts.
+          }
+        });
+        app.use((ctx) => {
+          ctx.json({ ok: true });
+        });
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.header('x-late-header') ?? null).toBe(
+        driver.honorsPostHandlerHeaderWrite ? 'written-after-handler' : null
+      );
+      expect(json<{ ok: boolean }>(res).ok).toBe(true);
+    }
+  );
 }
 
 /** Runtime behaviors with encoded capability differences (rows #13-#15, #19). */
 export function defineRuntimeConformance(driver: ConformanceDriver): void {
-  it('#13 timeout: every server/edge/serverless adapter races the handler and returns 504, cancelling via ctx.signal (F-04/F-08)', async () => {
+  registerScenario(driver, '#13 timeout: every server/edge/serverless adapter races the handler and returns 504, cancelling via ctx.signal (F-04/F-08)', {}, async () => {
     const result = await driver.timeoutResult();
     if (driver.handlerTimeout504) {
       expect(result).toEqual({ status: 504, signalFired: true });
@@ -358,7 +694,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     }
   });
 
-  it('#15 abort: ctx.signal fires when the transport aborts mid-request', async () => {
+  registerScenario(driver, '#15 abort: ctx.signal fires when the transport aborts mid-request', {}, async () => {
     if (driver.transportAbortFiresSignal) {
       expect(await driver.abortFiresSignal()).toBe(true);
     } else {
@@ -368,7 +704,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     }
   });
 
-  it('#18/#14 lifecycle capability: teardown-on-shutdown is a declared boolean', () => {
+  registerScenario(driver, '#18/#14 lifecycle capability: teardown-on-shutdown is a declared boolean', {}, () => {
     // Teardown is a self-declared capability (server adapters run extension
     // destroy() on close; edge/serverless have no server lifetime, F-14). A
     // reusable suite can only assert the driver DECLARES it — the specific
@@ -376,7 +712,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     expect(typeof driver.teardownOnShutdown).toBe('boolean');
   });
 
-  it('#19 client IP: same precedence + validation across adapters (F-11)', async () => {
+  registerScenario(driver, '#19 client IP: same precedence + validation across adapters (F-11)', {}, async () => {
     const xff = '203.0.113.9';
 
     const trusted = await driver.dispatch((app) => {
@@ -403,7 +739,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     expect(validated.text()).toBe('198.51.100.2');
   });
 
-  it('#19 client IP: untrusted proxy headers are ignored on every adapter (HP-1 parity)', async () => {
+  registerScenario(driver, '#19 client IP: untrusted proxy headers are ignored on every adapter (HP-1 parity)', {}, async () => {
     // proxy: false → the proxy headers are never consulted; ctx.ip is the
     // platform direct address (identical policy across adapters, differing only
     // in the platform-supplied value: socket for node/deno, clientIp for bun,
@@ -420,7 +756,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     expect(res.text()).not.toBe('198.51.100.7');
   });
 
-  it('#19 client IP: Cloudflare cf-connecting-ip precedence is honored only by edge/serverless', async () => {
+  registerScenario(driver, '#19 client IP: Cloudflare cf-connecting-ip precedence is honored only by edge/serverless', {}, async () => {
     // Pins design D2/D5: the edge trim must not drop cf-connecting-ip when
     // proxy is a hop count. Edge (and serverless, which reuses the edge context)
     // put cf-connecting-ip at the front; Node/Bun/Deno ignore it and fall to
@@ -439,7 +775,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     }
   });
 
-  it('#17 ctx.next(): tail next() is a resolved no-op (last middleware may await it, then respond)', async () => {
+  registerScenario(driver, '#17 ctx.next(): tail next() is a resolved no-op (last middleware may await it, then respond)', {}, async () => {
     // HP-7: the innermost middleware's ctx.next() forwards to the composer's
     // terminal thunk, which resolves without throwing. Awaiting it and then
     // responding must succeed identically on every adapter.
@@ -453,7 +789,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     expect(json<{ ok: boolean }>(res).ok).toBe(true);
   });
 
-  it('#17 ctx.next(): a downstream rejection propagates to an awaiting upstream middleware', async () => {
+  registerScenario(driver, '#17 ctx.next(): a downstream rejection propagates to an awaiting upstream middleware', {}, async () => {
     // HP-7: ctx.next() returns the dispatch thunk's promise directly, so a
     // downstream throw surfaces as a rejection the upstream `await ctx.next()`
     // can catch — identical across adapters.
@@ -473,6 +809,31 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     expect(res.status).toBe(418);
     expect(json<{ caught: boolean }>(res).caught).toBe(true);
   });
+
+  // Socket-required on purpose. Response framing and connection shutdown exist
+  // only on a real connection: an in-process `Response` can be read back whole
+  // whatever length it claims, so asserting this against one proves nothing. A
+  // driver that cannot satisfy the requirement is recorded as not satisfied at
+  // real-runtime level rather than credited with a pass.
+  registerScenario(
+    driver,
+    '#25 real listener: a request read from a socket is answered and framed',
+    { socketRequired: true },
+    async () => {
+      const payload = { answered: true, filler: 'x'.repeat(64) };
+      const res = await driver.dispatch((app) => {
+        app.use((ctx) => {
+          ctx.json(payload);
+        });
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.text()).toBe(JSON.stringify(payload));
+      expect(res.header('content-length')).toBe(
+        String(new TextEncoder().encode(res.text()).length)
+      );
+    }
+  );
 }
 
 /**
@@ -484,7 +845,7 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
  * activated store must be observable-identical on every adapter.
  */
 export function defineCookieConformance(driver: ConformanceDriver): void {
-  it('#20 cookies: uninitialized ctx.cookies throws the diagnostic on every adapter', async () => {
+  registerScenario(driver, '#20 cookies: uninitialized ctx.cookies throws the diagnostic on every adapter', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
         try {
@@ -499,7 +860,7 @@ export function defineCookieConformance(driver: ConformanceDriver): void {
     expect(body.reached).toBe(false);
   });
 
-  it('#21 cookies: activation parses the Cookie header identically', async () => {
+  registerScenario(driver, '#21 cookies: activation parses the Cookie header identically', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use(cookies());
       app.use((ctx) => {
@@ -511,7 +872,7 @@ export function defineCookieConformance(driver: ConformanceDriver): void {
     expect(body.b).toBe('2');
   });
 
-  it('#22 cookies: set() accumulates multiple Set-Cookie headers', async () => {
+  registerScenario(driver, '#22 cookies: set() accumulates multiple Set-Cookie headers', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use(cookies());
       app.use((ctx) => {
@@ -525,7 +886,7 @@ export function defineCookieConformance(driver: ConformanceDriver): void {
     expect(setCookies.some((c) => c.startsWith('b=2'))).toBe(true);
   });
 
-  it('#23 cookies: delete() emits an expiring cookie with matching scope', async () => {
+  registerScenario(driver, '#23 cookies: delete() emits an expiring cookie with matching scope', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use(cookies());
       app.use((ctx) => {
@@ -537,7 +898,7 @@ export function defineCookieConformance(driver: ConformanceDriver): void {
     expect(setCookies.some((c) => c.startsWith('session=') && c.includes('Max-Age=0'))).toBe(true);
   });
 
-  it('#24 cookies: read-after-write is visible in the same request', async () => {
+  registerScenario(driver, '#24 cookies: read-after-write is visible in the same request', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use(cookies());
       app.use((ctx) => {

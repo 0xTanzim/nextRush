@@ -22,6 +22,7 @@
 
 import { handle } from '@nextrush/adapter-nextjs';
 import { createApp } from '@nextrush/core';
+import { buildConformanceApp } from './app-shape';
 import type { Configure, ConformanceDriver, DispatchInit, DispatchResult } from './types';
 
 const BASE_URL = 'http://127.0.0.1';
@@ -48,14 +49,25 @@ function toResult(response: Response, bodyText: string): DispatchResult {
 
 export const nextjsDriver: ConformanceDriver = {
   name: 'nextjs',
+  transport: 'in-process', // the route handler is called with a synthetic Request
+  runtimeFidelity: 'simulated', // App Router runs on Node or workerd, both covered elsewhere
   handlerTimeout504: true, // reuses the edge engine's timeout→504 race (F-08)
   teardownOnShutdown: false, // no server lifetime, like edge (F-14) — handle() never calls close()
   transportAbortFiresSignal: true, // the forwarded Request's own .signal aborts, same as edge
   honorsCloudflareIp: true, // reuses the edge context → cf-connecting-ip precedence (F-11)
+  honorsPostHandlerHeaderWrite: true, // reuses the edge context → recorded response
+  // `false`, because this driver builds its synthetic Request through `URL`, which
+  // resolves a dot segment before anything downstream can see it — the target that
+  // reaches the handler is already the resolved form (see `toRequest`). The scenario
+  // that observes a raw target is socket-required, so it is refused here anyway; the
+  // real-target evidence for App Router runs on the runtimes it actually deploys to.
+  rawRequestTarget: false,
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
-    const app = createApp({ proxy: init?.proxy ?? false });
+    const app = buildConformanceApp(init);
     configure(app);
+    // No eager boot here by design, with or without `beforeBoot`: `handle()`
+    // builds the engine and the engine boots the application on first dispatch.
     const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = handle(app);
     const methods = { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } as const;
     const method = (init?.method ?? 'GET').toUpperCase() as keyof typeof methods;

@@ -13,6 +13,28 @@ the Node, Bun, Deno, and Edge adapters. Not published.
    simulated under Node. This is what makes "edge-ready" proven rather than asserted
    (openspec `harden-runtime-edge-serverless`, task group 3).
 
+## Encoded capability differences
+
+Some differences are real and permanent, not bugs. Each is a boolean on the driver
+contract, and a scenario asserts the **observed** behaviour agrees with the declared
+value — so an adapter that changes under the framework fails conformance instead of
+silently flipping. The expectation is never an expected-value table kept in the suite.
+
+| Flag | `true` | `false` | Scenario |
+| ---- | ------ | ------- | -------- |
+| `handlerTimeout504` | handler-level timeout answers 504 | socket-level timeout only (Node) | #13 |
+| `teardownOnShutdown` | extension `destroy()` runs on shutdown | no server lifetime (edge, serverless) | #18 |
+| `transportAbortFiresSignal` | a transport abort reaches `ctx.signal` | fully-buffered event, timeout-driven cancellation | #15 |
+| `rawRequestTarget` | the platform hands the target over un-reshaped | it resolved the target before the framework ran | #28 |
+| `honorsCloudflareIp` | `cf-connecting-ip` leads the client-IP precedence | falls through to `x-forwarded-for`/`x-real-ip` | #19 |
+| `honorsPostHandlerHeaderWrite` | a header written after the handler still lands (Web record model) | the response is already on the wire (Node) | #29 |
+
+`honorsPostHandlerHeaderWrite` is what makes the two response models visible: the Web
+adapters build the `Response` after the middleware chain unwinds, so post-handler work
+(the timer's header, a compression step) can still affect it; the Node adapter has
+already written the response by then. The scenario is `#29` and it reports, driver by
+driver, which side each adapter is on.
+
 ## Real-runtime runners
 
 ### Bun (`bun-runner/`) — verified locally, runs in CI

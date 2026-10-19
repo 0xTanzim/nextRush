@@ -10,20 +10,27 @@
  * closing the "claim outruns proof" gap the runtime-platform review (F-01)
  * identified — the previous version of this file asserted only 5 basic cases.
  *
- * `preload.mjs` (wired via `bunfig.toml`) redirects the conformance package's
- * internal `./test-primitives` import to Bun's own `it`/`expect`
- * (`test-primitives.bun.mjs`), so `defineConformanceSuite` registers its
- * assertions through Bun's real test runner.
+ * `@nextrush/adapter-conformance`'s `./test-primitives` export carries a `bun`
+ * condition (`package.json`), so under `bun test` the shared suite registers its
+ * cases through Bun's own `it`/`expect` instead of vitest's — the same swap the
+ * Deno runner gets from its import map, with no per-runner file rewriting.
  *
- * Run: cd packages/adapters/conformance/bun-runner && bun test
+ * Resolves `@nextrush/*` through `dist/`, so `pnpm build` must have run (CI builds
+ * before it runs this). Run: cd packages/adapters/conformance/bun-runner && bun test
  */
 
 import { afterEach, describe, expect, test } from 'bun:test';
+import { request as httpRequest, type IncomingMessage } from 'node:http';
 import { createApp } from '@nextrush/core';
-import { serve } from '@nextrush/adapter-bun';
+import { createHandler, serve } from '@nextrush/adapter-bun';
 import type { ServerInstance } from '@nextrush/adapter-bun';
-import { detectRuntime } from '@nextrush/runtime';
-import { defineConformanceSuite } from '@nextrush/adapter-conformance';
+import { detectRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
+import {
+  buildConformanceApp,
+  defineConformanceSuite,
+  scenarioRecords,
+  scenarioReport,
+} from '@nextrush/adapter-conformance';
 import type { ConformanceDriver, Configure, DispatchInit, DispatchResult } from '@nextrush/adapter-conformance';
 
 let instance: ServerInstance | undefined;
@@ -63,19 +70,78 @@ function toResult(response: Response, bodyText: string): DispatchResult {
   };
 }
 
+/**
+ * Send the target in the request line unparsed, for a `verbatimTarget` dispatch.
+ *
+ * `fetch` — this driver's transport everywhere else — resolves a dot segment on
+ * the client, so the server would never see the target the scenario is asking
+ * about. `node:http` writes `path` into the request line as given (measured under
+ * Bun against a socket that echoes its own request line) and returns a response
+ * with its headers parsed, so nothing else about this driver changes.
+ */
+async function verbatimFetch(port: number, init: DispatchInit): Promise<DispatchResult> {
+  const response = await new Promise<IncomingMessage>((resolve, reject) => {
+    const req = httpRequest(
+      {
+        host: '127.0.0.1',
+        port,
+        path: init.path ?? '/',
+        method: init.method ?? 'GET',
+        headers: init.headers,
+      },
+      resolve
+    );
+    req.on('error', reject);
+    if (init.body !== undefined) req.write(init.body);
+    req.end();
+  });
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of response) chunks.push(chunk as Buffer);
+
+  return {
+    status: response.statusCode ?? 0,
+    header: (name) => {
+      const value = response.headers[name.toLowerCase()];
+      return Array.isArray(value) ? value.join(', ') : value;
+    },
+    setCookies: () => response.headers['set-cookie'] ?? [],
+    text: () => Buffer.concat(chunks).toString('utf8'),
+  };
+}
+
 /** Real-Bun ConformanceDriver: every dispatch spins a real `serve()` and hits it over the network. */
 const realBunDriver: ConformanceDriver = {
   name: 'bun',
+  transport: 'socket', // every dispatch spins a real serve() and hits it over loopback
+  runtimeFidelity: 'real-runtime', // this file runs under `bun test`
   handlerTimeout504: true,
   teardownOnShutdown: true,
   transportAbortFiresSignal: true,
   honorsCloudflareIp: false,
+  honorsPostHandlerHeaderWrite: true, // the Web request handler records the response
+  // The running runtime's own answer: this file runs under `bun test`, so it
+  // reports Bun's platform behaviour rather than a value copied from a table.
+  rawRequestTarget: getRuntimeCapabilities().rawRequestTarget,
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
-    const app = createApp({ proxy: init?.proxy ?? false });
+    const app = buildConformanceApp(init);
     configure(app);
+    if (init?.beforeBoot === true) {
+      // The documented Web form with no explicit boot: `Bun.serve({ fetch:
+      // createHandler(app) })`, and `ready()` is deliberately NOT awaited, so the
+      // entry point has to boot the application itself.
+      const bare = Bun.serve({ port: 0, fetch: createHandler(app) });
+      try {
+        const res = await rawFetch(bare.port, init);
+        return toResult(res, await res.text());
+      } finally {
+        await bare.stop(true);
+      }
+    }
     const server = await serve(app, { port: 0 });
     try {
+      if (init?.verbatimTarget === true) return await verbatimFetch(server.port, init);
       const res = await rawFetch(server.port, init);
       const bodyText = await res.text();
       return toResult(res, bodyText);
@@ -138,4 +204,12 @@ const realBunDriver: ConformanceDriver = {
 
 describe('bun adapter — full cross-adapter conformance suite on real Bun', () => {
   defineConformanceSuite(realBunDriver);
+
+  // Proof level is reported, not implied: which scenarios this run actually
+  // proved over a real socket on the real runtime, and which were refused.
+  test('proof levels', () => {
+    // eslint-disable-next-line no-console -- this runner's report IS the output
+    console.log(scenarioReport());
+    expect(scenarioRecords().length).toBeGreaterThan(0);
+  });
 });

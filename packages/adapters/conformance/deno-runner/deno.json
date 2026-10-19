@@ -7,6 +7,8 @@
     "@nextrush/router": "../../../router/dist/index.js",
     "@nextrush/runtime": "../../../runtime/dist/index.js",
     "@nextrush/stream": "../../../stream/dist/index.js",
+    "@nextrush/cookies": "../../../middleware/cookies/dist/index.js",
+    "@nextrush/body-parser": "../../../middleware/body-parser/dist/index.js",
     "@nextrush/di": "../../../di/dist/index.js",
     "@nextrush/adapter-deno": "../../deno/dist/index.js",
     "@nextrush/adapter-nextjs": "../../nextjs/dist/index.js",

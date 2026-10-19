@@ -8,7 +8,10 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./test-primitives": "./src/test-primitives.ts"
+    "./test-primitives": {
+      "bun": "./bun-runner/test-primitives.bun.mjs",
+      "default": "./src/test-primitives.ts"
+    }
   },
   "scripts": {
     "build": "echo 'no build — conformance is a test-only package'",
@@ -26,6 +29,7 @@
     "@nextrush/adapter-nextjs": "workspace:^",
     "@nextrush/adapter-node": "workspace:^",
     "@nextrush/adapter-serverless": "workspace:^",
+    "@nextrush/body-parser": "workspace:^",
     "@nextrush/cookies": "workspace:^",
     "@nextrush/core": "workspace:^",
     "@nextrush/errors": "workspace:^",

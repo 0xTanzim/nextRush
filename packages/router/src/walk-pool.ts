@@ -13,7 +13,7 @@
 
 import type { HttpMethod } from '@nextrush/types';
 import type { HandlerEntry, TrieNode } from './segment-trie';
-import { decodeParam, segmentAt } from './matching';
+import { decodeParam, foldSegment } from './matching';
 
 /**
  * One node in the iterative walk's explicit stack. `stage` is a small state
@@ -94,8 +94,8 @@ export function matchNodeIndexedPooled(
   bindValues: string[],
   method: HttpMethod,
   decode: boolean,
-  pool: WalkPool,
-  originalPath?: string
+  foldSegments: boolean,
+  pool: WalkPool
 ): HandlerEntry | null {
   const { frames } = pool;
   let depth = 0;
@@ -134,7 +134,7 @@ export function matchNodeIndexedPooled(
         continue;
       }
       frame.stage = 1;
-      const staticChild = frame.node.children.get(frame.seg);
+      const staticChild = frame.node.children.get(foldSegment(frame.seg, foldSegments));
       if (staticChild) {
         depth++;
         const next = frames[depth];
@@ -160,10 +160,7 @@ export function matchNodeIndexedPooled(
       if (paramChild) {
         const paramName = paramChild.paramName;
         if (paramName === undefined) return null;
-        const value =
-          originalPath !== undefined
-            ? decodeParam(segmentAt(originalPath, frame.pos), decode)
-            : decodeParam(frame.seg, decode);
+        const value = decodeParam(frame.seg, decode);
         bindNames.push(paramName);
         bindValues.push(value);
         frame.bound = true;
@@ -193,9 +190,8 @@ export function matchNodeIndexedPooled(
     }
     const wildcardChild = frame.node.wildcardChild;
     if (wildcardChild) {
-      const src = originalPath ?? path;
       bindNames.push('*');
-      bindValues.push(decodeParam(src.slice(frame.pos), decode));
+      bindValues.push(decodeParam(path.slice(frame.pos), decode));
       const handler = wildcardChild.handlers.get(method);
       if (handler) return handler;
       bindNames.pop();
