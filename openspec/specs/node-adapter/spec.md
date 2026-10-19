@@ -187,6 +187,7 @@ the same way instead of producing an empty body.
 
 - **WHEN** `ctx.json(undefined)` is called
 - **THEN** a `TypeError` is thrown and the response is not committed with an empty body
+
 ### Requirement: `ctx.set()` gates the set-cookie toLowerCase behind a cheap pre-check
 
 `ctx.set()` SHALL detect `set-cookie` via a constant-time pre-check before falling back to
@@ -683,3 +684,48 @@ MUST NOT rely on the deprecated `req 'aborted'` event.
 #### Scenario: host remains the canonical field; hostname is not introduced
 - **WHEN** `ServeOptions` is inspected after this change
 - **THEN** it exposes `host` (unchanged) and does not gain a `hostname` field
+
+### Requirement: A response-header write after the response headers are sent is a no-op, not a chain-aborting throw
+
+When `ctx.set()` is called after the response headers have been sent (`ServerResponse.headersSent` is
+true), the Node adapter SHALL NOT throw a platform error and MUST NOT reject the middleware chain:
+the write is discarded and reported once per process. Every middleware that runs after the handler
+MUST still complete its post-`next()` work.
+
+#### Scenario: A post-handler header write does not abort the chain
+
+- **WHEN** an inner middleware calls `ctx.set()` after `await next()` and the handler committed the
+  response, and an outer middleware also performs work after `await next()`
+- **THEN** the outer middleware's post-`next()` work runs to completion, the request is answered
+  with the handler's response, and no error propagates
+
+#### Scenario: The discarded write is reported once, not silently dropped
+
+- **WHEN** a post-handler header write is discarded
+- **THEN** a single warning per process identifies the field name and the committed-response cause,
+  so the condition is observable without a per-request log storm
+
+#### Scenario: A write made while writeHead runs still lands
+
+- **WHEN** a listener that Node invokes inside `writeHead` calls `ctx.set()` — the position the
+  compat surface's `on-headers` bridge writes from
+- **THEN** the header is present on the response, because `ctx.responded` is already true there while
+  the headers have not been sent yet
+
+#### Scenario: A pre-commit write is unaffected
+
+- **WHEN** `ctx.set()` is called before the response is committed
+- **THEN** the header is present on the response, unchanged from the current behavior
+
+#### Scenario: The header-validation guard is unaffected
+
+- **WHEN** `ctx.set()` is called with an invalid field name or a value containing control
+  characters, before or after commit
+- **THEN** a typed header-validation error is thrown before commit, and the post-commit path does
+  not weaken that guard
+
+#### Scenario: Behavior is identical across adapters
+
+- **WHEN** the cross-adapter conformance suite runs the post-handler header-write scenario on Node,
+  Bun, Deno, Edge and serverless
+- **THEN** every adapter completes the full middleware chain with the same observable outcome

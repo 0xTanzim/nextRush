@@ -277,6 +277,7 @@ capability and produce the documented outcome for that platform.
   whose negotiated capabilities report that the raw request target is unavailable
 - **THEN** the adapter produces the outcome its capability and documentation declare, and the suite
   fails if the adapter's reported capability and its observed behaviour disagree
+
 ### Requirement: The Web per-request-work optimization is validated by allocation and coverage gates
 
 Because the `wrk` RPS suite drives only the Node server, acceptance for the siblings SHALL rest on
@@ -415,8 +416,9 @@ produces for a target without dot segments.
 ### Requirement: The handler timeout is armed only when the handler has not already settled
 
 The Web adapters SHALL arm the handler timeout only when the handler has not already settled
-synchronously, matching the Node adapter's fast path. When a timer is armed, the timeout interval,
-the 504 response body, the cancellation signal, and the warning text SHALL be unchanged.
+synchronously, matching the Node adapter's fast path. A response the handler already committed SHALL
+be delivered rather than replaced by the 504. When a timer is armed, the timeout interval, the 504
+response body, the cancellation signal, and the warning text SHALL be unchanged.
 
 #### Scenario: A synchronous handler arms no timer
 
@@ -433,6 +435,12 @@ the 504 response body, the cancellation signal, and the warning text SHALL be un
 
 - **WHEN** the conformance and adapter test suites run the timeout scenarios
 - **THEN** Node, Bun, Deno, Edge and serverless produce the same observable outcome
+
+#### Scenario: A committed response is not replaced by the 504
+
+- **WHEN** a handler commits a response and then continues working past the configured timeout
+- **THEN** the client receives the handler's committed response rather than a 504, and the observable
+  outcome matches the Node adapter for the same handler
 
 ### Requirement: The Web adapters share one per-request runner
 
