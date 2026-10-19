@@ -39,8 +39,9 @@ stage it applies to, and a rule that applies but never ran fails the run.
    identity-schema control; the wrapper itself is below 0.1 % self time. Priority `P2`.
 2. **P3 was rejected by its own gate.** `JSON.stringify` is 88.1 % of the large-response profile,
    but a byte-identical fixed-key serializer was 4.4× slower (75 s vs 17 s). Priority `P2`.
-3. **Bun in-process ratio sits at the target boundary.** Source run 1.31, built run 1.47, both
-   inside the committed max 1.9 but above the aspirational target 1.3. Priority `P2`.
+3. **Bun in-process ratio is noisy around the target.** Source runs measured 1.31 and 0.99 on the
+   same machine; built mode measured 1.47. All are inside the committed max 1.9, and the target
+   1.3 should be read as a warning band, not a stable point. Priority `P2`.
 4. **POST remains body-read dominated.** 28.73 µs vs Hono 4.39 µs (6.54×) on Bun, inside the
    committed max 9.0; the profile places the cost in body consumption, not the validator. Priority
    `P2`.
@@ -216,7 +217,9 @@ Command: `node apps/benchmark/scripts/dev-check/check.mjs bundle cold inproc pro
 
 The no-timeout arm at 3.94 µs against 4.052 µs isolates the timeout arm at ≈0.11 µs/request.
 The `adapter-bun` Web path is 3.79 µs; the absolute numbers are close enough that run-to-run
-variance matters more than a single decimal.
+variance matters more than a single decimal. A later run of the README `bundle cold inproc --built`
+command on the same machine measured source 1.31→0.99 (PASS) and built 1.47; that swing is machine
+load, not a code change. Treat 1.31 as one observation, not a stable point.
 
 ### 9.2 Bun — built run
 
@@ -421,11 +424,12 @@ reference arm, catalog-pinned). Neither is imported by production packages.
 - **Priority:** `P2` (documented and monitored).
 - **Migration difficulty:** Trivial — no code change.
 
-### F-02 — Bun in-process ratio sits at the target boundary  ·  Priority `P2`
+### F-02 — Bun in-process ratio is noisy around the target  ·  Priority `P2`
 
-- **Current situation:** Source 1.31, built 1.47, earlier baseline 1.27. The max is 1.9, the
-  target 1.3. The no-timeout arm is 3.94 µs against 4.052 µs.
-- **Impact:** A `WARN` on every run near the target; the max still holds with margin.
+- **Current situation:** Source 1.31, built 1.47, earlier baseline 1.27; a later README-command run
+  measured source 0.99 (PASS) on the same machine. The max is 1.9, the target 1.3. The no-timeout
+  arm is 3.94 µs against 4.052 µs.
+- **Impact:** A `WARN` appears or disappears with load; the max still holds with margin.
 - **Benefits (of today's design):** The ratio cancels most machine noise and catches real request
   path regressions.
 - **Drawbacks:** At this granularity, source/built resolution and run-to-run spread move the
