@@ -17,7 +17,7 @@
  */
 
 import type { Application } from '@nextrush/core';
-import { createBootGate, jsonErrorResponse } from '@nextrush/runtime';
+import { createWebRunner } from '@nextrush/runtime';
 import type { AdapterContextFactory, FetchAdapter, PlatformId, ProxyTrust } from '@nextrush/types';
 import { createEdgeContext, EdgeContext, type EdgeExecutionContext } from './context';
 
@@ -130,102 +130,57 @@ export function createFetchHandler(
   app: Application,
   options: FetchHandlerOptions = {}
 ): FetchHandler {
-  const run = createRequestRunner(app, options);
+  const run = createEdgeRunner(app, options);
   return (request: Request, executionContext?: EdgeExecutionContext): Promise<Response> =>
-    run(request, executionContext);
+    run(request, { executionContext });
+}
+
+/** Per-request platform extras the edge context needs. */
+interface EdgeExtras {
+  executionContext?: EdgeExecutionContext;
+  env?: unknown;
 }
 
 /**
- * Internal request runner shared by every edge entry point.
+ * Wire the shared Web runner for every edge entry point.
  *
  * @remarks
- * Centralizes booting, context creation (threading Cloudflare `env` — F-03),
- * timeout racing with cooperative cancellation (F-08), the header-preserving
- * finalize path (F-02), and error handling — so Cloudflare/Vercel/Netlify
- * handlers cannot drift.
+ * Booting, dispatch, the timeout race with cooperative cancellation, the
+ * header-preserving finalize path, and error handling all live in
+ * `createWebRunner` — so Cloudflare/Vercel/Netlify handlers cannot drift. This
+ * function supplies only what is edge-specific: the context (threading
+ * Cloudflare `env` — F-03), the named timeout in the 504 warning, and the
+ * caller's error handler.
  */
-function createRequestRunner(
+function createEdgeRunner(
   app: Application,
   options: FetchHandlerOptions
-): (request: Request, executionContext?: EdgeExecutionContext, env?: unknown) => Promise<Response> {
+): (request: Request, extras: EdgeExtras) => Promise<Response> {
+  const proxy = app.options.proxy ?? false;
   // F-07/ADR-0010: default to DEFAULT_EDGE_TIMEOUT_MS when the caller specifies
   // none (`undefined`); `0` remains an explicit opt-out (no framework timeout).
   const timeout = options.timeout ?? DEFAULT_EDGE_TIMEOUT_MS;
   const timeoutSource = options.timeout === undefined ? 'default' : 'explicit options.timeout';
-  const proxy = app.options.proxy ?? false;
 
-  /** Sentinel value returned by the timeout racer */
-  const TIMEOUT_SENTINEL = Symbol('timeout');
-
-  // Edge has no serve()/start() phase, so the shared boot barrier runs on the
-  // first request. `markRunning` keeps `app.isRunning` consistent with the
-  // server adapters even though there is no server lifetime (F-14).
-  const boot = createBootGate(app, { label: 'edge', markRunning: true });
-
-  // Booted handler, read synchronously once boot has completed. Only the first
-  // request awaits the barrier, so a steady-state request adds no promise hop.
-  let handler = boot.handler;
-
-  return async (
-    request: Request,
-    executionContext?: EdgeExecutionContext,
-    env?: unknown
-  ): Promise<Response> => {
-    const ctx = createEdgeContext(request, executionContext, proxy, env, app.isProduction, options.platform);
-
-    try {
-      handler ??= await boot.ensure();
-
-      if (timeout > 0) {
-        let timerId: ReturnType<typeof setTimeout> | undefined;
-        try {
-          const result = await Promise.race([
-            handler(ctx).then(() => undefined),
-            new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-              timerId = setTimeout(() => {
-                resolve(TIMEOUT_SENTINEL);
-              }, timeout);
-            }),
-          ]);
-
-          if (result === TIMEOUT_SENTINEL) {
-            // F-08: cancel the still-running handler cooperatively via ctx.signal.
-            ctx.triggerTimeout();
-            // P1-3b: name the effective timeout and its source so a 504 is
-            // attributable without reading this adapter's source.
-            app.logger.warn(
-              `[nextrush/edge] Request timed out after ${String(timeout)}ms (${timeoutSource}) — returning 504. ` +
-                `${ctx.method} ${ctx.path}`
-            );
-            return jsonErrorResponse(504, 'Gateway Timeout');
-          }
-        } finally {
-          // F-08: always clear the timer, on both handler-wins and timeout paths.
-          if (timerId !== undefined) clearTimeout(timerId);
-        }
-      } else {
-        await handler(ctx);
-      }
-
-      // F-02: finalize through the context so headers set via ctx.set() survive
-      // an implicit/empty response. The 404 default body is written through the
-      // same builder, preserving those headers too.
-      if (!ctx.responded && ctx.status === 404) {
-        ctx.json({ error: 'Not Found' });
-      }
-      return ctx.getResponse();
-    } catch (error) {
-      // Custom error handler
-      if (options.onError) {
-        return options.onError(error as Error, ctx);
-      }
-
-      // Default error handling
-      app.logger.error('Request error:', error);
-
-      return jsonErrorResponse(500, 'Internal Server Error');
-    }
-  };
+  return createWebRunner(app, {
+    label: 'edge',
+    timeout,
+    timeoutWarningSource: timeoutSource,
+    // Edge has no serve()/start() phase, so the shared boot barrier runs on the
+    // first request. `markRunning` keeps `app.isRunning` consistent with the
+    // server adapters even though there is no server lifetime (F-14).
+    markRunning: true,
+    makeContext: (request, extras) =>
+      createEdgeContext(
+        request,
+        extras.executionContext,
+        proxy,
+        extras.env,
+        app.isProduction,
+        options.platform
+      ),
+    onError: options.onError,
+  });
 }
 
 /**
@@ -266,11 +221,11 @@ export function createCloudflareHandler<Env = Record<string, unknown>>(
   app: Application,
   options: FetchHandlerOptions = {}
 ): { fetch: CloudflareFetchHandler<Env> } {
-  const run = createRequestRunner(app, options);
+  const run = createEdgeRunner(app, options);
 
   return {
     fetch: (request: Request, env: Env, ctx: EdgeExecutionContext): Promise<Response> =>
-      run(request, ctx, env),
+      run(request, { executionContext: ctx, env }),
   };
 }
 

@@ -38,6 +38,9 @@ import type {
   RuntimeCapabilities,
   RuntimeInfo,
   ServerStartErrorCode,
+  WebRunnerApp,
+  WebRunnerContext,
+  WebRunnerOptions,
 } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
@@ -124,6 +127,9 @@ describe('Public API surface (runtime exports)', () => {
       // Boot gate
       'createBootGate',
 
+      // Shared Web runner
+      'createWebRunner',
+
       // Body source
       'AbstractBodySource',
       'BodyConsumedError',
@@ -173,6 +179,9 @@ describe('Public API surface (type-only exports)', () => {
       BootableApp<string>,
       BootGate<string>,
       BootGateOptions,
+      WebRunnerApp<(ctx: never) => Promise<void>>,
+      WebRunnerContext,
+      WebRunnerOptions<never, undefined>,
     ];
     expectTypeOf<Surface>().not.toBeNever();
   });

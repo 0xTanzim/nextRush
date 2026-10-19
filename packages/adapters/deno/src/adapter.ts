@@ -8,7 +8,7 @@
 
 import type { Application, Logger } from '@nextrush/core';
 import {
-  createBootGate,
+  createWebRunner,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
   jsonErrorResponse,
@@ -202,59 +202,16 @@ export function createHandler(
   app: Application,
   options: HandlerOptions = {}
 ): (request: Request, info: DenoServeHandlerInfo) => Promise<Response> {
-  const boot = createBootGate(app, { label: 'deno' });
   const proxy = app.options.proxy ?? false;
-  const logger = options.logger ?? app.logger;
-  const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
-  const TIMEOUT_SENTINEL = Symbol('timeout');
 
-  // Booted handler, read synchronously once boot has completed. Only the first
-  // request awaits the barrier, so a steady-state request adds no promise hop.
-  let handler = boot.handler;
-
-  return async (request: Request, info: DenoServeHandlerInfo): Promise<Response> => {
-    // The connection info is handed over as-is; `hostname` is read on the first
-    // `ctx.ip` read, not here.
-    const ctx = createDenoContext(request, info, proxy);
-
-    try {
-      handler ??= await boot.ensure();
-
-      if (timeout > 0) {
-        let timerId: ReturnType<typeof setTimeout> | undefined;
-        try {
-          const result = await Promise.race([
-            handler(ctx).then(() => undefined),
-            new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
-              timerId = setTimeout(() => {
-                resolve(TIMEOUT_SENTINEL);
-              }, timeout);
-            }),
-          ]);
-
-          if (result === TIMEOUT_SENTINEL) {
-            ctx.triggerTimeout(); // F-08: cancel the still-running handler
-            return jsonErrorResponse(504, 'Gateway Timeout');
-          }
-        } finally {
-          if (timerId !== undefined) clearTimeout(timerId); // F-08: always clear
-        }
-      } else {
-        await handler(ctx);
-      }
-
-      // F-02: finalize through the context so ctx.set() headers survive an
-      // implicit/empty response; the 404 body is written through the same builder.
-      if (!ctx.responded && ctx.status === 404) {
-        ctx.json({ error: 'Not Found' });
-      }
-      return ctx.getResponse();
-    } catch (error) {
-      logger.error('Request error:', error);
-
-      return jsonErrorResponse(500, 'Internal Server Error');
-    }
-  };
+  // Boot barrier, dispatch, timeout race, not-found finalize, and error handling
+  // are the shared Web runner; only the context is Deno-specific.
+  return createWebRunner(app, {
+    label: 'deno',
+    timeout: options.timeout ?? DEFAULT_TIMEOUT_MS,
+    logger: options.logger,
+    makeContext: (request, info) => createDenoContext(request, info, proxy),
+  });
 }
 
 /**

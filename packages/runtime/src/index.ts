@@ -133,6 +133,12 @@ export { LAST_RESORT_ERROR_STATUS, unansweredErrorBody } from './unanswered-resp
 
 export { createBootGate } from './boot-gate';
 export type { BootableApp, BootGate, BootGateOptions } from './boot-gate';
+export { createWebRunner } from './web-runner';
+export type {
+  WebRunnerApp,
+  WebRunnerContext,
+  WebRunnerOptions,
+} from './web-runner';
 
 // ============================================================================
 // Shared Web Context Base (F-08, ADR-0010)
