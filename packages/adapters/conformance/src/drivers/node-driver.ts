@@ -193,19 +193,12 @@ export const nodeDriver: ConformanceDriver = {
       });
     });
     return (async () => {
+      // No socket-guard override: `serve()` keeps `server.timeout` strictly
+      // later than the handler deadline, so the clean 504 always gets to write
+      // before the guard can close an idle socket. This case used to raise
+      // `httpServer.timeout` locally to dodge that race; the ordering fix is
+      // what makes the override unnecessary.
       const server = await serve(app, { port: 0, timeout: 10 });
-      // F-04 isolation: `serve()` feeds the single `timeout` to BOTH the
-      // handler-race timer (the clean-504 producer) and Node's independent
-      // socket-level slow-client guard (`server.timeout`). At `timeout: 10ms`
-      // the socket guard is armed at the same 10ms and, on a contended CI
-      // runner, can destroy the idle socket — surfacing as ECONNRESET on the
-      // client — before the handler writes its 504. This case isolates the
-      // HANDLER race (the cross-adapter F-04/F-08 parity contract), so give the
-      // socket guard generous, independent time to stay out of the way. This
-      // driver only boots a plain node:http server (no TLS), so narrow to it.
-      const httpServer = server.server as import('node:http').Server;
-      httpServer.timeout = 5_000;
-      httpServer.keepAliveTimeout = 5_000;
       try {
         const raw = await rawRequest(server.port, { path: '/' });
         return { status: raw.status, signalFired };
@@ -226,13 +219,10 @@ export const nodeDriver: ConformanceDriver = {
       // already committed.
       await new Promise<void>((resolve) => setTimeout(resolve, 40));
     });
-    // `serve()`'s single `timeout` also arms Node's socket-level slow-client
-    // guard, so give that guard generous, independent time: this case observes
-    // the handler race, not the socket guard.
+    // No socket-guard override — see `timeoutResult`: `serve()` keeps the guard
+    // strictly behind the handler deadline, so the committed response is flushed
+    // before the guard can fire.
     const server = await serve(app, { port: 0, timeout: 10 });
-    const httpServer = server.server as import('node:http').Server;
-    httpServer.timeout = 5_000;
-    httpServer.keepAliveTimeout = 5_000;
     try {
       const raw = await rawRequest(server.port, { path: '/' });
       return { status: raw.status, body: JSON.parse(raw.body) as unknown };
