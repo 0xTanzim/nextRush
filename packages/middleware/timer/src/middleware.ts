@@ -110,12 +110,11 @@ function formatFixed(value: number, precision: number, factor: number): string {
  * only when asked — writes it to a response header.
  *
  * @remarks
- * The header is written after `ctx.next()` resolves, so it lands only where the
- * adapter has not committed the response yet: the Web adapters honour it, while
- * the Node adapter has already written the response and the header cannot
- * appear. `exposeHeader` therefore defaults to `false` — the measurement is
- * always available in state, and the header is opt-in. See the package README's
- * compatibility notes.
+ * The header is written after `ctx.next()` resolves, so it measures the work the
+ * rest of the chain did. Every shipped adapter records the outgoing response and
+ * flushes it once the chain unwinds (RFC-041), so the header lands on all of
+ * them. `exposeHeader` still defaults to `false`: the measurement is always
+ * available in state, and advertising it is opt-in.
  *
  * @param options - Timer configuration options
  * @returns Middleware function
@@ -196,8 +195,8 @@ export function timer(options: TimerOptions = {}): NextrushMiddleware {
  *
  * @remarks
  * Shares the timing contract of {@link timer}: the duration is always recorded,
- * and `exposeHeader` is opt-in because a post-handler header write only lands
- * where the adapter has not committed the response yet.
+ * and `exposeHeader` is opt-in. The header lands on every adapter because the
+ * response is flushed after the middleware chain unwinds.
  *
  * @param options - Detailed timer configuration options
  * @returns Middleware function
@@ -294,10 +293,9 @@ export function responseTime(options: TimerOptions = {}): NextrushMiddleware {
  *
  * @remarks
  * Like {@link timer}, this middleware records the duration in `ctx.state` and
- * writes the header only when `exposeHeader` is enabled — the header is written
- * after `ctx.next()` resolves, so it lands on the Web adapters and cannot appear
- * on the Node adapter, which has already written the response. See the package
- * README's compatibility notes.
+ * writes the header only when `exposeHeader` is enabled. The header is written
+ * after `ctx.next()` resolves and lands on every adapter, because the response
+ * is flushed once the middleware chain unwinds.
  *
  * @param options - Server-Timing configuration options
  * @returns Middleware function
