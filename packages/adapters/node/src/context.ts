@@ -471,11 +471,15 @@ export class NodeContext implements AdapterContext {
     }
 
     record.flush((flushed) => {
-      const body = flushed.bodyBytes() ?? null;
-      res.writeHead(flushed.status, this.nodeHeaders(flushed));
+      const body = flushed.body;
+      res.writeHead(flushed.status, this.nodeHeaders(flushed, body));
       if (body === null || isBodylessResponse(this.method, flushed.status)) {
         res.end();
       } else {
+        // Write the recorded form through unchanged. A string body stays a
+        // string, which is what the pre-record path did: `res.end` encodes it
+        // inside Node, so an untouched response allocates no intermediate byte
+        // array (RFC-041 §14.2). Only a rewritten body is already bytes.
         res.end(body);
       }
     });
@@ -511,11 +515,16 @@ export class NodeContext implements AdapterContext {
    * The recorded headers in the shape `writeHead` accepts.
    *
    * @remarks
-   * `Content-Length` is derived from the final body, so a rewrite can never
-   * flush a length that disagrees with the bytes. It stays absent for an
-   * unmeasurable body, which keeps chunked encoding.
+   * `Content-Length` is derived from the body actually written, so a rewrite can
+   * never flush a length that disagrees with the bytes. It stays absent for an
+   * unmeasurable body, which keeps chunked encoding. A string body is measured
+   * with `Buffer.byteLength` rather than by encoding it: measuring must not cost
+   * the copy that writing the string through avoids.
    */
-  private nodeHeaders(record: OutgoingResponse): OutgoingHttpHeaders {
+  private nodeHeaders(
+    record: OutgoingResponse,
+    body: string | Uint8Array | null
+  ): OutgoingHttpHeaders {
     const headers: OutgoingHttpHeaders = {};
 
     const contentType = record.contentType;
@@ -531,8 +540,10 @@ export class NodeContext implements AdapterContext {
       headers[name] = Array.isArray(existing) ? [...existing, value] : [String(existing), value];
     }
 
-    const length = record.contentLength();
-    if (length !== undefined) headers['Content-Length'] = String(length);
+    if (body !== null) {
+      headers['Content-Length'] =
+        typeof body === 'string' ? String(Buffer.byteLength(body)) : String(body.byteLength);
+    }
 
     return headers;
   }

@@ -244,7 +244,7 @@ describe('HP-14: ctx.json() writes headers with a single writeHead', () => {
     ctx.flushResponse();
 
     expect(res.end).toHaveBeenCalledTimes(1);
-    expect(res.end).toHaveBeenCalledWith(new TextEncoder().encode('{"first":true}'));
+    expect(res.end).toHaveBeenCalledWith('{"first":true}');
   });
 });
 

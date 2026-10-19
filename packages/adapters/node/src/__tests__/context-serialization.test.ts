@@ -11,11 +11,6 @@ import { describe, expect, it } from 'vitest';
 import { NodeContext } from '../context';
 import { createMockRequest, createMockResponse } from './_shared/mock-response';
 
-/** UTF-8 bytes, the form a recorded body is flushed in. */
-function utf8(text: string): Uint8Array {
-  return new TextEncoder().encode(text);
-}
-
 function makeCtx() {
   const { res, setHeader, end, writeHead } = createMockResponse();
   return { ctx: new NodeContext(createMockRequest(), res), setHeader, end, writeHead };
@@ -42,7 +37,7 @@ describe('NodeContext - serialize before commit', () => {
       'Content-Type': 'application/json; charset=utf-8',
       'Content-Length': '11',
     });
-    expect(end).toHaveBeenCalledWith(utf8('{"ok":true}'));
+    expect(end).toHaveBeenCalledWith('{"ok":true}');
   });
 
   it.each(UNSERIALIZABLE)('throws for %s without writing a byte', (_label, value) => {
@@ -83,7 +78,7 @@ describe('NodeContext - serialize before commit', () => {
 
     ctx.flushResponse();
 
-    expect(end).toHaveBeenCalledWith(utf8(JSON.stringify(envelope)));
+    expect(end).toHaveBeenCalledWith(JSON.stringify(envelope));
   });
 
   it('guards the object branch of send() through the same serializer', () => {
@@ -139,8 +134,14 @@ describe('NodeContext - serialize before commit', () => {
     ctx.flushResponse();
 
     expect(end).toHaveBeenCalled();
-    const chunk = end.mock.calls[0]?.[0] as Uint8Array | undefined;
-    expect(new TextDecoder().decode(chunk)).toBe(written);
+    // The recorded body is written through in the form it was recorded: a string
+    // reaches `res.end` as a string (Node encodes it once, no intermediate
+    // array), and bytes reach it as bytes.
+    const chunk = end.mock.calls[0]?.[0];
+    const text =
+      typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk as Uint8Array);
+    expect(text).toBe(written);
+    expect(typeof chunk).toBe(typeof value === 'string' ? 'string' : typeof chunk);
   });
 
   it('commits and writes html() and redirect()', () => {
@@ -148,13 +149,13 @@ describe('NodeContext - serialize before commit', () => {
     html.ctx.html('<p>hi</p>');
     expect(html.ctx.responded).toBe(true);
     html.ctx.flushResponse();
-    expect(html.end).toHaveBeenCalledWith(utf8('<p>hi</p>'));
+    expect(html.end).toHaveBeenCalledWith('<p>hi</p>');
 
     const redirect = makeCtx();
     redirect.ctx.redirect('/next');
     expect(redirect.ctx.responded).toBe(true);
     redirect.ctx.flushResponse();
-    expect(redirect.end).toHaveBeenCalledWith(utf8('Redirecting to /next'));
+    expect(redirect.end).toHaveBeenCalledWith('Redirecting to /next');
   });
 
   it('does not write again when a stream writer starts after the response was sent', async () => {

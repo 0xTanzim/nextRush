@@ -41,11 +41,6 @@ function createMockRes(): ServerResponse {
   return res;
 }
 
-/** UTF-8 bytes, the form a recorded body is flushed in. */
-function utf8(text: string): Uint8Array {
-  return new TextEncoder().encode(text);
-}
-
 /** The header object the single `writeHead` call received. */
 function writtenHeaders(res: ServerResponse): Record<string, unknown> {
   const calls = vi.mocked(res.writeHead).mock.calls;
@@ -122,7 +117,7 @@ describe('NodeContext', () => {
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Length': String(Buffer.byteLength('{"message":"hello"}')),
       });
-      expect(res.end).toHaveBeenCalledWith(utf8('{"message":"hello"}'));
+      expect(res.end).toHaveBeenCalledWith('{"message":"hello"}');
     });
 
     it('should set status code', () => {
@@ -152,7 +147,7 @@ describe('NodeContext', () => {
         'Content-Type': 'text/plain; charset=utf-8',
         'Content-Length': String(Buffer.byteLength('Hello World')),
       });
-      expect(res.end).toHaveBeenCalledWith(utf8('Hello World'));
+      expect(res.end).toHaveBeenCalledWith('Hello World');
     });
 
     it('should send buffer response', () => {
@@ -198,7 +193,7 @@ describe('NodeContext', () => {
         'Content-Type': 'text/html; charset=utf-8',
         'Content-Length': String(Buffer.byteLength('<h1>Hello</h1>')),
       });
-      expect(res.end).toHaveBeenCalledWith(utf8('<h1>Hello</h1>'));
+      expect(res.end).toHaveBeenCalledWith('<h1>Hello</h1>');
     });
   });
 
