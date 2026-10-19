@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Draft`                                                               |
+| **Status**           | `Approved` — implementation in progress via `fix-request-path-and-response-contract` (Part A) |
 | **RFC number**       | `039`                                                                 |
 | **Date**             | `2026-09-29`                                                          |
 | **Author(s)**        | `Tanzim Hossain (NextRush maintainers) + explore session`             |
@@ -17,12 +17,12 @@
 
 ## Progress Tracker
 
-**Overall:** `[░░░░░░░░░░░░░░░░░░░░]` 0% — 0 / 5 phases complete · Doc status: `Draft`
+**Overall:** `[░░░░░░░░░░░░░░░░░░░░]` 0% — 0 / 5 phases complete · Doc status: `Approved`
 
 | Phase | Part / deliverable                                              | Status       |
 | ----- | --------------------------------------------------------------- | ------------ |
 | P0    | Profiles: Bun hello-world done (§3.7, `dev-check profile`); Node + POST + middleware-stack still open | in progress |
-| P1    | Lazy context fill + const-header skip (no API change)           | not started  |
+| P1    | Lazy context fill + const-header skip (no API change)           | in progress (task group 8) |
 | P2    | Compiled request validator (Tier 2+) from existing metadata     | not started  |
 | P3    | Compiled response serializer (Tier 3) + docs incentive          | not started  |
 | P4    | Scoped middleware DX; Rust only if profile names it             | not started  |
@@ -33,6 +33,7 @@
 
 * 2026-09-29 — Draft created from explore session (bun-focus, bottlenecks, rust-play threads). All claims anchored to source files read that day, not guesses. No code changed. Awaiting study + decisions before any `/opsx-propose` change.
 * 2026-10-18 (v2) — Corrected after a measured validation session (see §3.7 and `report/architecture/architecture-audit-validation-followup.md`): (a) the Elysia #466 citation in §2a/§9 was wrong (it is an AOT-codegen context-leak, closed in 1.0.0, not a Sucrose/source-inference defect); (b) P2/P3 "compiled" paths are now constrained to **no runtime `new Function` / `eval`** (aligned with RFC-040's invariant); (c) P3 is gated on a profile because JSON serialization measured ≈ 3.5 % of request CPU on Bun; (d) added measured attribution and re-ordered Part A by measured value; (e) Q1 answered with a proposal (lazy-arm, non-breaking); (f) added lazy client-IP (`server.requestIP`) to Part A. P0 is partly done.
+* 2026-10-19 — **Approved for implementation.** Basis: the measured validation session above plus the deterministic gates built under RFC-040 (bundle / cold / inproc / probe with committed budgets). Part A (lazy incoming-header record, lazy client address, one shared Web runner, no per-request `URL`) is executed and measured by change `fix-request-path-and-response-contract`, task group 8; the §3.7 attribution and the gate results are the acceptance evidence. P1–P4 keep their gates: each still lands only on a measured improvement.
 
 ## 1. Summary
 

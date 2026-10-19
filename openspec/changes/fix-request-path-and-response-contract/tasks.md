@@ -84,7 +84,7 @@ recorded because each item is load-bearing for a later group's proof.
 
 ## 8. Web request-path footprint
 
-- [ ] 8.1 Record this group's durable decision in `docs/RFC/` (promote the governing footprint RFC to approved, or add the decision) before implementing it — verify: the governing entry's status reads approved
+- [x] 8.1 Record this group's durable decision in `docs/RFC/` (promote the governing footprint RFC to approved, or add the decision) before implementing it — verify: the governing entry's status reads approved
 - [ ] 8.2 Baseline: run the deterministic stages twice and record the ratio and allocation figures for both runtimes — verify: two runs agree within the toolkit's noise band, and both figures are recorded for comparison
 - [ ] 8.3 RED: add tests asserting that constructing a Web context reads no incoming headers, resolves no client address, constructs no `URL`, and arms no timer for a handler that already settled — verify: they fail today
 - [ ] 8.4 Materialise the incoming-header record lazily behind a declared slot and memoized getter, and let a single-name lookup read the platform headers directly — verify: the laziness tests pass, the record's prototype-less shape, case-insensitive lookup and `set-cookie` array handling are unchanged, and the allocation benchmark shows no record for a handler that never reads it

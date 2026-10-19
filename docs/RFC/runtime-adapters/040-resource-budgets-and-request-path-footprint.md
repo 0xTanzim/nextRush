@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Draft`                                                               |
+| **Status**           | `Approved` — gates in use; footprint work (P2) in progress via `fix-request-path-and-response-contract` |
 | **RFC number**       | `040`                                                                 |
 | **Date**             | `2026-10-18`                                                          |
 | **Author(s)**        | Framework maintainer (R&D audit session + validation session)         |
@@ -17,13 +17,13 @@
 
 ## Progress Tracker
 
-**Overall:** `[████░░░░░░░░░░░░░░░░]` 20% — 1 / 5 phases complete · Doc status: `Draft`
+**Overall:** `[████████░░░░░░░░░░░░]` 40% — 2 / 5 phases complete (P2 in progress) · Doc status: `Approved`
 
 | Phase | Part / deliverable                                                     | Status                    |
 | ----- | ---------------------------------------------------------------------- | ------------------------- |
-| P0    | `dev-check` toolkit (bundle / cold / inproc / wire / probe / profile) + committed budgets | ✅ Built, uncommitted — see §15 |
-| P1    | CI wiring of the deterministic stages (`bundle cold inproc probe`)     | ⬜ Not started            |
-| P2    | Web-adapter footprint changes (RFC-039 P1: lazy headers / ip / timeout arm) judged by the gates | ⬜ Not started |
+| P0    | `dev-check` toolkit (bundle / cold / inproc / wire / probe / profile) + committed budgets | ✅ Built and committed — see §15 |
+| P1    | CI wiring of the deterministic stages (`bundle cold inproc probe`)     | ✅ Wired — `.github/workflows/ci.yml` request-cost job (Bun and Node) |
+| P2    | Web-adapter footprint changes (RFC-039 P1: lazy headers / ip / timeout arm) judged by the gates | 🔄 In progress (task group 8) |
 | P3    | Deno + Edge + Node-on-Web entries; optional Elysia arm                  | ⬜ Not started            |
 | P4    | AOT re-evaluation gate (only if a §17 criterion trips)                 | ➖ Deferred               |
 
@@ -33,6 +33,7 @@
 
 - **v1 (`2026-10-18`)** — Proposed an opt-in build-time AOT stage (`@nextrush/aot`, manifest, four bundler plugins), derived from the modernization audit and Elysia 2's published design.
 - **v2 (`2026-10-18`, same day)** — **Rewritten.** A 30-second measurement of NextRush against Hono, run from source, falsified v1's central premise (cold start and memory scale badly with route count). v1's P0 ("measurement foundation") was built first, as intended, and it answered the question. The RFC now owns the *measurement and gates* and defers AOT with evidence-based re-open criteria. v1's design holes are recorded in §9.1 so they are not rediscovered.
+- **v3 (`2026-10-19`)** — **Approved.** The P0 toolkit and the P1 gate wiring are in use (runtime-scoped `knownFailures`, the stale-exemption invariant, probe badges), and P2 — the Web request-path footprint owned by RFC-039 Part A — is executed by `fix-request-path-and-response-contract` task group 8 under these gates. AOT stays `Deferred`; §9.1's re-open criteria are unchanged, so a later decision must still be evidence-triggered rather than premise-triggered.
 
 ---
 
@@ -63,7 +64,7 @@ NextRush has no standard, fast way to compare itself with Hono / Fastify / Elysi
 
 ## 2. Decision Summary
 
-- **Status:** `Draft`
+- **Status:** `Approved`
 - **Decision:**
   - _Adopt_ `dev-check` as the standard "compare against other frameworks in development" tool and the first thing any perf claim or perf change must run
   - _Adopt_ ratio budgets (`budgets.json`) with `max`/`min` (hard) and `target` (warn) values, seeded from the §14 baseline
