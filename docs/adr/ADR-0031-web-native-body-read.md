@@ -1,6 +1,6 @@
 # ADR-0031 — Native body reads for provable-length Web requests
 
-- **Status:** `Proposed`
+- **Status:** `Accepted`
 - **Date:** `2026-10`
 - **Deciders:** NextRush maintainers
 - **Governing RFC:** `docs/RFC/runtime-adapters/043-web-native-body-read.md`
@@ -12,7 +12,7 @@
 
 ## Lifecycle progress
 
-`Proposed ▶ Accepted ▶ Shipped` · `[███████░░░░░░░░░░░░░]` **Proposed** — 1 / 3
+`Proposed ▶ Accepted ▶ Shipped` · `[█████████████░░░░░░░]` **Accepted** — 2 / 3
 
 ---
 
@@ -38,10 +38,10 @@ Because the declared length then proves the whole body fits, a single native rea
 
 ## Consequences
 
-- **Positive:** expected Bun POST 30.50 → 5–10 µs; Deno improves through the shared `WebBodySource`; Node stays unchanged; no public API, configuration, or dependency change.
+- **Positive:** measured Bun POST 26.74 → **11.87 µs** median (ratio 6.22 → **2.65**, three CPU-pinned runs, faithful harness); Deno 48.32 → 25.24 µs on the shared source; Node control unchanged at 0.77× Hono; no public API, configuration, or dependency change.
 - **Negative / cost:** `WebBodySource._buffer` gains a second branch and a larger behaviour matrix; the fast path buffers the whole body, which is acceptable only because the declared length proves it fits. The change does not address GET/wire overhead.
 - **Neutral:** the body parser still decodes and parses after the read, so the floor is the native read plus `TextDecoder`/`JSON.parse`, not zero.
-- **Follow-up:** measure the wire POST path; ratchet the Bun POST budget only after the measured win; evaluate a `request.text()` fast path if the after-profile shows decode dominating.
+- **Follow-up:** wire POST is not measured (no dev-check POST wire scenario); evaluate a `request.text()` fast path if the after-profile shows decode dominating (it does not — `parse` and native `arrayBuffer` lead). The `inproc.post.nextrush.vs_hono` budget is ratcheted to max 3.5 / target 3.0 from the measured three-run spread.
 
 ## Compliance / enforcement
 

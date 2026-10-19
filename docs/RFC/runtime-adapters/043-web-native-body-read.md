@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                                                                                                      |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Status**           | `In Review`                                                                                                                                                |
+| **Status**           | `Approved`                                                                                                                                                 |
 | **RFC number**       | `043`                                                                                                                                                      |
 | **Date**             | `2026-10-19`                                                                                                                                               |
 | **Author(s)**        | Framework maintainer (Bun POST performance investigation)                                                                                                  |
@@ -17,20 +17,21 @@
 
 ## Progress Tracker
 
-**Overall:** `[░░░░░░░░░░░░░░░░░░░░]` 0% — 0 / 4 phases complete · Doc status: `In Review`
+**Overall:** `[███████████████░░░░░]` 75% — 3 / 4 phases complete · Doc status: `Approved`
 
 | Phase | Deliverable                                      | Status         |
 | ----- | ------------------------------------------------ | -------------- |
-| P0    | Decision record + measured baseline              | ⬜ Not started |
-| P1    | Native fast path with RED-first behaviour matrix | ⬜ Not started |
-| P2    | Cross-adapter parity and conformance             | ⬜ Not started |
-| P3    | After-profile, wire check, budget ratchet, docs  | ⬜ Not started |
+| P0    | Decision record + measured baseline              | ✅ Done         |
+| P1    | Native fast path with RED-first behaviour matrix | ✅ Done         |
+| P2    | Cross-adapter parity and conformance             | ✅ Done         |
+| P3    | After-profile, wire check, budget ratchet, docs  | 🔄 In progress  |
 
 ---
 
 ## 0. Revision History
 
 - **v1 (`2026-10-19`)** — Initial draft. Records the Bun POST measurement, the platform-primitive isolation, the chosen fast-path boundary, and the before/after profiling gate.
+- **v2 (`2026-10-19`)** — Approved; fast path implemented behind RED tests. Measured Bun POST 26.74 → 11.87 µs median (ratio 6.22 → 2.65), Deno 48.32 → 25.24 µs, Node control unchanged. Budget ratcheted to max 3.5 / target 3.0.
 
 ---
 

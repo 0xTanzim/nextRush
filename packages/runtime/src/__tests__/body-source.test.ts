@@ -388,3 +388,142 @@ describe('BodySource', () => {
     });
   });
 });
+
+// ===========================================================================
+// RFC-043 — native read for provable-length bodies
+// ===========================================================================
+
+interface FakeRequestOptions {
+  headers?: Record<string, string>;
+  body?: unknown;
+  arrayBuffer?: () => Promise<ArrayBuffer>;
+}
+
+/** Minimal Request stand-in: only the surfaces `WebBodySource` touches. */
+function fakeRequest(options: FakeRequestOptions = {}): Request {
+  return {
+    headers: new Headers(options.headers ?? {}),
+    body: options.body ?? null,
+    arrayBuffer:
+      options.arrayBuffer ??
+      (() => {
+        throw new Error('arrayBuffer must not be called');
+      }),
+  } as unknown as Request;
+}
+
+/** A reader whose `read()` yields the given chunks once, then completes. */
+function chunkedBody(chunks: string[]): unknown {
+  let index = 0;
+  return {
+    getReader() {
+      return {
+        read: () => {
+          if (index >= chunks.length) return Promise.resolve({ done: true, value: undefined });
+          const value = new TextEncoder().encode(chunks[index++]);
+          return Promise.resolve({ done: false, value });
+        },
+        cancel: () => Promise.resolve(),
+        releaseLock: () => undefined,
+      };
+    },
+  };
+}
+
+function bytesOf(text: string): ArrayBuffer {
+  const bytes = new TextEncoder().encode(text);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+describe('RFC-043: native read for provable-length bodies', () => {
+  it('reads natively when Content-Length is present and within the limit', async () => {
+    const request = fakeRequest({
+      headers: { 'content-length': '7' },
+      body: {
+        getReader() {
+          throw new Error('reader path must not be used when the length is provable');
+        },
+      },
+      arrayBuffer: () => Promise.resolve(bytesOf('payload')),
+    });
+
+    const source = new WebBodySource(request);
+    await expect(source.text()).resolves.toBe('payload');
+  });
+
+  it('uses the incremental reader when Content-Length is absent', async () => {
+    const request = fakeRequest({
+      body: chunkedBody(['abc', 'def']),
+      arrayBuffer: () => {
+        throw new Error('arrayBuffer must not be used when the length is unknown');
+      },
+    });
+
+    const source = new WebBodySource(request);
+    await expect(source.text()).resolves.toBe('abcdef');
+  });
+
+  it('rejects an honest over-limit Content-Length before any read', async () => {
+    let readCalls = 0;
+    const request = fakeRequest({
+      headers: { 'content-length': '100' },
+      body: {},
+      arrayBuffer: () => {
+        readCalls++;
+        return Promise.resolve(bytesOf('x'.repeat(100)));
+      },
+    });
+
+    const source = new WebBodySource(request, { limit: 50 });
+    await expect(source.buffer()).rejects.toThrow(BodyTooLargeError);
+    expect(readCalls).toBe(0);
+  });
+
+  it('checks the actual size after a native read when Content-Length understates it', async () => {
+    let readCalls = 0;
+    const request = fakeRequest({
+      headers: { 'content-length': '2' },
+      body: {},
+      arrayBuffer: () => {
+        readCalls++;
+        return Promise.resolve(bytesOf('0123456789'));
+      },
+    });
+
+    const source = new WebBodySource(request, { limit: 5 });
+    await expect(source.buffer()).rejects.toThrow(BodyTooLargeError);
+    expect(readCalls).toBe(1);
+  });
+
+  it('caches a native read so a second buffer() does not read again', async () => {
+    let readCalls = 0;
+    const request = fakeRequest({
+      headers: { 'content-length': '4' },
+      body: {},
+      arrayBuffer: () => {
+        readCalls++;
+        return Promise.resolve(bytesOf('data'));
+      },
+    });
+
+    const source = new WebBodySource(request);
+    const first = await source.buffer();
+    const second = await source.buffer();
+
+    expect(new TextDecoder().decode(first)).toBe('data');
+    expect(second).toBe(first);
+    expect(readCalls).toBe(1);
+  });
+
+  it('reports BodyConsumedError when stream() follows a cached native read', async () => {
+    const request = fakeRequest({
+      headers: { 'content-length': '4' },
+      body: {},
+      arrayBuffer: () => Promise.resolve(bytesOf('data')),
+    });
+
+    const source = new WebBodySource(request);
+    await source.buffer();
+    expect(() => source.stream()).toThrow(BodyConsumedError);
+  });
+});

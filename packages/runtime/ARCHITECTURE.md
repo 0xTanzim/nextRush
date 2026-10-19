@@ -331,6 +331,7 @@ The primitives on the per-request path are written to avoid allocation and super
 | `requestTargetFromUrl(url)` | O(n) single pass | none | Two `indexOf` scans over the URL string; no `URL` construction (which would parse, percent-encode, and resolve dot segments) and no intermediate array. |
 | `combineAbortSignal(base)` | O(1) | one `AbortController` | Created lazily by the Context only on first `signal` access, so the non-timeout/non-stream hot path stays allocation-free. |
 | `resolveClientIp(get, opts)` | O(1) | none | A few header reads + structural validation. |
+| `WebBodySource.buffer(limit)` | O(n) copy | one `Uint8Array` | One native `request.arrayBuffer()` when an honest `Content-Length` proves the body fits the limit; otherwise the incremental reader enforces the limit as it reads. The shared utf-8 `TextDecoder` is reused across reads. |
 | `ctx.headers` (first read) | O(h) over headers | one record | Memoized by `RequestInputs`; a handler that never reads it causes no walk, and `ctx.get(name)` reads the platform `Headers` directly without building it. |
 | `ctx.ip` (first read) | O(1) | none | A string, or the adapter's resolver called exactly once; never read means never resolved (no `requestIP`, no proxy-header walk). |
 | `createWebRunner` dispatch | O(1) added | none when settled | The timeout timer is armed only if the handler is still pending after a bounded microtask turn, so the common request calls no `setTimeout`. |
