@@ -110,6 +110,9 @@ function duplicates the other's logic.
    `server.timeout` (Node's socket-level slow-client guard) is set unconditionally in `serve()`;
    `createHandler()`'s explicit settled-flag race against `options.timeout` is what actually
    produces the clean `504` response body. Passing `timeout: 0` disables only the second guard.
+   The socket guard is set strictly later than the handler deadline (`timeout +
+   SOCKET_GUARD_HEADROOM_MS`): the recorded response is written by the handler race, so a tie
+   would let the socket guard destroy a response that was ready to send.
 3. **Per-server-lifetime state is hoisted out of the hot path.** `NodeContextOptions` (currently
    `{ trustProxy }`) is built once per `createHandler()` call and frozen, not reconstructed on
    every request -- enforced by the object literal appearing once, outside the returned closure.
@@ -232,9 +235,9 @@ extension's `destroy()` never races an in-flight request.
 boots the app on the first request instead of dispatching against an empty middleware stack.
 `serve()` still boots eagerly before building the handler, and the gate detects that (it composes
 at construction when the app reports `isReady`) so the eager path keeps exactly its old timing —
-which matters here more than elsewhere: `serve()` sets the socket-level `server.timeout` to the
-same value as the handler timeout, so a first request deferred by even one microtask can lose that
-race and surface as a client-side socket hang-up.
+which matters here more than elsewhere: `serve()` keeps the socket-level `server.timeout` strictly later than the handler timeout, so a
+first request deferred by a microtask cannot lose the socket guard's race and surface as a
+client-side socket hang-up.
 
 ---
 
@@ -321,7 +324,7 @@ The following are part of the package architecture. They do not change without a
 - `app.ready()` always runs before the server starts listening; `app.close()` always runs after
   the server has fully stopped accepting/draining connections.
 - The handler-level timeout and the socket-level `server.timeout` are independent guards; neither
-  silently replaces the other.
+  silently replaces the other, and the socket guard always expires after the handler deadline.
 - Repeated `serve()`/`close()` cycles in one process never accumulate duplicate signal listeners.
 - The public API (`serve`, `listen`, `createHandler`, and their option/return types) is sealed per
   ADR-0005.

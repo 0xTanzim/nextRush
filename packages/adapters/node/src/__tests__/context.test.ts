@@ -41,6 +41,17 @@ function createMockRes(): ServerResponse {
   return res;
 }
 
+/** UTF-8 bytes, the form a recorded body is flushed in. */
+function utf8(text: string): Uint8Array {
+  return new TextEncoder().encode(text);
+}
+
+/** The header object the single `writeHead` call received. */
+function writtenHeaders(res: ServerResponse): Record<string, unknown> {
+  const calls = vi.mocked(res.writeHead).mock.calls;
+  return (calls[0]?.[1] ?? {}) as Record<string, unknown>;
+}
+
 describe('NodeContext', () => {
   let req: IncomingMessage;
   let res: ServerResponse;
@@ -103,19 +114,21 @@ describe('NodeContext', () => {
   describe('json()', () => {
     it('should send JSON response', () => {
       ctx.json({ message: 'hello' });
+      ctx.flushResponse();
 
       // HP-14: Content-Type + Content-Length + status go through a single
-      // writeHead (not two setHeader calls); the body is sent as a string directly.
+      // writeHead (not two setHeader calls); the body is sent from the flush.
       expect(res.writeHead).toHaveBeenCalledWith(200, {
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Length': String(Buffer.byteLength('{"message":"hello"}')),
       });
-      expect(res.end).toHaveBeenCalledWith('{"message":"hello"}');
+      expect(res.end).toHaveBeenCalledWith(utf8('{"message":"hello"}'));
     });
 
     it('should set status code', () => {
       ctx.status = 201;
       ctx.json({ created: true });
+      ctx.flushResponse();
 
       expect(res.statusCode).toBe(201);
     });
@@ -123,6 +136,8 @@ describe('NodeContext', () => {
     it('should not send response twice', () => {
       ctx.json({ first: true });
       ctx.json({ second: true });
+      ctx.flushResponse();
+      ctx.flushResponse();
 
       expect(res.end).toHaveBeenCalledTimes(1);
     });
@@ -131,27 +146,38 @@ describe('NodeContext', () => {
   describe('send()', () => {
     it('should send string response', () => {
       ctx.send('Hello World');
+      ctx.flushResponse();
 
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/plain; charset=utf-8');
-      expect(res.end).toHaveBeenCalledWith('Hello World');
+      expect(writtenHeaders(res)).toMatchObject({
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Length': String(Buffer.byteLength('Hello World')),
+      });
+      expect(res.end).toHaveBeenCalledWith(utf8('Hello World'));
     });
 
     it('should send buffer response', () => {
       const buffer = Buffer.from('binary data');
       ctx.send(buffer);
+      ctx.flushResponse();
 
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/octet-stream');
+      expect(writtenHeaders(res)).toMatchObject({
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': String(buffer.length),
+      });
       expect(res.end).toHaveBeenCalledWith(buffer);
     });
 
     it('should handle null response', () => {
       ctx.send(null);
+      ctx.flushResponse();
 
+      expect(res.writeHead).toHaveBeenCalledWith(200, {});
       expect(res.end).toHaveBeenCalledWith();
     });
 
     it('should handle undefined response', () => {
       ctx.send(undefined);
+      ctx.flushResponse();
 
       expect(res.end).toHaveBeenCalledWith();
     });
@@ -166,23 +192,32 @@ describe('NodeContext', () => {
   describe('html()', () => {
     it('should send HTML response', () => {
       ctx.html('<h1>Hello</h1>');
+      ctx.flushResponse();
 
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/html; charset=utf-8');
-      expect(res.end).toHaveBeenCalledWith('<h1>Hello</h1>');
+      expect(writtenHeaders(res)).toMatchObject({
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Length': String(Buffer.byteLength('<h1>Hello</h1>')),
+      });
+      expect(res.end).toHaveBeenCalledWith(utf8('<h1>Hello</h1>'));
     });
   });
 
   describe('redirect()', () => {
     it('should redirect with default 302 status', () => {
       ctx.redirect('/login');
+      ctx.flushResponse();
 
       expect(res.statusCode).toBe(302);
-      expect(res.setHeader).toHaveBeenCalledWith('Location', '/login');
+      expect(writtenHeaders(res)).toMatchObject({
+        Location: '/login',
+        'Content-Type': 'text/plain; charset=utf-8',
+      });
       expect(res.end).toHaveBeenCalled();
     });
 
     it('should redirect with custom status', () => {
       ctx.redirect('/new-page', 301);
+      ctx.flushResponse();
 
       expect(res.statusCode).toBe(301);
     });
@@ -191,14 +226,19 @@ describe('NodeContext', () => {
   describe('set()', () => {
     it('should set response header', () => {
       ctx.set('X-Custom', 'value');
+      ctx.flushResponse();
 
-      expect(res.setHeader).toHaveBeenCalledWith('X-Custom', 'value');
+      expect(writtenHeaders(res)).toMatchObject({ 'X-Custom': 'value' });
     });
 
     it('should set numeric header value', () => {
       ctx.set('Content-Length', 100);
+      // A recorded body derives its own length; without one the explicit value
+      // is flushed unchanged. Header values are strings on the wire, matching
+      // the Web adapters.
+      ctx.flushResponse();
 
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Length', 100);
+      expect(writtenHeaders(res)).toMatchObject({ 'Content-Length': '100' });
     });
   });
 
@@ -481,35 +521,52 @@ describe('runtime detection', () => {
 });
 
 describe('NodeContext.set — Set-Cookie contract', () => {
-  /** Build a context over a real ServerResponse so header accumulation is observable. */
-  function realCtx(): { ctx: NodeContext; res: ServerResponse } {
+  /** Record headers through `apply`, flush once, and return what `writeHead` got. */
+  function flushedHeaders(apply: (ctx: NodeContext) => void): Record<string, unknown> {
     const socket = new Socket();
     const rawReq = new IncomingMessage(socket);
     rawReq.method = 'GET';
     rawReq.url = '/';
     rawReq.headers = {};
     const rawRes = new ServerResponse(rawReq);
-    return { ctx: new NodeContext(rawReq, rawRes), res: rawRes };
+
+    let captured: Record<string, unknown> = {};
+    vi.spyOn(rawRes, 'writeHead').mockImplementation(((
+      _status: number,
+      headers: Record<string, unknown>
+    ) => {
+      captured = headers;
+      return rawRes;
+    }) as never);
+    vi.spyOn(rawRes, 'end').mockImplementation(() => rawRes);
+
+    const ctx = new NodeContext(rawReq, rawRes);
+    apply(ctx);
+    ctx.flushResponse();
+    return captured;
   }
 
   it('appends multiple Set-Cookie headers instead of overwriting (matches web adapter)', () => {
-    const { ctx, res } = realCtx();
-    ctx.set('Set-Cookie', 'a=1; Path=/');
-    ctx.set('Set-Cookie', 'b=2; Path=/');
-    expect(res.getHeader('set-cookie')).toEqual(['a=1; Path=/', 'b=2; Path=/']);
+    const headers = flushedHeaders((ctx) => {
+      ctx.set('Set-Cookie', 'a=1; Path=/');
+      ctx.set('Set-Cookie', 'b=2; Path=/');
+    });
+    expect(headers['Set-Cookie']).toEqual(['a=1; Path=/', 'b=2; Path=/']);
   });
 
   it('replaces the header when given an array (set-these semantics)', () => {
-    const { ctx, res } = realCtx();
-    ctx.set('Set-Cookie', 'stale=1');
-    ctx.set('Set-Cookie', ['a=1', 'b=2']);
-    expect(res.getHeader('set-cookie')).toEqual(['a=1', 'b=2']);
+    const headers = flushedHeaders((ctx) => {
+      ctx.set('Set-Cookie', 'stale=1');
+      ctx.set('Set-Cookie', ['a=1', 'b=2']);
+    });
+    expect(headers['Set-Cookie']).toEqual(['a=1', 'b=2']);
   });
 
   it('still overwrites non-cookie headers', () => {
-    const { ctx, res } = realCtx();
-    ctx.set('X-Test', '1');
-    ctx.set('X-Test', '2');
-    expect(res.getHeader('x-test')).toBe('2');
+    const headers = flushedHeaders((ctx) => {
+      ctx.set('X-Test', '1');
+      ctx.set('X-Test', '2');
+    });
+    expect(headers['X-Test']).toBe('2');
   });
 });

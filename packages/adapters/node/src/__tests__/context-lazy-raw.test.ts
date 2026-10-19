@@ -73,12 +73,19 @@ let baseUrl: string;
 function serve(handler: (ctx: NodeContext) => void | Promise<void>): Promise<void> {
   server = createServer((req, res) => {
     const ctx = new NodeContext(req, res);
-    Promise.resolve(handler(ctx)).catch(() => {
-      if (!res.headersSent) {
-        res.statusCode = 500;
-        res.end();
+    // The adapter's request handler flushes the recorded response once the
+    // chain settles; this hand-rolled server plays that role.
+    Promise.resolve(handler(ctx)).then(
+      () => {
+        ctx.flushResponse();
+      },
+      () => {
+        if (!res.headersSent) {
+          res.statusCode = 500;
+          res.end();
+        }
       }
-    });
+    );
   });
   return new Promise((resolve) => {
     server.listen(0, () => {

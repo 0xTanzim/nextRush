@@ -11,6 +11,11 @@ import { describe, expect, it } from 'vitest';
 import { NodeContext } from '../context';
 import { createMockRequest, createMockResponse } from './_shared/mock-response';
 
+/** UTF-8 bytes, the form a recorded body is flushed in. */
+function utf8(text: string): Uint8Array {
+  return new TextEncoder().encode(text);
+}
+
 function makeCtx() {
   const { res, setHeader, end, writeHead } = createMockResponse();
   return { ctx: new NodeContext(createMockRequest(), res), setHeader, end, writeHead };
@@ -29,13 +34,15 @@ describe('NodeContext - serialize before commit', () => {
     const { ctx, writeHead, end } = makeCtx();
 
     ctx.json({ ok: true });
-
     expect(ctx.responded).toBe(true);
+
+    ctx.flushResponse();
+
     expect(writeHead).toHaveBeenCalledWith(200, {
       'Content-Type': 'application/json; charset=utf-8',
       'Content-Length': '11',
     });
-    expect(end).toHaveBeenCalledWith('{"ok":true}');
+    expect(end).toHaveBeenCalledWith(utf8('{"ok":true}'));
   });
 
   it.each(UNSERIALIZABLE)('throws for %s without writing a byte', (_label, value) => {
@@ -72,9 +79,11 @@ describe('NodeContext - serialize before commit', () => {
 
     const envelope = { error: 'Internal Server Error', status: 500 };
     ctx.json(envelope);
-
     expect(ctx.responded).toBe(true);
-    expect(end).toHaveBeenCalledWith(JSON.stringify(envelope));
+
+    ctx.flushResponse();
+
+    expect(end).toHaveBeenCalledWith(utf8(JSON.stringify(envelope)));
   });
 
   it('guards the object branch of send() through the same serializer', () => {
@@ -125,22 +134,27 @@ describe('NodeContext - serialize before commit', () => {
     const { ctx, end } = makeCtx();
 
     ctx.send(value as never);
-
     expect(ctx.responded).toBe(true);
+
+    ctx.flushResponse();
+
     expect(end).toHaveBeenCalled();
-    expect(end.mock.calls[0]?.[0]?.toString()).toBe(written);
+    const chunk = end.mock.calls[0]?.[0] as Uint8Array | undefined;
+    expect(new TextDecoder().decode(chunk)).toBe(written);
   });
 
   it('commits and writes html() and redirect()', () => {
     const html = makeCtx();
     html.ctx.html('<p>hi</p>');
     expect(html.ctx.responded).toBe(true);
-    expect(html.end).toHaveBeenCalledWith('<p>hi</p>');
+    html.ctx.flushResponse();
+    expect(html.end).toHaveBeenCalledWith(utf8('<p>hi</p>'));
 
     const redirect = makeCtx();
     redirect.ctx.redirect('/next');
     expect(redirect.ctx.responded).toBe(true);
-    expect(redirect.end).toHaveBeenCalledWith('Redirecting to /next');
+    redirect.ctx.flushResponse();
+    expect(redirect.end).toHaveBeenCalledWith(utf8('Redirecting to /next'));
   });
 
   it('does not write again when a stream writer starts after the response was sent', async () => {

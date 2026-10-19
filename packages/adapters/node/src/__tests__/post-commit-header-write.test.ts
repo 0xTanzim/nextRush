@@ -128,7 +128,7 @@ function createMockRes(): ServerResponse {
 }
 
 describe('a header written from inside writeHead', () => {
-  it('still lands, because the response is not on the wire yet', () => {
+  it('still lands, because the record is still mutable at that point', () => {
     const res = createMockRes();
     const ctx = new NodeContext(createMockReq(), res);
     const written: string[] = [];
@@ -138,9 +138,9 @@ describe('a header written from inside writeHead', () => {
       written.push(name);
       return res;
     });
-    // Node runs `on-headers`-style listeners inside `writeHead`: `responded` is
-    // already true there, while the headers can still legally be set. The compat
-    // bridge writes headers from exactly this position.
+    // Node runs `on-headers`-style listeners inside `writeHead`: the response is
+    // already committed there, while the headers can still legally be set. The
+    // compat bridge writes headers from exactly this position.
     vi.spyOn(res, 'writeHead').mockImplementation(() => {
       respondedInside = ctx.responded;
       ctx.set('x-during-headers', 'v');
@@ -149,6 +149,7 @@ describe('a header written from inside writeHead', () => {
     });
 
     ctx.json({ ok: true });
+    ctx.flushResponse();
 
     expect(respondedInside).toBe(true);
     expect(written).toContain('x-during-headers');
@@ -175,13 +176,16 @@ describe('the discarded write is reported', () => {
 
     const ctx = new NodeContext(createMockReq(), createMockRes());
     ctx.json({ ok: true });
+    // The flush is the boundary: before it a write still lands, after it the
+    // write is discarded and reported.
+    ctx.flushResponse();
     ctx.set('x-first-late', 'v');
     ctx.set('x-second-late', 'v');
     ctx.set('x-third-late', 'v');
 
     const reported = warn.mock.calls
       .map((call) => String(call[0]))
-      .filter((message) => message.includes('x-'));
+      .filter((message) => message.includes('discarding'));
     expect(reported).toHaveLength(1);
     expect(reported[0]).toContain('x-first-late');
   });

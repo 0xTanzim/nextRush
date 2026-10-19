@@ -208,7 +208,7 @@ await serve(app, { port: 8080 });
 | `port` | `number` | No | `8080` | -- | Port to listen on |
 | `host` | `string` | No | `'0.0.0.0'` | Yes | Host to bind to |
 | `tls` | `{ cert: string \| Buffer; key: string \| Buffer; ca?: string \| Buffer }` | No | `undefined` (plain HTTP) | Yes | TLS cert+key for HTTPS + HTTP/2 via ALPN |
-| `timeout` | `number` | No | `30000` | -- | Handler-level request timeout (ms). Races the handler and returns a clean `504`, cancelling via `ctx.signal`. Also sets the socket-level `server.timeout` as an independent slow-client guard. `0` disables the handler-level race only |
+| `timeout` | `number` | No | `30000` | -- | Handler-level request timeout (ms). Races the handler and returns a clean `504`, cancelling via `ctx.signal`. Also sets the socket-level `server.timeout` as an independent slow-client guard, kept strictly later than the handler deadline so it never preempts the recorded response. `0` disables the handler-level race only |
 | `keepAliveTimeout` | `number` | No | `5000` | -- | Node `server.keepAliveTimeout` (ms) |
 | `shutdownTimeout` | `number` | No | `30000` | -- | Graceful shutdown drain timeout (ms); force-closes remaining connections after this |
 | `gracefulShutdown` | `boolean \| GracefulShutdownOptions` | No | `undefined` (no signal handler installed) | Yes | Opt-in: wire `SIGTERM`/`SIGINT` to the same connection-drain `close()` logic |

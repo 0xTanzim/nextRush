@@ -10,7 +10,7 @@
 import { createApp } from '@nextrush/core';
 import { request as httpRequest } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
-import { serve, type ServerInstance } from '../adapter';
+import { SOCKET_GUARD_HEADROOM_MS, serve, type ServerInstance } from '../adapter';
 
 let instance: ServerInstance | undefined;
 
@@ -133,14 +133,20 @@ describe('F-04: Node handler-level timeout races the handler and returns 504', (
 });
 
 describe('F-04: server.timeout remains an independent slow-client guard', () => {
-  it('serve() still configures server.timeout from the same timeout option', async () => {
+  it('serve() configures server.timeout from the same timeout option, strictly later than the handler race', async () => {
     const app = createApp();
     app.use((ctx) => {
       ctx.json({ ok: true });
     });
     instance = await serve(app, { port: 0, timeout: 1234 });
 
-    expect(instance.server.timeout).toBe(1234);
+    // The socket guard keeps headroom behind the handler race. On an equal
+    // deadline it can fire first and destroy the socket before the recorded
+    // response is flushed, turning a ready response into a client-side reset —
+    // the race the conformance drivers used to work around by raising
+    // `httpServer.timeout` locally.
+    expect(instance.server.timeout).toBeGreaterThan(1234);
+    expect(instance.server.timeout).toBe(1234 + SOCKET_GUARD_HEADROOM_MS);
   });
 });
 
