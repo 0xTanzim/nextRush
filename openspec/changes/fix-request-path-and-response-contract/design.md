@@ -341,6 +341,52 @@ measured on an idle machine, and a target that WARNs on every run is noise, not 
 mechanism is verified, not assumed: with `max` temporarily set below the measured value the stage
 reports FAIL and the run exits non-zero.
 
+## Group 9 — integration verification record
+
+**9.1 Full suite.** `turbo run test` across the repository: 84 of 85 tasks green. The single failure is
+`@nextrush/dev#test` → "serves a type-injected controller over HTTP", which fails in 9 ms at
+`existsSync(examples/dev-di-fixture/src/index.ts)`: that fixture is gitignored (`.gitignore: examples`)
+and absent from this machine and from git, so the test cannot pass anywhere until it is committed or
+generated. Unrelated to this change and recorded as a finding below. The touched packages are all
+green (runtime 322, adapter-bun 121, adapter-deno 121, adapter-edge 134, conformance 424), and the
+conformance suite is green on every runnable real runtime: Bun 52/52, Deno 52/52, workerd 16/16.
+
+**9.2 Coverage.** Measured per package with the package's own vitest coverage run, against the
+baselines recorded in `scripts/check-coverage.ts`: runtime 91.66% lines / 81.91% branches (baseline
+76.66 / 66.86), adapter-bun 83.52 / 76.78 (58.06 / 50.72), adapter-deno 85.93 / 86.36 (66.98 / 62.26),
+adapter-edge 95.83 / 92.10 (74.74 / 65.85), compression 85.13 / 75.33 (82.63 / 71.28), timer 100 /
+95.45. No touched package decreased; the runtime package crossed 90% lines. The new modules are
+covered directly: `web-runner.ts` 100% lines / 90.9% branches, `request-inputs.ts` fully covered.
+
+**9.3 Lint and types.** `turbo run lint typecheck` over all fourteen touched packages: 35/35 tasks
+green, 0 warnings and 0 errors from oxlint (which includes the `nextrush/no-runtime-identity-capability`
+rule) and `tsc --noEmit` per package.
+
+**9.4 Known failures.** `dev-check probe bookkeeping hygiene` exits 0 on both runtimes: the bookkeeping
+invariant passes (one id, every id backed by a probe), no probe FAILs, and `knownFailures` is still
+`{ FB-03: "*" }` — correct, because the deferred response model is what would turn the compression and
+Node timer probes green, and Group 7 pinned those as KNOWN instead of pretending otherwise.
+
+**9.5 Documentation.** Seven changesets cover the observable changes (router request-path values, boot
+before dispatch, never-unanswered responses and safe serialization, error-body contract and unparsed
+content types, dot-segment rejection and request-target fidelity, outgoing-response honesty, the shared
+Web runner). The migration page carries the user-facing "if you relied on the old value" guidance for
+the one genuinely breaking change (parameter casing); the security guide and every affected adapter page
+carry the platform-behaviour notes; each package README states its limitation. Every documented claim in
+this group maps to a passing test, scenario, or probe: laziness → `web-context-laziness` and
+`web-handler-laziness`; the runner → `web-runner.test.ts` plus conformance #13/#29; the limitation docs →
+`real-adapter.test.ts` in compression and timer; the ratchet → the gate itself.
+
+**9.6 Diff scope.** 205 files across: the nine packages named in the proposal, `packages/adapters/conformance`,
+`apps/benchmark` (the gate), `apps/website/content/docs` (adapter pages, security guide, migration page),
+`docs/RFC` (the two approved RFCs), `openspec/changes/…` (this change), `.changeset`, `pnpm-lock.yaml`,
+`turbo.json`, `.github/workflows/ci.yml`, and `report/architecture/**` (the audit reports and fix briefs
+this change implements). Three additions are worth naming explicitly rather than leaving implicit:
+`turbo.json`'s `test` inputs gain `scripts/**/*` and the `.mjs` test globs so the new gate tests are
+cached correctly; `.github/workflows/ci.yml` gains the request-cost job RFC-040 P1 requires; and the
+`report/architecture/**` files are the change's own evidence base, committed with it. No unrelated
+source file changed.
+
 ## Risks / Trade-offs
 
 - **[Compression is a no-op on every shipped adapter, so the middleware reads as working while doing nothing]** →
@@ -468,5 +514,6 @@ the Web adapters) should close them in passing.
 | `packages/adapters/serverless/src/mappers/_v2.ts` | `v2ToRequest` builds `new Request('http://localhost' + rawPath + qs)`, so the event's target is reshaped by the URL parser before the context sees it — the adapter cannot observe a raw target even where API Gateway preserved one, which is why its reported capability is the conservative `false` | Carry the event's target to the context unparsed and verify it against a live API Gateway; the capability value can then be measured instead of assumed |
 | `packages/adapters/node/src/context.ts` | Two facts behind the response-model divergence: `set()` calls `res.setHeader` unguarded after commit (throws `ERR_HTTP_HEADERS_SENT`), and the adapter's own response write leaves Node's header store empty — `getHeaderNames()` measured `[]` on a real listener, so `res.getHeader()` cannot see a header the handler wrote | Keep the adapter's own header map (or guard `set()` post-commit with a recorded error); the recorded response model resolves both, and until then the divergence is a declared driver capability |
 | `packages/middleware/timer/src/middleware.ts` | With `exposeHeader: true` on the Node adapter the late write throws, the throw propagates out of the middleware so every outer middleware's post-`next()` work is skipped, and the adapter delivers a correct `200` with no log — measured on a real listener | Catch the late write and record it on `ctx.state` until the recorded response model makes it succeed; also surface chain errors that happen after the response is committed |
+| `packages/dev/src/__tests__/dev-loader-di-integration.test.ts` | Depends on `examples/dev-di-fixture`, which is gitignored (`.gitignore: examples`) and absent from git — the test fails at `existsSync` in 9 ms on a clean checkout, and cannot pass in CI either | Commit the fixture (or generate it in the test setup) so the DI-serving guarantee is actually verified, and decide whether `examples/` should stay ignored while tracked fixtures live inside it |
 | `packages/runtime/src/web-context-base.ts` (362 lines) | Over the 300-line source ceiling before this change (353) and still over after it: the class is a shell of response delegation plus streaming and error helpers, and the two new accessor bodies were extracted into `request-inputs.ts` so the file did not grow with them | Split the shell by concern in the same structural pass as the other ceiling findings above — response delegation / streaming / accessors — rather than inside a footprint change |
 | `packages/middleware/compression/src/middleware.ts` (466 lines) | Over the 300-line source ceiling (conversation, negotiation, response-shape helpers, and three convenience wrappers in one module) — 42 source files in the repository share the problem, so a one-off split here would break the local style without fixing it | Split by concern in a dedicated structural change (variants / inspection helpers / response shape), the same change that clears the other ceiling findings above |

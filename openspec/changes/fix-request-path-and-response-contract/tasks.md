@@ -98,12 +98,12 @@ recorded because each item is load-bearing for a later group's proof.
 
 ## 9. Integration verification
 
-- [ ] 9.1 Run the full test suite for every touched package plus the conformance suite on every runnable adapter — verify: green
-- [ ] 9.2 Confirm per-package line coverage stays at or above 90% and that the changed branches are covered — verify: the coverage report shows no decrease on a touched package
-- [ ] 9.3 Confirm lint (including the runtime-identity capability rule) and strict type checking are clean — verify: the lint and type-check commands exit 0
-- [ ] 9.4 Confirm every known-failure id fixed by this change is gone and no id remains that covers a passing probe — verify: the bookkeeping check passes and the probe stage reports no known entry for behaviour this change fixed
-- [ ] 9.5 Confirm the documentation sweep is complete — verify: every observable behaviour change has a CHANGELOG entry with a migration note, and each documented claim matches a passing test or scenario
-- [ ] 9.6 Confirm the diff is limited to the packages and documents named in the proposal and that no unrelated file changed — verify: the changed-file list matches the proposal's impact list
+- [x] 9.1 Run the full test suite for every touched package plus the conformance suite on every runnable adapter — verify: green
+- [x] 9.2 Confirm per-package line coverage stays at or above 90% and that the changed branches are covered — verify: the coverage report shows no decrease on a touched package
+- [x] 9.3 Confirm lint (including the runtime-identity capability rule) and strict type checking are clean — verify: the lint and type-check commands exit 0
+- [x] 9.4 Confirm every known-failure id fixed by this change is gone and no id remains that covers a passing probe — verify: the bookkeeping check passes and the probe stage reports no known entry for behaviour this change fixed
+- [x] 9.5 Confirm the documentation sweep is complete — verify: every observable behaviour change has a CHANGELOG entry with a migration note, and each documented claim matches a passing test or scenario
+- [x] 9.6 Confirm the diff is limited to the packages and documents named in the proposal and that no unrelated file changed — verify: the changed-file list matches the proposal's impact list
 
 ## Workflow follow-up
 
