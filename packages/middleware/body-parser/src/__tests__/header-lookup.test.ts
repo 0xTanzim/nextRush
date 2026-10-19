@@ -7,7 +7,7 @@
  * makes the rule falsifiable instead of a comment: the header record throws if touched.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { bodyParser, json, type BodyParserContext } from '../index';
+import { bodyParser, getContentLength, getContentType, json, type BodyParserContext } from '../index';
 
 function source(payload: string): BodyParserContext['bodySource'] {
   const bytes = new TextEncoder().encode(payload);
@@ -95,5 +95,16 @@ describe('header lookup', () => {
     await json()(ctx, next);
 
     expect(ctx.body).toEqual({ ok: true });
+  });
+
+  it('keeps the exported record-based helpers working for callers that still pass a record', () => {
+    expect(getContentType({ 'content-type': 'application/json' })).toBe('application/json');
+    expect(getContentType({ 'content-type': ['text/plain', 'application/xml'] })).toBe('text/plain');
+    expect(getContentType({})).toBeUndefined();
+
+    expect(getContentLength({ 'content-length': '11' })).toBe(11);
+    expect(getContentLength({ 'content-length': ['12'] })).toBe(12);
+    expect(getContentLength({ 'content-length': '-1' })).toBeUndefined();
+    expect(getContentLength({})).toBeUndefined();
   });
 });
