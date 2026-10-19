@@ -144,6 +144,19 @@ function createWebDriver(
       const response = await invoke(app, buildRequest({ path: '/' }), { timeout: 10 }, '127.0.0.1');
       return { status: response.status, signalFired };
     },
+
+    async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+      const app = createApp();
+      app.use(async (ctx) => {
+        ctx.json({ ok: true });
+        // Outlives the timeout below: the response is already committed when the
+        // timer fires, so the 504 must not replace it.
+        await new Promise<void>((resolve) => setTimeout(resolve, 40));
+      });
+      await app.ready();
+      const response = await invoke(app, buildRequest({ path: '/' }), { timeout: 10 }, '');
+      return { status: response.status, body: await response.json() };
+    },
   };
 }
 

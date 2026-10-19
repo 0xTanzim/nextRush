@@ -37,16 +37,16 @@
 
 ## 3. Web adapters: a committed response is not replaced by the 504
 
-- [ ] 3.1 (RED) Add a web-runner test where the handler commits a response and then works past the
+- [x] 3.1 (RED) Add a web-runner test where the handler commits a response and then works past the
       configured timeout; assert the client receives the committed response. Verify: the test fails
       today with `504 Gateway Timeout`.
-- [ ] 3.2 (GREEN) Guard the timeout path in `packages/runtime/src/web-runner.ts` on `ctx.responded`
+- [x] 3.2 (GREEN) Guard the timeout path in `packages/runtime/src/web-runner.ts` on `ctx.responded`
       and deliver the committed response. Verify: 3.1 passes, and a request that produced nothing
       still receives the unchanged 504 body, cancellation signal and warning.
-- [ ] 3.3 Add the cross-adapter conformance scenario for a committed response outliving the timeout
+- [x] 3.3 Add the cross-adapter conformance scenario for a committed response outliving the timeout
       in `packages/adapters/conformance`. Verify: the suite passes on Node, Bun, Deno, Edge and
       serverless, and fails if the Web 504 path is restored.
-- [ ] 3.4 Update the `web-adapters` documentation for the timeout-completion contract, marking the
+- [x] 3.4 Update the `web-adapters` documentation for the timeout-completion contract, marking the
       `504`-after-commit change **BREAKING (observable)** with its migration note. Verify: the docs
       state the rule and the migration guidance.
 

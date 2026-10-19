@@ -215,4 +215,27 @@ export const nodeDriver: ConformanceDriver = {
       }
     })();
   },
+
+  async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+    const app = createApp();
+    app.use(async (ctx) => {
+      ctx.json({ ok: true });
+      // Outlives the timeout below: the response is already committed when the
+      // timer fires, so the 504 must not replace it.
+      await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    });
+    // `serve()`'s single `timeout` also arms Node's socket-level slow-client
+    // guard, so give that guard generous, independent time: this case observes
+    // the handler race, not the socket guard.
+    const server = await serve(app, { port: 0, timeout: 10 });
+    const httpServer = server.server as import('node:http').Server;
+    httpServer.timeout = 5_000;
+    httpServer.keepAliveTimeout = 5_000;
+    try {
+      const raw = await rawRequest(server.port, { path: '/' });
+      return { status: raw.status, body: JSON.parse(raw.body) as unknown };
+    } finally {
+      await server.close();
+    }
+  },
 };

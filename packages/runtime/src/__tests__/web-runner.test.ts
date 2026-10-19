@@ -217,6 +217,32 @@ describe('createWebRunner', () => {
     expect(app.logger.warn).toHaveBeenCalledWith(expect.stringContaining('after 5ms (default)'));
   });
 
+  it('delivers a response the handler committed before the timeout fired, instead of a 504', async () => {
+    const app = new FakeApp(async (ctx) => {
+      ctx.json({ ok: true });
+      // Outlives the 5ms timeout: the response is already committed when the
+      // timer fires, so the 504 must not replace it.
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    let ctx: TestCtx | undefined;
+    const run = createWebRunner<TestCtx, undefined>(app as never, {
+      label: 'test',
+      timeout: 5,
+      makeContext: () => (ctx = makeContext()),
+    });
+
+    const response = await run(new Request('http://localhost/slow'), undefined);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    // The timeout still cancelled the still-running handler. This handler
+    // commits before its first await, so Node takes its synchronous fast path
+    // and arms nothing; the client-visible outcome is what must match, and it
+    // does.
+    expect(ctx?.timeoutTriggered).toBe(1);
+  });
+
   it('does not race at all when the timeout is disabled', async () => {
     const app = new FakeApp(async (ctx) => ctx.json({ ok: true }));
     const realSetTimeout = globalThis.setTimeout;

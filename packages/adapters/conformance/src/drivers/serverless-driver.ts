@@ -108,4 +108,18 @@ export const serverlessDriver: ConformanceDriver = {
     const result = await handler(toEvent({ path: '/' }));
     return { status: result.statusCode, signalFired };
   },
+
+  async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+    const app = createApp();
+    app.use(async (ctx) => {
+      ctx.json({ ok: true });
+      // Outlives the timeout below: the response is already committed when the
+      // timer fires, so the 504 must not replace it.
+      await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    });
+    await app.ready();
+    const handler = createLambdaHandler(app, { timeout: 10 });
+    const result = await handler(toEvent({ path: '/' }));
+    return { status: result.statusCode, body: JSON.parse(result.body) as unknown };
+  },
 };

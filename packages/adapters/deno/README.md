@@ -195,9 +195,22 @@ await serve(app, { port: 443, cert, key });
 | `tls` | `{ cert: string; key: string; ca?: string }` | No | -- | Yes | TLS configuration (canonical shape). `Deno.serve()` auto-negotiates HTTP/2 via ALPN when TLS is present |
 | `cert` / `key` | `string` | No | -- | Yes | **Deprecated** — use `tls: { cert, key }`. Still functional during deprecation window |
 | `shutdownTimeout` | `number` (ms) | No | `30000` | -- | Drain timeout guarding `server.shutdown()`, which has no built-in timeout |
-| `timeout` | `number` (ms) | No | `30000` | -- | Per-request handler timeout; `0` disables it |
+| `timeout` | `number` (ms) | No | `30000` | -- | Per-request handler timeout; `0` disables it. A `504` is returned only when the handler has not already committed a response |
 | `logger` | `Logger` | No | `app.logger` | -- | Logger used for adapter diagnostics |
 | `gracefulShutdown` | `boolean \| GracefulShutdownOptions` | No | `undefined` (no signal handler installed) | -- | Wires `SIGTERM`/`SIGINT` to the same drain `close()` uses |
+
+**Request timeout and a committed response**
+
+A `504 Gateway Timeout` is reserved for a request that has produced nothing. A handler that commits a
+response and then keeps working past `timeout` has already produced the answer, so that response is
+delivered and the timeout does not replace it. The handler is still cancelled cooperatively: the
+timeout aborts `ctx.signal`. `@nextrush/adapter-node` already behaved this way.
+
+> **Behaviour change (observable):** this shape previously returned `504 Gateway Timeout` on every Web
+> adapter and discarded the handler's response, while Node delivered it. **Migration:** a handler that
+> answers once and returns needs no change. If you used the `504` to detect a handler that kept working
+> after answering, that response status no longer carries the signal -- observe `ctx.signal` inside the
+> handler, or your own timing, instead.
 
 ## Compatibility
 

@@ -694,6 +694,15 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
     }
   });
 
+  registerScenario(driver, '#29 timeout: a response the handler already committed outlives the handler timeout', {}, async () => {
+    // The 504 is reserved for a request that produced nothing: a handler that
+    // answered and then ran past the timeout must still have its response
+    // delivered on every adapter. Restoring the Web 504 path fails this.
+    const result = await driver.committedResponseOutlivesTimeout();
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ ok: true });
+  });
+
   registerScenario(driver, '#15 abort: ctx.signal fires when the transport aborts mid-request', {}, async () => {
     if (driver.transportAbortFiresSignal) {
       expect(await driver.abortFiresSignal()).toBe(true);

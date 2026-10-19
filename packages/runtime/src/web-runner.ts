@@ -200,6 +200,18 @@ export function createWebRunner<TCtx extends WebRunnerContext, TExtra = undefine
         });
 
         if (timedOut) {
+          // The handler committed a response before it ran past the timeout.
+          // Answering 504 here would discard a response the client is owed, and
+          // the Node adapter keeps the committed response in the same situation
+          // (its 504 write is guarded the same way). The timeout is still
+          // reported to the context — `triggerTimeout` already aborted
+          // `ctx.signal` above — and the 504 is reserved for a request that
+          // produced nothing. No warning is emitted, because the warning states
+          // that a 504 was returned.
+          if (ctx.responded) {
+            return ctx.getResponse();
+          }
+
           if (options.timeoutWarningSource !== undefined) {
             logger.warn(
               `[nextrush/${options.label}] Request timed out after ${String(options.timeout)}ms ` +

@@ -183,11 +183,24 @@ await serve(app, {
 | `onError` | `(error: Error) => void` | No | logs via `app.logger` | -- | Called on an uncaught request error |
 | `tls` | `{ cert; key; ca? }` | No | -- | Warning | Enables HTTPS |
 | `maxRequestBodySize` | `number` | No | `1048576` (1 MB) | Warning | Server-level request body cap in bytes -- overrides Bun's native 128 MB default; matches `@nextrush/adapter-node`'s effective 1 MB default |
-| `timeout` | `number` | No | `30000` (30 s) | -- | Per-request timeout; returns `504` on expiry |
+| `timeout` | `number` | No | `30000` (30 s) | -- | Per-request timeout; returns `504` on expiry when the handler has not already committed a response |
 | `development` | `boolean` | No | `false` | -- | Enables Bun's development-mode features |
 | `shutdownTimeout` | `number` | No | `30000` (30 s) | -- | Drain grace period before force-closing connections |
 | `logger` | `Logger` | No | `app.logger` | -- | Logger for adapter diagnostics |
 | `gracefulShutdown` | `boolean \| GracefulShutdownOptions` | No | `undefined` (no signal handler) | -- | Wires `SIGTERM`/`SIGINT` to `close()` |
+
+**Request timeout and a committed response**
+
+A `504 Gateway Timeout` is reserved for a request that has produced nothing. A handler that commits a
+response and then keeps working past `timeout` has already produced the answer, so that response is
+delivered and the timeout does not replace it. The handler is still cancelled cooperatively: the
+timeout aborts `ctx.signal`. `@nextrush/adapter-node` already behaved this way.
+
+> **Behaviour change (observable):** this shape previously returned `504 Gateway Timeout` on every Web
+> adapter and discarded the handler's response, while Node delivered it. **Migration:** a handler that
+> answers once and returns needs no change. If you used the `504` to detect a handler that kept working
+> after answering, that response status no longer carries the signal -- observe `ctx.signal` inside the
+> handler, or your own timing, instead.
 
 ## Performance
 

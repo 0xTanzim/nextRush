@@ -270,8 +270,21 @@ const app = (g.__nextrushApp ??= buildApp());
 
 | Option | Type | Required | Default | Security-sensitive | Description |
 | ------ | ---- | -------- | ------- | ------------------ | ----------- |
-| `timeout` | `number` | No | the edge engine's default (25 000 ms) | — | Per-request timeout in ms, raced to a `504` |
+| `timeout` | `number` | No | the edge engine's default (25 000 ms) | — | Per-request timeout in ms, raced to a `504` when the handler has not already committed a response |
 | `onError` | `(error, ctx) => Response \| Promise<Response>` | No | the engine's default 500 handler | — | Custom error → `Response` mapping |
+
+**Request timeout and a committed response**
+
+A `504 Gateway Timeout` is reserved for a request that has produced nothing. A handler that commits a
+response and then keeps working past `timeout` has already produced the answer, so that response is
+delivered and the timeout does not replace it. The handler is still cancelled cooperatively: the
+timeout aborts `ctx.signal`. `@nextrush/adapter-node` already behaved this way.
+
+> **Behaviour change (observable):** this shape previously returned `504 Gateway Timeout` on every Web
+> adapter and discarded the handler's response, while Node delivered it. **Migration:** a handler that
+> answers once and returns needs no change. If you used the `504` to detect a handler that kept working
+> after answering, that response status no longer carries the signal -- observe `ctx.signal` inside the
+> handler, or your own timing, instead.
 
 ## Compatibility
 

@@ -133,7 +133,20 @@ export const handler = createLambdaHandler(app, { timeout: 5000 });
 
 | Option | Type | Required | Default | Security-sensitive | Description |
 | --- | --- | --- | --- | --- | --- |
-| `timeout` | `number` | No | `24000` (edge default) | -- | Per-invocation cap in ms; exceeding it returns a 504 result instead of hanging |
+| `timeout` | `number` | No | `24000` (edge default) | -- | Per-invocation cap in ms; exceeding it returns a 504 result instead of hanging when the handler has not already committed a response |
+
+**Request timeout and a committed response**
+
+A `504 Gateway Timeout` is reserved for a request that has produced nothing. A handler that commits a
+response and then keeps working past `timeout` has already produced the answer, so that response is
+delivered and the timeout does not replace it. The handler is still cancelled cooperatively: the
+timeout aborts `ctx.signal`. `@nextrush/adapter-node` already behaved this way.
+
+> **Behaviour change (observable):** this shape previously returned `504 Gateway Timeout` on every Web
+> adapter and discarded the handler's response, while Node delivered it. **Migration:** a handler that
+> answers once and returns needs no change. If you used the `504` to detect a handler that kept working
+> after answering, that result status no longer carries the signal -- observe `ctx.signal` inside the
+> handler, or your own timing, instead.
 
 ## Response streaming (AWS Lambda Function URL)
 

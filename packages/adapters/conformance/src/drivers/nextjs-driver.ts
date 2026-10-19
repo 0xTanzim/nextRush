@@ -130,4 +130,17 @@ export const nextjsDriver: ConformanceDriver = {
     const response = await GET(new Request(new URL('/', BASE_URL)), { params: Promise.resolve({}) });
     return { status: response.status, signalFired };
   },
+
+  async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+    const app = createApp();
+    app.use(async (ctx) => {
+      ctx.json({ ok: true });
+      // Outlives the timeout below: the response is already committed when the
+      // timer fires, so the 504 must not replace it.
+      await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    });
+    const { GET } = handle(app, { timeout: 10 });
+    const response = await GET(new Request(new URL('/', BASE_URL)), { params: Promise.resolve({}) });
+    return { status: response.status, body: await response.json() };
+  },
 };

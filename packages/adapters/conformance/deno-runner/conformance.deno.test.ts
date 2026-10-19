@@ -285,6 +285,21 @@ const realDenoDriver: ConformanceDriver = {
       return { status: response.status, signalFired };
     });
   },
+
+  async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+    const app = createApp();
+    app.use(async (ctx) => {
+      ctx.json({ ok: true });
+      // Outlives the timeout below: the response is already committed when the
+      // timer fires, so the 504 must not replace it.
+      await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    });
+
+    return await withServer(app, { timeout: 10 }, async (server) => {
+      const response = await rawFetch(server.port);
+      return { status: response.status, body: await response.json() };
+    });
+  },
 };
 
 defineConformanceSuite(realDenoDriver);

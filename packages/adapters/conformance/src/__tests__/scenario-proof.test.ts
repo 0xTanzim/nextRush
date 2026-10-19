@@ -35,6 +35,7 @@ function fakeDriver(transport: Transport, runtimeFidelity: RuntimeFidelity): Con
     dispatch: () => Promise.reject(new Error('the ledger never dispatches')),
     abortFiresSignal: () => Promise.resolve(false),
     timeoutResult: () => Promise.resolve(null),
+    committedResponseOutlivesTimeout: () => Promise.reject(new Error('the ledger never dispatches')),
   };
 }
 

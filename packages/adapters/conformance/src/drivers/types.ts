@@ -198,4 +198,18 @@ export interface ConformanceDriver {
    * via `ctx.signal`. Returns `null` for Node (socket-level timeout).
    */
   timeoutResult(): Promise<{ status: number; signalFired: boolean } | null>;
+
+  /**
+   * Deliver a response the handler committed before it ran past the configured
+   * timeout (#29).
+   *
+   * @remarks
+   * The 504 is reserved for a request that produced nothing. A handler that
+   * answers and then keeps working has already produced the response the client
+   * is owed, so every adapter must deliver it rather than replace it with the
+   * timeout envelope. Asserted on the client-visible outcome only: whether a
+   * timer was armed for the request is an adapter-internal detail, and Node's
+   * synchronous fast path arms none at all.
+   */
+  committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }>;
 }
