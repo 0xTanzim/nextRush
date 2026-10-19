@@ -17,11 +17,11 @@
 
 ## 3. Extend the profiling harness (tests first)
 
-- [ ] 3.1 RED — add `apps/benchmark/scripts/dev-check/lib/__tests__/profile-entries.test.mjs` asserting: every profiling entry is listed in the dev-check README's entry table; each entry bundles and emits a `US=` line under Bun and Node at `N=2000`; the parsed and unparsed POST entries perform identical handler work. Run `pnpm --filter nextrush-benchmark test` and verify it fails for the missing entries.
-- [ ] 3.2 Add `inproc-nextrush-post.ts` (POST `/echo`, `bodyParser()`, ~1 KB JSON, env `N`/`HEADERS`/`BODY_BYTES`) and verify the new test covers it on both runtimes.
-- [ ] 3.3 Add `inproc-nextrush-post-unparsed.ts` (same response and body, no `bodyParser()`) and verify the parity assertion proves parsed vs unparsed answer identically, so only the parser differs.
-- [ ] 3.4 Add `inproc-nextrush-mw.ts` (five middleware that set a header/state value around a JSON handler) and verify the test covers it; its output names the middleware count so a profile run is self-describing.
-- [ ] 3.5 Document the four entries and their env contract in `apps/benchmark/scripts/dev-check/README.md`; verify `pnpm --filter nextrush-benchmark test` is green.
+- [x] 3.1 RED — add `apps/benchmark/scripts/dev-check/lib/__tests__/profile-entries.test.mjs` asserting: every profiling entry is listed in the dev-check README's entry table; each entry bundles and emits a `US=` line under Bun and Node at `N=2000`; the parsed and unparsed POST entries perform identical handler work. Run `pnpm --filter nextrush-benchmark test` and verify it fails for the missing entries.
+- [x] 3.2 Add `inproc-nextrush-post.ts` (POST `/echo`, `bodyParser()`, ~1 KB JSON, env `N`/`HEADERS`/`BODY_BYTES`) and verify the new test covers it on both runtimes.
+- [x] 3.3 Add `inproc-nextrush-post-unparsed.ts` (same response and body, no `bodyParser()`) and verify the parity assertion proves parsed vs unparsed answer identically, so only the parser differs.
+- [x] 3.4 Add `inproc-nextrush-mw.ts` (five middleware that set a header/state value around a JSON handler) and verify the test covers it; its output names the middleware count so a profile run is self-describing.
+- [x] 3.5 Document the four entries and their env contract in `apps/benchmark/scripts/dev-check/README.md`; verify `pnpm --filter nextrush-benchmark test` is green.
 
 ## 4. Measure Bun and Node
 

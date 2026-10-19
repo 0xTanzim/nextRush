@@ -186,6 +186,25 @@ for behaviour, not for cost.
 
 Verified with `node apps/benchmark/scripts/dev-check/check.mjs probe`.
 
+## Adding a profile entry
+
+Profile entries are small apps under `entries/`, bundled from source by `lib/build.ts` and run
+under the runtime's own CPU profiler. Pick the entry that isolates the shape you are asking about:
+
+| Entry | Shape | Env |
+| --- | --- | --- |
+| `inproc-nextrush` | `GET /`, zero middleware | `N`, `HEADERS`, `TIMEOUT` |
+| `inproc-nextrush-post` | `POST /echo` through `bodyParser()` with a JSON body | `N`, `HEADERS`, `BODY_BYTES` |
+| `inproc-nextrush-post-unparsed` | `POST /echo`, same body read as text, no parser | `N`, `HEADERS`, `BODY_BYTES` |
+| `inproc-nextrush-mw` | `GET /` behind five state-writing middleware | `N`, `HEADERS` |
+
+Run one with `node check.mjs profile --entry inproc-nextrush-post`. Compare
+`post` against `post-unparsed` to attribute parser cost, and `mw` against `inproc-nextrush` to
+attribute middleware-stack cost. Entries print `US=` (per-request microseconds) so a run is
+self-describing; the POST pair and the middleware entry also print the response fingerprint and
+middleware count, which `lib/__tests__/profile-entries.test.mjs` uses to prove they answer
+identically before their numbers are compared.
+
 ## Adding a stage
 
 A stage gets its own module under `lib/stages/`, receives the context built by
