@@ -1,5 +1,0 @@
-schema: spec-driven
-skip_specs: true
-created: 2026-10-19
-goal: A measurement-grounded baseline for the Node response path before any
-  response-model change, with every RFC tracker telling the truth
