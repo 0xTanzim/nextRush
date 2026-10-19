@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Implemented` — P1–P4 shipped; the §14 gate numbers are not yet recorded, so adoption is still pending that table |
+| **Status**           | `Adopted` — P1–P4 shipped and the §14 gate measured (§14.1); `FB-03` deleted from `knownFailures` |
 | **RFC number**       | `041`                                                                 |
 | **Date**             | `2026-10-19`                                                          |
 | **Author(s)**        | Framework maintainer (R&D audit + request-path implementation session) |
@@ -17,7 +17,7 @@
 
 ## Progress Tracker
 
-**Overall:** `[████████████████████]` 100% — 4 / 4 phases complete · Doc status: `Implemented`, §14 gate pending
+**Overall:** `[████████████████████]` 100% — 4 / 4 phases complete · Doc status: `Adopted`, §14 gate measured
 
 | Phase | Deliverable | Status |
 | ----- | ----------- | ------ |
@@ -40,9 +40,10 @@
 - Conformance: `honorsPostHandlerHeaderWrite` deleted from the contract and all five drivers; #29
   asserts the header unconditionally; new #31 asserts a post-handler body rewrite.
 
-**Not yet recorded:** §14's numbers (the `inproc.nextrush.vs_hono` A/B, the copy-counter figure, and
-the three FB-03 probes). Until that table exists this RFC is implemented but not adopted, and
-`FB-03` stays in `knownFailures`.
+**Gate measured (§14.1):** the three FB-03 probes pass on Node and Bun, the copy counter reports 0
+copies for an untouched response and 1 for a rewrite, conformance is 436/436 with the divergence flag
+deleted, the gated cold/bundle/wire ratios are unchanged, and the Node in-process cost is ~+0.1
+µs/req (interleaved A/B). `FB-03` is deleted from `knownFailures` in the same change.
 
 ---
 
@@ -416,6 +417,34 @@ touched the response" is an allocation claim, and sampled `heapUsed` is not a us
 toolkit (RFC-039 §3.8 limits; the deterministic alloc harness only resolves bytes for the path it
 instrumented). The gate must increment a copy counter inside the recorder and assert zero, which is
 checkable and does not depend on machine noise.
+
+### 14.1 Measured (2026-10-19, this machine; `dev-check`, source-run)
+
+Before = `4fe802dc` (the record type exists, no adapter uses it). After = P1–P4 plus the
+write-through flush. Values are the toolkit's own output; `dev-check` is a local script, not CI.
+
+| Criterion | Before | After | Verdict |
+| --- | --- | --- | --- |
+| 1. `inproc.nextrush.vs_hono` (max 1.9) | Bun ~1.13–1.38, Node ~0.95 µs/req floor | Bun **1.23**, Node **0.16** | ✅ inside the committed max. The toolkit now reports this ratio as informational on Node ("arms use different request models"), so it is a bound, not a comparison |
+| 1b. Node in-process absolute (interleaved A/B, 4 pairs) | **1.01 µs/req** (median) | **1.11 µs/req** (median) | ~**+0.1 µs/req** for the record plus the flush. The first implementation was +0.9 µs/req because it re-encoded every string body; the write-through flush removed that |
+| 2. Body copies | n/a | **0** for an untouched response, **1** for a rewrite | ✅ `bodyCopies` (record test) + the string written through unchanged (no `Uint8Array` materialised) |
+| 3. `compression-gzip`, `timer-header`, `server-timing-header` | fail on every adapter | **PASS on Node and Bun** | ✅ `content-encoding=gzip bytes=1990`, `x-response-time=0.15ms`, `server-timing=total;dur=0.06` |
+| 4. Conformance #29 without the flag | #29 asserted the divergence | **PASS, flag deleted** | ✅ 436 scenarios across node/bun/deno/edge/serverless/nextjs |
+| 5. Streaming unbuffered | pass | **pass** | ✅ Node streaming/SSE/NDJSON suites and the conformance streaming scenarios are unchanged |
+| 6. §3.1.1 interim outcomes | pass | **pass** | ✅ committed-response-outlives-timeout and discard-once-not-throw tests, plus conformance #30 |
+| Cold start (`cold.n25` / `cold.n1000` vs Hono) | 0.98 / 0.59 Node, 1.06 / 0.41 Bun | same | ✅ unchanged |
+| Bundle (root / bun / node KB, max 40/60/70) | 29.7 / 55.2 / 58.3 | same | ✅ |
+
+**What is not measurable here.** `wire.nextrush.vs_hono` on Bun sat at 0.82–0.93 against a 0.85
+*target* (the hard floor is 0.5), while identical code produced 0.85–1.66 across runs and Hono's own
+throughput moved between 21k and 46k rps on this contended machine. The spread is larger than any
+effect this change could have, so no before/after claim is made for it. The Node wire ratio measured
+1.04 with the same caveat.
+
+**One deviation from the plan, recorded in §18 and v3:** `serve()`'s socket guard now expires
+`SOCKET_GUARD_HEADROOM_MS` (1 s) after the handler deadline. At an equal deadline it won the tie and
+destroyed sockets whose recorded response was ready to flush — the failure the conformance drivers
+had been working around locally with `httpServer.timeout = 5_000`.
 
 **Next change (not this one).** A measurement-only change that runs this gate: (a) add the copy
 counter to the recorder, (b) A/B the Node flush-after-chain path against today's write path, (c) run

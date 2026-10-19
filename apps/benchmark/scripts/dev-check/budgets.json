@@ -27,7 +27,5 @@
       "target": 0.85
     }
   },
-  "knownFailures": {
-    "FB-03": "*"
-  }
+  "knownFailures": {}
 }
