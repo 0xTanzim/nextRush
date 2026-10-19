@@ -22,16 +22,13 @@
 | **Introduced** | v3.0.0 |
 
 > [!IMPORTANT]
-> **Compression currently has nothing to act on.** This middleware rewrites the *outgoing* body, so it
-> needs an adapter that still exposes that body after the handler ran. Both shipped adapter families
-> have already committed the response by then -- the Node adapter writes and ends it inside the
-> handler, and the Web adapters (Bun, Deno, Edge, serverless, Next.js) record it privately and build
-> the `Response` afterwards -- so a response produced with `ctx.json()`, `ctx.send()`, or `ctx.html()`
-> is not compressed today. The middleware never falls back to the parsed request body, and it reports
-> the situation once per process
-> (`[@nextrush/compression] no outgoing body available: ...`). The structural fix -- a recorded
-> response model that post-handler work can still modify -- is deferred; until it lands, compress at a
-> reverse proxy or CDN. See [Compatibility](#compatibility).
+> **Compression acts on the recorded response.** This middleware rewrites the *outgoing* body, so it
+> needs the response the adapter is about to send. Every shipped adapter records that response and
+> flushes it once the middleware chain unwinds (RFC-041) -- Node, Bun, Deno, Edge, serverless and
+> Next.js alike -- so `ctx.json()`, `ctx.send()` and `ctx.html()` responses are compressed on every
+> runtime with no adapter-specific configuration. The middleware never falls back to the parsed
+> request body, and a streamed response (no recorded body) is left untouched. See
+> [Compatibility](#compatibility).
 
 ## Highlights
 
@@ -286,9 +283,9 @@ Measured characteristics come from `apps/benchmark`; run the suite yourself for 
 
 **Runtimes**
 
-The package loads and negotiates on every runtime below. Whether it can actually compress depends on
-the adapter's response model, not the runtime -- today no shipped adapter exposes a buffered outgoing
-body, so no response is compressed anywhere (see [Response model](#response-model--current-limitation)).
+The package loads, negotiates and compresses on every runtime below. The adapter's response model is
+uniform: every shipped adapter records the outgoing response and flushes it after the middleware chain
+unwinds (RFC-041), so the behaviour does not depend on the runtime (see [Response model](#response-model)).
 
 | Runtime | Loads | Notes |
 | ------- | --------- | ----- |
@@ -298,30 +295,30 @@ body, so no response is compressed anywhere (see [Response model](#response-mode
 
 **Integration**
 - **Peer dependencies:** none -- depends only on `@nextrush/types` (types, erased at build).
-- **Works with:** any NextRush middleware chain. It inspects and transforms the buffered outgoing body, so it can only act where the adapter still exposes that body after the handler has responded -- see [Response model](#response-model--current-limitation).
+- **Works with:** any NextRush middleware chain. It reads and replaces the recorded outgoing body the adapter is about to flush, which every shipped adapter exposes -- see [Response model](#response-model).
 - **Incompatible with:** streaming responses (SSE, chunked file downloads) -- this middleware buffers the whole body; use [`@nextrush/stream`](../../stream) for those without this middleware in the chain.
 
-**Response model (current limitation)**
+**Response model**
 
-The middleware reads and writes exactly one thing: the buffered outgoing body the adapter still holds
-after the handler ran. It never reads `ctx.body`, because that property carries the **parsed request
-body** -- compressing it would send the client its own request back.
+The middleware reads and replaces exactly one thing: the recorded outgoing body the adapter will
+flush, reachable through the internal `OUTGOING_RESPONSE` symbol. It never reads `ctx.body`, because
+that property carries the **parsed request body** -- compressing it would send the client its own
+request back.
 
-| Adapter family | Exposes a buffered outgoing body? | Result |
-| -------------- | --------------------------------- | ------ |
-| Node | No -- the response is written and ended inside the handler | Not compressed; reported once per process |
-| Web (Bun, Deno, Edge, serverless, Next.js) | No -- the response is recorded privately and built after the chain unwinds | Not compressed; reported once per process |
+| Adapter family | Exposes the recorded outgoing body? | Result |
+| -------------- | ----------------------------------- | ------ |
+| Node | Yes -- recorded by `ctx.json()`/`send()`/`html()`, flushed after the chain unwinds | Compressed |
+| Web (Bun, Deno, Edge, serverless, Next.js) | Yes -- recorded and materialised after the chain unwinds | Compressed |
 
-The middleware reports the first such response once per process with
-`[@nextrush/compression] no outgoing body available: ...`, rather than silently doing nothing. A
-recorded response model that post-handler work can still modify is the structural fix and is deferred;
-the real-adapter tests in `src/__tests__/real-adapter.test.ts` pin this behaviour so it cannot drift
-from the documentation.
+A streamed response (`ctx.stream()`, SSE, NDJSON) has no recorded body to rewrite and is left
+untouched. A `Content-Length` that the middleware sets is honoured by both families, and the Node
+adapter derives the same value from the rewritten bytes, so a rewrite can never flush a length that
+disagrees with the body. The real-adapter tests in `src/__tests__/real-adapter.test.ts` pin this
+behaviour, including the decompressed body, so it cannot drift from the documentation.
 
-The same commit model means a response-*header* write made after the headers are sent is discarded
-and reported once per process, naming the field, instead of failing the request. The chain still
-completes, so a middleware that writes a header after `await ctx.next()` keeps its post-`next()` work
-on every adapter.
+A response-*header* write made after the response has been flushed is discarded and reported once per
+process, naming the field, instead of failing the request. The chain still completes, so a middleware
+that writes a header after `await ctx.next()` keeps its post-`next()` work on every adapter.
 
 > [!IMPORTANT]
 > NextRush is **ESM-only, permanently** -- no CommonJS build. On Node >=22, CommonJS consumers
@@ -335,7 +332,7 @@ on every adapter.
 <details>
 <summary><strong>Responses are never compressed, even for large JSON bodies</strong></summary>
 
-**Cause:** first, check the log for `[@nextrush/compression] no outgoing body available: ...`. That warning is the current limitation, not a misconfiguration: no shipped adapter still exposes the outgoing body when this middleware looks (see [Response model](#response-model--current-limitation)), so there is nothing to compress regardless of your options. If that warning is absent, the ordinary causes apply: the client's `Accept-Encoding` doesn't list a server-enabled encoding, the response's `Content-Type` isn't in the compressible list (or is in the excluded list), or the body is under the `threshold` (1024 bytes by default). **Fix:** compress at a reverse proxy or CDN while the recorded response model is pending; otherwise confirm the request sends `Accept-Encoding: gzip` (or similar), check the actual `Content-Type` your handler sets, and lower `threshold` if your typical responses are smaller than 1KB.
+**Cause:** a `[@nextrush/compression] no outgoing body available: ...` warning means the adapter in use exposes no recorded response at all -- not a shipped adapter, and not a supported setup (see [Response model](#response-model)). Without that warning the ordinary causes apply: the response is streamed rather than recorded, the client's `Accept-Encoding` doesn't list a server-enabled encoding, the response's `Content-Type` isn't in the compressible list (or is in the excluded list), or the body is under the `threshold` (1024 bytes by default). **Fix:** confirm the request sends `Accept-Encoding: gzip` (or similar), check the actual `Content-Type` your handler sets, and lower `threshold` if your typical responses are smaller than 1KB.
 
 </details>
 
@@ -370,7 +367,7 @@ on every adapter.
 ## FAQ
 
 **Does this stream-compress large or long-lived responses?**
-No. It buffers the entire outgoing body into memory, compresses it as one operation, then replaces the buffered outgoing body with the compressed bytes -- which only exists on an adapter that has not written the response yet (see [Response model](#response-model--current-limitation)). It explicitly skips anything over the 10MB in-memory cap rather than attempting to stream it.
+No. It takes the recorded outgoing body, compresses it as one operation, and replaces the recorded body with the compressed bytes before the adapter flushes (see [Response model](#response-model)). A streamed response is left untouched. It explicitly skips anything over the 10MB in-memory cap rather than attempting to stream it.
 
 **What happens if compression fails?**
 The middleware catches the error, records it on `ctx.state.compressionError`, and sends the original uncompressed response -- a compression failure never turns into a request failure.

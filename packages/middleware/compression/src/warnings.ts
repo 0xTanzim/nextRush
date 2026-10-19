@@ -1,15 +1,15 @@
 /**
  * @nextrush/compression - Once-per-process warning
  *
- * This middleware can only transform a response the adapter still exposes. Both
- * shipped adapter families commit the response before the chain unwinds — the
- * Node adapter writes and ends it inside the handler, the Web adapters record
- * it privately and materialise it afterwards — so a response produced with
- * `ctx.json()`/`send()`/`html()` is already gone by the time compression looks.
+ * Compression rewrites the response the adapter is about to send. Every shipped
+ * adapter records that response on the context and flushes it once the
+ * middleware chain unwinds (RFC-041), so the middleware has something to act on.
+ * The one case it cannot handle is an adapter that exposes no recorded response
+ * at all — a third-party adapter, or a context created outside the framework.
  *
  * A silent no-op is the worst possible outcome for a middleware a user
- * explicitly registered, so the situation is reported once per process. The
- * package README states the same limitation for readers who never see a log.
+ * explicitly registered, so that situation is reported once per process. The
+ * package README states the same contract for readers who never see a log.
  *
  * Uses the Web-standard `console` only — no `process`/`node:*` — so the package
  * stays edge-portable.
@@ -20,7 +20,7 @@
 let warned = false;
 
 /**
- * Warn once per process that no outgoing body was available to compress.
+ * Warn once per process that no outgoing response was available to compress.
  *
  * @internal
  */
@@ -28,10 +28,9 @@ export function warnNoOutgoingBodyOnce(): void {
   if (warned) return;
   warned = true;
   console.warn(
-    '[@nextrush/compression] no outgoing body available: a response written with ' +
-      'ctx.json()/send()/html() is committed before this middleware runs, so it cannot be ' +
-      'compressed. Compression applies only on adapters that expose the buffered outgoing ' +
-      'body — see the "Limitations" section of the package README.'
+    '[@nextrush/compression] no outgoing response available: this adapter exposes no recorded ' +
+      'response for a middleware to rewrite, so nothing can be compressed. Every shipped ' +
+      'NextRush adapter records one — see the "Response model" section of the package README.'
   );
 }
 
