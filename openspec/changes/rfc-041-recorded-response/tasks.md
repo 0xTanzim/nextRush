@@ -2,19 +2,19 @@
 
 ## 1. The outgoing-response record
 
-- [ ] 1.1 (RED) Add `packages/runtime/src/__tests__/outgoing-response.test.ts` covering: a header set
+- [x] 1.1 (RED) Add `packages/runtime/src/__tests__/outgoing-response.test.ts` covering: a header set
       before commit lands, a header set after commit but before flush lands, a header set after flush
       is discarded and reported once, `set-cookie` accumulates across casings, an array value replaces
       then appends, and a body replacement updates the bytes and the derived length. Verify: the tests
       fail against a missing record type for the expected reasons.
-- [ ] 1.2 (GREEN) Add `packages/runtime/src/outgoing-response.ts` implementing the record per
+- [x] 1.2 (GREEN) Add `packages/runtime/src/outgoing-response.ts` implementing the record per
       design.md D1/D3: status, ordered case-insensitive header map, serialized body, `committed`,
       `flush()` idempotence, and the once-per-process discard warning. Verify: 1.1 passes.
-- [ ] 1.3 Export the record and the `OUTGOING_RESPONSE` symbol key from the packages that own them,
+- [x] 1.3 Export the record and the `OUTGOING_RESPONSE` symbol key from the packages that own them,
       with the symbol marked `@internal`. Verify: the `public-surface-lock` tests for `@nextrush/types`
       and `@nextrush/runtime` are updated deliberately and pass, and no undocumented public property
       is added to `Context`.
-- [ ] 1.4 Keep the file under the 300-line ceiling and confirm the record allocates no header map for
+- [x] 1.4 Keep the file under the 300-line ceiling and confirm the record allocates no header map for
       a response with only the default `Content-Type`. Verify: the file's line count is under the
       ceiling, and an allocation check shows the default-header path allocates no map.
 

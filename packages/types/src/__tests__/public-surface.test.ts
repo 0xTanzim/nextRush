@@ -21,7 +21,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as typesApi from '../index';
 
 // Runtime (value) exports — the only ones Object.keys() can see.
-import { ContentType, HTTP_METHODS, HttpStatus, ROUTE_METADATA, SECURITY_AUDIT } from '../index';
+import { ContentType, HTTP_METHODS, HttpStatus, OUTGOING_RESPONSE, ROUTE_METADATA, SECURITY_AUDIT } from '../index';
 
 // Type-only exports — locked by assignability, not Object.keys().
 import type {
@@ -59,6 +59,7 @@ import type {
   Next,
   NodeStreamLike,
   OutgoingHeaders,
+  OutgoingResponseHandle,
   ParsedBody,
   Provider,
   QueryParams,
@@ -113,6 +114,7 @@ describe('Public API surface (runtime exports)', () => {
       'HTTP_METHODS',
       'HttpStatus',
       'ROUTE_METADATA',
+      'OUTGOING_RESPONSE',
       'SECURITY_AUDIT',
     ].sort();
 
@@ -122,6 +124,7 @@ describe('Public API surface (runtime exports)', () => {
     expect(typeof HttpStatus).toBe('object');
     expect(Array.isArray(HTTP_METHODS)).toBe(true);
     expect(typeof ROUTE_METADATA).toBe('symbol');
+    expect(typeof OUTGOING_RESPONSE).toBe('symbol');
     expect(typeof SECURITY_AUDIT).toBe('symbol');
   });
 });
@@ -172,6 +175,7 @@ describe('Public API surface (type-only exports, incl. runtime-adapter-contract)
       Next,
       NodeStreamLike,
       OutgoingHeaders,
+      OutgoingResponseHandle,
       ParsedBody,
       Provider<object>,
       QueryParams,

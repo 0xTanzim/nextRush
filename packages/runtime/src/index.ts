@@ -117,6 +117,13 @@ export type { ServerStartErrorCode } from './server-error';
 export { UNINITIALIZED_COOKIES, UNINITIALIZED_SIGNED_COOKIES } from './capabilities';
 
 // ============================================================================
+// Recorded Outgoing Response (one response model for both adapter families)
+// ============================================================================
+
+export { OutgoingResponse } from './outgoing-response';
+export type { OutgoingBody, OutgoingHeaderEntry } from './outgoing-response';
+
+// ============================================================================
 // Web Response Builder (shared Fetch-API response logic for Bun/Deno/Edge)
 // ============================================================================
 

@@ -226,3 +226,18 @@ export {
   type SecurityAudited,
   type SecurityAuditVerdict,
 } from './security-audit';
+
+// ============================================================================
+// Recorded Outgoing Response Contract (internal)
+// ----------------------------------------------------------------------------
+// `@nextrush/runtime` owns the record; this is the symbol a context exposes it
+// under and the shape a response-aware middleware may rely on. Marked
+// `@internal`: no semver guarantee and not part of the documented `Context`
+// surface.
+// ============================================================================
+
+export {
+  OUTGOING_RESPONSE,
+  type OutgoingResponseHandle,
+} from './outgoing-response';
+

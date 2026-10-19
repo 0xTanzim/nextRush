@@ -114,6 +114,9 @@ describe('Public API surface (runtime exports)', () => {
       'jsonErrorResponse',
       'WebResponseBuilder',
 
+      // Recorded outgoing response (internal response model)
+      'OutgoingResponse',
+
       // Shared response-body resolution and error envelope
       'measureBodyLength',
       'prepareBody',

@@ -13,6 +13,7 @@
  */
 
 import type { HttpMethod, IncomingHeaders, RawHttp, ResponseBody } from './http';
+import { OUTGOING_RESPONSE, type OutgoingResponseHandle } from './outgoing-response';
 import type { CookieCapability } from './cookies';
 import type { BodySource, PlatformId, Runtime } from './runtime';
 import type {
@@ -339,6 +340,21 @@ export interface Context {
    * middleware has already sent a response.
    */
   readonly responded: boolean;
+
+  /**
+   * The recorded outgoing response an adapter will flush, available to
+   * middleware that runs after the handler.
+   *
+   * @remarks
+   * Symbol-keyed and optional: `@nextrush/runtime` owns the implementation, and
+   * a hand-written context (a test double, a minimal adapter) is not required to
+   * expose one. A middleware that needs the body — compression, ETag — reads it
+   * from here and never from {@link body}, which is the parsed *request* body.
+   *
+   * Use {@link OUTGOING_RESPONSE} to read it; it is `@internal` and carries no
+   * semver guarantee.
+   */
+  readonly [OUTGOING_RESPONSE]?: OutgoingResponseHandle;
 
   // =========================================================================
   // STATE
