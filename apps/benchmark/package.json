@@ -53,7 +53,9 @@
     "@nextrush/runtime": "workspace:*",
     "@nextrush/static": "workspace:*",
     "@nextrush/types": "workspace:*",
+    "@nextrush/validation": "workspace:*",
     "autocannon": "8.0.0",
+    "elysia": "catalog:",
     "express": "5.2.1",
     "fastify": "5.11.2",
     "hono": "4.13.0",
@@ -62,7 +64,9 @@
     "koa-router": "14.0.0",
     "koa-static": "5.0.0",
     "morgan": "catalog:",
-    "response-time": "catalog:"
+    "response-time": "catalog:",
+    "workerd": "1.20261011.1",
+    "zod": "catalog:tooling"
   },
   "engines": {
     "node": ">=22.0.0"

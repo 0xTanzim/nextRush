@@ -10,8 +10,8 @@ import { prepare, runInproc, statusOf } from './_inproc-adapter';
 const N = Number(process.env.N ?? 300000);
 const BODY_BYTES = Number(process.env.BODY_BYTES ?? 1024);
 const PREBUILD_CAP = 20_000;
-const COUNT = Math.min(N, PREBUILD_CAP);
 const WARMUP = 2_000;
+const COUNT = Math.min(N, PREBUILD_CAP - WARMUP);
 
 const app = createApp({ router: createRouter() });
 app.post('/echo', async (ctx) => {
@@ -29,7 +29,10 @@ const headers = {
 };
 const body = JSON.stringify({ name: 'x'.repeat(Math.max(0, BODY_BYTES - 12)) });
 
-const dispatch = prepare(app, { path: '/echo', headers, body }, COUNT);
-console.log(`OK=${statusOf(await dispatch(0))}`);
+const shape = { path: '/echo', headers, body };
+const fingerprint = prepare(app, shape, 1);
+console.log(`OK=${statusOf(await fingerprint(0))}`);
+
+const dispatch = prepare(app, shape, COUNT + WARMUP);
 
 await runInproc(dispatch, COUNT, WARMUP);

@@ -9,6 +9,7 @@ import { bodyParser } from '@nextrush/body-parser';
 import { compression } from '@nextrush/compression';
 import { timer, serverTiming } from '@nextrush/timer';
 import { serve as serveBun } from '@nextrush/adapter-bun';
+import { serve as serveDeno } from '@nextrush/adapter-deno';
 import { serve as serveNode } from '@nextrush/adapter-node';
 
 const app = createApp({ router: createRouter() });
@@ -39,6 +40,7 @@ app.get('/big', (ctx: any) =>
 );
 
 const port = Number(process.env.PORT);
-if (typeof (globalThis as { Bun?: unknown }).Bun !== 'undefined') await serveBun(app, { port });
+if (typeof (globalThis as { Deno?: unknown }).Deno !== 'undefined') await serveDeno(app, { port });
+else if (typeof (globalThis as { Bun?: unknown }).Bun !== 'undefined') await serveBun(app, { port });
 else await serveNode(app, { port });
 console.log('listening');

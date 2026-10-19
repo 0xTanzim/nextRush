@@ -28,6 +28,9 @@ function newest(dir, pattern) {
 }
 
 export function stageProfile(ctx) {
+  if (ctx.rt === 'deno') {
+    return ctx.row('WARN', 'profile', 'skipped', 'Deno CPU profiling is not supported by this stage');
+  }
   const entry = ctx.flag('entry', 'inproc-nextrush');
   const file = join(ctx.out, `prof-${entry}.${ctx.rt}.js`);
   bundle(ctx, entry, ctx.rt, file);

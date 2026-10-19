@@ -4,22 +4,34 @@
 // plus real requests per second over a socket (wire).
 
 import { spawnSync } from 'node:child_process';
-import { has, median } from '../harness.mjs';
+import { has, median, runtimeArgs } from '../harness.mjs';
+import { summarizeWire } from '../wire-summary.mjs';
 
 /** Bundle size per entry, in KB, as the bundler produces it. */
 export function stageBundle(ctx) {
-  const entries = [
-    ['hello-nextrush-root', 'bun'],
-    ['hello-nextrush-bun', 'bun'],
-    ['hello-nextrush-node', 'node'],
-    ['hello-hono', 'bun'],
-    ['hello-hono-node', 'node'],
-    ['hello-fastify', 'node'],
-  ];
+  const deno = ctx.rt === 'deno';
+  const entries = deno
+    ? [
+        ['hello-nextrush-root', 'bun'],
+        ['hello-nextrush-deno', 'bun'],
+        ['hello-hono', 'bun'],
+      ]
+    : [
+        ['hello-nextrush-root', 'bun'],
+        ['hello-nextrush-bun', 'bun'],
+        ['hello-nextrush-node', 'node'],
+        ['hello-hono', 'bun'],
+        ['hello-hono-node', 'node'],
+        ['hello-fastify', 'node'],
+      ];
+  if (ctx.rt === 'bun') entries.push(['hello-elysia', 'bun']);
   for (const [name, target] of entries) {
     const { kb } = ctx.build(name, target);
-    ctx.gate(`bundle.${name}.kb`, kb, ctx.budgets.bundleKb?.[name], ' KB');
+    if (deno) ctx.row('INFO', `bundle.${name}.kb`, `${String(kb)} KB (INFO on deno)`);
+    else if (name === 'hello-elysia') ctx.row('INFO', `bundle.${name}.kb`, `${String(kb)} KB (Bun-only)`);
+    else ctx.gate(`bundle.${name}.kb`, kb, ctx.budgets.bundleKb?.[name], ' KB');
   }
+  if (deno) ctx.row('WARN', 'bundle.hello-fastify.kb', 'skipped', 'Fastify has no Deno target');
 }
 
 /** Start the app N times in a fresh process; report the median of T and RSS. */
@@ -27,7 +39,10 @@ function runN(ctx, file, env, n) {
   const T = [];
   const R = [];
   for (let i = 0; i < n; i++) {
-    const r = spawnSync(ctx.rt, [file], { env: { ...process.env, ...env }, encoding: 'utf8' });
+    const r = spawnSync(ctx.rt, runtimeArgs(ctx.rt, file), {
+      env: { ...process.env, ...env },
+      encoding: 'utf8',
+    });
     const m = /T=([\d.]+) RSS=([\d.]+)/.exec(r.stdout);
     if (m) { T.push(Number(m[1])); R.push(Number(m[2])); }
   }
@@ -41,25 +56,37 @@ function runN(ctx, file, env, n) {
 export function stageCold(ctx) {
   const nr = ctx.build('coldstart-nextrush', ctx.target).out;
   const hono = ctx.build('coldstart-hono', ctx.target).out;
+  const elysia = ctx.rt === 'bun' ? ctx.build('coldstart-elysia', 'bun').out : null;
   for (const n of [25, 1000]) {
     const a = runN(ctx, nr, { N: n }, 7);
     const b = runN(ctx, hono, { N: n }, 7);
     ctx.row('INFO', `cold.n${n}.nextrush`, `${a.t.toFixed(1)} ms, ${a.rss.toFixed(1)} MB RSS`);
     ctx.row('INFO', `cold.n${n}.hono`, `${b.t.toFixed(1)} ms, ${b.rss.toFixed(1)} MB RSS`);
-    ctx.gate(`cold.n${n}.vs_hono`, Number((a.t / b.t).toFixed(2)), ctx.budgets.ratios?.[`cold.n${n}.vs_hono`]);
+    const ratio = Number((a.t / b.t).toFixed(2));
+    if (ctx.rt === 'deno') ctx.row('INFO', `cold.n${n}.vs_hono`, `${String(ratio)} (not gated on deno)`);
+    else ctx.gate(`cold.n${n}.vs_hono`, ratio, ctx.budgets.ratios?.[`cold.n${n}.vs_hono`]);
+    if (elysia) {
+      const e = runN(ctx, elysia, { N: n }, 7);
+      ctx.row('INFO', `cold.n${n}.elysia`, `${e.t.toFixed(1)} ms, ${e.rss.toFixed(1)} MB RSS (Bun-only)`);
+    }
   }
 }
 
 /** Microseconds per request from a fixed request count in-process. */
 function inprocUs(ctx, file, env) {
-  const r = spawnSync(ctx.rt, [file], {
+  const r = spawnSync(ctx.rt, runtimeArgs(ctx.rt, file), {
     env: { ...process.env, N: '100000', HEADERS: '4', ...env },
     encoding: 'utf8',
   });
   const m = /US=([\d.]+)/.exec(r.stdout);
   if (!m) throw new Error(`inproc failed: ${r.stderr}`);
   const adapter = /ADAPTER=(\S+) RUNTIME=(\S+)/.exec(r.stdout);
-  return { us: Number(m[1]), adapter: adapter ? `${adapter[1]} on ${adapter[2]}` : 'unreported' };
+  const count = /COUNT=(\d+)/.exec(r.stdout);
+  return {
+    us: Number(m[1]),
+    adapter: adapter ? `${adapter[1]} on ${adapter[2]}` : 'unreported',
+    count: count ? Number(count[1]) : null,
+  };
 }
 
 export function stageInproc(ctx) {
@@ -68,13 +95,19 @@ export function stageInproc(ctx) {
     hono: ctx.build('inproc-hono', ctx.target).out,
     nr: ctx.build('inproc-nextrush', ctx.target).out,
     web: ctx.build('inproc-nextrush-web', ctx.target).out,
+    post: ctx.build('inproc-nextrush-post', ctx.target).out,
+    postHono: ctx.build('inproc-hono-post', ctx.target).out,
   };
   // Best of three: a single run can eat a GC pause or a scheduling hiccup
   // unrelated to the code under test, and the ratio this feeds is a gate — two
   // samples leaves a 40% spread on a loaded machine, three halves it.
   const best = (f, env) => {
     const runs = [inprocUs(ctx, f, env), inprocUs(ctx, f, env), inprocUs(ctx, f, env)];
-    return { us: Math.min(...runs.map((run) => run.us)), adapter: runs[0].adapter };
+    return {
+      us: Math.min(...runs.map((run) => run.us)),
+      adapter: runs[0].adapter,
+      count: runs[0].count,
+    };
   };
   const raw = best(files.raw, {}).us;
   const hono = best(files.hono, {}).us;
@@ -99,6 +132,31 @@ export function stageInproc(ctx) {
     // a cross-framework number on Node.
     ctx.row('INFO', 'inproc.nextrush.vs_hono', `${ratio} (not gated: arms use different request models — see inproc.*.web.us)`);
   }
+
+  const post = best(files.post, {});
+  const postHono = best(files.postHono, {});
+  if (post.count !== postHono.count) {
+    throw new Error(`POST arms measured different request counts: ${post.count} vs ${postHono.count}`);
+  }
+  ctx.row('INFO', 'inproc.post.nextrush.us', `${post.us.toFixed(2)} us/req (${String(post.count)} req)`);
+  ctx.row('INFO', 'inproc.post.hono.us', `${postHono.us.toFixed(2)} us/req (${String(postHono.count)} req)`);
+  const postRatio = Number((post.us / postHono.us).toFixed(2));
+  if (ctx.rt === 'bun') {
+    ctx.gate('inproc.post.nextrush.vs_hono', postRatio, ctx.budgets.ratios?.['inproc.post.nextrush.vs_hono']);
+  } else {
+    ctx.row('INFO', 'inproc.post.nextrush.vs_hono', `${postRatio} (not gated on ${ctx.rt})`);
+  }
+
+  const nr12 = best(files.nr, { HEADERS: '12' });
+  const hono12 = best(files.hono, { HEADERS: '12' });
+  ctx.row('INFO', 'inproc.nextrush.h12.us', `${nr12.us.toFixed(2)} us/req`);
+  ctx.row('INFO', 'inproc.hono.h12.us', `${hono12.us.toFixed(2)} us/req`);
+  const ratio12 = Number((nr12.us / hono12.us).toFixed(2));
+  if (ctx.rt === 'bun') {
+    ctx.gate('inproc.nextrush.vs_hono.h12', ratio12, ctx.budgets.ratios?.['inproc.nextrush.vs_hono.h12']);
+  } else {
+    ctx.row('INFO', 'inproc.nextrush.vs_hono.h12', `${ratio12} (not gated on ${ctx.rt})`);
+  }
 }
 
 function wrkRps(ctx, port) {
@@ -111,7 +169,7 @@ function wrkRps(ctx, port) {
   return m ? Number(m[1]) : 0;
 }
 
-/** Requests per second through a real listener, best of two runs. */
+/** Requests per second through a real listener, median of three runs per case. */
 export async function stageWire(ctx) {
   if (!has('wrk')) return ctx.row('WARN', 'wire', 'skipped', 'wrk not installed');
   const res = {};
@@ -122,14 +180,27 @@ export async function stageWire(ctx) {
     ['nr', 'serve-nextrush', {}],
     ['nr0', 'serve-nextrush', { TIMEOUT: '0' }],
   ];
+  if (ctx.rt === 'bun') cases.push(['elysia', 'serve-elysia', {}]);
   for (const [key, entry, env] of cases) {
     const { out } = ctx.build(entry, ctx.target);
     port += 1;
-    res[key] = await ctx.withServer(out, port, env, () => Math.max(wrkRps(ctx, port), wrkRps(ctx, port)));
+    res[key] = await ctx.withServer(out, port, env, () => [
+      wrkRps(ctx, port),
+      wrkRps(ctx, port),
+      wrkRps(ctx, port),
+    ]);
   }
-  ctx.row('INFO', 'wire.raw.rps', `${Math.round(res.raw)} rps (floor, client may saturate)`);
-  ctx.row('INFO', 'wire.hono.rps', `${Math.round(res.hono)} rps`);
-  ctx.row('INFO', 'wire.nextrush.rps', `${ctx.record('wire.nextrush.rps', Math.round(res.nr))} rps`);
-  ctx.row('INFO', 'wire.nextrush.no-timeout.rps', `${Math.round(res.nr0)} rps`);
-  ctx.gate('wire.nextrush.vs_hono', Number((res.nr / res.hono).toFixed(2)), ctx.budgets.ratios?.['wire.nextrush.vs_hono']);
+  const raw = summarizeWire(res.raw);
+  const hono = summarizeWire(res.hono);
+  const nr = summarizeWire(res.nr);
+  const nr0 = summarizeWire(res.nr0);
+  ctx.row('INFO', 'wire.raw.rps', `${raw.display} (floor, client may saturate)`);
+  ctx.row('INFO', 'wire.hono.rps', hono.display);
+  const nrText = ctx.record('wire.nextrush.rps', Math.round(nr.median));
+  ctx.row('INFO', 'wire.nextrush.rps', `${nrText} rps (${String(Math.round(nr.min))}–${String(Math.round(nr.max))})`);
+  ctx.row('INFO', 'wire.nextrush.no-timeout.rps', nr0.display);
+  if (res.elysia) {
+    const elysia = summarizeWire(res.elysia);
+    ctx.row('INFO', 'wire.elysia.rps', `${elysia.display} (Bun-only)`);
+  }
 }

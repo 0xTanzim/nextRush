@@ -14,7 +14,7 @@ then trusted forever. Both are how a request path quietly regresses.
 ## Quick start
 
 ```bash
-# every stage except `profile` — the default
+# every stage except `profile` and `edge` — the default
 node apps/benchmark/scripts/dev-check/check.mjs
 
 # only what changed
@@ -26,6 +26,12 @@ node apps/benchmark/scripts/dev-check/check.mjs all --rt node
 
 # where the time actually goes (slow; opt-in)
 node apps/benchmark/scripts/dev-check/check.mjs profile --entry inproc-nextrush
+
+# also measure the published `dist/` next to the source graph
+node apps/benchmark/scripts/dev-check/check.mjs bundle cold inproc --built
+
+# opt-in: run the probe registry against the real workerd runtime
+node apps/benchmark/scripts/dev-check/check.mjs edge
 ```
 
 Prerequisites: `bun` (the bundler, and the default runtime), `node` >= 22, and `wrk`
@@ -42,23 +48,24 @@ command twice.
 ## Stages
 
 Each stage answers one question and can run alone. `all` (and the default, no stage
-arguments) means every stage except `profile`.
+arguments) means every stage except `profile` and `edge`.
 
 | Stage | Question it answers | Cost (measured, Bun) |
 | --- | --- | --- |
 | `bundle` | How many bytes does an app ship? | 0.4 s |
 | `cold` | How long before the first request is served, at 25 and 1,000 routes? | 0.7 s |
-| `inproc` | What does one request cost with no socket involved? | 4 s |
-| `wire` | How many requests/second over a real socket? | 25 s (needs `wrk`) |
+| `inproc` | What does one request cost with no socket involved? | 16 s |
+| `wire` | How many requests/second over a real socket? | 47 s (needs `wrk`) |
+| `edge` | Do the correctness probes pass on the real `workerd` runtime? | 3 s, opt-in (needs `workerd`) |
 | `probe` | Does the request path still *behave* — errors answered, headers present, params faithful? | 0.6 s |
 | `bookkeeping` | Is every known-failure exemption still backed by a probe? | 0.03 s |
 | `hygiene` | Does a comment this change added explain the code, instead of pointing at a planning artifact? | 0.1 s |
 | `profile` | Where does per-request time actually go? | minutes — opt-in only |
 
 Two of them (`bookkeeping`, `hygiene`) never start a server or measure time, so they
-answer identically every run and are safe as their own CI step. `profile` is
-deliberately excluded from the default set: it answers "what should I change next",
-not "is this change safe", which is what the budgeted stages are for.
+answer identically every run and are safe as their own CI step. `profile` and `edge` are
+deliberately excluded from the default set: one answers "what should I change next" and the
+other needs a separate runtime, while the budgeted stages answer "is this change safe".
 
 ---
 
@@ -117,7 +124,11 @@ flowchart TD
 ## Budgets and the ratios
 
 `budgets.json` is the committed truth for every verdict. Each entry may set `max` (hard
-fail above), `min` (hard fail below), and `target` (warn until reached).
+fail above), `min` (hard fail below), and `target` (warn until reached). Every entry also
+declares `runtimes` (which runtimes it applies to) and `stage` (`bundle`, `cold`, or
+`inproc`). A rule is inert if it silently stops being evaluated, so the gate refuses to
+evaluate a rule on a runtime it does not list, and the `bookkeeping` finalizer fails a run
+when an applicable rule's stage ran but the rule was never gated.
 
 Ratios are **NextRush ÷ the comparable baseline, measured in the same run** — the
 comparison runs in the same process and the same minutes, so machine noise cancels
@@ -128,8 +139,19 @@ instead of accumulating across two separate benchmark sessions. **Below 1.0 is f
 | `bundle.<entry>.kb` | Bundled size of one entry point | `max` 40–70 KB |
 | `cold.n25.vs_hono` | Startup ms ÷ Hono's, at 25 routes | `max` 1.6 |
 | `cold.n1000.vs_hono` | Startup ms ÷ Hono's, at 1,000 routes — where registration work shows up | `max` 1.2 |
-| `inproc.nextrush.vs_hono` | Per-request µs ÷ Hono's, in-process (**Bun only** — see below) | `max` 1.9, `target` 1.4 |
-| `wire.nextrush.vs_hono` | Requests/s ÷ Hono's, over a socket (**above 1.0 is faster**) | `min` 0.5, `target` 0.85 |
+| `inproc.nextrush.vs_hono` | Per-request µs ÷ Hono's, in-process (**Bun only** — see below) | `max` 1.9, `target` 1.3 |
+| `inproc.nextrush.vs_hono.h12` | The same ratio with 12 request headers instead of 4 | `max` 2.0, `target` 1.3 |
+| `inproc.post.nextrush.vs_hono` | Parsed-JSON POST µs ÷ Hono's | `max` 9.0, `target` 1.3 |
+
+The POST and 12-header rows are baselines, not endorsements: they make a regression
+visible, and their `target` records the number the phase is trying to reach. The POST row
+is currently dominated by body-source reading rather than JSON parsing (see the closure
+report's finding F-1).
+
+`wire` is deliberately **not** a budget row. It reports the median of three `wrk` runs and
+the observed min–max range as `INFO`, because a slow socket result on a shared machine is
+not evidence of a code regression. Use the in-process ratio for a gate and `wire` for
+context.
 
 `inproc` takes the best of three runs per entry. Two samples left a ~40% spread on a loaded
 machine, and this ratio is a gate — three halves it for a few seconds of runtime. The committed
@@ -150,10 +172,10 @@ the adapter and its request model, not the framework.
 **The Node ratio is deliberately not gated.** The NextRush arm takes node:http objects while the raw
 floor and Hono build a `Request` per iteration, and that platform cost dominates both of them. A
 ratio between them would report the harness difference (`0.08`) as a framework result. Use the Bun
-ratio, or `wire`, for a cross-framework number on Node; use the Node in-proc row for NextRush against
-itself over time.
+ratio for a gated cross-framework number; use `wire` for context on either runtime, and the Node
+in-proc row for NextRush against itself over time.
 
-The three `INFO`-only numbers worth watching:
+The `INFO`-only numbers worth watching:
 
 - **`inproc.raw.us`** — a bare fetch-style function that returns `Response.json(…)` with a
   real `Request` constructed per iteration. This is the floor: it is the cheapest a
@@ -163,8 +185,66 @@ The three `INFO`-only numbers worth watching:
   timeout race costs per request. Useful when deciding whether a timeout design is
   affordable.
 - **`cold.n*.nextrush` RSS** — startup memory, which grows with route count.
+- **`inproc.nextrush.h12.us` / `inproc.hono.h12.us`** — the same GET with 12 headers, so a
+  header-parsing regression is visible separately from the 4-header baseline.
+- **`inproc.post.nextrush.us` / `inproc.post.hono.us`** — a parsed-JSON POST with the
+  same request count on both arms. The pair attributes body-reading and parser cost; the
+  ratio row is gated on Bun.
 
 ---
+
+## Built output alongside source
+
+The source graph is the gate. `--built` adds a second pass that resolves each
+`nextrush` / `@nextrush/*` import to `packages/*/dist/index.js`, so the same stages report
+what the published build does as well. Built rows are prefixed `built.`, are always `INFO`,
+and keep separate keys in `.out/last-run.<runtime>.json`; they never satisfy or fail a source
+budget.
+
+The pass runs a preflight once: a missing `dist/index.js` stops the run with the path and
+`pnpm build` in the message, and a package whose source is newer than its output is a
+`WARN built.stale` row. A stale warning means the built number is still worth reading, but
+it describes an older source graph. Run `pnpm build` first when the two passes should be
+comparable. The built bundle is larger than the source bundle because `dist/` is tsdown
+output, not a re-minified source graph — compare built rows across runs, not to source rows.
+
+## Edge (opt-in)
+
+`edge` is a probe-only leg against the actual `workerd` runtime, not a shim. It bundles
+`edge-worker` with `@nextrush/adapter-edge` (the Cloudflare handler), writes a pinned
+`workerd` config next to the bundle, starts it on `127.0.0.1:4400`, and runs the same probe
+registry as the other runtimes. Passing rows are `INFO`, a failure is `FAIL` unless a
+runtime-scoped exemption covers it (`KNOWN`), and a missing binary is a `WARN` with the reason
+rather than a silent pass. The stage is not in the default set and has no budget or CI step;
+it exists to prove the Edge adapter works on the runtime users actually deploy to.
+
+`workerd` is an exact-pinned devDependency (Apache-2.0). The config's compatibility date is
+pinned with the binary, so a runtime upgrade is a deliberate change. If the binary is absent,
+run `pnpm install`.
+
+## Elysia reference arm (Bun-only)
+
+Elysia is a reference point, not a target: `bundle`, `cold` and `wire` add
+`bundle.hello-elysia.kb`, `cold.n*.elysia` and `wire.elysia.rps` on Bun, each labelled
+`Bun-only`, and none is gated. Elysia 1.4.30 is MIT-licensed and exact-pinned. The arm is not
+run on Node or Deno because Elysia's server path is Bun-specific and a cross-runtime number
+would describe the harness, not the framework.
+
+## Deno
+
+`--rt deno` runs the same stages against the Deno adapter. Entries are bundled once with
+Bun's bundler (`ctx.target` stays `bun`; Bun has no Deno target and the entries are
+runtime-neutral) and executed with `deno run --allow-all --quiet`. Every Deno row is
+`INFO`: there are no Deno budgets yet, and the ratio rows would compare different request
+models if they were gated. `bundle` measures the root, Deno-adapter and Hono entries and
+reports Fastify as an explicit `WARN skipped`; `cold`, `inproc`, `wire` and `probe` run their
+Deno-capable arms; `profile` refuses Deno with a `WARN` because the profiling stage is
+Bun/Node only.
+
+The probe registry is the same one Bun and Node run. `FB-03` is a Deno-only known failure for
+`compression-gzip`: `@nextrush/compression` has no Web response path yet, which is the
+runtime-parity gap tracked separately from the Bun/Node response-commit fix. The probe still
+runs, reports what it observed, and shows as `KNOWN` instead of failing the Deno leg.
 
 ## Known failures
 
@@ -229,9 +309,11 @@ self-describing; the POST pair and the middleware entry also print the response 
 middleware count, which `lib/__tests__/profile-entries.test.mjs` uses to prove they answer
 identically before their numbers are compared.
 
-The POST entries pre-build their requests before the timed loop and cap the timed batch at 20,000.
-Constructing a `Request` with a body is platform work (undici/Bun stream machinery, measured at
-~50 us/request) that otherwise swamps the framework cost the entry exists to measure.
+The POST entries pre-build their requests before the timed loop: 2,000 warmup requests plus
+up to 18,000 timed requests. Constructing a `Request` with a body is platform work (undici/Bun
+stream machinery, measured at ~50 us/request) that otherwise swamps the framework cost the
+entry exists to measure. A `Request` body is single-use, so the warmup requests are a separate
+slice — reusing a consumed request would time an empty body and understate parser cost.
 
 ## Adding a stage
 

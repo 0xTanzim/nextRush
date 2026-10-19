@@ -4,7 +4,10 @@
 // This script aliases `nextrush` and `@nextrush/*` to `packages/**/src/index.ts`, so a
 // "dev mode" comparison against Hono/Fastify works in seconds.
 //
-// Usage: bun lib/build.ts <entry.ts> <out.js> <bun|node> [--no-minify]
+// Usage: bun lib/build.ts <entry.ts> <out.js> <bun|node> [--no-minify] [--built]
+//
+// `--built` points the same alias at each package's `dist/index.js` instead of
+// `src/index.ts`. check.mjs preflights those outputs before using it.
 //
 // Note: sizes are Bun-minifier sizes of the *source* graph. They are good for relative
 // comparison and regression gating; they are NOT the numbers a published tsdown build gives.
@@ -15,7 +18,7 @@ import { dirname, join, resolve } from 'node:path';
 const repoRoot = resolve(import.meta.dir, '../../../../..');
 const map = new Map<string, string>();
 
-function scan(dir: string, depth: number): void {
+function scan(dir: string, depth: number, kind: 'src' | 'dist'): void {
   if (depth > 2) return;
   for (const entry of readdirSync(dir)) {
     if (entry === 'node_modules') continue;
@@ -24,19 +27,21 @@ function scan(dir: string, depth: number): void {
     const pkgJson = join(p, 'package.json');
     if (existsSync(pkgJson)) {
       const name = JSON.parse(readFileSync(pkgJson, 'utf8')).name as string | undefined;
-      const src = join(p, 'src', 'index.ts');
-      if (name && existsSync(src)) map.set(name, src);
+      const main = kind === 'src' ? join(p, 'src', 'index.ts') : join(p, 'dist', 'index.js');
+      if (name && existsSync(main)) map.set(name, main);
       if (name === 'nextrush') {
         for (const sub of ['class', 'nextjs']) {
-          const f = join(p, 'src', `${sub}.ts`);
-          if (existsSync(f)) map.set(`nextrush/${sub}`, f);
+          const file = kind === 'src' ? join(p, 'src', `${sub}.ts`) : join(p, 'dist', `${sub}.js`);
+          if (existsSync(file)) map.set(`nextrush/${sub}`, file);
         }
       }
     }
-    scan(p, depth + 1);
+    scan(p, depth + 1, kind);
   }
 }
-scan(join(repoRoot, 'packages'), 0);
+const argv = process.argv.slice(2);
+const built = argv.includes('--built');
+scan(join(repoRoot, 'packages'), 0, built ? 'dist' : 'src');
 
 const alias: Bun.BunPlugin = {
   name: 'nextrush-src-alias',
@@ -48,10 +53,9 @@ const alias: Bun.BunPlugin = {
   },
 };
 
-const argv = process.argv.slice(2);
 const [entry, out, target = 'bun'] = argv;
 if (!entry || !out) {
-  console.error('usage: bun lib/build.ts <entry.ts> <out.js> <bun|node> [--no-minify]');
+  console.error('usage: bun lib/build.ts <entry.ts> <out.js> <bun|node> [--no-minify] [--built]');
   process.exit(2);
 }
 const minify = !argv.includes('--no-minify');
