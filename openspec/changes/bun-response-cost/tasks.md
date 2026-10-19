@@ -2,16 +2,16 @@
 
 ## 1. Spike: measure the construction variants before touching the builder
 
-- [ ] 1.1 Add `apps/benchmark/scripts/alloc/response-construction-alloc-child.js` measuring the five
+- [x] 1.1 Add `apps/benchmark/scripts/alloc/response-construction-alloc-child.js` measuring the five
       variants from design.md D1 (`current`, `literal`, `shared-frozen`, `json`, `pre-serialized`)
       for a hello-world JSON body, and its parent `response-construction-alloc.js` that runs each
       variant in its own `--expose-gc` child and reports bytes-per-op plus a timing figure. Verify:
       the harness runs under Node and reports five rows; a run with a GC inside the measurement
       window is rejected and retried, matching the existing allocation harnesses.
-- [ ] 1.2 Run the harness under Bun and under Node with the real header shapes (default
+- [x] 1.2 Run the harness under Bun and under Node with the real header shapes (default
       `Content-Type`, plus one non-default header, plus two cookies). Verify: a result file is
       written per runtime and the three shapes are distinguishable in the output.
-- [ ] 1.3 Record the spike verdict in `design.md` under Decisions: which variant is cheapest, how far
+- [x] 1.3 Record the spike verdict in `design.md` under Decisions: which variant is cheapest, how far
       apart the record variants are, and whether the gap is large enough to be worth an
       implementation. Verify: the verdict names the numbers and, if the answer is "no measurable
       gap", says so plainly.
