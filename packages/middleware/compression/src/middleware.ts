@@ -3,11 +3,22 @@
  *
  * Compression middleware for NextRush applications.
  *
+ * @remarks
+ * Compression rewrites the outgoing body, so it needs an adapter that still
+ * exposes that body after the handler ran. Both shipped adapter families commit
+ * the response before the middleware chain unwinds — the Node adapter writes and
+ * ends it inside the handler, the Web adapters record it privately and build the
+ * `Response` afterwards — so a response produced with `ctx.json()`/`send()` is
+ * already gone by the time this middleware looks. It never reads the parsed
+ * request body as a substitute, and it reports the situation once per process
+ * rather than failing silently. See the package README's compatibility notes.
+ *
  * @packageDocumentation
  */
 
 import type { Context, Middleware } from '@nextrush/types';
 import { compress, detectCapabilities, isEncodingSupported } from './compressor.js';
+import { warnNoOutgoingBodyOnce } from './warnings.js';
 import {
   DEFAULT_OPTIONS,
   MAX_IN_MEMORY_SIZE,
@@ -25,28 +36,43 @@ import type {
 } from './types.js';
 
 // ============================================================================
-// Type Helpers
+// Outgoing Response Shape
 // ============================================================================
 
 /**
- * Extended context with Node.js raw response.
+ * The outgoing response an adapter still exposes after the handler ran.
+ *
+ * `body` is the buffered outgoing body — the only thing compression can rewrite.
+ * An adapter that has already written the body out leaves it `undefined`, which
+ * is information, not a failure: it says the body can no longer be transformed.
  */
-interface NodeRawContext extends Context {
-  raw: {
-    req: unknown;
-    res: {
-      body?: unknown;
-      getHeader?: (name: string) => string | number | string[] | undefined;
-      setHeader?: (name: string, value: string | number) => void;
-    };
-  };
+interface OutgoingResponse {
+  body?: unknown;
+  getHeader?: (name: string) => string | number | string[] | undefined;
 }
 
 /**
- * Context with body property for direct body access.
+ * Resolve the adapter's outgoing response, or `null` when the adapter exposes
+ * none.
+ *
+ * Header access is the marker. The Web context reports `res` as `undefined` on
+ * every request, because its response is recorded privately and materialised
+ * after the chain, so there is nothing here to inspect or rewrite.
  */
-interface BodyContext extends Context {
-  body: unknown;
+function outgoingResponseOf(ctx: Context): OutgoingResponse | null {
+  const res = ctx.raw?.res as OutgoingResponse | undefined;
+  return typeof res?.getHeader === 'function' ? res : null;
+}
+
+/**
+ * Read a response header from the same shape everything else is read from.
+ */
+function responseHeaderOf(res: OutgoingResponse, name: string): string | undefined {
+  const value = res.getHeader?.(name);
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (Array.isArray(value)) return value[0];
+  return undefined;
 }
 
 // ============================================================================
@@ -78,48 +104,20 @@ function resolveOptions(options: CompressionOptions = {}): ResolvedCompressionOp
 }
 
 // ============================================================================
-// Response Helpers
+// Compression Eligibility
 // ============================================================================
 
 /**
- * Get header value from context (handles different adapter shapes).
+ * Whether the request is a compression candidate at all, judged from the
+ * request alone so a response this middleware cannot see is not reported for a
+ * request that never asked for compression.
  */
-function getResponseHeader(ctx: Context, name: string): string | undefined {
-  // Try Node.js adapter style
-  const nodeCtx = ctx as NodeRawContext;
-  if (nodeCtx.raw?.res?.getHeader) {
-    const value = nodeCtx.raw.res.getHeader(name);
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number') return String(value);
-    if (Array.isArray(value)) return value[0];
-  }
-
-  return undefined;
-}
-
-/**
- * Check if response should be compressed.
- *
- * @param ctx - Request context
- * @param options - Resolved options
- * @returns Whether compression should be applied
- */
-function shouldCompressResponse(ctx: Context, options: ResolvedCompressionOptions): boolean {
-  // Skip methods without body
+function isCompressionCandidate(ctx: Context, options: ResolvedCompressionOptions): boolean {
   if (NO_BODY_METHODS.includes(ctx.method)) {
     return false;
   }
 
-  // Skip certain status codes
   if (NO_COMPRESS_STATUS_CODES.includes(ctx.status)) {
-    return false;
-  }
-
-  // SEC-17: Cache-Control: no-transform is an explicit instruction that no
-  // intermediary may transform the entity body — compression is exactly
-  // such a transform.
-  const cacheControl = getResponseHeader(ctx, 'cache-control');
-  if (cacheControl && hasNoTransformDirective(cacheControl)) {
     return false;
   }
 
@@ -134,14 +132,33 @@ function shouldCompressResponse(ctx: Context, options: ResolvedCompressionOption
     return false;
   }
 
+  return true;
+}
+
+/**
+ * Whether the response headers allow compression.
+ *
+ * @param res - The adapter's outgoing response
+ * @param options - Resolved options
+ * @returns Whether compression should be applied
+ */
+function shouldCompressResponse(res: OutgoingResponse, options: ResolvedCompressionOptions): boolean {
+  // SEC-17: Cache-Control: no-transform is an explicit instruction that no
+  // intermediary may transform the entity body — compression is exactly
+  // such a transform.
+  const cacheControl = responseHeaderOf(res, 'cache-control');
+  if (cacheControl && hasNoTransformDirective(cacheControl)) {
+    return false;
+  }
+
   // Check if already encoded
-  const contentEncoding = getResponseHeader(ctx, 'content-encoding');
+  const contentEncoding = responseHeaderOf(res, 'content-encoding');
   if (contentEncoding && contentEncoding !== 'identity') {
     return false;
   }
 
   // Check content type
-  const contentType = getResponseHeader(ctx, 'content-type');
+  const contentType = responseHeaderOf(res, 'content-type');
 
   return isCompressible(contentType, {
     contentTypes: options.contentTypes,
@@ -161,26 +178,20 @@ function hasNoTransformDirective(cacheControl: string): boolean {
 }
 
 /**
- * Get response body from context.
+ * Read the buffered outgoing body, or `null` when the adapter has none.
  *
- * Handles different context shapes from various adapters.
+ * Deliberately narrow: `ctx.body` carries the *parsed request body*, so reading
+ * it here would compress the request the client sent back to it. Only the body
+ * the adapter still holds for the response is eligible.
  */
-function getResponseBody(ctx: Context): string | Uint8Array | Buffer | object | null {
-  // Try context body property
-  const bodyCtx = ctx as BodyContext;
-  if (bodyCtx.body !== undefined && bodyCtx.body !== null) {
-    // Skip if body is already being handled
-    if (typeof bodyCtx.body === 'function') return null;
-    return bodyCtx.body as string | Uint8Array | Buffer | object;
+function getResponseBody(res: OutgoingResponse): string | Uint8Array | Buffer | object | null {
+  const body = res.body;
+
+  if (body === undefined || body === null || typeof body === 'function') {
+    return null;
   }
 
-  // Try raw response body (Node.js adapter)
-  const nodeCtx = ctx as NodeRawContext;
-  if (nodeCtx.raw?.res?.body !== undefined && nodeCtx.raw.res.body !== null) {
-    return nodeCtx.raw.res.body as string | Uint8Array | Buffer | object;
-  }
-
-  return null;
+  return body as string | Uint8Array | Buffer | object;
 }
 
 /**
@@ -214,16 +225,10 @@ function applyBreachMitigation(ctx: Context): void {
 }
 
 /**
- * Set compressed body on context.
+ * Set the compressed body on the adapter's outgoing response.
  */
-function setCompressedBody(ctx: Context, data: Uint8Array): void {
-  const nodeCtx = ctx as NodeRawContext;
-  if (nodeCtx.raw?.res) {
-    nodeCtx.raw.res.body = data;
-    return;
-  }
-
-  (ctx as BodyContext).body = data;
+function setCompressedBody(res: OutgoingResponse, data: Uint8Array): void {
+  res.body = data;
 }
 
 // ============================================================================
@@ -233,11 +238,19 @@ function setCompressedBody(ctx: Context, data: Uint8Array): void {
 /**
  * Create compression middleware.
  *
- * Automatically compresses responses based on:
+ * Compresses responses based on:
  * - Accept-Encoding header from client
  * - Content-Type of response
  * - Response size (threshold)
  * - Custom filter function
+ *
+ * @remarks
+ * Compression needs the outgoing body, so it applies only where the adapter
+ * still exposes it after the handler ran. On the shipped adapters a response
+ * written with `ctx.json()`/`send()`/`html()` has already been committed by
+ * then: nothing is compressed, the request body is never used as a substitute,
+ * and the situation is reported once per process. See the package README's
+ * compatibility notes.
  *
  * @example
  * ```typescript
@@ -280,7 +293,19 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
     }
 
     // Check if we should compress
-    if (!shouldCompressResponse(ctx, opts)) {
+    if (!isCompressionCandidate(ctx, opts)) {
+      return;
+    }
+
+    const outgoing = outgoingResponseOf(ctx);
+    const outgoingBody = outgoing === null ? null : getResponseBody(outgoing);
+
+    if (outgoing === null || outgoingBody === null) {
+      warnNoOutgoingBodyOnce();
+      return;
+    }
+
+    if (!shouldCompressResponse(outgoing, opts)) {
       return;
     }
 
@@ -292,14 +317,8 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
       return;
     }
 
-    // Get response body
-    const body = getResponseBody(ctx);
-    if (body === null) {
-      return;
-    }
-
     // Convert body once — avoids double serialization for objects
-    const data = bodyToBytes(body);
+    const data = bodyToBytes(outgoingBody);
     const bodySize = data.length;
 
     // Check threshold
@@ -321,7 +340,7 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
       ctx.set('Content-Length', String(result.data.length));
 
       // Update Vary header
-      const vary = getResponseHeader(ctx, 'vary');
+      const vary = responseHeaderOf(outgoing, 'vary');
       if (!vary?.toLowerCase().includes('accept-encoding')) {
         ctx.set('Vary', vary ? `${vary}, ${VARY_HEADER}` : VARY_HEADER);
       }
@@ -337,7 +356,7 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
       }
 
       // Set compressed body
-      setCompressedBody(ctx, result.data);
+      setCompressedBody(outgoing, result.data);
     } catch (error: unknown) {
       // Compression failed — graceful degradation: send the original uncompressed response.
       // Make the failure observable via state for logging/monitoring middleware.

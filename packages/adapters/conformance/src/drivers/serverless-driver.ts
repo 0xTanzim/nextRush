@@ -62,6 +62,7 @@ export const serverlessDriver: ConformanceDriver = {
   teardownOnShutdown: false, // no server lifetime, like edge (F-14)
   transportAbortFiresSignal: false, // buffered event model — no mid-request transport abort
   honorsCloudflareIp: true, // reuses the edge context → cf-connecting-ip precedence (F-11)
+  honorsPostHandlerHeaderWrite: true, // reuses the edge engine → recorded response
   // `false`: the mapper builds the Request from `rawPath` through `URL`, so a dot
   // segment in the event is resolved by that construction and the handler never sees
   // the raw target. Enabling this for a real platform needs the event's target carried

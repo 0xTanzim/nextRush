@@ -76,11 +76,11 @@ recorded because each item is load-bearing for a later group's proof.
 
 ## 7. Outgoing-response honesty (interim, until the recorded model lands)
 
-- [ ] 7.1 RED: add real-adapter tests for a compressing middleware on a request with no body and on a request carrying a body — the first must not compress and must report once, the second must never transform the request body — verify: the tests fail today and pin the current behaviour precisely
-- [ ] 7.2 Remove every read of the parsed request body as if it were the outgoing response, and emit one warning per process when no outgoing body is available — verify: the no-body test shows no content encoding plus one warning, and the with-body test shows the request body untouched and no wasted work
-- [ ] 7.3 Resolve the response-aware middleware's documented default so its documented example has the documented effect, and pin the decision with a real-adapter test — verify: the documented example's header appears on every adapter, or the documentation is corrected and a test locks the corrected behaviour
-- [ ] 7.4 Add the post-handler header-write conformance scenario and record the current adapter divergence — verify: the scenario runs on every adapter and reports which adapters honour a header written after the handler
-- [ ] 7.5 State the limitation in each affected package's README and note that the structural fix is deferred — verify: each README says the middleware cannot act on handler-written responses, and the docs match the test in 7.1
+- [x] 7.1 RED: add real-adapter tests for a compressing middleware on a request with no body and on a request carrying a body — the first must not compress and must report once, the second must never transform the request body — verify: the tests fail today and pin the current behaviour precisely
+- [x] 7.2 Remove every read of the parsed request body as if it were the outgoing response, and emit one warning per process when no outgoing body is available — verify: the no-body test shows no content encoding plus one warning, and the with-body test shows the request body untouched and no wasted work
+- [x] 7.3 Resolve the response-aware middleware's documented default so its documented example has the documented effect, and pin the decision with a real-adapter test — verify: the documented example's header appears on every adapter, or the documentation is corrected and a test locks the corrected behaviour
+- [x] 7.4 Add the post-handler header-write conformance scenario and record the current adapter divergence — verify: the scenario runs on every adapter and reports which adapters honour a header written after the handler
+- [x] 7.5 State the limitation in each affected package's README and note that the structural fix is deferred — verify: each README says the middleware cannot act on handler-written responses, and the docs match the test in 7.1
 
 ## 8. Web request-path footprint
 

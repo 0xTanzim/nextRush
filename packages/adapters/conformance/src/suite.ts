@@ -647,6 +647,40 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
       expect(json<{ body: unknown }>(res).body).toBeNull();
     }
   );
+
+  // The two response models diverge on exactly this: writing a header after the
+  // handler has responded. The expectation comes from the driver's declared
+  // capability, not from a table kept here, so an adapter that changes under the
+  // framework fails this scenario instead of silently flipping — the same shape
+  // as the dot-segment scenario above.
+  registerScenario(
+    driver,
+    '#29 middleware: a header written after the handler responds reaches the client where the adapter records the response',
+    {},
+    async () => {
+      const res = await driver.dispatch((app) => {
+        app.use(async (ctx, next) => {
+          await next();
+          // Adapters that have already written the response fail this write
+          // outright; the assertion below is about the outcome, not the throw.
+          try {
+            ctx.set('X-Late-Header', 'written-after-handler');
+          } catch {
+            // Recorded by the capability flag this scenario asserts.
+          }
+        });
+        app.use((ctx) => {
+          ctx.json({ ok: true });
+        });
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.header('x-late-header') ?? null).toBe(
+        driver.honorsPostHandlerHeaderWrite ? 'written-after-handler' : null
+      );
+      expect(json<{ ok: boolean }>(res).ok).toBe(true);
+    }
+  );
 }
 
 /** Runtime behaviors with encoded capability differences (rows #13-#15, #19). */

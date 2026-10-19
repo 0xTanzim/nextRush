@@ -119,6 +119,7 @@ const realBunDriver: ConformanceDriver = {
   teardownOnShutdown: true,
   transportAbortFiresSignal: true,
   honorsCloudflareIp: false,
+  honorsPostHandlerHeaderWrite: true, // the Web request handler records the response
   // The running runtime's own answer: this file runs under `bun test`, so it
   // reports Bun's platform behaviour rather than a value copied from a table.
   rawRequestTarget: getRuntimeCapabilities().rawRequestTarget,

@@ -106,17 +106,31 @@ function formatFixed(value: number, precision: number, factor: number): string {
 /**
  * Creates response time middleware.
  *
- * Measures the duration of request processing and optionally sets
- * a response header with the timing information.
+ * Measures the duration of request processing, stores it in `ctx.state`, and —
+ * only when asked — writes it to a response header.
+ *
+ * @remarks
+ * The header is written after `ctx.next()` resolves, so it lands only where the
+ * adapter has not committed the response yet: the Web adapters honour it, while
+ * the Node adapter has already written the response and the header cannot
+ * appear. `exposeHeader` therefore defaults to `false` — the measurement is
+ * always available in state, and the header is opt-in. See the package README's
+ * compatibility notes.
  *
  * @param options - Timer configuration options
  * @returns Middleware function
  *
- * @example Basic usage
+ * @example Measurement only (the default)
  * ```ts
  * import { timer } from '@nextrush/timer';
  *
  * app.use(timer());
+ * // Timing available as: ctx.state.responseTime
+ * ```
+ *
+ * @example Exposing the header
+ * ```ts
+ * app.use(timer({ exposeHeader: true }));
  * // Sets: X-Response-Time: 12.34ms
  * ```
  *
@@ -125,7 +139,8 @@ function formatFixed(value: number, precision: number, factor: number): string {
  * app.use(timer({
  *   header: 'X-Duration',
  *   precision: 0,
- *   suffix: ' milliseconds'
+ *   suffix: ' milliseconds',
+ *   exposeHeader: true
  * }));
  * // Sets: X-Duration: 12 milliseconds
  * ```
@@ -178,6 +193,11 @@ export function timer(options: TimerOptions = {}): NextrushMiddleware {
  *
  * Stores complete timing data including start/end timestamps,
  * raw duration, and formatted output in context state.
+ *
+ * @remarks
+ * Shares the timing contract of {@link timer}: the duration is always recorded,
+ * and `exposeHeader` is opt-in because a post-handler header write only lands
+ * where the adapter has not committed the response yet.
  *
  * @param options - Detailed timer configuration options
  * @returns Middleware function
@@ -272,14 +292,29 @@ export function responseTime(options: TimerOptions = {}): NextrushMiddleware {
  * Uses the standard Server-Timing header format compatible with
  * browser DevTools performance analysis.
  *
+ * @remarks
+ * Like {@link timer}, this middleware records the duration in `ctx.state` and
+ * writes the header only when `exposeHeader` is enabled — the header is written
+ * after `ctx.next()` resolves, so it lands on the Web adapters and cannot appear
+ * on the Node adapter, which has already written the response. See the package
+ * README's compatibility notes.
+ *
  * @param options - Server-Timing configuration options
  * @returns Middleware function
  *
- * @example Basic usage
+ * @example Measurement only (the default)
  * ```ts
  * import { serverTiming } from '@nextrush/timer';
  *
  * app.use(serverTiming());
+ * // Timing available as: ctx.state.responseTime
+ * ```
+ *
+ * @example Exposing the header
+ * ```ts
+ * import { serverTiming } from '@nextrush/timer';
+ *
+ * app.use(serverTiming({ exposeHeader: true }));
  * // Sets: Server-Timing: total;dur=123.45
  * ```
  *
@@ -287,7 +322,8 @@ export function responseTime(options: TimerOptions = {}): NextrushMiddleware {
  * ```ts
  * app.use(serverTiming({
  *   metric: 'api',
- *   description: 'API Response Time'
+ *   description: 'API Response Time',
+ *   exposeHeader: true
  * }));
  * // Sets: Server-Timing: api;dur=123.45;desc="API Response Time"
  * ```
@@ -304,7 +340,7 @@ export function responseTime(options: TimerOptions = {}): NextrushMiddleware {
  * });
  *
  * // Total timing
- * app.use(serverTiming({ metric: 'total' }));
+ * app.use(serverTiming({ metric: 'total', exposeHeader: true }));
  * ```
  */
 export function serverTiming(options: ServerTimingOptions = {}): NextrushMiddleware {

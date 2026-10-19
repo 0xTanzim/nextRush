@@ -28,6 +28,10 @@
     "@nextrush/types": "workspace:^"
   },
   "devDependencies": {
+    "@nextrush/adapter-edge": "workspace:^",
+    "@nextrush/adapter-node": "workspace:^",
+    "@nextrush/core": "workspace:^",
+    "@nextrush/router": "workspace:^",
     "tsdown": "catalog:tooling",
     "typescript": "catalog:tooling",
     "vitest": "catalog:testing"

@@ -508,19 +508,6 @@ importers:
         specifier: catalog:tooling
         version: 7.0.2
 
-  examples/dev-di-fixture:
-    dependencies:
-      nextrush:
-        specifier: workspace:*
-        version: link:../../packages/nextrush
-    devDependencies:
-      '@nextrush/dev':
-        specifier: workspace:*
-        version: link:../../packages/dev
-      typescript:
-        specifier: catalog:tooling
-        version: 7.0.2
-
   examples/openapi-basic:
     dependencies:
       '@nextrush/body-parser':
@@ -1167,6 +1154,21 @@ importers:
         specifier: workspace:^
         version: link:../../types
     devDependencies:
+      '@nextrush/adapter-edge':
+        specifier: workspace:^
+        version: link:../../adapters/edge
+      '@nextrush/adapter-node':
+        specifier: workspace:^
+        version: link:../../adapters/node
+      '@nextrush/body-parser':
+        specifier: workspace:^
+        version: link:../body-parser
+      '@nextrush/core':
+        specifier: workspace:^
+        version: link:../../core
+      '@nextrush/router':
+        specifier: workspace:^
+        version: link:../../router
       tsdown:
         specifier: catalog:tooling
         version: 0.23.0(oxc-resolver@11.24.2)(tsx@4.23.15)(typescript@7.0.2)
@@ -1466,6 +1468,18 @@ importers:
         specifier: workspace:^
         version: link:../../types
     devDependencies:
+      '@nextrush/adapter-edge':
+        specifier: workspace:^
+        version: link:../../adapters/edge
+      '@nextrush/adapter-node':
+        specifier: workspace:^
+        version: link:../../adapters/node
+      '@nextrush/core':
+        specifier: workspace:^
+        version: link:../../core
+      '@nextrush/router':
+        specifier: workspace:^
+        version: link:../../router
       tsdown:
         specifier: catalog:tooling
         version: 0.23.0(oxc-resolver@11.24.2)(tsx@4.23.15)(typescript@7.0.2)

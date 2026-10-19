@@ -74,6 +74,9 @@ function createWebDriver(
     teardownOnShutdown: name !== 'edge', // edge has no teardown seam (F-14)
     transportAbortFiresSignal: true,
     honorsCloudflareIp,
+    // The response is recorded and materialised after the chain unwinds, so a
+    // header written after `await next()` still reaches the client.
+    honorsPostHandlerHeaderWrite: true,
     // The capability of the platform being simulated, not of this Node process —
     // a simulated driver must not claim Node's answer for a Bun adapter.
     rawRequestTarget: capabilitiesFor(simulatedRuntime).rawRequestTarget,

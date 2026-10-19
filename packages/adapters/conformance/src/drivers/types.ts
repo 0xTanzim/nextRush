@@ -156,6 +156,23 @@ export interface ConformanceDriver {
    */
   readonly honorsCloudflareIp: boolean;
 
+  /**
+   * Whether a header written AFTER the handler responded still reaches the
+   * client.
+   *
+   * @remarks
+   * This is where the two response models diverge. The Web adapters record the
+   * response and materialise it once the middleware chain unwinds, so a late
+   * write still lands. The Node adapter has already written the response by
+   * then, and the write itself fails — Node's header store is only readable for
+   * headers it was told about, and the response it wrote is already on the wire.
+   * An encoded difference (same shape as {@link honorsCloudflareIp}) rather than
+   * an expected-value table kept in the suite: the scenario reads this flag and
+   * asserts the OBSERVED behaviour agrees with it, so an adapter that changes
+   * under the framework fails the scenario instead of silently flipping.
+   */
+  readonly honorsPostHandlerHeaderWrite: boolean;
+
   /** Configure an app, dispatch one request, and return the normalized result. */
   dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult>;
 

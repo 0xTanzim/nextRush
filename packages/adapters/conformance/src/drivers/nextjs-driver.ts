@@ -55,6 +55,7 @@ export const nextjsDriver: ConformanceDriver = {
   teardownOnShutdown: false, // no server lifetime, like edge (F-14) — handle() never calls close()
   transportAbortFiresSignal: true, // the forwarded Request's own .signal aborts, same as edge
   honorsCloudflareIp: true, // reuses the edge context → cf-connecting-ip precedence (F-11)
+  honorsPostHandlerHeaderWrite: true, // reuses the edge context → recorded response
   // `false`, because this driver builds its synthetic Request through `URL`, which
   // resolves a dot segment before anything downstream can see it — the target that
   // reaches the handler is already the resolved form (see `toRequest`). The scenario

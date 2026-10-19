@@ -258,7 +258,46 @@ by the security guide to state the limit. The scenario that exercises it is sock
 driver that cannot write a raw request line is refused with a reason instead of asserting the weak
 branch — the guarantee is claimed only where the real runtime proves it.
 
+**D22 — Compression reads one response shape and never the request body; an unavailable body is reported
+once.** The middleware had two response sources: `ctx.body` and `raw.res.body`. The first is the *parsed
+request body*, so a compressible response type visible after the handler (a middleware that declares
+`Content-Type` before `next()`) made it gzip the client's own request and then throw
+`ERR_HEADERS_SENT` on the response write — measured on a real Node listener with a 20 KB POST: the request
+body was compressed once, `ctx.state.compressionError` was set, and the response was not compressed. The
+second source is a slot no adapter in this repository ever fills: the only writer of `raw.res.body` was
+compression itself, so on every shipped adapter the middleware compressed nothing and said nothing. It now
+resolves a single `OutgoingResponse` handle (`raw.res`, marked by `getHeader`), reads the response headers
+and the buffered body from that one shape, and returns after warning once per process when no outgoing body
+exists. The buffered-body slot stays as the declared contract an adapter can satisfy, which keeps the
+algorithm reachable and unit-tested through the mock context. Rejected: deleting the compression path
+outright (the recorded response model is what makes it work, and it is already planned); keeping the
+`ctx.body` read behind a guard (the request body is never an outgoing response at any point); and warning per
+response (the situation is structural, not per-request, and a per-request log is the noise this change
+exists to remove).
+
+**D23 — A post-handler header write is a declared adapter capability, asserted against observed behaviour.**
+The two response models diverge on exactly one operation a user can reason about: writing a header after the
+handler responded. That difference is now a driver flag, `honorsPostHandlerHeaderWrite` — `false` for Node,
+`true` for the Web family, serverless, and Next.js — and scenario `#29` reads the flag and asserts the
+observed outcome agrees with it, so an adapter that changes under the framework fails conformance instead of
+silently flipping (the same shape as the dot-segment scenario). Verified where it can be verified: the flag
+and the scenario pass on all six in-process drivers, on the real Node driver over a socket, and on the real
+Bun and Deno runners over a socket. `@nextrush/timer` keeps `exposeHeader: false`: the task allowed either
+making the documented example true on every adapter or correcting the documentation, and the first is
+impossible on Node until the recorded response model lands — so the JSDoc and README examples now pass
+`exposeHeader: true`, the Node limitation is stated for both `timer()` and `serverTiming()`, and a
+real-adapter test pins opt-in-on-Web and absent-on-Node. Rejected: defaulting `exposeHeader` to `true` (it
+still would not work on Node, and it would opt every user into a known-failing write) and leaving the JSDoc
+examples claiming a header the default does not produce.
+
 ## Risks / Trade-offs
+
+- **[Compression is a no-op on every shipped adapter, so the middleware reads as working while doing nothing]** →
+  Measured, not assumed: the middleware's only response source was a buffered outgoing body, and no adapter
+  in this repository ever populates one (the only writer of `raw.res.body` was compression itself), while its
+  other read was `ctx.body` — the *parsed request body*. So the interim behaviour is stated in three places
+  that cannot drift apart: one warning per process, the package README's limitation section, and a
+  real-adapter test that asserts no encoding plus exactly one warning on both adapter families.
 
 - **[Case-correct parameters change observable output for anyone who relied on folded values]** →
   Treated as a behavioural fix: one CHANGELOG line plus a migration note stating that a consumer
@@ -286,6 +325,13 @@ branch — the guarantee is claimed only where the real runtime proves it.
 - **[Compression remains a no-op for handler-written responses in this change]** → Explicitly interim:
   one warning, a README statement of the limitation, and the structural fix left to the deferred model.
   The alternative — shipping half the model — was rejected.
+- **[A timer with `exposeHeader: true` fails its late write on the Node adapter, and that failure is invisible]** →
+  Measured: the write throws `ERR_HTTP_HEADERS_SENT` after the response is committed, the throw propagates out of
+  the middleware so every outer middleware's post-`next()` work is skipped, and the adapter then delivers a correct
+  `200` with no log. The interim is documentation plus capability scenario `#29`, which records the divergence
+  driver by driver; the documented guidance is to keep `exposeHeader` off on Node. Catching the write locally was
+  rejected: it would hide the divergence the scenario exists to report, and the recorded response model removes the
+  whole class.
 - **[A 4xx body can now carry a code the frozen registry does not contain]** → That is the point: the
   error's own code is what a client branches on (`INVALID_JSON` versus `UNSUPPORTED_CONTENT_TYPE`),
   and the registry is the *fallback*, not a whitelist. A 5xx is still frozen to `'INTERNAL_ERROR'`, so
@@ -337,3 +383,6 @@ the Web adapters) should close them in passing.
 | `packages/stream/src/run.ts` | A `sendStream()` refusal or throw leaves the detached `run(writer)` started inside `new ReadableStream({ start })` writing into a stream nobody consumes | Cancel the writer/controller when the stream is not adopted |
 | `docs/**` (5 files) | Dangling `reports/investigations/...` references to a path deleted by the pre-existing report restructure | Repoint at the new report location or the relevant RFC |
 | `packages/adapters/serverless/src/mappers/_v2.ts` | `v2ToRequest` builds `new Request('http://localhost' + rawPath + qs)`, so the event's target is reshaped by the URL parser before the context sees it — the adapter cannot observe a raw target even where API Gateway preserved one, which is why its reported capability is the conservative `false` | Carry the event's target to the context unparsed and verify it against a live API Gateway; the capability value can then be measured instead of assumed |
+| `packages/adapters/node/src/context.ts` | Two facts behind the response-model divergence: `set()` calls `res.setHeader` unguarded after commit (throws `ERR_HTTP_HEADERS_SENT`), and the adapter's own response write leaves Node's header store empty — `getHeaderNames()` measured `[]` on a real listener, so `res.getHeader()` cannot see a header the handler wrote | Keep the adapter's own header map (or guard `set()` post-commit with a recorded error); the recorded response model resolves both, and until then the divergence is a declared driver capability |
+| `packages/middleware/timer/src/middleware.ts` | With `exposeHeader: true` on the Node adapter the late write throws, the throw propagates out of the middleware so every outer middleware's post-`next()` work is skipped, and the adapter delivers a correct `200` with no log — measured on a real listener | Catch the late write and record it on `ctx.state` until the recorded response model makes it succeed; also surface chain errors that happen after the response is committed |
+| `packages/middleware/compression/src/middleware.ts` (466 lines) | Over the 300-line source ceiling (conversation, negotiation, response-shape helpers, and three convenience wrappers in one module) — 42 source files in the repository share the problem, so a one-off split here would break the local style without fixing it | Split by concern in a dedicated structural change (variants / inspection helpers / response shape), the same change that clears the other ceiling findings above |
