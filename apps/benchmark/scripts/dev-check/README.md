@@ -205,6 +205,10 @@ self-describing; the POST pair and the middleware entry also print the response 
 middleware count, which `lib/__tests__/profile-entries.test.mjs` uses to prove they answer
 identically before their numbers are compared.
 
+The POST entries pre-build their requests before the timed loop and cap the timed batch at 20,000.
+Constructing a `Request` with a body is platform work (undici/Bun stream machinery, measured at
+~50 us/request) that otherwise swamps the framework cost the entry exists to measure.
+
 ## Adding a stage
 
 A stage gets its own module under `lib/stages/`, receives the context built by

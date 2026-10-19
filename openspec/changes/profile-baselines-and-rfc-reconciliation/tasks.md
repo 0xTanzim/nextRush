@@ -25,12 +25,12 @@
 
 ## 4. Measure Bun and Node
 
-- [ ] 4.1 Load the `framework-profiling` and `framework-audit-profiling` skills and follow their measurement procedure; verify the recorded notes name the skill file and the step used.
-- [ ] 4.2 Run Bun profiles for `inproc-nextrush`, `inproc-nextrush-post`, `inproc-nextrush-post-unparsed`, and `inproc-nextrush-mw` at `HEADERS=4` and `HEADERS=12`; verify each run writes a profile file and prints top self-time rows, and keep each run short (no full publishable suite).
-- [ ] 4.3 Run the same four profiles on Node; verify `.cpuprofile` parsing succeeds via `cpuprofile-top.mjs` and the top rows are printed.
-- [ ] 4.4 Record the attribution table in RFC-039 §3.7/§3.8 with provenance for every row: runtime and exact version, entry, env, `N`, command, date, run-to-run spread, and machine-load note; verify no row carries a number without those fields.
-- [ ] 4.5 Record allocation and layout evidence: deterministic per-request object counts for the hot path, and property-order/shape stability of the request context objects; label any cache-line or branch-prediction statement as inference with its basis, and verify no claim asserts a measurement that does not exist.
-- [ ] 4.6 Repeat one profile run and compare the top three rows; verify the record states whether they were stable or drifted, rather than presenting one sample as the profile.
+- [x] 4.1 Load the `framework-profiling` and `framework-audit-profiling` skills and follow their measurement procedure; verify the recorded notes name the skill file and the step used.
+- [x] 4.2 Run Bun profiles for `inproc-nextrush`, `inproc-nextrush-post`, `inproc-nextrush-post-unparsed`, and `inproc-nextrush-mw` at `HEADERS=4` and `HEADERS=12`; verify each run writes a profile file and prints top self-time rows, and keep each run short (no full publishable suite).
+- [x] 4.3 Run the same four profiles on Node; verify `.cpuprofile` parsing succeeds via `cpuprofile-top.mjs` and the top rows are printed.
+- [x] 4.4 Record the attribution table in RFC-039 §3.7/§3.8 with provenance for every row: runtime and exact version, entry, env, `N`, command, date, run-to-run spread, and machine-load note; verify no row carries a number without those fields.
+- [x] 4.5 Record allocation and layout evidence: deterministic per-request object counts for the hot path, and property-order/shape stability of the request context objects; label any cache-line or branch-prediction statement as inference with its basis, and verify no claim asserts a measurement that does not exist.
+- [x] 4.6 Repeat one profile run and compare the top three rows; verify the record states whether they were stable or drifted, rather than presenting one sample as the profile.
 
 ## 5. Triage findings
 

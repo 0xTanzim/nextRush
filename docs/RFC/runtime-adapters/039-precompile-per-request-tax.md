@@ -158,6 +158,82 @@ Profile of the NextRush in-process loop (self/total, Bun `--cpu-prof-md`): `Head
 
 What this changes in this RFC: (1) the **header record** and the **eager `requestIP`** are the largest per-request items on Bun, ahead of the timeout race; (2) serialization (Part C) is not a top cost on the hello-world profile, so it is gated; (3) router matching does not appear in the top rows, consistent with RFC-015's ≈ 4 %.
 
+### 3.8 Measured attribution — Node, POST, middleware (2026-10-19)
+
+Environment: Bun 1.4.3, Node v26.12.0, Intel i5-8300H (8 logical cores), Linux, load average
+2.0–2.5 during the runs. Bundles are built from source and unminified by `dev-check`. Commands:
+`HEADERS={4,12} N=150000 node apps/benchmark/scripts/dev-check/check.mjs profile --entry <entry> [--rt node]`.
+Methods: `framework-profiling` §4C (profile stage), `framework-audit-profiling` Phase 3 (measure).
+POST entries pre-build their requests and cap the timed batch at 20,000, so the platform's
+`Request`-with-body construction (~50 µs/request, undici/Bun stream machinery) is outside the
+measured loop instead of dominating it.
+
+Self-time shares, top framework-attributable rows; platform rows (`Request`, `Response`,
+`Headers`, undici) are the harness, not framework cost:
+
+| Shape | Runtime, headers | Framework rows (self %) | Platform share |
+| --- | --- | --- | --- |
+| hello | Bun, 4 | `dispatchWithTimeout` 2.1+2.0, `WebContextBase` 1.8, `requestTargetFromUrl` 1.6 | `Request` 39.2, `Response` 19.8 |
+| hello | Bun, 12 | `dispatchWithTimeout` 2.3, `requestTargetFromUrl` 1.5, `WebContextBase` 1.4 | `Request` + `Response` ≈ 50+ |
+| hello | Node, 4 | `serializeJson` 2.0, `requestTargetFromUrl` 1.5, `dispatchWithTimeout` 1.5, `WebContextBase` 1.4 | undici + `parse`/`#encode` ≈ 25 |
+| hello | Node, 12 | `serializeJson` 1.9, `dispatchWithTimeout` 1.8, `requestTargetFromUrl` 1.4 | undici + encoding ≈ 25 |
+| POST parsed | Bun, 4 | `_buffer` 2.3, `requestTargetFromUrl` 2.0, `WebContextBase` 1.4, `WebBodySource` 1.3 | body-stream controller ≈ 33 |
+| POST parsed | Bun, 12 | `_buffer` 3.6, `WebBodySource` 1.8 | body-stream controller ≈ 32 |
+| POST parsed | Node, 4 | parser middleware 4.5, `dispatchWithTimeout` 1.6, `serializeJson` 0.9 | undici + `parse`/`#encode` ≈ 25 |
+| POST parsed | Node, 12 | parser middleware 3.6, `dispatchWithTimeout` 2.4 | undici + encoding ≈ 25 |
+| POST unparsed | Bun, 4/12 | `_buffer` 2.3–3.5, `WebBodySource` 0.9–1.8 | body-stream controller ≈ 30+ |
+| POST unparsed | Node, 4/12 | `dispatchWithTimeout` 1.7–3.1, `_buffer` 0.9–1.5 | undici ≈ 25 |
+| middleware ×5 | Bun, 4/12 | middleware closures 2.1–3.5, `dispatch` 2.4+2.0, `dispatchWithTimeout` 1.2–2.2, `matchRoute` 1.5 | `Request` 32.6, `Response` 15.4 |
+| middleware ×5 | Node, 4/12 | middleware closures 4.5–5.0, `dispatchWithTimeout` 3.9–4.7, `serializeJson` 1.6–2.1 | undici ≈ 25 |
+
+What this establishes:
+
+1. **Platform, not framework, dominates in-process POST on both runtimes.** On Bun the
+   `Request` body stream controller alone is ≈ 32–50 % of samples; on Node undici plus
+   string encoding is ≈ 25 %. A POST profile without the pre-build correction would have
+   attributed the harness to NextRush.
+2. **The largest framework-attributable costs are the dispatcher and serialization**, not the
+   router: `dispatchWithTimeout` 1.2–4.7 %, `serializeJson` 0.9–2.1 % (Node), context
+   construction 0.9–1.8 %, request-target derivation 0.8–2.0 %. Router frames appear only in
+   the middleware shape (`matchRoute` 1.5 %).
+3. **The header record was the one measured, removable cost in the POST path.** Before the
+   fix, `ctx.headers` materialization (a walk over every header, triggered by body-parser
+   asking for one) was 1.8 % at 4 headers and 3.5 % at 12 on Bun, ~1.9 % on Node. After
+   reading through `ctx.get`, the frame is absent and POST cost is flat in header count:
+
+   | Bun, best of 7 (µs/request) | 4 headers | 12 headers |
+   | --- | --- | --- |
+   | parsed POST, before | 25.33 | 29.05 |
+   | parsed POST, after | 23.79 | 23.59 |
+   | unparsed POST, before | 21.57 | 21.17 |
+   | unparsed POST, after | 21.39 | 21.03 |
+
+   The unparsed entry never read a header and stayed flat, which is the counter-check: the
+   delta is the record walk, not parse cost or machine drift.
+
+Stability: a repeat of the Bun POST/12 profile kept the same top three rows
+(`onRSDefaultControllerStartFulfilled`, `Request`, `releaseLock`) with self-time drifting
+6.2 % → 7.6 % for the third row. Absolute microseconds move with machine load; shares do not.
+
+Limits: JavaScript exposes no cache-miss or branch-mispredict counter, so no cache-line claim is
+made. Layout evidence is limited to deterministic allocation measurement and object-shape
+stability (`bench:alloc:web` reports 8.1 B/request with cv 0.02 % for the measured context path,
+and the header-record test asserts the record is never materialized). Node `--cpu-prof` sampling
+is coarse for a ~10 µs request; rows below ≈ 1 % are treated as noise. In-process GET and
+middleware numbers still include `Request`/`Response` construction inside the timed loop.
+
+### 3.9 Findings and triage (2026-10-19)
+
+| ID | Finding | Cost and anchor | Impact | Counter-evidence | Trade-off / risk | Validation |
+| --- | --- | --- | --- | --- | --- | --- |
+| **F1** | Body parsers read `ctx.headers` (full lazy record) to obtain one header | Header-record walk 1.8 % (4 headers) / 3.5 % (12) on Bun, ≈1.9 % on Node; `parsers/*.ts` `getContentType(ctx.headers)`, `reader.ts` `getContentLength(ctx.headers)` | Every body-bearing request paid a walk it did not need | Unparsed POST (never reads headers) stays flat across 4→12 headers, proving the delta is the walk | Read through optional `ctx.get`; narrow test doubles keep the record fallback | **Fixed** — `header-lookup.test.ts` (record getter throws), POST/12 best-of-7 29.05 → 23.59 µs |
+| **F2** | Dispatcher pays four microtask turns before deciding not to arm a timer | `dispatchWithTimeout` 1.2–4.7 % self across shapes; `web-runner.ts:103` | Every request, both runtimes | A settled-flag fast path would skip the loop, but a handler that responds then hangs would no longer be cut off by the timeout | Losing timeout coverage on a pathological handler is a behaviour change, not an optimization | **Deferred** — confirm with a design that keeps the hang case bounded, then A/B |
+| **F3** | Node body-parser middleware closure shows 3.6–4.5 % self | `json.ts` returned middleware, Node only | Body-bearing requests on Node | The same closure is ≈0 % on Bun, where the parser work appears in `parse`/`_buffer` instead — attribution split, not a second cost | Inherent async-function resume cost; removing it needs a different parser shape | **No action** — would need a parser redesign for a share that moves between runtimes |
+| **F4** | In-process POST is dominated by platform request construction | Bun body-stream controller 32–50 %; undici + encoding ≈25 % on Node | Measurement validity, not runtime | Platform rows say `[native code]` / undici | Pre-built the POST entries and capped the timed batch; GET entries unchanged | **Fixed (harness)** — `profile-entries.test.mjs`, §3.8 method note |
+| **F5** | Serialization is a visible Node cost but small and gated | `serializeJson` 0.9–2.1 % (Node); `JSON.stringify` ≈3.5 % on Bun hello (§3.7) | Response-building requests | Below the 5 % bar this RFC set for building a compiled serializer | Compiled serializer remains RFC-039 P3, gated on a POST/large-payload profile | **No action here** — P3's gate is still unmet |
+| **F6** | Router matching is not a top cost | `matchRoute` 1.5 % in the five-middleware shape; absent elsewhere | None at this shape | Consistent with RFC-015's ≈4 % and the evidence-negative radix decision | — | **No action** — confirms RFC-015 |
+| **F7** | Cache-line and branch behaviour cannot be measured in JavaScript | No portable counter; profiler reports time only | Investigation method | `bench:alloc:web` resolves 8.1 B/req at cv 0.02 %, so allocation is measurable even when layout is not | Any layout claim stays inference | **Limitation recorded** — §3.8 limits paragraph |
+
 ## 4. Goals and Non-Goals
 
 Goals:

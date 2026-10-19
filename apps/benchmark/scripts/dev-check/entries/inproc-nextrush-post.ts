@@ -1,5 +1,10 @@
 // Per-request cost of a POST with a parsed JSON body, NO network.
 // Env: N (iterations), HEADERS (0|4|12 request headers), BODY_BYTES (payload size).
+//
+// Requests are built BEFORE the timed loop: constructing a `Request` with a body is
+// a platform cost (undici/Bun stream machinery) that dwarfed the framework work and
+// made the profile an attribution of the harness. Pre-building moves it out; the loop
+// then measures handling only.
 import { createApp } from '@nextrush/core';
 import { createRouter } from '@nextrush/router';
 import { bodyParser } from '@nextrush/body-parser';
@@ -7,6 +12,9 @@ import { createHandler } from '@nextrush/adapter-bun';
 
 const N = Number(process.env.N ?? 300000);
 const BODY_BYTES = Number(process.env.BODY_BYTES ?? 1024);
+const PREBUILD_CAP = 20_000;
+const COUNT = Math.min(N, PREBUILD_CAP);
+const WARMUP = 2_000;
 
 const app = createApp({ router: createRouter() });
 app.use(bodyParser());
@@ -29,7 +37,8 @@ const request = () => new Request('http://localhost:3000/echo', { method: 'POST'
 const first = await handle(request(), server);
 console.log(`OK=${first.status}:${await first.text()}`);
 
-for (let i = 0; i < 10_000; i++) await handle(request(), server);
+for (let i = 0; i < WARMUP; i++) await handle(request(), server);
+const requests = Array.from({ length: COUNT }, request);
 const t0 = performance.now();
-for (let i = 0; i < N; i++) await handle(request(), server);
-console.log(`US=${(((performance.now() - t0) / N) * 1000).toFixed(3)}`);
+for (let i = 0; i < COUNT; i++) await handle(requests[i], server);
+console.log(`US=${(((performance.now() - t0) / COUNT) * 1000).toFixed(3)}`);
