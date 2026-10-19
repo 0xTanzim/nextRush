@@ -2,10 +2,10 @@
 
 ## 1. Land the completed work
 
-- [ ] 1.1 Commit only this change's planning artifacts (`proposal.md`, `design.md`, `tasks.md`, `.openspec.yaml`); verify `git status --short` still lists the pre-existing unrelated edits (`.github/copilot-instructions.md`, `AGENTS.md`, `.changeset/pre.json`, `reports/**`) as unstaged and none of them in `git diff --cached`.
-- [ ] 1.2 Verify the branch before proposing it: `turbo run build`, `turbo run test`, `turbo run lint`, `turbo run typecheck`, then `dev-check all` on Bun and Node; verify the only test failure is the pre-existing `@nextrush/dev` missing-fixture case, and record the raw tails of each command.
-- [ ] 1.3 Open the pull request from `feat/rfc-039-precompile-tax` to `main` describing the archived `fix-request-path-and-response-contract`; verify CI is green and `git log main..HEAD --oneline` is empty after the merge.
-- [ ] 1.4 Create the working branch for the rest of this change from the merged `main`; verify `git merge-base --is-ancestor main HEAD` succeeds and the branch has exactly one commit.
+- [x] 1.1 Commit only this change's planning artifacts (`proposal.md`, `design.md`, `tasks.md`, `.openspec.yaml`); verify `git status --short` still lists the pre-existing unrelated edits (`.github/copilot-instructions.md`, `AGENTS.md`, `.changeset/pre.json`, `reports/**`) as unstaged and none of them in `git diff --cached`.
+- [x] 1.2 Verify the branch before proposing it: `turbo run build`, `turbo run test`, `turbo run lint`, `turbo run typecheck`, then `dev-check all` on Bun and Node; verify the only test failure is the pre-existing `@nextrush/dev` missing-fixture case, and record the raw tails of each command.
+- [ ] 1.3 Open the pull request from `feat/rfc-039-precompile-tax` to `main` describing the archived `fix-request-path-and-response-contract`; verify the PR exists and merging leaves `git log main..HEAD --oneline` empty. CI is not run in this session (the toolchain action's stale pnpm pin is fixed in this change; the user waived the CI gate).
+- [ ] 1.4 Create the working branch for the rest of this change from the merged `main`; verify `git merge-base --is-ancestor main HEAD` succeeds and the branch starts even with `main` (`git rev-list --count main..HEAD` is 0).
 
 ## 2. Reconcile the RFC record
 
