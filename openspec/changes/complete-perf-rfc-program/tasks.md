@@ -58,11 +58,13 @@
 
 - [x] 7.1 Run `pnpm lint` and `pnpm typecheck` sequentially and verify both exit 0 with no new warnings in touched files.
 - [x] 7.2 Run the affected package tests first (`@nextrush/runtime`, `@nextrush/adapter-node`, `@nextrush/validation`, `@nextrush/core`, `create-nextrush`, `nextrush-benchmark` if it has a test script), then `pnpm test`; verify all pass and record any pre-existing failure separately with its cause.
+  - Passed: runtime 344, adapter-node 301, validation 37, core 205, create-nextrush 403, benchmark 285. `pnpm test` passes every package except the pre-existing `@nextrush/dev` fixture failure (`dev-loader-di-integration.test.ts`: fixture `src/index.ts` absent), recorded in the closure report.
 - [x] 7.3 Run `node apps/benchmark/scripts/dev-check/check.mjs bundle cold inproc probe bookkeeping --rt bun`, `--rt node` and `--rt deno`; record the PASS/WARN/KNOWN/FAIL counts and verify no unexplained FAIL remains.
 - [x] 7.4 Run `openspec validate complete-perf-rfc-program --strict` and the repository-wide `openspec validate --strict`; verify both pass.
   - Change strict: PASS. Repository-wide `--strict` exits 1 on 15 pre-existing long-requirement warnings in unchanged capability specs; `openspec validate --all` passes 22/22 and `--changes --strict` passes 1/1. The failure is documented in the closure report, not introduced by this change.
 - [x] 7.5 Review `git diff --stat` and the public export diff: no file outside the proposal's impact list, no published-package API change beyond the `@internal` settle-turn export, and no budget loosened without a recorded measurement. Verify with `git status --short` and a scoped `git diff`.
-- [ ] 7.6 Commit in logical groups (gate contract, built mode, Deno, reference legs, RFC-039 decisions, docs/ADRs/report), staging explicit paths and running the relevant check before each commit. Verify the working tree is clean and each commit does not mix unrelated work.
+- [x] 7.6 Commit in logical groups (gate contract, built mode, Deno, reference legs, RFC-039 decisions, docs/ADRs/report), staging explicit paths and running the relevant check before each commit. Verify the working tree is clean and each commit does not mix unrelated work.
+  - `ac662526` dev-check/gate + reference arms, `3d5ea0c3` runtime settle bound, `33895d81` route-scoped DX, `f29783f2` RFC/ADR/report/OpenSpec.
 
 ## Workflow follow-up
 
