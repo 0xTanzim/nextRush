@@ -98,13 +98,13 @@
 
 ## 7. Integration checks
 
-- [ ] 7.1 Run the cross-adapter conformance suite across all shipped adapters. Verify: the parity
+- [x] 7.1 Run the cross-adapter conformance suite across all shipped adapters. Verify: the parity
       scenarios for both behaviours pass on every adapter.
-- [ ] 7.2 Run the repo gates: per-package line coverage at or above 90 %, ESLint clean, `tsc` strict
+- [x] 7.2 Run the repo gates: per-package line coverage at or above 90 %, ESLint clean, `tsc` strict
       clean, `turbo build/lint/typecheck`, and the build hygiene stage that rejects a newly added
       comment referencing a planning artifact. Verify: every gate passes with the changed packages
       included.
-- [ ] 7.3 Run `dev-check` on Bun and Node and confirm the gate summary is no worse than the
+- [x] 7.3 Run `dev-check` on Bun and Node and confirm the gate summary is no worse than the
       pre-change summary, explaining any difference. Verify: `bench:validate` passes and no new
       failure appears outside the recorded known failures.
 
