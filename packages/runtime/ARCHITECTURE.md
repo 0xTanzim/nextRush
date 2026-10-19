@@ -107,7 +107,9 @@ src/
 ├── detection.ts        # detectRuntime/getRuntime (cached), capabilitiesFor, probeCapabilities, edge detection, predicates
 ├── profiles.ts         # Named CapabilityProfiles (NodeProfile, ...) derived from capabilitiesFor
 ├── body-source.ts      # BodySource hierarchy — size-limited raw body reading (Web + empty)
-├── response-builder.ts # WebResponseBuilder + header-safety / bodyless-status checks (Fetch adapters)
+├── outgoing-response.ts # OutgoingResponse — the recorded response: status, serialized body, commit/flush lifecycle
+├── outgoing-headers.ts  # HeaderList — ordered case-insensitive header map with multi-value support
+├── response-builder.ts # WebResponseBuilder — records into OutgoingResponse; materialises the Response at flush
 ├── headers.ts          # headersToRecord + the single client-IP resolution policy & IP validation
 ├── query.ts            # parseQueryString — single-pass, DoS-limited, proto-pollution-safe
 ├── request-target.ts   # requestTargetFromUrl — path/search split with no URL object and no dot-segment resolution
@@ -127,7 +129,9 @@ src/
 | `detection.ts` | Identify the runtime (cached) and resolve its capability matrix (curated or probed). |
 | `profiles.ts` | The named, documented capability views derived from `capabilitiesFor`. |
 | `body-source.ts` | Read a request body once, within a byte limit, across runtimes. |
-| `response-builder.ts` | Build a Fetch `Response` safely (header validation, bodyless-status rules) for web adapters. |
+| `outgoing-response.ts` | Own the recorded outgoing response: header semantics, body length, and the commit → flush lifecycle. |
+| `outgoing-headers.ts` | Own the ordered, case-insensitive, multi-value header map every adapter exposes through `ctx.set()`. |
+| `response-builder.ts` | Record a response for the Fetch-API adapters and materialise exactly one `Response` at flush. |
 | `headers.ts` | Convert Web `Headers` to a safe record and resolve the client IP with one shared precedence. |
 | `query.ts` | Parse a query string safely and cheaply. |
 | `request-target.ts` | Derive the published `path`/`search` from a request URL without reshaping it. |
@@ -207,8 +211,37 @@ sequenceDiagram
     Adapter->>RT: combineAbortSignal(request.signal)
     Adapter->>App: run middleware with assembled Context
     App-->>Adapter: ctx result
-    Adapter->>RT: WebResponseBuilder -> Response
+    Adapter->>RT: flush(recorded OutgoingResponse) once
     Adapter-->>Server: Response
+```
+
+### The recorded outgoing response
+
+A response method (`json`/`send`/`html`/`redirect`) **records** status, headers and the
+serialized body into an `OutgoingResponse`. The adapter **flushes** that record once, after the
+middleware chain settles, and only then is a `Response` constructed. Two states, deliberately
+separate:
+
+- **committed** — a response method has recorded the response. Another response method is a
+  no-op, but headers remain writable. This is the window middleware that runs after
+  `await next()` writes in: a timing header, a compression rewrite, a cache header.
+- **flushed** — the adapter has handed the record to its transport. The record is frozen; a
+  later write is discarded and reported once per process, never thrown, so it cannot unwind the
+  remaining middleware chain.
+
+A stream (`sendStream`, SSE, NDJSON) is the exception: it commits immediately and is never
+recorded, because a started stream cannot be buffered or rewritten.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Recording
+    Recording --> Recording: ctx.set() / body method
+    Recording --> Committed: response method records status + body
+    Committed --> Committed: ctx.set() (post-handler header write)
+    Committed --> Committed: replace the body (compression)
+    Committed --> Flushed: adapter flushes (exactly one Response)
+    Committed --> Flushed: stream wired (commits immediately)
+    Flushed --> Flushed: later write discarded + reported once
 ```
 
 The one piece of state — the detection cache — has its own small lifecycle: uncached until the first `getRuntime()` / `detectEdgeRuntime()`, cached thereafter, and cleared only by the test-only `resetRuntimeCache()`.
@@ -234,6 +267,7 @@ stateDiagram-v2
 | `query.ts` (module) | `EMPTY_QUERY` — one frozen, shared empty-query object | process — immutable, returned on the empty/over-limit path |
 | `constants.ts` (module) | The default numbers and `METHODS_WITHOUT_BODY` set | process — immutable |
 | `WebBodySource` (instance) | The consumed/limit state of one request body | per request — owned by the adapter's Context |
+| `OutgoingResponse` (instance) | Status, headers, serialized body, and the commit/flush lifecycle | per request — owned by the adapter's Context; never retained past its flush |
 | _(every other export)_ | none — pure functions | per call |
 
 The only mutable state is the detection cache, and it is write-once-then-read (plus the test reset). The `EMPTY_QUERY` singleton is `Object.freeze`d precisely so a future mutating caller fails loudly instead of corrupting shared state.

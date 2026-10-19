@@ -127,6 +127,34 @@ describe('OutgoingResponse header semantics', () => {
     expect(record.getHeader('x-list')).toBe('a');
   });
 
+  it('reports the body method default content type through getHeader', () => {
+    const record = new OutgoingResponse();
+    record.setBody('ok', 'text/plain; charset=utf-8');
+
+    // The default lives in its own slot, but `getHeader` is the one accessor a
+    // middleware uses — response-rewriting middleware (compression) reads the
+    // content type through it.
+    expect(record.getHeader('content-type')).toBe('text/plain; charset=utf-8');
+    expect(record.getHeader('Content-Type')).toBe('text/plain; charset=utf-8');
+  });
+
+  it('prefers an explicit content type over the body method default', () => {
+    const record = new OutgoingResponse();
+    record.setBody('ok', 'text/plain; charset=utf-8');
+    record.set('Content-Type', 'text/csv; charset=utf-8');
+
+    expect(record.contentType).toBe('text/csv; charset=utf-8');
+  });
+
+  it('lets a body method replace a content type written before it', () => {
+    const record = new OutgoingResponse();
+    record.set('Content-Type', 'text/csv; charset=utf-8');
+    record.setBody('{"ok":true}', 'application/json; charset=utf-8');
+
+    expect(record.contentType).toBe('application/json; charset=utf-8');
+    expect(record.extraHeaders()).toEqual([]);
+  });
+
   it('replaces a non-cookie field when a single value is set', () => {
     const record = new OutgoingResponse();
     record.set('X-One', 'first');
@@ -149,6 +177,25 @@ describe('OutgoingResponse body', () => {
 
     expect(record.bodyBytes()).toEqual(encoder.encode('hello world'));
     expect(record.contentLength()).toBe(11);
+  });
+
+  it('materializes a string body into bytes once', () => {
+    const record = new OutgoingResponse();
+    record.setBody('hello');
+
+    expect(record.bodyBytes()).toBe(record.bodyBytes());
+    expect(record.contentLength()).toBe(5);
+  });
+
+  it('counts a body replacement after the response was committed', () => {
+    const record = new OutgoingResponse();
+    record.setBody('hello');
+    expect(record.bodyCopies).toBe(0);
+
+    // A post-handler middleware (compression) replaces the recorded body.
+    record.setBody(new TextEncoder().encode('compressed'));
+    expect(record.bodyCopies).toBe(1);
+    expect(record.contentLength()).toBe(10);
   });
 });
 

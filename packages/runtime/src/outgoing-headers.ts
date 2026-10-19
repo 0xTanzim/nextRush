@@ -7,7 +7,9 @@
  * contributing each element.
  *
  * The list is allocated on the first write, so a response whose only header is
- * the body method's content type never allocates one.
+ * the body method's content type never allocates one. Case-insensitive compares
+ * never lower-case the field: a header name is an ASCII token, so a length check
+ * plus a per-character fold is both allocation-free and cheap.
  *
  * @packageDocumentation
  */
@@ -22,10 +24,23 @@ export type OutgoingHeaderEntry = readonly [name: string, value: string];
 /** Writable entry storage; {@link HeaderList.entries} narrows it to readonly. */
 type MutableHeaderEntry = [name: string, value: string];
 
-const SET_COOKIE_KEY = 'set-cookie';
-const SET_COOKIE_LENGTH = SET_COOKIE_KEY.length;
-/** `'s'` — the only possible first character of a case-insensitive `set-cookie`. */
+const SET_COOKIE = 'set-cookie';
 const LOWERCASE_S = 0x73;
+
+/**
+ * Whether two header names are equal ignoring ASCII case, without allocating.
+ *
+ * @remarks
+ * Header names are validated against RFC 9110's `token` grammar before they
+ * reach here, so every character is ASCII; folding bit 0x20 is therefore exact.
+ */
+export function sameHeaderName(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if ((left.charCodeAt(index) | 0x20) !== (right.charCodeAt(index) | 0x20)) return false;
+  }
+  return true;
+}
 
 /**
  * An ordered, case-insensitive header map with multi-value support.
@@ -59,10 +74,9 @@ export class HeaderList {
     }
 
     const entries = (this._entries ??= []);
-    const key = field.toLowerCase();
     for (let index = 0; index < entries.length; index += 1) {
       const entry = entries[index];
-      if (entry !== undefined && entry[0].toLowerCase() === key) {
+      if (entry !== undefined && sameHeaderName(entry[0], field)) {
         entries[index] = [field, value];
         return;
       }
@@ -75,19 +89,18 @@ export class HeaderList {
     const entries = this._entries;
     if (entries === undefined) return;
 
-    const key = field.toLowerCase();
-    const kept = entries.filter(([name]) => name.toLowerCase() !== key);
+    const kept = entries.filter(([name]) => !sameHeaderName(name, field));
     this._entries = kept.length === 0 ? undefined : kept;
   }
 
   /** The first value recorded for a field, case-insensitively. */
   get(field: string): string | undefined {
-    return this.first(field.toLowerCase())?.[1];
+    return this.first(field)?.[1];
   }
 
   /** Whether a field has at least one value. */
   has(field: string): boolean {
-    return this.first(field.toLowerCase()) !== undefined;
+    return this.first(field) !== undefined;
   }
 
   /** Every value recorded for a field, in write order. */
@@ -95,10 +108,9 @@ export class HeaderList {
     const entries = this._entries;
     if (entries === undefined) return [];
 
-    const key = field.toLowerCase();
     const values: string[] = [];
     for (const [name, value] of entries) {
-      if (name.toLowerCase() === key) values.push(value);
+      if (sameHeaderName(name, field)) values.push(value);
     }
     return values;
   }
@@ -108,19 +120,27 @@ export class HeaderList {
     return this._entries;
   }
 
-  /** The first entry whose lower-cased name equals the already-lower-cased key. */
-  private first(key: string): MutableHeaderEntry | undefined {
+  private first(field: string): MutableHeaderEntry | undefined {
     const entries = this._entries;
     if (entries === undefined) return undefined;
 
     for (const entry of entries) {
-      if (entry[0].toLowerCase() === key) return entry;
+      if (sameHeaderName(entry[0], field)) return entry;
     }
     return undefined;
   }
 
   private _append(field: string, value: string): void {
-    (this._entries ??= []).push([field, value]);
+    const entries = (this._entries ??= []);
+    // Reuse the casing already recorded for this field so a multi-value field
+    // flushes under one name, whatever casing each write used.
+    for (const [name] of entries) {
+      if (sameHeaderName(name, field)) {
+        entries.push([name, value]);
+        return;
+      }
+    }
+    entries.push([field, value]);
   }
 }
 
@@ -128,13 +148,13 @@ export class HeaderList {
  * Whether a scalar write to this field accumulates instead of replacing.
  *
  * @remarks
- * The length and first-character checks are constant-time, so the lowercase
- * comparison only runs for a field that could actually be `set-cookie`.
+ * The length and first-character checks are constant-time, so no case folding
+ * runs for a field that could not be `set-cookie`.
  */
 function isSetCookie(field: string): boolean {
   return (
-    field.length === SET_COOKIE_LENGTH &&
+    field.length === SET_COOKIE.length &&
     (field.charCodeAt(0) | 0x20) === LOWERCASE_S &&
-    field.toLowerCase() === SET_COOKIE_KEY
+    sameHeaderName(field, SET_COOKIE)
   );
 }

@@ -20,6 +20,7 @@
  */
 
 import { HttpError } from '@nextrush/errors';
+import { OUTGOING_RESPONSE } from '@nextrush/types';
 import type {
   BodySource,
   ContextState,
@@ -28,6 +29,7 @@ import type {
   HttpMethod,
   IncomingHeaders,
   NDJSONStreamWriter,
+  OutgoingResponseHandle,
   PlatformId,
   QueryParams,
   RawHttp,
@@ -348,6 +350,17 @@ export abstract class WebContextBase implements FetchContext {
   /** Whether a response has been committed. */
   get responded(): boolean {
     return this._response.responded;
+  }
+
+  /**
+   * The response the adapter will flush, for middleware that runs after the
+   * handler and rewrites it (compression, timer).
+   *
+   * @internal Carries no semver guarantee and is not part of the documented
+   * `Context` surface; {@link OUTGOING_RESPONSE} is the only key.
+   */
+  get [OUTGOING_RESPONSE](): OutgoingResponseHandle {
+    return this._response.record;
   }
 
   /** Mark the response as committed (for streaming scenarios). */

@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@nextrush/types';
 import { createWebRunner, type WebRunnerContext } from '../web-runner';
 import type { WebRunnerApp } from '../web-runner';
+import { WebResponseBuilder } from '../response-builder';
 
 /** A context that records what the runner asked of it. */
 class FakeContext {
@@ -84,13 +85,47 @@ class FakeApp implements WebRunnerApp<(ctx: TestCtx) => Promise<void>> {
 }
 
 /**
- * The context the runner is typed against: the real contract plus this fake's
- * counters. Cast once, at the seam, rather than standing up a full `Context`.
+ * A context backed by the real response builder, so a runner test observes the
+ * actual materialisation instead of a fake's shortcut.
  */
+class BuilderContext {
+  readonly method = 'GET' as const;
+  readonly path = '/';
+  status = 200;
+  body: unknown;
+  private readonly builder = new WebResponseBuilder('GET');
+
+  get responded(): boolean {
+    return this.builder.responded;
+  }
+
+  markResponded(): void {
+    this.builder.markResponded();
+  }
+
+  triggerTimeout(): void {}
+
+  set(field: string, value: string | number | string[]): void {
+    this.builder.set(field, value);
+  }
+
+  json(data: unknown): void {
+    this.builder.json(data, this.status);
+  }
+
+  getResponse(): Response {
+    return this.builder.getResponse(this.status);
+  }
+}
+
 type TestCtx = WebRunnerContext & FakeContext;
 
 function makeContext(): TestCtx {
   return new FakeContext() as unknown as TestCtx;
+}
+
+function makeBuilderContext(): TestCtx {
+  return new BuilderContext() as unknown as TestCtx;
 }
 
 function runnerFor(
@@ -127,6 +162,32 @@ describe('createWebRunner', () => {
     const plain = new FakeApp(async (ctx) => ctx.json({ ok: true }));
     await runnerFor(plain)(new Request('http://localhost/'), undefined);
     expect(plain.startCount).toBe(0);
+  });
+
+  it('carries a header a middleware writes after the handler committed the response', async () => {
+    // A middleware wraps a handler: the handler commits, then the middleware's
+    // post-`next()` work writes a header. The materialised Response must carry
+    // it — this is the behaviour the recorded model exists to guarantee on every
+    // adapter, and the Web family must keep it.
+    const app = new FakeApp(async (ctx) => {
+      const handler = async (): Promise<void> => {
+        ctx.json({ ok: true });
+      };
+      await handler();
+      ctx.set('x-late', 'after-handler');
+    });
+
+    const run = createWebRunner<TestCtx, undefined>(app as never, {
+      label: 'test',
+      timeout: 30,
+      makeContext: makeBuilderContext,
+    });
+
+    const response = await run(new Request('http://localhost/'), undefined);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-late')).toBe('after-handler');
+    expect(await response.json()).toEqual({ ok: true });
   });
 
   it('writes the not-found body through the context, preserving headers it already set', async () => {

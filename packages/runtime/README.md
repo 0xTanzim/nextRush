@@ -252,7 +252,8 @@ The sealed public surface (ADR-0005), guarded by `__tests__/public-surface.test.
 | `isRuntime` | `(r: Runtime) => boolean` | `3.0.0` | Stable ✅ | Predicate for a specific runtime. |
 | `parseQueryString` | `(qs: string) => QueryParams` | `3.0.0` | Stable ✅ | Single-pass, DoS-limited, prototype-pollution-safe parser. |
 | `createWebBodySource` | `(body, opts?) => WebBodySource` | `3.1.0` | Stable ✅ | Size-limited Fetch-API body reader. |
-| `WebResponseBuilder` | `class` | `3.1.0` | Stable ✅ | Shared Fetch-`Response` builder for web adapters. |
+| `WebResponseBuilder` | `class` | `3.1.0` | Stable ✅ | Shared Fetch-`Response` builder for web adapters. Records into `OutgoingResponse`; materialises the `Response` once at flush. |
+| `OutgoingResponse` | `class` | `4.2.0` | Internal ⚠️ | The recorded outgoing response: status, headers, serialized body, and the commit → flush lifecycle. `@internal` — no semver guarantee. |
 | `jsonErrorResponse` | `(status, message) => Response` | `3.1.0` | Stable ✅ | Uniform-charset framework error response (F-05). |
 | `WebContextBase` | `class` | `3.1.0` | Stable ✅ | Shared Web Context shell for Bun/Deno/Edge (F-08). |
 | `resolveClientIp` | `(get, opts) => string` | `3.1.0` | Stable ✅ | The one client-IP precedence + validation policy. |
@@ -269,6 +270,7 @@ The sealed public surface (ADR-0005), guarded by `__tests__/public-surface.test.
 | **Capability profiles** (`profiles.ts`) | `NodeProfile` · `BunProfile` · `DenoProfile` · `DenoDeployProfile` · `CloudflareProfile` · `VercelEdgeProfile` · `EdgeProfile` · `LambdaProfile` · `capabilityProfileFor` · type `CapabilityProfile` |
 | **Body source** (`body-source.ts`) | `AbstractBodySource` · `WebBodySource` · `EmptyBodySource` · `createWebBodySource` · `createEmptyBodySource` · `BodyConsumedError` · `BodyTooLargeError` · `DEFAULT_BODY_LIMIT` |
 | **Response builder** (`response-builder.ts`) | `WebResponseBuilder` · `assertHeaderSafe` · `isBodylessResponse` · `jsonErrorResponse` |
+| **Recorded response** (`outgoing-response.ts`, `outgoing-headers.ts`) | `OutgoingResponse` · types `OutgoingBody` · `OutgoingHeaderEntry` |
 | **Web Context base** (`web-context-base.ts`) | `WebContextBase` · types `WebRawHttp` · `WebStreamRunners` |
 | **Boot gate & Web runner** (`boot-gate.ts`, `web-runner.ts`) | `createBootGate` · `createWebRunner` · types `BootableApp` · `BootGate` · `BootGateOptions` · `WebRunnerApp` · `WebRunnerContext` · `WebRunnerOptions` |
 | **Headers** (`headers.ts`) | `headersToRecord` · `resolveClientIp` · `getClientIp` · `getEdgeClientIp` · `isValidClientIp` · types `ClientIpOptions` · `HeaderLookup` |
