@@ -34,9 +34,9 @@
 
 ## 5. Triage findings
 
-- [ ] 5.1 Build the findings table from §4: measured cost and source anchor, impact, counter-evidence, trade-off, and a validation criterion; verify every row has all six fields and that rows without a validation criterion were dropped.
-- [ ] 5.2 Classify each finding as `fix-now` (behaviour-preserving, above the noise floor, one module, no public API), `rfc` (architectural or observable), or `no-action`; verify no `rfc` item has a code task and the counts match the table.
-- [ ] 5.3 Record every `rfc`-class finding in the governing RFC with its evidence; verify each names the measurement, the suspected cause, and what would confirm it.
+- [x] 5.1 Build the findings table from §4: measured cost and source anchor, impact, counter-evidence, trade-off, and a validation criterion; verify every row has all six fields and that rows without a validation criterion were dropped.
+- [x] 5.2 Classify each finding as `fix-now` (behaviour-preserving, above the noise floor, one module, no public API), `rfc` (architectural or observable), or `no-action`; verify no `rfc` item has a code task and the counts match the table.
+- [x] 5.3 Record every `rfc`-class finding in the governing RFC with its evidence; verify each names the measurement, the suspected cause, and what would confirm it.
 
 ## 6. Fix only what measurement justifies
 

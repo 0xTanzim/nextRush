@@ -9,7 +9,8 @@
 
 import { Errors } from '../errors.js';
 import type { BodyParserContext } from '../types.js';
-import { getContentLength } from '../utils/content-type.js';
+import { parseContentLength } from '../utils/content-type.js';
+import { readHeader } from '../utils/header-value.js';
 
 /**
  * Read body from request using cross-runtime BodySource API.
@@ -40,7 +41,7 @@ export async function readBody(ctx: BodyParserContext, limit: number): Promise<U
   }
 
   // Pre-check Content-Length if available (synchronous rejection)
-  const contentLength = bodySource.contentLength ?? getContentLength(ctx.headers);
+  const contentLength = bodySource.contentLength ?? parseContentLength(readHeader(ctx, 'content-length'));
   if (contentLength !== undefined && contentLength > limit) {
     throw Errors.entityTooLarge(contentLength, limit);
   }

@@ -13,10 +13,10 @@ import type { BodyParserContext, TextOptions } from '../types.js';
 import { bufferToString, toRawBody } from '../utils/buffer.js';
 import {
   extractCharset,
-  getContentType,
   matchContentType,
   normalizeCharset,
 } from '../utils/content-type.js';
+import { readHeader } from '../utils/header-value.js';
 import { parseLimit } from '../utils/limit.js';
 import { readBody } from './reader.js';
 
@@ -70,7 +70,7 @@ export function text(options: TextOptions = {}): Middleware {
   ): Promise<void> => {
     // Content-type is needed below for charset detection, so compute it always; the
     // guard checks are skipped when routed by the combined parser (BP-E).
-    const contentType = getContentType(ctx.headers);
+    const contentType = readHeader(ctx, 'content-type');
     if (!prechecked) {
       if (BODYLESS_METHODS.has(ctx.method)) {
         if (next) await next();

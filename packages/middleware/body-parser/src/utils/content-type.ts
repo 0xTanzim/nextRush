@@ -35,8 +35,16 @@ export function getContentLength(
   headers: Readonly<Record<string, string | string[] | undefined>>
 ): number | undefined {
   const cl = headers['content-length'];
-  const value = Array.isArray(cl) ? cl[0] : cl;
+  return parseContentLength(Array.isArray(cl) ? cl[0] : cl);
+}
 
+/**
+ * Parse a content-length value already read from the request.
+ *
+ * @param value - Raw `content-length` header value
+ * @returns Parsed length, or undefined when absent/invalid
+ */
+export function parseContentLength(value: string | undefined): number | undefined {
   if (!value) {
     return undefined;
   }
