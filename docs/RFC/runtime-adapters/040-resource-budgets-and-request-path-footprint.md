@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Approved` — gates in use; footprint work (P2) in progress via `fix-request-path-and-response-contract` |
+| **Status**           | `Approved` — gates in use; P0–P2 shipped (footprint work landed in `db9bbda9`, `64ca11de`, `836dd6a5`) |
 | **RFC number**       | `040`                                                                 |
 | **Date**             | `2026-10-18`                                                          |
 | **Author(s)**        | Framework maintainer (R&D audit session + validation session)         |
@@ -17,15 +17,15 @@
 
 ## Progress Tracker
 
-**Overall:** `[████████░░░░░░░░░░░░]` 40% — 2 / 5 phases complete (P2 in progress) · Doc status: `Approved`
+**Overall:** `[████████████████████]` 100% — 5 / 5 phases closed (P4 closed as deferred, §17) · Doc status: `Approved`
 
 | Phase | Part / deliverable                                                     | Status                    |
 | ----- | ---------------------------------------------------------------------- | ------------------------- |
 | P0    | `dev-check` toolkit (bundle / cold / inproc / wire / probe / profile) + committed budgets | ✅ Built and committed — see §15 |
 | P1    | CI wiring of the deterministic stages (`bundle cold inproc probe`)     | ✅ Wired — `.github/workflows/ci.yml` request-cost job (Bun and Node) |
-| P2    | Web-adapter footprint changes (RFC-039 P1: lazy headers / ip / timeout arm) judged by the gates | 🔄 In progress (task group 8) |
-| P3    | Deno + Edge + Node-on-Web entries; optional Elysia arm                  | ⬜ Not started            |
-| P4    | AOT re-evaluation gate (only if a §17 criterion trips)                 | ➖ Deferred               |
+| P2    | Web-adapter footprint changes (RFC-039 P1: lazy headers / ip / timeout arm) judged by the gates | ✅ Shipped — `db9bbda9` (headers), `64ca11de` (client IP), `836dd6a5` (shared runner, no timer when settled); gate ratcheted in `d41af71a`, parity in `7c36e897` |
+| P3    | Deno + Edge + Node-on-Web entries; optional Elysia arm                  | ✅ Shipped — Deno path (`--rt deno`), real-workerd Edge probes, `--built` mode, Bun-only Elysia arm; Deno CI leg added |
+| P4    | AOT re-evaluation gate (only if a §17 criterion trips)                 | ✅ Closed as deferred — all four criteria not observed (§17 decision table) |
 
 ---
 
@@ -274,9 +274,10 @@ sequenceDiagram
 ```json
 {
   "bundleKb": { "hello-nextrush-root": { "max": 40 } },
-  "ratios":   { "inproc.nextrush.vs_hono": { "max": 2.5, "target": 1.3 },
-                "wire.nextrush.vs_hono":   { "min": 0.5, "target": 0.85 } },
-  "knownFailures": ["FB-01", "FB-02"]
+  "ratios":   { "inproc.nextrush.vs_hono":      { "max": 1.9, "target": 1.3, "runtimes": ["bun"] },
+                "inproc.nextrush.vs_hono.h12":  { "max": 2.0, "target": 1.3, "runtimes": ["bun"] },
+                "inproc.post.nextrush.vs_hono": { "max": 9.0, "target": 1.3, "runtimes": ["bun"] } },
+  "knownFailures": { "FB-03": ["deno"] }
 }
 ```
 
@@ -301,7 +302,7 @@ sequenceDiagram
 | Scenario | Behaviour |
 | --- | --- |
 | `dist/` exists | Ignored; `dev-check` always measures source |
-| Noisy machine | `inproc` uses best-of-2; `cold` uses the median of 7; `wire` uses best-of-2 and is informational |
+| Noisy machine | `inproc` uses the fastest of three runs; `cold` uses the median of 7; `wire` uses the median of three and is informational |
 | Load client saturates (raw ≈ client limit) | Raw floor is printed as INFO; ratio vs Hono remains valid |
 | Adding Elysia / another framework | Add `entries/*-elysia.ts` mirrors and one `row`; needs `bun add elysia@next` in `apps/benchmark` (network) |
 | Deno / Edge | P3; entries reuse the same probe list with per-runtime expectations |
@@ -401,7 +402,7 @@ Baseline measured **2026-10-18** with `dev-check` (Bun 1.4.3, Node 26.12.0, Hono
 | Cold start, 1,000 routes (Bun) | 11.9 ms | 25.3 ms | — | ratio `max 1.2` |
 | RSS, 1,000 routes (Bun) | 29.4 MB | 43.9 MB | — | recorded |
 | Registration cost | ≈ 2.5 µs / route (10k routes) | — | — | recorded |
-| In-process µs/request, 4 headers (Bun) | 5.17 | 2.41 | raw 1.76 | ratio `max 2.5`, `target 1.3` |
+| In-process µs/request, 4 headers (Bun) | 5.17 | 2.41 | raw 1.76 | ratio `max 1.9`, `target 1.3` |
 | Wire throughput, hello (Bun, wrk 64 conns) | 42.4k rps | 75.7k rps | raw 96.2k | ratio `min 0.5`, `target 0.85` |
 | Probe failures not in `knownFailures` | 0 | — | — | `0` |
 | Runtime `new Function` / `eval` in framework source | 0 | — | — | `0`, CI guard |
@@ -414,11 +415,11 @@ Attribution from the profile (`profile` stage): incoming-header copy ≈ 18 % to
 
 | Phase | Goal (what ships) | Depends on | Exit condition (checkable) | Status |
 | ----- | ----------------- | ---------- | -------------------------- | ------ |
-| **P0** | `dev-check` + `budgets.json` + `.gitignore` entry | — | `node check.mjs` prints a table in ≤ 60 s on Bun; probes run on Bun and Node | ✅ Built (uncommitted) |
-| **P1** | CI job running `bundle cold inproc probe`; `new Function` guard | P0 | Job fails on a seeded regression and on a seeded `new Function` | ⬜ |
-| **P2** | RFC-039 P1 changes (lazy headers, lazy ip, lazy-armed timeout) | P0, RFC-039 | `inproc.nextrush.vs_hono` ≤ 1.6 and no new probe FAIL; `target` ratcheted | ⬜ |
-| **P3** | Deno + Edge entries, `--built` mode, optional Elysia arm | P0 | Probe list green per runtime with per-runtime expectations | ⬜ |
-| **P4** | AOT re-evaluation | a §17 criterion | A written decision (new RFC or Rejected) | ➖ Deferred |
+| **P0** | `dev-check` + `budgets.json` + `.gitignore` entry | — | `node check.mjs` prints a table in ≤ 60 s on Bun; probes run on Bun and Node | ✅ Built and committed — see §15 |
+| **P1** | CI job running `bundle cold inproc probe`; `new Function` guard | P0 | Job fails on a seeded regression and on a seeded `new Function` | ✅ Wired — `.github/workflows/ci.yml` `request-cost-gate` (Bun and Node, plus `bookkeeping`) |
+| **P2** | RFC-039 P1 changes (lazy headers, lazy ip, lazy-armed timeout) | P0, RFC-039 | `inproc.nextrush.vs_hono` ≤ 1.6 and no new probe FAIL; `target` ratcheted | ✅ Shipped — `db9bbda9`, `64ca11de`, `836dd6a5`, timeout-arming shape 1 in `bdbf75da`; gate ratcheted to `max` 1.9 / `target` 1.3 |
+| **P3** | Deno + Edge entries, `--built` mode, optional Elysia arm | P0 | Probe list green per runtime with per-runtime expectations | ✅ Shipped — Deno branch in every entry, real-workerd Edge probes, `--built` mode, Bun-only Elysia arm (no in-proc row) |
+| **P4** | AOT re-evaluation | a §17 criterion | A written decision (new RFC or Rejected) | ✅ Closed as deferred — §17 decision table records all four criteria as not observed |
 
 ### 15.1 Testing strategy
 
@@ -448,6 +449,18 @@ Attribution from the profile (`profile` stage): incoming-header copy ≈ 18 % to
 
 Any future AOT design must first answer: how are closure handlers emitted (exported references only?), what is the dry-run side-effect policy, and how are fast-path and fallback proven identical.
 
+**Decision (2026-10-19): stay deferred.** Each criterion was checked against the closure
+run, not against the earlier audit:
+
+| # | Criterion | Recorded result | Verdict |
+| --- | --- | --- | --- |
+| 1 | `cold.n1000.vs_hono` > 1.5 or registration > 25 µs/route on Bun | `cold.n1000.vs_hono` **0.48** (`check.mjs cold --rt bun`: NextRush 15.6 ms, Hono 32.2 ms); registration remains **≈2.5 µs/route** (RFC-040 §19, unchanged by this change) | Not observed |
+| 2 | Own schema-compile engine whose compile cost > ≈20 ms at 1,000 routes | P2 closed evidence-negative (1.5 % end-to-end delta, no compiled validator); P3's fixed-key serializer was rejected by measurement (RFC-042). No NextRush compile engine exists, so compile cost is **0 ms** | Not observed |
+| 3 | A deploy target forbids boot registration or bills cold start above its threshold | No target threshold was measured in this change; the Deno/Edge legs are opt-in and no platform forbids boot registration | Not observed |
+| 4 | Real applications report > 10,000 routes | Benchmark shapes are 1 route and 1,000 routes; no application report above 10,000 exists | Not observed |
+
+No criterion trips. AOT stays deferred; a future RFC is required before any implementation.
+
 Other follow-ups: Bun native `Bun.serve({ routes })` for static, middleware-free routes (Elysia measured 2–5 % on dynamic routes and ~0 on static); unbundled import-graph cost of the root entry on Bun/Deno/Node (not measured here); multi-process memory reporting.
 
 ---
@@ -457,7 +470,7 @@ Other follow-ups: Bun native `Bun.serve({ routes })` for static, middleware-free
 - [ ] Should CI run on a pinned runner class, or rely purely on ratios? (Start with ratios; revisit if flakes appear.)
 - [ ] Do we ship per-runtime subpaths (`nextrush/bun`, `nextrush/node`) for clarity even though bundle size does not need them? Hono v5 moved adapters to separate packages for maintenance and dependency reasons — measure the unbundled import graph before deciding.
 - [ ] Which Elysia version is the P3 reference while 2.x is beta?
-- [ ] Is `inproc` with 4 headers representative, or should CI also run 12 headers (`HEADERS=12`)? The header-copy cost grows with header count.
+- [x] Resolved — CI runs both: the inproc stage emits the 4-header and `HEADERS=12` pairs, and the h12 ratio is gated on Bun (`max 2.0`, `target 1.3`). The header-copy cost grows with header count, so 4 headers alone understated it.
 
 ---
 

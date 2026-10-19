@@ -12,9 +12,8 @@ import {
   DEFAULT_KEEP_ALIVE_TIMEOUT_MS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
-  LAST_RESORT_ERROR_STATUS,
   normalizeStartupError,
-  unansweredErrorBody,
+  SETTLE_TURNS,
 } from '@nextrush/runtime';
 import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
 import {
@@ -50,6 +49,27 @@ import {
  * queue").
  */
 const DEFAULT_LISTEN_BACKLOG = 1024;
+
+/**
+ * Headroom the socket-level slow-client guard keeps behind the handler deadline.
+ *
+ * @remarks
+ * `serve()` feeds one `timeout` to two independent guards. The handler race owns
+ * the response — a clean `504`, or a committed response that outlives the timeout
+ * (§3.1.1 of RFC-041) — while the socket guard only closes a socket nobody is
+ * going to write to. When both expire on the same tick the socket guard can
+ * destroy the socket first, turning a response that was ready to send into a
+ * client-side reset; that is what the conformance drivers had to work around by
+ * raising `httpServer.timeout` locally. Buffering a response until the chain
+ * unwinds makes that tie a real loss for every slow handler rather than a CI
+ * artifact, so the guard is kept strictly later instead of racing. The headroom
+ * is far longer than any tie (many event-loop turns on a loaded machine) and
+ * short enough to leave the slow-client guard meaningfully prompt.
+ *
+ * @internal Exported for the adapter's own timeout tests; not part of the
+ * package entry point.
+ */
+export const SOCKET_GUARD_HEADROOM_MS = 1_000;
 
 /**
  * Server options
@@ -272,33 +292,25 @@ export function createHandler(
     const ctx = createNodeContext(req, res, contextOptions);
 
     const finalizeSuccess = (): void => {
-      if (ctx.responded || res.headersSent) return;
-
-      // An error status that nothing wrote is answered with the framework's
-      // envelope — never an empty body the client cannot interpret. This is the
-      // adapter finalizer of three deliberately redundant layers that keep a
-      // request from going unanswered, and its body is byte-identical to the
-      // framework's own 404/500 payloads.
-      if (ctx.status >= LAST_RESORT_ERROR_STATUS) {
-        res.statusCode = ctx.status;
-        res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.end(JSON.stringify(unansweredErrorBody(ctx.status)));
-        return;
-      }
-
-      // F-09: a handler that resolves without responding (and without throwing)
-      // must still carry an explicit Content-Type — a bare status with no header
-      // violates project-rules §3 ("every response sets a Content-Type").
-      // text/plain is the honest default: there is no body to type more
-      // specifically.
-      res.statusCode = ctx.status;
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.end();
+      // The flush applies the unanswered fallback (the framework envelope for an
+      // error status, the documented empty response otherwise) and writes the
+      // recorded head and body exactly once.
+      ctx.flushResponse();
     };
 
     const finalizeError = (error: unknown): void => {
-      failRequest(res, error);
+      logger.error('Request error:', error);
+
+      // A response the handler already recorded still wins: on Node it would
+      // already be on the wire at this point before the recorded model.
+      if (!res.headersSent && !ctx.responded) {
+        ctx.status = 500;
+        ctx.json({ error: 'Internal Server Error' });
+      }
+      ctx.flushResponse();
     };
+
+    const handlerPromise = handler(ctx);
 
     if (timeout <= 0 || disableHandlerTimeoutRace) {
       // F-04: timeout disabled — behavior identical to before this change.
@@ -306,7 +318,7 @@ export function createHandler(
       // race (D4): `timeout` itself is untouched here, so callers reading it
       // elsewhere (e.g. `serve()`'s `server.timeout` assignment) still see
       // its configured value — only this closure's own race is skipped.
-      handler(ctx).then(finalizeSuccess, finalizeError);
+      handlerPromise.then(finalizeSuccess, finalizeError);
       return;
     }
 
@@ -315,28 +327,69 @@ export function createHandler(
     // `serve()`) remains the independent socket-level slow-client guard.
     //
     // F-01b: an explicit settled flag replaces Promise.race's array + inner
-    // Promise construction — at most one of the two branches below can act,
-    // since both check-and-set `settled` synchronously before doing anything
+    // Promise construction — at most one of the branches below can act, since
+    // each checks-and-sets `settled` synchronously before doing anything
     // observable, with no await between the check and the set.
     let settled = false;
-    const handlerPromise = handler(ctx);
 
-    // F-1: a handler that already committed its response before returning its
-    // promise cannot be timed out — the 504 below is guarded on
-    // `!ctx.responded && !res.headersSent`, so arming a timer for it buys
-    // nothing and costs a Timeout allocation plus an insert/remove on the 30s
-    // timer list. A synchronous middleware chain runs to completion before its
-    // async wrapper's promise is returned, so this is the common case; at 256
-    // in-flight requests that was up to 256 live Timeout objects, which is why
-    // the floor cost grew with concurrency.
+    // F-1, restated for the recorded model. A handler that committed before its
+    // promise returned can never be answered by the 504 branch, but its response
+    // is now delivered by the flush instead of already being on the wire, so a
+    // chain that commits and then hangs would hang the client. Post-handler
+    // middleware may still adjust the record, so the flush must wait for the
+    // chain to unwind; if it never unwinds, a deadline delivers what the handler
+    // produced — never a 504, because a committed response outlives the timeout
+    // (§3.1.1).
     //
-    // ADR-0010's contract is untouched for every handler that has NOT
-    // responded: those still race, still get the clean 504, and still get
-    // `ctx.signal` aborted. The only behaviour given up is aborting the signal
-    // of a handler that already answered and then kept working in the
-    // background — which the 504 branch could never have surfaced anyway.
+    // The deadline is armed only after a bounded microtask window, the same
+    // trade the Web runner's `dispatchWithTimeout` makes: a synchronous chain
+    // settles inside that window (measured: two to three microtasks), so the
+    // common case arms no Timeout at all — the measurement F-1 exists to
+    // protect — and a hung chain still gets one. The window is also what keeps
+    // the deadline inside the socket guard: arming a macrotask later would put
+    // the timer one turn *behind* `server.timeout`, letting the socket guard
+    // destroy a response that was ready to send.
     if (ctx.responded || res.headersSent) {
-      handlerPromise.then(finalizeSuccess, finalizeError);
+      let deadline: ReturnType<typeof setTimeout> | undefined;
+
+      let turn = 0;
+      const checkSettled = (): void => {
+        if (settled) return;
+        if (turn < SETTLE_TURNS) {
+          turn += 1;
+          queueMicrotask(checkSettled);
+          return;
+        }
+        deadline = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          // F-04: cancel the still-running handler cooperatively via ctx.signal.
+          ctx.triggerTimeout();
+          ctx.flushResponse();
+        }, timeout);
+      };
+      queueMicrotask(checkSettled);
+
+      const finish = (action: () => void): void => {
+        if (settled) return;
+        settled = true;
+        if (deadline !== undefined) clearTimeout(deadline);
+        action();
+      };
+
+      // The late-rejection-swallow contract (a handler rejecting after the
+      // timeout already acted must not surface as an unhandled rejection) is
+      // satisfied by attaching a rejection handler here regardless of `settled`.
+      handlerPromise.then(
+        () => {
+          finish(finalizeSuccess);
+        },
+        (error: unknown) => {
+          finish(() => {
+            finalizeError(error);
+          });
+        }
+      );
       return;
     }
 
@@ -351,12 +404,14 @@ export function createHandler(
 
       // F-04: cancel the still-running handler cooperatively via ctx.signal.
       ctx.triggerTimeout();
-      // Never clobber a response the handler already committed.
+
       if (!ctx.responded && !res.headersSent) {
-        res.statusCode = 504;
-        res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.end(JSON.stringify({ error: 'Gateway Timeout' }));
+        ctx.status = 504;
+        ctx.json({ error: 'Gateway Timeout' });
       }
+      // Never clobber a response the handler already committed: this is either
+      // the 504 just recorded, or the handler's own committed response.
+      ctx.flushResponse();
     }, timeout);
 
     handlerPromise.then(
@@ -626,7 +681,10 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
   // (fed the same `timeout`) is what actually produces the clean 504.
   // HTTP/2 servers manage timeouts per-session; skip server-level timeout.
   if (!isHttp2Server(server)) {
-    server.timeout = timeout;
+    // Buffering moves the response write to the handler race, so the socket
+    // guard must never expire on the same tick as it — see
+    // SOCKET_GUARD_HEADROOM_MS. `timeout: 0` still disables both together.
+    server.timeout = timeout > 0 ? timeout + SOCKET_GUARD_HEADROOM_MS : timeout;
     server.keepAliveTimeout = keepAliveTimeout;
   }
 

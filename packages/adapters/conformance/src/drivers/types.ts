@@ -156,23 +156,6 @@ export interface ConformanceDriver {
    */
   readonly honorsCloudflareIp: boolean;
 
-  /**
-   * Whether a header written AFTER the handler responded still reaches the
-   * client.
-   *
-   * @remarks
-   * This is where the two response models diverge. The Web adapters record the
-   * response and materialise it once the middleware chain unwinds, so a late
-   * write still lands. The Node adapter has already written the response by
-   * then, and the write itself fails — Node's header store is only readable for
-   * headers it was told about, and the response it wrote is already on the wire.
-   * An encoded difference (same shape as {@link honorsCloudflareIp}) rather than
-   * an expected-value table kept in the suite: the scenario reads this flag and
-   * asserts the OBSERVED behaviour agrees with it, so an adapter that changes
-   * under the framework fails the scenario instead of silently flipping.
-   */
-  readonly honorsPostHandlerHeaderWrite: boolean;
-
   /** Configure an app, dispatch one request, and return the normalized result. */
   dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult>;
 
@@ -198,4 +181,18 @@ export interface ConformanceDriver {
    * via `ctx.signal`. Returns `null` for Node (socket-level timeout).
    */
   timeoutResult(): Promise<{ status: number; signalFired: boolean } | null>;
+
+  /**
+   * Deliver a response the handler committed before it ran past the configured
+   * timeout (#30).
+   *
+   * @remarks
+   * The 504 is reserved for a request that produced nothing. A handler that
+   * answers and then keeps working has already produced the response the client
+   * is owed, so every adapter must deliver it rather than replace it with the
+   * timeout envelope. Asserted on the client-visible outcome only: whether a
+   * timer was armed for the request is an adapter-internal detail, and Node's
+   * synchronous fast path arms none at all.
+   */
+  committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }>;
 }

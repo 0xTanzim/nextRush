@@ -24,12 +24,29 @@ explains how each issue was found and measured.
 | [FB-02](fb-02-createhandler-boot-trap.md) | `createHandler(app)` on Bun/Deno silently drops routes | **High** (DX trap) | S | — | No |
 | [FB-05](fb-05-error-body-contract.md) | Wrong `code`, engine-specific messages, no 415 | Medium | S–M | — | No (RFC 9457 is separate) |
 | [FB-04](fb-04-dot-segment-adapter-parity.md) | Dot-segment rejection only works on Node | Medium (security parity) | M | — | No |
-| [FB-03](fb-03-response-commit-model-and-compression.md) | Eager response commit: Node/Web diverge, `compression` is a no-op | Medium–High | M now, L for the model | FB-01 | **Yes** — RFC-041 (reserved) for the model |
+| [FB-03](fb-03-response-commit-model-and-compression.md) | Eager response commit: Node/Web diverge, `compression` is a no-op | **✅ Done** — RFC-041 (2026-10-19) | M now, L for the model | FB-01 | Yes — RFC-041, adopted |
 | [FB-07](fb-07-web-adapter-request-footprint.md) | Bun per-request cost ≈ 2× Hono | Perf | M | RFC-039 / RFC-040 | No (RFC-039 owns it) |
 | [GP](gp-architecture-gaps-plan.md) | Architectural gaps (typed routes, parity, tests, governance) | Plan | L | varies | Yes |
 
-Recommended sequence: **FB-06 → FB-01 → FB-02 → FB-05 → FB-04 → FB-03 (interim) → FB-07 → GP items.**
+Recommended sequence: **FB-06 → FB-01 → FB-02 → FB-05 → FB-04 → ~~FB-03~~ ✅ → FB-07 → GP items.**
 FB-06, FB-01 and FB-02 are small, independent and can run in parallel with three agents.
+
+## Structural debt found while shipping RFC-041 (not fixed there)
+
+These are pre-existing and outlive the response-model change. They are recorded so they get their own
+change rather than a drive-by refactor inside a behaviour change. Each is a `code-structure.md`
+violation: the 300-line hard cap for a source file.
+
+| File | Lines | Why it was not split in RFC-041 |
+| --- | --- | --- |
+| `packages/adapters/conformance/src/suite.ts` | 965 | One file holds every scenario; splitting by capability is a mechanical but large move that would touch every driver's evidence ledger |
+| `packages/adapters/node/src/context.ts` | 845 | The Context shell: request accessors, cookies, streaming, and the response record. A split needs the streaming runners and body source extracted first |
+| `packages/adapters/node/src/adapter.ts` | 792 | Listener, drain-aware `writeHead`, `serve`, `listen` and the deprecated aliases. Splitting it risks the drain contract, which is single-implementation by design |
+| `packages/middleware/compression/src/middleware.ts` | 431 | Options resolution, eligibility, and the rewrite. The outgoing-response accessor was already extracted to `outgoing.ts` (RFC-041); the rest is a follow-up |
+
+A fifth violation was fixed in RFC-041 itself rather than deferred: `packages/runtime/src/outgoing-response.ts`
+was 313 lines after the length-invalidation change, and the once-per-process report moved to
+`outgoing-warnings.ts` (292 lines).
 
 ## Rules every brief assumes
 

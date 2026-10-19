@@ -2,6 +2,13 @@
 // can be their own CI step. They guard the two artefacts around the gate itself —
 // the exemption bookkeeping and the change's own comment hygiene.
 
+import {
+  RUNTIMES,
+  flattenRules,
+  misexecutedRules,
+  uncoveredRules,
+  validateRules,
+} from '../budget-rules.mjs';
 import { declaredIds, findOrphanIds } from '../known-failures.mjs';
 import { scanAddedCommentTokens } from '../hygiene.mjs';
 import { registry } from '../probe-registry.mjs';
@@ -18,8 +25,48 @@ export function stageBookkeeping(ctx) {
   const ids = declaredIds(knownFailures);
   const orphans = findOrphanIds(registry(), knownFailures);
 
+  const ruleErrors = validateRules(ctx.budgets);
+  for (const error of ruleErrors) {
+    ctx.row('FAIL', 'bookkeeping.budget-rules', error, 'fix budgets.json');
+  }
+  if (ruleErrors.length === 0) {
+    ctx.row('PASS', 'bookkeeping.budget-rules', `${String(flattenRules(ctx.budgets).length)} rule(s) valid`);
+  }
+
+  ctx.onFinalize(() => {
+    const flat = flattenRules(ctx.budgets);
+    const missing = uncoveredRules(flat, {
+      rt: ctx.rt,
+      selectedStages: ctx.selectedStages,
+      evaluated: ctx.evaluated,
+    });
+    for (const { name, stage } of missing) {
+      ctx.row(
+        'FAIL',
+        'bookkeeping.budget-coverage',
+        `${name} (${stage})`,
+        `applies to ${ctx.rt} but was never gated`
+      );
+    }
+    const bad = misexecutedRules(flat, { rt: ctx.rt, evaluated: ctx.evaluated });
+    for (const { name } of bad) {
+      ctx.row(
+        'FAIL',
+        'bookkeeping.budget-coverage',
+        name,
+        `gated on ${ctx.rt} but its runtimes exclude it`
+      );
+    }
+    if (missing.length === 0 && bad.length === 0 && ctx.selectedStages.length > 0) {
+      const applicable = flat.filter(
+        ({ stage, rule }) => ctx.selectedStages.includes(stage) && rule.runtimes?.includes(ctx.rt)
+      ).length;
+      ctx.row('PASS', 'bookkeeping.budget-coverage', `${String(applicable)} applicable rule(s) evaluated`);
+    }
+  });
+
   for (const [id, spec] of Object.entries(knownFailures)) {
-    const valid = spec === '*' || (Array.isArray(spec) && spec.every((r) => ['bun', 'node'].includes(r)));
+    const valid = spec === '*' || (Array.isArray(spec) && spec.every((r) => RUNTIMES.includes(r)));
     if (!valid) {
       ctx.row('FAIL', `bookkeeping.${id}`, JSON.stringify(spec), "must be '*' or an array of runtime names");
     }

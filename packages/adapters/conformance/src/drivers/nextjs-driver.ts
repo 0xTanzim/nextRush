@@ -55,7 +55,6 @@ export const nextjsDriver: ConformanceDriver = {
   teardownOnShutdown: false, // no server lifetime, like edge (F-14) — handle() never calls close()
   transportAbortFiresSignal: true, // the forwarded Request's own .signal aborts, same as edge
   honorsCloudflareIp: true, // reuses the edge context → cf-connecting-ip precedence (F-11)
-  honorsPostHandlerHeaderWrite: true, // reuses the edge context → recorded response
   // `false`, because this driver builds its synthetic Request through `URL`, which
   // resolves a dot segment before anything downstream can see it — the target that
   // reaches the handler is already the resolved form (see `toRequest`). The scenario
@@ -129,5 +128,21 @@ export const nextjsDriver: ConformanceDriver = {
     const { GET } = handle(app, { timeout: 10 });
     const response = await GET(new Request(new URL('/', BASE_URL)), { params: Promise.resolve({}) });
     return { status: response.status, signalFired };
+  },
+
+  async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+    const app = createApp();
+    app.use(async (ctx) => {
+      // Commit after a microtask so the adapter arms its timer: the harder
+      // case is a response committed while that timer is already running.
+      await Promise.resolve();
+      ctx.json({ ok: true });
+      // Outlives the timeout below, so the timer fires with the response
+      // already committed.
+      await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    });
+    const { GET } = handle(app, { timeout: 10 });
+    const response = await GET(new Request(new URL('/', BASE_URL)), { params: Promise.resolve({}) });
+    return { status: response.status, body: await response.json() };
   },
 };

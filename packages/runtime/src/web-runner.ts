@@ -92,8 +92,23 @@ type Dispatch = Promise<void>;
  * The bound is a trade: too low and a fast handler still pays for a timer, too
  * high and a genuinely stuck handler waits that many microtasks (nanoseconds)
  * before its timeout starts counting.
+ *
+ * @internal Shared with the Node adapter so both timeout races use one bound.
  */
-const SETTLE_TURNS = 4;
+export const SETTLE_TURNS = 4;
+
+/**
+ * Whether a context has already committed its response.
+ *
+ * @remarks
+ * The post-timeout check cannot read `ctx.responded` directly: control-flow
+ * analysis does not treat an `await` as a mutation point, so the field stays
+ * narrowed to the `false` established by the pre-dispatch check. Going through a
+ * call reads the value as it is when the timer fired.
+ */
+function hasCommittedResponse(ctx: WebRunnerContext): boolean {
+  return ctx.responded;
+}
 
 /**
  * Await a dispatch, arming a timeout timer only if it is still pending.
@@ -195,18 +210,40 @@ export function createWebRunner<TCtx extends WebRunnerContext, TExtra = undefine
       handler ??= await boot.ensure();
 
       if (options.timeout > 0) {
-        const timedOut = await dispatchWithTimeout(handler(ctx), options.timeout, () => {
-          ctx.triggerTimeout();
-        });
+        const dispatch = handler(ctx);
 
-        if (timedOut) {
-          if (options.timeoutWarningSource !== undefined) {
-            logger.warn(
-              `[nextrush/${options.label}] Request timed out after ${String(options.timeout)}ms ` +
-                `(${options.timeoutWarningSource}) — returning 504. ${ctx.method} ${ctx.path}`
-            );
+        // A handler that committed its response before returning its promise
+        // cannot be timed out: the 504 is reserved for a request that produced
+        // nothing, so no timer needs arming. The chain is still awaited — a
+        // post-handler middleware may still land a header on the recorded
+        // response — and the settlement wrapper is allocated only on the path
+        // that can actually arm a timer.
+        if (ctx.responded) {
+          await dispatch;
+        } else {
+          const timedOut = await dispatchWithTimeout(dispatch, options.timeout, () => {
+            ctx.triggerTimeout();
+          });
+
+          if (timedOut) {
+            // A handler that committed a response after its promise was returned
+            // and then ran past the timeout: the response is already produced, so
+            // answer it. Node keeps the committed response in the same situation
+            // (its 504 write is guarded the same way), and `triggerTimeout` above
+            // already aborted `ctx.signal`. No warning is emitted, because the
+            // warning states that a 504 was returned.
+            if (hasCommittedResponse(ctx)) {
+              return ctx.getResponse();
+            }
+
+            if (options.timeoutWarningSource !== undefined) {
+              logger.warn(
+                `[nextrush/${options.label}] Request timed out after ${String(options.timeout)}ms ` +
+                  `(${options.timeoutWarningSource}) — returning 504. ${ctx.method} ${ctx.path}`
+              );
+            }
+            return jsonErrorResponse(504, 'Gateway Timeout');
           }
-          return jsonErrorResponse(504, 'Gateway Timeout');
         }
       } else {
         await handler(ctx);

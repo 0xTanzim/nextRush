@@ -76,7 +76,6 @@ function createWebDriver(
     honorsCloudflareIp,
     // The response is recorded and materialised after the chain unwinds, so a
     // header written after `await next()` still reaches the client.
-    honorsPostHandlerHeaderWrite: true,
     // The capability of the platform being simulated, not of this Node process —
     // a simulated driver must not claim Node's answer for a Bun adapter.
     rawRequestTarget: capabilitiesFor(simulatedRuntime).rawRequestTarget,
@@ -143,6 +142,22 @@ function createWebDriver(
       await app.ready();
       const response = await invoke(app, buildRequest({ path: '/' }), { timeout: 10 }, '127.0.0.1');
       return { status: response.status, signalFired };
+    },
+
+    async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+      const app = createApp();
+      app.use(async (ctx) => {
+        // Commit after a microtask so the adapter arms its timer: the harder
+        // case is a response committed while that timer is already running.
+        await Promise.resolve();
+        ctx.json({ ok: true });
+        // Outlives the timeout below, so the timer fires with the response
+        // already committed.
+        await new Promise<void>((resolve) => setTimeout(resolve, 40));
+      });
+      await app.ready();
+      const response = await invoke(app, buildRequest({ path: '/' }), { timeout: 10 }, '');
+      return { status: response.status, body: await response.json() };
     },
   };
 }

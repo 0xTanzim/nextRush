@@ -200,6 +200,26 @@ const realBunDriver: ConformanceDriver = {
       await server.close();
     }
   },
+
+  async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+    const app = createApp();
+    app.use(async (ctx) => {
+      // Commit after a microtask so the adapter arms its timer: the harder
+      // case is a response committed while that timer is already running.
+      await Promise.resolve();
+      ctx.json({ ok: true });
+      // Outlives the timeout below, so the timer fires with the response
+      // already committed.
+      await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    });
+    const server = await serve(app, { port: 0, timeout: 10 });
+    try {
+      const res = await rawFetch(server.port);
+      return { status: res.status, body: await res.json() };
+    } finally {
+      await server.close();
+    }
+  },
 };
 
 describe('bun adapter — full cross-adapter conformance suite on real Bun', () => {

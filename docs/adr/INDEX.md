@@ -40,6 +40,9 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0025](ADR-0025-first-class-ctx-cookies-capability.md) | First-class `ctx.cookies` context capability (typed, always-present, actionable `CapabilityNotInitializedError`; `ctx.state.cookies` deprecated) | Accepted | `docs/RFC/request-data/034-cookies-first-class-context-capability.md` |
 | [ADR-0026](ADR-0026-public-interop-tier.md) | Public `interop` package tier (stable, Node-shaped raw HTTP only) | Accepted | `docs/RFC/ecosystem-interop/035-express-bridge.md` |
 | [ADR-0027](ADR-0027-repo-linter-and-compiler-lockstep.md) | Repo linter is Oxlint; `typescript` ↔ `oxlint-tsgolint` version lockstep | Accepted · Shipped | `docs/RFC/repo-tooling/037-typescript-7-oxlint-migration.md` |
+| [ADR-0028](ADR-0028-precompile-tiers-measured-evidence.md) | Precompile tiers ship only on measured evidence | Accepted | `docs/RFC/runtime-adapters/039-precompile-per-request-tax.md` |
+| [ADR-0029](ADR-0029-runtime-scoped-budgets-deferred-aot.md) | Runtime-scoped budgets and deferred AOT | Accepted | `docs/RFC/runtime-adapters/040-resource-budgets-and-request-path-footprint.md` |
+| [ADR-0030](ADR-0030-recorded-outgoing-response.md) | Recorded outgoing response model | Accepted · Shipped | `docs/RFC/runtime-adapters/041-recorded-response-model.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

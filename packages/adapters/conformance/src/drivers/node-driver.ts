@@ -123,7 +123,6 @@ export const nodeDriver: ConformanceDriver = {
   honorsCloudflareIp: false, // Node ignores cf-connecting-ip (F-11)
   // The response is written and ended inside the handler, so a header set after
   // `await next()` resolves has no open response to land in.
-  honorsPostHandlerHeaderWrite: false,
   rawRequestTarget: getRuntimeCapabilities().rawRequestTarget,
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
@@ -194,19 +193,12 @@ export const nodeDriver: ConformanceDriver = {
       });
     });
     return (async () => {
+      // No socket-guard override: `serve()` keeps `server.timeout` strictly
+      // later than the handler deadline, so the clean 504 always gets to write
+      // before the guard can close an idle socket. This case used to raise
+      // `httpServer.timeout` locally to dodge that race; the ordering fix is
+      // what makes the override unnecessary.
       const server = await serve(app, { port: 0, timeout: 10 });
-      // F-04 isolation: `serve()` feeds the single `timeout` to BOTH the
-      // handler-race timer (the clean-504 producer) and Node's independent
-      // socket-level slow-client guard (`server.timeout`). At `timeout: 10ms`
-      // the socket guard is armed at the same 10ms and, on a contended CI
-      // runner, can destroy the idle socket — surfacing as ECONNRESET on the
-      // client — before the handler writes its 504. This case isolates the
-      // HANDLER race (the cross-adapter F-04/F-08 parity contract), so give the
-      // socket guard generous, independent time to stay out of the way. This
-      // driver only boots a plain node:http server (no TLS), so narrow to it.
-      const httpServer = server.server as import('node:http').Server;
-      httpServer.timeout = 5_000;
-      httpServer.keepAliveTimeout = 5_000;
       try {
         const raw = await rawRequest(server.port, { path: '/' });
         return { status: raw.status, signalFired };
@@ -214,5 +206,28 @@ export const nodeDriver: ConformanceDriver = {
         await server.close();
       }
     })();
+  },
+
+  async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+    const app = createApp();
+    app.use(async (ctx) => {
+      // Commit after a microtask so the adapter arms its timer: the harder
+      // case is a response committed while that timer is already running.
+      await Promise.resolve();
+      ctx.json({ ok: true });
+      // Outlives the timeout below, so the timer fires with the response
+      // already committed.
+      await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    });
+    // No socket-guard override — see `timeoutResult`: `serve()` keeps the guard
+    // strictly behind the handler deadline, so the committed response is flushed
+    // before the guard can fire.
+    const server = await serve(app, { port: 0, timeout: 10 });
+    try {
+      const raw = await rawRequest(server.port, { path: '/' });
+      return { status: raw.status, body: JSON.parse(raw.body) as unknown };
+    } finally {
+      await server.close();
+    }
   },
 };

@@ -10,7 +10,8 @@ import type { Middleware } from '@nextrush/types';
 
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_LIMITS } from '../constants.js';
 import type { BodyParserContext, RawOptions } from '../types.js';
-import { getContentType, matchContentType } from '../utils/content-type.js';
+import { matchContentType } from '../utils/content-type.js';
+import { readHeader } from '../utils/header-value.js';
 import { toRawBody } from '../utils/buffer.js';
 import { parseLimit } from '../utils/limit.js';
 import { readBody } from './reader.js';
@@ -73,7 +74,7 @@ export function raw(options: RawOptions = {}): Middleware {
         if (next) await next();
         return;
       }
-      const contentType = getContentType(ctx.headers);
+      const contentType = readHeader(ctx, 'content-type');
       if (!matchContentType(contentType, types)) {
         if (next) await next();
         return;

@@ -29,8 +29,10 @@ describe('NodeContext - serialize before commit', () => {
     const { ctx, writeHead, end } = makeCtx();
 
     ctx.json({ ok: true });
-
     expect(ctx.responded).toBe(true);
+
+    ctx.flushResponse();
+
     expect(writeHead).toHaveBeenCalledWith(200, {
       'Content-Type': 'application/json; charset=utf-8',
       'Content-Length': '11',
@@ -72,8 +74,10 @@ describe('NodeContext - serialize before commit', () => {
 
     const envelope = { error: 'Internal Server Error', status: 500 };
     ctx.json(envelope);
-
     expect(ctx.responded).toBe(true);
+
+    ctx.flushResponse();
+
     expect(end).toHaveBeenCalledWith(JSON.stringify(envelope));
   });
 
@@ -125,21 +129,32 @@ describe('NodeContext - serialize before commit', () => {
     const { ctx, end } = makeCtx();
 
     ctx.send(value as never);
-
     expect(ctx.responded).toBe(true);
+
+    ctx.flushResponse();
+
     expect(end).toHaveBeenCalled();
-    expect(end.mock.calls[0]?.[0]?.toString()).toBe(written);
+    // The recorded body is written through in the form it was recorded: a string
+    // reaches `res.end` as a string (Node encodes it once, no intermediate
+    // array), and bytes reach it as bytes.
+    const chunk = end.mock.calls[0]?.[0];
+    const text =
+      typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk as Uint8Array);
+    expect(text).toBe(written);
+    expect(typeof chunk).toBe(typeof value === 'string' ? 'string' : typeof chunk);
   });
 
   it('commits and writes html() and redirect()', () => {
     const html = makeCtx();
     html.ctx.html('<p>hi</p>');
     expect(html.ctx.responded).toBe(true);
+    html.ctx.flushResponse();
     expect(html.end).toHaveBeenCalledWith('<p>hi</p>');
 
     const redirect = makeCtx();
     redirect.ctx.redirect('/next');
     expect(redirect.ctx.responded).toBe(true);
+    redirect.ctx.flushResponse();
     expect(redirect.end).toHaveBeenCalledWith('Redirecting to /next');
   });
 

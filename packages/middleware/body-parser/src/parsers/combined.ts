@@ -11,7 +11,8 @@ import type { Middleware } from '@nextrush/types';
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES } from '../constants.js';
 import { Errors } from '../errors.js';
 import type { BodyParserContext, BodyParserOptions } from '../types.js';
-import { getContentType, matchContentType } from '../utils/content-type.js';
+import { matchContentType } from '../utils/content-type.js';
+import { readHeader } from '../utils/header-value.js';
 import { json } from './json.js';
 import { raw } from './raw.js';
 import { text } from './text.js';
@@ -140,7 +141,7 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
     }
 
     // Get content type for routing
-    const contentType = getContentType(ctx.headers);
+    const contentType = readHeader(ctx, 'content-type');
 
     // Route to appropriate parser based on content type
     // Order matters: check more specific types first

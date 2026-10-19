@@ -255,8 +255,25 @@ const handler = createCloudflareHandler(app, {
 | Option | Type | Required | Default | Security-sensitive | Description |
 | ------ | ---- | -------- | ------- | ------------------- | ------------ |
 | `onError` | `(error: Error, ctx: EdgeContext) => Response \| Promise<Response>` | No | built-in JSON 500 | -- | Custom error handler; receives the thrown error and the in-flight context |
-| `timeout` | `number` | No | `24000` (`DEFAULT_EDGE_TIMEOUT_MS`) | -- | Request timeout in ms; races the handler and returns `504` on expiry, aborting `ctx.signal`. `0` disables the framework timeout (the platform's own limit still applies) |
+| `timeout` | `number` | No | `24000` (`DEFAULT_EDGE_TIMEOUT_MS`) | -- | Request timeout in ms; races the handler and returns `504` on expiry when the handler has not already committed a response, aborting `ctx.signal`. `0` disables the framework timeout (the platform's own limit still applies) |
 | `platform` | `PlatformId` | No | detected (see below) | -- | Overrides the detected value of `ctx.platform`. Set by `@nextrush/adapter-serverless`'s Tier-1 handlers, which know their provider unambiguously; application code on Cloudflare/Vercel/Netlify does not need it |
+
+**Request timeout and a committed response**
+
+A `504 Gateway Timeout` is reserved for a request that has produced nothing. A handler that commits a
+response and then keeps working past `timeout` has already produced the answer, so that response is
+delivered and the timeout does not replace it. The handler is still cancelled cooperatively: the
+timeout aborts `ctx.signal`. `@nextrush/adapter-node` already behaved this way.
+
+No timer is armed for a request whose handler has already committed its response when the runner
+takes over, so an already-settled handler performs no timeout racing. A handler that has not
+settled is still raced exactly as before.
+
+> **Behaviour change (observable):** this shape previously returned `504 Gateway Timeout` on every Web
+> adapter and discarded the handler's response, while Node delivered it. **Migration:** a handler that
+> answers once and returns needs no change. If you used the `504` to detect a handler that kept working
+> after answering, that response status no longer carries the signal -- observe `ctx.signal` inside the
+> handler, or your own timing, instead.
 
 ## Platform reporting (`ctx.platform`)
 

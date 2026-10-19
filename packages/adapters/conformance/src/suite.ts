@@ -28,6 +28,7 @@ import { cookies } from '@nextrush/cookies';
 import { createRouter } from '@nextrush/router';
 import { registerScenario } from './scenario';
 import { expect } from '@nextrush/adapter-conformance/test-primitives';
+import { OUTGOING_RESPONSE } from '@nextrush/types';
 import type { ConformanceDriver } from './drivers/types';
 import { json } from './support';
 
@@ -655,19 +656,16 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
   // as the dot-segment scenario above.
   registerScenario(
     driver,
-    '#29 middleware: a header written after the handler responds reaches the client where the adapter records the response',
+    '#29 middleware: a header written after the handler responds reaches the client',
     {},
     async () => {
       const res = await driver.dispatch((app) => {
         app.use(async (ctx, next) => {
           await next();
-          // Adapters that have already written the response fail this write
-          // outright; the assertion below is about the outcome, not the throw.
-          try {
-            ctx.set('X-Late-Header', 'written-after-handler');
-          } catch {
-            // Recorded by the capability flag this scenario asserts.
-          }
+          // Every adapter records the response and flushes it once the chain
+          // unwinds, so this write must land — and must not throw (RFC-041
+          // §3.1.1: a discarded write is reported, never thrown).
+          ctx.set('X-Late-Header', 'written-after-handler');
         });
         app.use((ctx) => {
           ctx.json({ ok: true });
@@ -675,9 +673,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
       });
 
       expect(res.status).toBe(200);
-      expect(res.header('x-late-header') ?? null).toBe(
-        driver.honorsPostHandlerHeaderWrite ? 'written-after-handler' : null
-      );
+      expect(res.header('x-late-header')).toBe('written-after-handler');
       expect(json<{ ok: boolean }>(res).ok).toBe(true);
     }
   );
@@ -693,6 +689,55 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
       expect(result).toBeNull();
     }
   });
+
+  registerScenario(driver, '#30 timeout: a response the handler already committed outlives the handler timeout', {}, async () => {
+    // The 504 is reserved for a request that produced nothing: a handler that
+    // answered and then ran past the timeout must still have its response
+    // delivered on every adapter. Restoring the Web 504 path fails this.
+    const result = await driver.committedResponseOutlivesTimeout();
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ ok: true });
+  });
+
+  registerScenario(
+    driver,
+    '#31 middleware: a body rewritten after the handler is the body the client receives',
+    {},
+    async () => {
+      // The counterpart to #29 for the body: a response-rewriting middleware
+      // (compression is the shipped one) must be able to replace the recorded
+      // body after the handler ran, and the flushed response must describe the
+      // replacement — never the body it replaced.
+      const original = JSON.stringify({ original: 'this body must not reach the client' });
+      const replacement = JSON.stringify({ rewritten: true });
+      const replacementLength = new TextEncoder().encode(replacement).byteLength;
+
+      const res = await driver.dispatch((app) => {
+        app.use(async (ctx, next) => {
+          await next();
+          const record = ctx[OUTGOING_RESPONSE];
+          expect(record).toBeDefined();
+          record?.setBody(replacement);
+        });
+        app.use((ctx) => {
+          // A stale length for the original body: the replacement must not
+          // inherit it, or the client would read a truncated response.
+          ctx.set('Content-Length', String(new TextEncoder().encode(original).byteLength));
+          ctx.json({ original: 'this body must not reach the client' });
+        });
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.header('content-type')).toContain('application/json');
+      expect(res.text()).toBe(replacement);
+
+      // Frames the replacement when the adapter reports a length; a Web adapter
+      // that lets the platform frame the body omits it here. Either way it must
+      // never be the replaced body's length.
+      const declared = res.header('content-length');
+      if (declared !== undefined) expect(declared).toBe(String(replacementLength));
+    }
+  );
 
   registerScenario(driver, '#15 abort: ctx.signal fires when the transport aborts mid-request', {}, async () => {
     if (driver.transportAbortFiresSignal) {

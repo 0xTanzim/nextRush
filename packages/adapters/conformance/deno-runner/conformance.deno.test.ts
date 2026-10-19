@@ -285,6 +285,24 @@ const realDenoDriver: ConformanceDriver = {
       return { status: response.status, signalFired };
     });
   },
+
+  async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+    const app = createApp();
+    app.use(async (ctx) => {
+      // Commit after a microtask so the adapter arms its timer: the harder
+      // case is a response committed while that timer is already running.
+      await Promise.resolve();
+      ctx.json({ ok: true });
+      // Outlives the timeout below, so the timer fires with the response
+      // already committed.
+      await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    });
+
+    return await withServer(app, { timeout: 10 }, async (server) => {
+      const response = await rawFetch(server.port);
+      return { status: response.status, body: await response.json() };
+    });
+  },
 };
 
 defineConformanceSuite(realDenoDriver);

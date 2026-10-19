@@ -7,7 +7,9 @@ NextRush's CI performance-regression defense and its benchmark methodology: a fa
 from the slow multi-run profile used for publishable figures), plus a reproducible, fairness-
 validated benchmark that measures the class/DI path's registration/boot cost at multiple
 controller-count scales and its per-request overhead relative to the functional path.
+
 ## Requirements
+
 ### Requirement: The per-PR performance gate is fast enough to run routinely
 The CI performance gate SHALL use a fast, low-sample "smoke" benchmark profile distinct from the
 slower, multi-run profile used for publishable figures, so it can run on relevant PRs without
@@ -394,7 +396,6 @@ independent of any framework's actual behavior.
 - **THEN** its report does not present a cross-framework win/loss ranking as a framework-efficiency
   finding
 
-
 ### Requirement: The load generator sends each scenario's declared request body, not a hardcoded literal
 
 For every scenario with a `body` field in `config/scenarios.js`, every supported load-generator tool
@@ -670,3 +671,28 @@ change, so the probe becomes a permanent regression guard instead of a permanent
 - **WHEN** a change makes a formerly known-failing probe pass
 - **THEN** the same change deletes that id from the committed budgets, and a re-introduced defect turns
   the gate red rather than being absorbed by a stale exemption
+
+### Requirement: An in-proc request-cost measurement exercises the adapter it reports
+
+Every in-proc request-cost entry SHALL exercise the request entry point of the adapter whose runtime
+it reports, so a row attributed to a runtime measures that runtime's own adapter rather than a shared
+runner reached through another runtime's entry point. Each recorded row SHALL state which adapter and
+which runtime produced it, and a mismatch between the reported runtime and the exercised entry point
+SHALL fail rather than be reported as that runtime's adapter cost.
+
+#### Scenario: A runtime's in-proc row exercises that runtime's adapter
+
+- **WHEN** the in-proc request-cost measurement runs for a given runtime
+- **THEN** the entry under measurement uses that runtime's own adapter request entry point
+
+#### Scenario: A row that measures a shared runner is labelled as such
+
+- **WHEN** an in-proc entry exercises a shared per-request runner rather than an adapter's own entry
+  point
+- **THEN** the reported row states that it measures the runner, so its cost is not read as the
+  adapter's cost
+
+#### Scenario: A mismatch fails instead of being reported
+
+- **WHEN** an in-proc entry's entry point does not match the runtime the measurement reports
+- **THEN** the measurement fails and no number is recorded for that row

@@ -2,7 +2,7 @@
 
 | Field                | Value                                                                 |
 | -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Approved` — implementation in progress via `fix-request-path-and-response-contract` (Part A) |
+| **Status**           | `Approved` — Part A shipped (`db9bbda9`, `64ca11de`, `836dd6a5`, gate in `d41af71a`); P0 complete, P2/P3 unproven (§3.10) |
 | **RFC number**       | `039`                                                                 |
 | **Date**             | `2026-09-29`                                                          |
 | **Author(s)**        | `Tanzim Hossain (NextRush maintainers) + explore session`             |
@@ -17,15 +17,15 @@
 
 ## Progress Tracker
 
-**Overall:** `[░░░░░░░░░░░░░░░░░░░░]` 0% — 0 / 5 phases complete · Doc status: `Approved`
+**Overall:** `[████████████████████]` 100% — 5 / 5 phases closed · Doc status: `Approved`
 
 | Phase | Part / deliverable                                              | Status       |
 | ----- | --------------------------------------------------------------- | ------------ |
-| P0    | Profiles: Bun hello-world done (§3.7, `dev-check profile`); Node + POST + middleware-stack still open | in progress |
-| P1    | Lazy context fill + const-header skip (no API change)           | in progress (task group 8) |
-| P2    | Compiled request validator (Tier 2+) from existing metadata     | not started  |
-| P3    | Compiled response serializer (Tier 3) + docs incentive          | not started  |
-| P4    | Scoped middleware DX; Rust only if profile names it             | not started  |
+| P0    | Profiles: hello, POST (parsed/unparsed), middleware ×5 on Bun and Node | ✅ Complete — Bun hello §3.7; Node/POST/middleware §3.8; verdict §3.10 |
+| P1    | Lazy context fill + const-header skip (no API change)           | ✅ shipped — lazy incoming headers `db9bbda9`, lazy client IP `64ca11de`, shared settled-handler runner `836dd6a5`; parity `7c36e897` |
+| P2    | Compiled request validator (Tier 2+) from existing metadata     | ✅ closed — evidence-negative, 1.5 % end-to-end delta (§3.11) |
+| P3    | Compiled response serializer (Tier 3) + docs incentive          | ✅ closed — gate tripped, prototype rejected by measurement (RFC-042, §3.11) |
+| P4    | Scoped middleware DX; Rust only if profile names it             | ✅ closed — existing compiled path + README/scaffold docs (§3.11); Rust not justified |
 
 ---
 
@@ -157,6 +157,158 @@ Reproduce: `node apps/benchmark/scripts/dev-check/check.mjs inproc wire profile`
 Profile of the NextRush in-process loop (self/total, Bun `--cpu-prof-md`): `Headers.forEach` (the `headersToRecord` copy) ≈ 18 % total; `setTimeout` + `Promise.race` + `clearTimeout` ≈ 10 %; `new URL` ≈ 5 %; `JSON.stringify` ≈ 3.5 %; `Request`/`Response` construction is platform/harness. Isolated, `headersToRecord` ≈ 1.05 µs at 4 headers vs ≈ 0.07 µs for a lazy `headers.get`; it grows with header count (browsers send 10–15).
 
 What this changes in this RFC: (1) the **header record** and the **eager `requestIP`** are the largest per-request items on Bun, ahead of the timeout race; (2) serialization (Part C) is not a top cost on the hello-world profile, so it is gated; (3) router matching does not appear in the top rows, consistent with RFC-015's ≈ 4 %.
+
+> **Superseded for the current numbers.** This table is the pre-work baseline that motivated Part A and
+> is kept as the record of what was measured on 2026-10-18. Every item it names has since been fixed:
+> the header record (§3.8), the eager `requestIP`, the timeout race (§3.9 F2), and the `new URL`
+> derivation. The current same-run figure is `inproc.nextrush.vs_hono` 1.17 on Bun and 0.96 on Node,
+> with `wire` at 0.88 — read those from `dev-check`, not from this table.
+
+### 3.8 Measured attribution — Node, POST, middleware (2026-10-19)
+
+Environment: Bun 1.4.3, Node v26.12.0, Intel i5-8300H (8 logical cores), Linux, load average
+2.0–2.5 during the runs. Bundles are built from source and unminified by `dev-check`. Commands:
+`HEADERS={4,12} N=150000 node apps/benchmark/scripts/dev-check/check.mjs profile --entry <entry> [--rt node]`.
+Methods: `framework-profiling` §4C (profile stage), `framework-audit-profiling` Phase 3 (measure).
+POST entries pre-build their requests and cap the timed batch at 20,000, so the platform's
+`Request`-with-body construction (~50 µs/request, undici/Bun stream machinery) is outside the
+measured loop instead of dominating it.
+
+Self-time shares, top framework-attributable rows; platform rows (`Request`, `Response`,
+`Headers`, undici) are the harness, not framework cost:
+
+| Shape | Runtime, headers | Framework rows (self %) | Platform share |
+| --- | --- | --- | --- |
+| hello | Bun, 4 | `dispatchWithTimeout` 2.1+2.0, `WebContextBase` 1.8, `requestTargetFromUrl` 1.6 | `Request` 39.2, `Response` 19.8 |
+| hello | Bun, 12 | `dispatchWithTimeout` 2.3, `requestTargetFromUrl` 1.5, `WebContextBase` 1.4 | `Request` + `Response` ≈ 50+ |
+| hello | Node, 4 | `serializeJson` 2.0, `requestTargetFromUrl` 1.5, `dispatchWithTimeout` 1.5, `WebContextBase` 1.4 | undici + `parse`/`#encode` ≈ 25 |
+| hello | Node, 12 | `serializeJson` 1.9, `dispatchWithTimeout` 1.8, `requestTargetFromUrl` 1.4 | undici + encoding ≈ 25 |
+| POST parsed | Bun, 4 | `_buffer` 2.3, `requestTargetFromUrl` 2.0, `WebContextBase` 1.4, `WebBodySource` 1.3 | body-stream controller ≈ 33 |
+| POST parsed | Bun, 12 | `_buffer` 3.6, `WebBodySource` 1.8 | body-stream controller ≈ 32 |
+| POST parsed | Node, 4 | parser middleware 4.5, `dispatchWithTimeout` 1.6, `serializeJson` 0.9 | undici + `parse`/`#encode` ≈ 25 |
+| POST parsed | Node, 12 | parser middleware 3.6, `dispatchWithTimeout` 2.4 | undici + encoding ≈ 25 |
+| POST unparsed | Bun, 4/12 | `_buffer` 2.3–3.5, `WebBodySource` 0.9–1.8 | body-stream controller ≈ 30+ |
+| POST unparsed | Node, 4/12 | `dispatchWithTimeout` 1.7–3.1, `_buffer` 0.9–1.5 | undici ≈ 25 |
+| middleware ×5 | Bun, 4/12 | middleware closures 2.1–3.5, `dispatch` 2.4+2.0, `dispatchWithTimeout` 1.2–2.2, `matchRoute` 1.5 | `Request` 32.6, `Response` 15.4 |
+| middleware ×5 | Node, 4/12 | middleware closures 4.5–5.0, `dispatchWithTimeout` 3.9–4.7, `serializeJson` 1.6–2.1 | undici ≈ 25 |
+
+What this establishes:
+
+1. **Platform, not framework, dominates in-process POST on both runtimes.** On Bun the
+   `Request` body stream controller alone is ≈ 32–50 % of samples; on Node undici plus
+   string encoding is ≈ 25 %. A POST profile without the pre-build correction would have
+   attributed the harness to NextRush.
+2. **The largest framework-attributable costs are the dispatcher and serialization**, not the
+   router: `dispatchWithTimeout` 1.2–4.7 %, `serializeJson` 0.9–2.1 % (Node), context
+   construction 0.9–1.8 %, request-target derivation 0.8–2.0 %. Router frames appear only in
+   the middleware shape (`matchRoute` 1.5 %).
+3. **The header record was the one measured, removable cost in the POST path.** Before the
+   fix, `ctx.headers` materialization (a walk over every header, triggered by body-parser
+   asking for one) was 1.8 % at 4 headers and 3.5 % at 12 on Bun, ~1.9 % on Node. After
+   reading through `ctx.get`, the frame is absent and POST cost is flat in header count:
+
+   | Bun, best of 7 (µs/request) | 4 headers | 12 headers |
+   | --- | --- | --- |
+   | parsed POST, before | 25.33 | 29.05 |
+   | parsed POST, after | 23.79 | 23.59 |
+   | unparsed POST, before | 21.57 | 21.17 |
+   | unparsed POST, after | 21.39 | 21.03 |
+
+   The unparsed entry never read a header and stayed flat, which is the counter-check: the
+   delta is the record walk, not parse cost or machine drift.
+
+Stability: a repeat of the Bun POST/12 profile kept the same top three rows
+(`onRSDefaultControllerStartFulfilled`, `Request`, `releaseLock`) with self-time drifting
+6.2 % → 7.6 % for the third row. Absolute microseconds move with machine load; shares do not.
+
+Limits: JavaScript exposes no cache-miss or branch-mispredict counter, so no cache-line claim is
+made. Layout evidence is limited to deterministic allocation measurement and object-shape
+stability (`bench:alloc:web` reports 8.1 B/request with cv 0.02 % for the measured context path,
+and the header-record test asserts the record is never materialized). Node `--cpu-prof` sampling
+is coarse for a ~10 µs request; rows below ≈ 1 % are treated as noise. In-process GET and
+middleware numbers still include `Request`/`Response` construction inside the timed loop.
+
+### 3.9 Findings and triage (2026-10-19)
+
+| ID | Finding | Cost and anchor | Impact | Counter-evidence | Trade-off / risk | Validation |
+| --- | --- | --- | --- | --- | --- | --- |
+| **F1** | Body parsers read `ctx.headers` (full lazy record) to obtain one header | Header-record walk 1.8 % (4 headers) / 3.5 % (12) on Bun, ≈1.9 % on Node; `parsers/*.ts` `getContentType(ctx.headers)`, `reader.ts` `getContentLength(ctx.headers)` | Every body-bearing request paid a walk it did not need | Unparsed POST (never reads headers) stays flat across 4→12 headers, proving the delta is the walk | Read through optional `ctx.get`; narrow test doubles keep the record fallback | **Fixed** — `header-lookup.test.ts` (record getter throws), POST/12 best-of-7 29.05 → 23.59 µs |
+| **F2** | Dispatcher pays four microtask turns before deciding not to arm a timer | `dispatchWithTimeout` 1.2–4.7 % self across shapes; `web-runner.ts:103` | Every request, both runtimes | A settled-flag fast path would skip the loop, but a handler that responds then hangs would no longer be cut off by the timeout | Losing timeout coverage on a pathological handler is a behaviour change, not an optimization | **Fixed** — shape 1 (synchronous `ctx.responded` check, settlement wrapper only on the arming path). Paired `TIMEOUT=0` delta moved from +0.42…+0.61 µs to −0.09…+0.01 µs, median 3.592 → 3.068 µs (−14.6 %), `vs_hono` median 1.38 → 1.21; the hang case still arms a timer because the check runs once, before the promise is awaited |
+| **F3** | Node body-parser middleware closure shows 3.6–4.5 % self | `json.ts` returned middleware, Node only | Body-bearing requests on Node | The same closure is ≈0 % on Bun, where the parser work appears in `parse`/`_buffer` instead — attribution split, not a second cost | Inherent async-function resume cost; removing it needs a different parser shape | **No action** — would need a parser redesign for a share that moves between runtimes |
+| **F4** | In-process POST is dominated by platform request construction | Bun body-stream controller 32–50 %; undici + encoding ≈25 % on Node | Measurement validity, not runtime | Platform rows say `[native code]` / undici | Pre-built the POST entries and capped the timed batch; GET entries unchanged | **Fixed (harness)** — `profile-entries.test.mjs`, §3.8 method note |
+| **F5** | Serialization is a visible Node cost but small and gated | `serializeJson` 0.9–2.1 % (Node); `JSON.stringify` ≈3.5 % on Bun hello (§3.7) | Response-building requests | Below the 5 % bar this RFC set for building a compiled serializer | Compiled serializer remains RFC-039 P3, gated on a POST/large-payload profile | **No action here** — P3's gate is still unmet |
+| **F6** | Router matching is not a top cost | `matchRoute` 1.5 % in the five-middleware shape; absent elsewhere | None at this shape | Consistent with RFC-015's ≈4 % and the evidence-negative radix decision | — | **No action** — confirms RFC-015 |
+| **F7** | Cache-line and branch behaviour cannot be measured in JavaScript | No portable counter; profiler reports time only | Investigation method | `bench:alloc:web` resolves 8.1 B/req at cv 0.02 %, so allocation is measurable even when layout is not | Any layout claim stays inference | **Limitation recorded** — §3.8 limits paragraph |
+
+### 3.10 P0 verdict (2026-10-19)
+
+P0 asked for the shapes that were missing, not for an optimization. They now exist, and they say:
+
+- **P2 — compiled request validator: not justified yet.** No profile row names NextRush's
+  validation wrapper. The POST entries carry no schema, so the wrapper was never in the
+  measured path; the schema library already owns its own compilation behind
+  `~standard.validate()`. Building P2 now would optimize an unmeasured wrapper. What would
+  change this verdict: a POST entry with a realistic schema where the wrapper (not the
+  library) reaches ≈5 % of request CPU.
+- **P3 — compiled response serializer: gate unmet.** `JSON.stringify` is ≈3.5 % on the Bun
+  hello profile (§3.7) and `serializeJson` is 0.9–2.1 % on Node (§3.8). The POST profiles
+  attribute their time to body plumbing and dispatch, not serialization. This RFC's own rule
+  is to build C only when a POST/large-payload profile names serialization as a top cost.
+- **P4 — unchanged.** No profile row names the router, a header scan, or a query scan as
+  dominant, so neither Rust nor a routing rewrite has evidence.
+- **The one item the profiles named is now fixed**: `dispatchWithTimeout` at 1.2–4.7 % self
+  across every shape on both runtimes. It was the largest framework-attributable cost measured
+  here, and the settled-handler fast path (shape 1 in the archived
+  `align-post-handler-response-contract` A/B) removed the race from every request that answers
+  synchronously: median 3.592 → 3.068 µs, `vs_hono` median 1.38 → 1.21, with the paired
+  `TIMEOUT=0` delta straddling zero. A handler that does not settle still arms a timer, because
+  the check runs once, before the dispatch promise is awaited.
+
+  The remaining framework-attributable cost this RFC's profiles name is **response
+  construction** (`Response` at 18.7 % self on Bun), which sits outside P3's JSON-encoding gate
+  and is captured as its own spike-first change.
+
+  **Measured, and parked (2026-10-19).** The spike split that 18.7 % into its parts by holding the
+  body constant and varying only the header record, on both runtimes. The header record is a large
+  real cost on **Node** (181–422 B allocated per response) but only **11–45 B on Bun**, against
+  ~310–355 B of total per-response allocation — about 3 %. Two independent results close the Bun
+  case: the best Bun variant is *slower* despite allocating ~11 B less (median 968 → 1295 ns), and
+  the effect it could produce on `inproc.nextrush.vs_hono` (~0.007) is roughly six times smaller
+  than this machine's measured run-to-run spread (0.04). So the gate cannot resolve the change, and
+  the 18.7 % is mostly the `Response` constructor and body write rather than anything NextRush
+  allocates. No builder change was made. The Node figure is a lead, not a task: the Node `inproc`
+  ratio is ungated by design, and whether that allocation delta reaches Node request time is a
+  separate question this RFC does not answer. Harness:
+  `apps/benchmark/scripts/alloc/response-construction-alloc.js`.
+
+### 3.11 P1–P4 verdicts (2026-10-19)
+
+The P0 profile rows were extended with a realistic schema entry and a large-response
+entry. The same rule applies to all four: a phase ships only when a profile names a
+framework-attributable cost above the 5 % bar.
+
+| Phase | Verdict | Evidence |
+| --- | --- | --- |
+| **P1** | **Already shipped, no action.** | Lazy incoming headers (`db9bbda9`), lazy client IP (`64ca11de`) and the settled-handler runner (`836dd6a5`) are in the measured path. The profile reruns below do not name any of them as a remaining hot cost. |
+| **P2** | **Closed evidence-negative.** | `inproc-nextrush-schema-post` (bodyParser + real `z.object`) vs `inproc-nextrush-schema-control` (same middleware, identity Standard Schema): 30.702 µs vs 30.248 µs, a 0.454 µs / 1.5 % delta. The wrapper's own self time is 0.0–0.1 %; the schema library's own rows (`runChecks`, `ZodObject`) total ≈1 %. The wrapper never reaches 5 % of request CPU. |
+| **P3** | **Gate tripped, implementation rejected.** | `inproc-nextrush-large-response` attributes 88.1 % self to `JSON.stringify`. A byte-identical fixed-key prototype was built and differentially tested, then measured at 75 s against 17 s for the same profile — 4.4× slower. Reverted; verdict recorded in [RFC-042](042-fixed-key-serializer-rejected.md). Keep `JSON.stringify`. |
+| **P4** | **Closed with docs, no runtime change.** | Per-route middleware is already compiled at registration and covered by `packages/router/src/__tests__/middleware-pipeline.test.ts` (ordering, short-circuit, async, errors). The missing piece was discoverability: `packages/core/README.md` now documents the route-scoped argument form and one scaffold template route uses it. The five-middleware profile attributes 3.4 % + 2.5 % self to the user middleware frames and 2.4 % + 1.5 % to dispatch; no router, header scan or query scan is dominant, so Rust remains unjustified. No new API. |
+
+Commands:
+
+```bash
+node apps/benchmark/scripts/dev-check/check.mjs profile --entry inproc-nextrush-schema-post --rt bun
+node apps/benchmark/scripts/dev-check/check.mjs profile --entry inproc-nextrush-schema-control --rt bun
+node apps/benchmark/scripts/dev-check/check.mjs profile --entry inproc-nextrush-large-response --rt bun
+BODY_BYTES=102400 node apps/benchmark/scripts/dev-check/check.mjs profile --entry inproc-nextrush-post --rt bun
+```
+
+Profile files: `CPU.20261019.193633.567963.0.001.md` (schema POST),
+`CPU.20261019.193719.568528.0.001.md` (schema control),
+`CPU.20261019.193823.569451.0.001.md` (large response, native),
+`CPU.20261019.194427.573137.0.001.md` (large response, rejected prototype),
+`CPU.20261019.193907.570341.0.001.md` (100 KiB POST),
+`CPU.20261019.195555.582947.0.001.md` (five-middleware stack).
 
 ## 4. Goals and Non-Goals
 

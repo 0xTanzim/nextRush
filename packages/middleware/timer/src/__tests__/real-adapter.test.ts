@@ -3,9 +3,10 @@
  *
  * The timer always records the duration in `ctx.state`; the response header is
  * opt-in through `exposeHeader`. The header is written after `ctx.next()`
- * resolves, which only lands where the adapter has not committed the response
- * yet — so these tests pin the documented promise against what each adapter
- * family can actually do, instead of trusting a mock context.
+ * resolves, and every shipped adapter now flushes the recorded response after
+ * the middleware chain unwinds (RFC-041), so the header lands on both families.
+ * These tests pin that against a real Node listener and a real Web request
+ * instead of trusting a mock context.
  */
 import { createFetchHandler } from '@nextrush/adapter-edge';
 import { listen } from '@nextrush/adapter-node';
@@ -37,10 +38,7 @@ interface Chain {
   arrive: () => void;
 }
 
-/**
- * Resolves once the middleware chain has unwound. Both adapters can hand the
- * response to the client before the timer's `finally` block has run.
- */
+/** Resolves once the middleware chain has unwound. */
 function createChain(): Chain {
   let arrive!: () => void;
   const settled = new Promise<void>((resolve) => {
@@ -59,9 +57,6 @@ function buildApp(observed: Observed, middleware: Middleware[], chain: Chain): T
     try {
       await next();
     } finally {
-      // A late header write can fail where the adapter has already committed the
-      // response. The observation has to survive that, so the test measures the
-      // documented contract rather than the failure mode.
       observed.responseTime = (ctx.state as Record<string, unknown> | undefined)?.responseTime;
       chain.arrive();
     }
@@ -93,11 +88,9 @@ function startWeb(app: TestApp): Harness {
 const ADAPTERS: ReadonlyArray<{
   name: string;
   start: (app: TestApp) => Harness | Promise<Harness>;
-  /** Whether a header written after the handler ran still reaches the client. */
-  honorsPostHandlerHeader: boolean;
 }> = [
-  { name: 'node adapter', start: startNode, honorsPostHandlerHeader: false },
-  { name: 'web adapter', start: startWeb, honorsPostHandlerHeader: true },
+  { name: 'node adapter', start: startNode },
+  { name: 'web adapter', start: startWeb },
 ];
 
 for (const adapter of ADAPTERS) {
@@ -130,7 +123,7 @@ for (const adapter of ADAPTERS) {
       expect(typeof observed.responseTime).toBe('number');
     });
 
-    it('writes the header on opt-in where the adapter still allows a late write', async () => {
+    it('writes the header on opt-in after the handler ran', async () => {
       const { harness, chain } = await start([
         timer({ exposeHeader: true }),
         serverTiming({ exposeHeader: true }),
@@ -139,17 +132,8 @@ for (const adapter of ADAPTERS) {
       const res = await harness.request(ROUTE);
       await chain.settled;
 
-      if (adapter.honorsPostHandlerHeader) {
-        expect(res.headers.get(RESPONSE_TIME_HEADER)).toMatch(RESPONSE_TIME_VALUE);
-        expect(res.headers.get(SERVER_TIMING_HEADER)).toMatch(SERVER_TIMING_VALUE);
-      } else {
-        // This adapter has written the response by the time the timer finishes
-        // measuring, so the late write cannot land. The package README states
-        // the limitation; this assertion is what keeps it honest.
-        expect(res.headers.get(RESPONSE_TIME_HEADER)).toBeNull();
-        expect(res.headers.get(SERVER_TIMING_HEADER)).toBeNull();
-      }
-
+      expect(res.headers.get(RESPONSE_TIME_HEADER)).toMatch(RESPONSE_TIME_VALUE);
+      expect(res.headers.get(SERVER_TIMING_HEADER)).toMatch(SERVER_TIMING_VALUE);
       await expect(res.json()).resolves.toEqual({ ok: true });
     });
   });

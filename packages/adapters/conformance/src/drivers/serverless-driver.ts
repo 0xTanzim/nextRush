@@ -62,7 +62,6 @@ export const serverlessDriver: ConformanceDriver = {
   teardownOnShutdown: false, // no server lifetime, like edge (F-14)
   transportAbortFiresSignal: false, // buffered event model — no mid-request transport abort
   honorsCloudflareIp: true, // reuses the edge context → cf-connecting-ip precedence (F-11)
-  honorsPostHandlerHeaderWrite: true, // reuses the edge engine → recorded response
   // `false`: the mapper builds the Request from `rawPath` through `URL`, so a dot
   // segment in the event is resolved by that construction and the handler never sees
   // the raw target. Enabling this for a real platform needs the event's target carried
@@ -107,5 +106,22 @@ export const serverlessDriver: ConformanceDriver = {
     const handler = createLambdaHandler(app, { timeout: 10 });
     const result = await handler(toEvent({ path: '/' }));
     return { status: result.statusCode, signalFired };
+  },
+
+  async committedResponseOutlivesTimeout(): Promise<{ status: number; body: unknown }> {
+    const app = createApp();
+    app.use(async (ctx) => {
+      // Commit after a microtask so the adapter arms its timer: the harder
+      // case is a response committed while that timer is already running.
+      await Promise.resolve();
+      ctx.json({ ok: true });
+      // Outlives the timeout below, so the timer fires with the response
+      // already committed.
+      await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    });
+    await app.ready();
+    const handler = createLambdaHandler(app, { timeout: 10 });
+    const result = await handler(toEvent({ path: '/' }));
+    return { status: result.statusCode, body: JSON.parse(result.body) as unknown };
   },
 };

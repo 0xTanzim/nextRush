@@ -277,26 +277,25 @@ The sealed public surface (ADR-0005).
 - **Works with:** [`@nextrush/logger`](../logger), which can read `ctx.state.responseTime` and include it in structured log lines -- mount `timer()` before the logger so the value is populated by the time the logger runs.
 - **Incompatible with:** none directly -- `serverTiming()` appends to any existing `Server-Timing` header value rather than overwriting it, so multiple `serverTiming()` middleware (or another package writing the same header) compose without clobbering each other.
 
-**Response model (current limitation)**
+**Response model**
 
 The duration is measured across `await ctx.next()`, so the header is written *after* the handler has
-already responded. Whether that write lands depends on the adapter's response model, not on the runtime:
+already responded. Every shipped adapter records the outgoing response and flushes it once the
+middleware chain unwinds (RFC-041), so the write lands everywhere:
 
 | Adapter family | Header written after the handler | Result |
 | -------------- | -------------------------------- | ------ |
+| Node | Yes -- the record is flushed after the chain unwinds | `X-Response-Time` / `Server-Timing` appear as documented |
 | Web (Bun, Deno, Edge, serverless, Next.js) | Yes -- the response is recorded and built after the chain unwinds | `X-Response-Time` / `Server-Timing` appear as documented |
-| Node | No -- the response is already on the wire | The header cannot appear; the write itself fails |
 
-This is why `exposeHeader` defaults to `false` on every adapter: the measurement is always in
-`ctx.state`, and the header is opt-in where it can work. A recorded response model that post-handler
-work can still modify is the structural fix and is deferred; `src/__tests__/real-adapter.test.ts`
-pins both behaviours (opt-in header on the Web family, absence on Node) so the documentation cannot
-drift from reality.
+`exposeHeader` still defaults to `false`: the measurement is always in `ctx.state`, and advertising
+it is opt-in rather than on by default. `src/__tests__/real-adapter.test.ts` runs the opt-in header
+against a real Node listener and a real Web request, so the documentation cannot drift from reality.
 
-> [!CAUTION]
-> On the Node adapter, enabling `exposeHeader: true` makes the late write fail on every request. The
-> response itself is still delivered intact, but the failure surfaces through the middleware chain --
-> keep `exposeHeader` disabled on Node until the recorded response model lands.
+A write that arrives after the response has been flushed is discarded rather than rejected, and the first one per process is
+reported naming the field, so a middleware that silently stopped having an effect still shows up in
+the log. It never throws, so the rest of the chain -- including every outer middleware's
+post-`next()` work -- still runs and the request still answers normally.
 
 > [!IMPORTANT]
 > NextRush is **ESM-only, permanently** -- no CommonJS build. On Node >=22, CommonJS consumers

@@ -29,12 +29,12 @@ function fakeDriver(transport: Transport, runtimeFidelity: RuntimeFidelity): Con
     honorsCloudflareIp: false,
     // Not dispatched by the ledger tests; declared so the driver contract stays
     // complete where it is implemented.
-    honorsPostHandlerHeaderWrite: false,
     transportAbortFiresSignal: true,
     rawRequestTarget: false, // never dispatched — only its transport/fidelity is read
     dispatch: () => Promise.reject(new Error('the ledger never dispatches')),
     abortFiresSignal: () => Promise.resolve(false),
     timeoutResult: () => Promise.resolve(null),
+    committedResponseOutlivesTimeout: () => Promise.reject(new Error('the ledger never dispatches')),
   };
 }
 

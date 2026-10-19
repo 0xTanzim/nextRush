@@ -127,6 +127,36 @@ describe('assertHeaderSafe', () => {
 });
 
 describe('WebResponseBuilder', () => {
+  // The content type a response method chooses is part of the wire contract:
+  // every adapter emits these exact strings, and the record must not change
+  // them as it moves the header out of the builder's private map.
+  it('pins the exact default content type of every body method', () => {
+    const json = new WebResponseBuilder('GET');
+    json.json({ ok: true }, 200);
+
+    const text = new WebResponseBuilder('GET');
+    text.send('hello', 200);
+
+    const binary = new WebResponseBuilder('GET');
+    binary.send(new Uint8Array([1, 2, 3]), 200);
+
+    const html = new WebResponseBuilder('GET');
+    html.html('<h1>hi</h1>', 200);
+
+    const redirect = new WebResponseBuilder('GET');
+    redirect.redirect('/dest', 302);
+
+    expect(json.getResponse(200).headers.get('Content-Type')).toBe(
+      'application/json; charset=utf-8'
+    );
+    expect(text.getResponse(200).headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+    expect(binary.getResponse(200).headers.get('Content-Type')).toBe('application/octet-stream');
+    expect(html.getResponse(200).headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+    expect(redirect.getResponse(200).headers.get('Content-Type')).toBe(
+      'text/plain; charset=utf-8'
+    );
+  });
+
   it('json() sets content-type, status and serialized body', async () => {
     const rb = new WebResponseBuilder('GET');
     rb.json({ ok: true }, 201);
@@ -307,14 +337,9 @@ describe('WebResponseBuilder.set — HP-15-web set-cookie pre-check', () => {
     expect(cookies).toEqual(expect.arrayContaining(['a=1', 'b=2', 'c=3', 'd=4']));
   });
 
-  it('[trim] the first-char pre-check short-circuits the detection toLowerCase for a non-cookie field', () => {
-    // Native Headers name-normalization also calls String.prototype.toLowerCase,
-    // so a raw "not called" spy can't isolate our detection. Instead compare two
-    // 10-char fields that differ ONLY in the first char and both hit
-    // `_headers.set` (neither is a cookie): the 's…' field passes the cheap
-    // pre-check and reaches the `field.toLowerCase()` fallback; the 'x…' field
-    // fails the first-char check and skips it. Equal length ⇒ identical native
-    // normalization, so the call-count delta is exactly our one detection call.
+  it('[trim] set-cookie detection never lowercases the field', () => {
+    // The map compares field names case-insensitively per character, so no
+    // field — cookie, near-cookie or ordinary — allocates a lower-cased copy.
     const original = String.prototype.toLowerCase;
     let calls = 0;
     vi.spyOn(String.prototype, 'toLowerCase').mockImplementation(function (this: string) {
@@ -322,20 +347,16 @@ describe('WebResponseBuilder.set — HP-15-web set-cookie pre-check', () => {
       return original.call(this);
     });
 
-    const rbS = new WebResponseBuilder('GET');
+    const rb = new WebResponseBuilder('GET');
     calls = 0;
-    rbS.set('sxxxxxxxxx', 'v'); // 10 chars, first char 's' → reaches the fallback
-    const withFallback = calls;
+    rb.set('sxxxxxxxxx', 'v'); // 10 chars, first char 's' — could be set-cookie
+    rb.set('Set-Cookie', 'a=1');
+    rb.set('X-Custom', 'v');
+    expect(calls).toBe(0);
 
-    const rbX = new WebResponseBuilder('GET');
-    calls = 0;
-    rbX.set('xxxxxxxxxx', 'v'); // 10 chars, first char 'x' → skips the fallback
-    const withoutFallback = calls;
-
-    expect(withFallback - withoutFallback).toBe(1);
-    // Neither is a cookie → both set as normal headers.
-    expect(rbS.getResponse(200).headers.get('sxxxxxxxxx')).toBe('v');
-    expect(rbX.getResponse(200).headers.get('xxxxxxxxxx')).toBe('v');
+    // Neither near-cookie field is a cookie → both set as normal headers.
+    expect(rb.getResponse(200).headers.get('sxxxxxxxxx')).toBe('v');
+    expect(rb.getResponse(200).headers.getSetCookie()).toEqual(['a=1']);
   });
 
   it('a 10-char non-cookie header starting with s is replaced, not accumulated', () => {
@@ -363,8 +384,36 @@ describe('WebResponseBuilder.set — HP-15-web set-cookie pre-check', () => {
   });
 });
 
-describe('F-03: HEAD Content-Length by body type', () => {
-  it('a string body (via send) yields a measured Content-Length on HEAD', () => {
+describe('RFC-041: a replaced body invalidates its recorded length', () => {
+  it('drops an explicit Content-Length so the new body is framed by its own bytes', () => {
+    const rb = new WebResponseBuilder('GET');
+    rb.json({ original: true }, 200);
+    rb.set('Content-Length', '17');
+
+    const replacement = JSON.stringify({ rewritten: true });
+    rb.record.setBody(replacement);
+
+    // The stale value described the body that was replaced. Dropping it leaves
+    // the new body's length to the transport, which measures the bytes it sends.
+    expect(rb.getResponse(200).headers.has('content-length')).toBe(false);
+    return expect(rb.getResponse(200).text()).resolves.toBe(replacement);
+  });
+
+  it('keeps a length written after the replacement', () => {
+    const rb = new WebResponseBuilder('GET');
+    rb.json({ original: true }, 200);
+
+    const replacement = JSON.stringify({ rewritten: true });
+    rb.record.setBody(replacement);
+    rb.set('Content-Length', String(new TextEncoder().encode(replacement).length));
+
+    expect(rb.getResponse(200).headers.get('content-length')).toBe(
+      String(new TextEncoder().encode(replacement).length)
+    );
+  });
+});
+
+describe('F-03: HEAD Content-Length by body type', () => {  it('a string body (via send) yields a measured Content-Length on HEAD', () => {
     const rb = new WebResponseBuilder('HEAD');
     rb.send('hello world', 200);
     const res = rb.getResponse(200);

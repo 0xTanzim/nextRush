@@ -11,8 +11,9 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@nextrush/types';
-import { createWebRunner, type WebRunnerContext } from '../web-runner';
+import { createWebRunner, SETTLE_TURNS, type WebRunnerContext } from '../web-runner';
 import type { WebRunnerApp } from '../web-runner';
+import { WebResponseBuilder } from '../response-builder';
 
 /** A context that records what the runner asked of it. */
 class FakeContext {
@@ -84,13 +85,47 @@ class FakeApp implements WebRunnerApp<(ctx: TestCtx) => Promise<void>> {
 }
 
 /**
- * The context the runner is typed against: the real contract plus this fake's
- * counters. Cast once, at the seam, rather than standing up a full `Context`.
+ * A context backed by the real response builder, so a runner test observes the
+ * actual materialisation instead of a fake's shortcut.
  */
+class BuilderContext {
+  readonly method = 'GET' as const;
+  readonly path = '/';
+  status = 200;
+  body: unknown;
+  private readonly builder = new WebResponseBuilder('GET');
+
+  get responded(): boolean {
+    return this.builder.responded;
+  }
+
+  markResponded(): void {
+    this.builder.markResponded();
+  }
+
+  triggerTimeout(): void {}
+
+  set(field: string, value: string | number | string[]): void {
+    this.builder.set(field, value);
+  }
+
+  json(data: unknown): void {
+    this.builder.json(data, this.status);
+  }
+
+  getResponse(): Response {
+    return this.builder.getResponse(this.status);
+  }
+}
+
 type TestCtx = WebRunnerContext & FakeContext;
 
 function makeContext(): TestCtx {
   return new FakeContext() as unknown as TestCtx;
+}
+
+function makeBuilderContext(): TestCtx {
+  return new BuilderContext() as unknown as TestCtx;
 }
 
 function runnerFor(
@@ -104,6 +139,12 @@ function runnerFor(
     ...overrides,
   });
 }
+
+describe('SETTLE_TURNS', () => {
+  it('is the one shared settle-turn bound', () => {
+    expect(SETTLE_TURNS).toBe(4);
+  });
+});
 
 describe('createWebRunner', () => {
   it('boots once behind the first request and reuses the handler afterwards', async () => {
@@ -127,6 +168,32 @@ describe('createWebRunner', () => {
     const plain = new FakeApp(async (ctx) => ctx.json({ ok: true }));
     await runnerFor(plain)(new Request('http://localhost/'), undefined);
     expect(plain.startCount).toBe(0);
+  });
+
+  it('carries a header a middleware writes after the handler committed the response', async () => {
+    // A middleware wraps a handler: the handler commits, then the middleware's
+    // post-`next()` work writes a header. The materialised Response must carry
+    // it — this is the behaviour the recorded model exists to guarantee on every
+    // adapter, and the Web family must keep it.
+    const app = new FakeApp(async (ctx) => {
+      const handler = async (): Promise<void> => {
+        ctx.json({ ok: true });
+      };
+      await handler();
+      ctx.set('x-late', 'after-handler');
+    });
+
+    const run = createWebRunner<TestCtx, undefined>(app as never, {
+      label: 'test',
+      timeout: 30,
+      makeContext: makeBuilderContext,
+    });
+
+    const response = await run(new Request('http://localhost/'), undefined);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-late')).toBe('after-handler');
+    expect(await response.json()).toEqual({ ok: true });
   });
 
   it('writes the not-found body through the context, preserving headers it already set', async () => {
@@ -215,6 +282,76 @@ describe('createWebRunner', () => {
     expect(response.status).toBe(504);
     expect(ctx?.timeoutTriggered).toBe(1);
     expect(app.logger.warn).toHaveBeenCalledWith(expect.stringContaining('after 5ms (default)'));
+  });
+
+  it('delivers a response the handler committed before the timeout fired, instead of a 504', async () => {
+    const app = new FakeApp(async (ctx) => {
+      // Commit after a microtask, so the runner's synchronous "already settled"
+      // check does not apply and a timer really is armed for this request.
+      await Promise.resolve();
+      ctx.json({ ok: true });
+      // Outlives the 5ms timeout: the response is already committed when the
+      // timer fires, so the 504 must not replace it.
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    let ctx: TestCtx | undefined;
+    const run = createWebRunner<TestCtx, undefined>(app as never, {
+      label: 'test',
+      timeout: 5,
+      makeContext: () => (ctx = makeContext()),
+    });
+
+    const response = await run(new Request('http://localhost/slow'), undefined);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    // A timer was armed, and firing it cancelled the still-running handler.
+    expect(ctx?.timeoutTriggered).toBe(1);
+  });
+
+  it('arms no timer for a handler that committed its response and then outlived the timeout', async () => {
+    const app = new FakeApp(async (ctx) => {
+      ctx.json({ ok: true });
+      // Still running when a timer would fire, so a racing runner arms one and
+      // cancels this handler. A settled handler must not be raced at all — and
+      // a setTimeout spy cannot prove that, because a synchronously-settled
+      // handler never reaches the arming point even when the runner races.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    let ctx: TestCtx | undefined;
+    const run = createWebRunner<TestCtx, undefined>(app as never, {
+      label: 'test',
+      timeout: 5,
+      makeContext: () => (ctx = makeContext()),
+    });
+
+    const response = await run(new Request('http://localhost/'), undefined);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(ctx?.timeoutTriggered).toBe(0);
+  });
+
+  it('arms a timer when the handler has not settled', async () => {
+    const app = new FakeApp(() => new Promise<void>(() => undefined));
+    const realSetTimeout = globalThis.setTimeout;
+    let armed = 0;
+    globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+      armed += 1;
+      return realSetTimeout(...args);
+    }) as typeof setTimeout;
+
+    let response: Response | undefined;
+    try {
+      response = await runnerFor(app, { timeout: 5 })(new Request('http://localhost/'), undefined);
+    } finally {
+      globalThis.setTimeout = realSetTimeout;
+    }
+
+    expect(response?.status).toBe(504);
+    expect(armed).toBe(1);
   });
 
   it('does not race at all when the timeout is disabled', async () => {

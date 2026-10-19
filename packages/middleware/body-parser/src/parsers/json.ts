@@ -12,7 +12,8 @@ import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_JSON_MAX_DEPTH, DEFAUL
 import { Errors } from '../errors.js';
 import type { BodyParserContext, JsonOptions } from '../types.js';
 import { bufferToString, toRawBody } from '../utils/buffer.js';
-import { getContentType, isJsonContentType, matchContentType } from '../utils/content-type.js';
+import { isJsonContentType, matchContentType } from '../utils/content-type.js';
+import { readHeader } from '../utils/header-value.js';
 import { parseLimit } from '../utils/limit.js';
 import { readBody } from './reader.js';
 
@@ -121,7 +122,7 @@ export function json(options: JsonOptions = {}): Middleware {
         if (next) await next();
         return;
       }
-      const contentType = getContentType(ctx.headers);
+      const contentType = readHeader(ctx, 'content-type');
       const isMatch = useSimpleCheck
         ? isJsonContentType(contentType)
         : matchContentType(contentType, types);

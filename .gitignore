@@ -8,7 +8,7 @@ deno.lock
 .worktrees/
 
 .internal
-.agents
+.agents/skills/openspec-*
 .cursor
 .pnpm-store
 nextrush_wiki
@@ -175,4 +175,4 @@ feedback
 .cline
 .clinerules
 .codex
-
+.agents/skills/.openspec-target

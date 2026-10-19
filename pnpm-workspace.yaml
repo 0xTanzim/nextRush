@@ -63,5 +63,8 @@ ignoredBuiltDependencies:
   - unrs-resolver
 
 catalog:
+  '@nextrush/validation': workspace:*
+  elysia: 1.4.30
   morgan: 1.10.0
   response-time: ^2.3.4  
+  zod: catalog:tooling

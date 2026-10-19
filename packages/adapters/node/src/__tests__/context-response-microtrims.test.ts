@@ -65,6 +65,9 @@ function serve(handler: (ctx: NodeContext) => void): Promise<void> {
         res.end();
       }
     }
+    // The adapter's request handler flushes the recorded response after the
+    // chain settles; this hand-rolled server plays that role.
+    ctx.flushResponse();
   });
   return new Promise((resolve) => {
     server.listen(0, () => {
@@ -73,6 +76,18 @@ function serve(handler: (ctx: NodeContext) => void): Promise<void> {
       resolve();
     });
   });
+}
+
+/** The header object the single `writeHead` call received. */
+function writtenHeaders(res: ServerResponse): Record<string, unknown> {
+  const calls = vi.mocked(res.writeHead).mock.calls;
+  return (calls[0]?.[1] ?? {}) as Record<string, unknown>;
+}
+
+/** Read a recorded header by name, ignoring the casing the caller used. */
+function headerValue(headers: Record<string, unknown>, name: string): unknown {
+  const key = Object.keys(headers).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
+  return key === undefined ? undefined : headers[key];
 }
 
 afterEach(() => {
@@ -136,6 +151,7 @@ describe('HP-14: ctx.json() writes headers with a single writeHead', () => {
     const res = createMockRes();
     const ctx = new NodeContext(createMockReq(), res);
     ctx.json({ message: 'hello' });
+    ctx.flushResponse();
 
     expect(res.writeHead).toHaveBeenCalledTimes(1);
     expect(res.writeHead).toHaveBeenCalledWith(200, {
@@ -153,6 +169,7 @@ describe('HP-14: ctx.json() writes headers with a single writeHead', () => {
     const ctx = new NodeContext(createMockReq(), res);
     ctx.status = 201;
     ctx.json({ created: true });
+    ctx.flushResponse();
     expect(res.writeHead).toHaveBeenCalledWith(201, expect.any(Object));
   });
 
@@ -224,6 +241,8 @@ describe('HP-14: ctx.json() writes headers with a single writeHead', () => {
     const ctx = new NodeContext(createMockReq(), res);
     ctx.json({ first: true });
     ctx.json({ second: true });
+    ctx.flushResponse();
+
     expect(res.end).toHaveBeenCalledTimes(1);
     expect(res.end).toHaveBeenCalledWith('{"first":true}');
   });
@@ -233,16 +252,30 @@ describe('HP-14: ctx.json() writes headers with a single writeHead', () => {
 // §2.3 HP-15 — set-cookie pre-check before toLowerCase
 // ===========================================================================
 
-describe('HP-15: ctx.set() gates set-cookie toLowerCase behind a cheap pre-check', () => {
-  /** Build a context over a real ServerResponse so header accumulation is observable. */
-  function realCtx(): { ctx: NodeContext; res: ServerResponse } {
+describe('HP-15: ctx.set() gates set-cookie detection behind a cheap pre-check', () => {
+  /** Record headers through `apply`, flush once, and return what `writeHead` got. */
+  function flushedHeaders(apply: (ctx: NodeContext) => void): Record<string, unknown> {
     const socket = new Socket();
     const rawReq = new IncomingMessage(socket);
     rawReq.method = 'GET';
     rawReq.url = '/';
     rawReq.headers = {};
     const rawRes = new ServerResponse(rawReq);
-    return { ctx: new NodeContext(rawReq, rawRes), res: rawRes };
+
+    let captured: Record<string, unknown> = {};
+    vi.spyOn(rawRes, 'writeHead').mockImplementation(((
+      _status: number,
+      headers: Record<string, unknown>
+    ) => {
+      captured = headers;
+      return rawRes;
+    }) as never);
+    vi.spyOn(rawRes, 'end').mockImplementation(() => rawRes);
+
+    const ctx = new NodeContext(rawReq, rawRes);
+    apply(ctx);
+    ctx.flushResponse();
+    return captured;
   }
 
   // ---- parity / characterization (green before and after) ------------------
@@ -250,27 +283,31 @@ describe('HP-15: ctx.set() gates set-cookie toLowerCase behind a cheap pre-check
   it.each(['Set-Cookie', 'set-cookie', 'SET-COOKIE', 'sET-cOOKIE'])(
     'detects and accumulates cookies for casing %s',
     (field) => {
-      const { ctx, res } = realCtx();
-      ctx.set(field, 'a=1; Path=/');
-      ctx.set(field, 'b=2; Path=/');
-      expect(res.getHeader('set-cookie')).toEqual(['a=1; Path=/', 'b=2; Path=/']);
+      const headers = flushedHeaders((ctx) => {
+        ctx.set(field, 'a=1; Path=/');
+        ctx.set(field, 'b=2; Path=/');
+      });
+      expect(headerValue(headers, 'set-cookie')).toEqual(['a=1; Path=/', 'b=2; Path=/']);
     }
   );
 
   it('sets a non-cookie header correctly (overwrite semantics)', () => {
-    const { ctx, res } = realCtx();
-    ctx.set('X-Test', '1');
-    ctx.set('X-Test', '2');
-    expect(res.getHeader('x-test')).toBe('2');
+    const headers = flushedHeaders((ctx) => {
+      ctx.set('X-Test', '1');
+      ctx.set('X-Test', '2');
+    });
+    expect(headerValue(headers, 'x-test')).toBe('2');
   });
 
   it('still throws via assertHeaderSafe when the field contains CR/LF', () => {
-    const { ctx } = realCtx();
+    const res = createMockRes();
+    const ctx = new NodeContext(createMockReq(), res);
     expect(() => ctx.set('X-Bad\r\nInjected', 'v')).toThrow(/invalid characters/);
   });
 
   it('still throws via assertHeaderSafe when the value contains CR/LF', () => {
-    const { ctx } = realCtx();
+    const res = createMockRes();
+    const ctx = new NodeContext(createMockReq(), res);
     expect(() => ctx.set('X-Ok', 'bad\nvalue')).toThrow(/invalid characters/);
   });
 
@@ -288,13 +325,14 @@ describe('HP-15: ctx.set() gates set-cookie toLowerCase behind a cheap pre-check
   });
 
   it('[trim] a real Set-Cookie still falls through to case-insensitive detection', () => {
-    const { ctx, res } = realCtx();
-    // A length-10 's'-initial non-cookie header must NOT be misdetected.
-    ctx.set('sabotage10', 'v'); // length 10, starts with 's', but not set-cookie
-    expect(res.getHeader('sabotage10')).toBe('v');
-    // And a genuine mixed-case cookie is still detected + accumulates.
-    ctx.set('Set-Cookie', 'x=1');
-    ctx.set('sET-cOOKIE', 'y=2');
-    expect(res.getHeader('set-cookie')).toEqual(['x=1', 'y=2']);
+    const headers = flushedHeaders((ctx) => {
+      // A length-10 's'-initial non-cookie header must NOT be misdetected.
+      ctx.set('sabotage10', 'v');
+      // And a genuine mixed-case cookie is still detected + accumulates.
+      ctx.set('Set-Cookie', 'x=1');
+      ctx.set('sET-cOOKIE', 'y=2');
+    });
+    expect(headerValue(headers, 'sabotage10')).toBe('v');
+    expect(headerValue(headers, 'set-cookie')).toEqual(['x=1', 'y=2']);
   });
 });

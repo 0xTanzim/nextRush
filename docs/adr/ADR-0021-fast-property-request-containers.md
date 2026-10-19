@@ -34,7 +34,8 @@ Measured with `%HasFastProperties` **[M]**: `ctx.params` and `ctx.query` both re
 Route-params was one of only three benchmark scenarios losing to Fastify at both @1 and @256
 concurrency, and 64% of a one-param match's allocation was the container alone.
 
-The trigger was `reports/investigations/2026-07-31-measured-floor-params-compliance/`.
+The trigger was the 2026-07-31 measured-floor / params-compliance investigation. The report was
+removed from the tree; recover it with `git log --all -- 'reports/2026-07-31/*'`.
 
 ---
 

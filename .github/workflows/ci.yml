@@ -128,6 +128,15 @@ jobs:
       - name: Request-cost gate (Node)
         run: node apps/benchmark/scripts/dev-check/check.mjs bundle cold inproc probe --rt node
 
+      # Deno is a first-class target but not a gate: its rows are INFO and the
+      # probes use the same per-runtime known-failure lookup as Bun/Node.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.3
+
+      - name: Request-cost gate (Deno)
+        run: node apps/benchmark/scripts/dev-check/check.mjs bundle cold inproc probe bookkeeping --rt deno
+
       - name: Bookkeeping — every known-failure id maps to a probe
         run: node apps/benchmark/scripts/dev-check/check.mjs bookkeeping
 

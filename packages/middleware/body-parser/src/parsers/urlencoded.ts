@@ -17,7 +17,8 @@ import {
 import { Errors } from '../errors.js';
 import type { BodyParserContext, UrlEncodedOptions } from '../types.js';
 import { bufferToString, toRawBody } from '../utils/buffer.js';
-import { getContentType, matchContentType } from '../utils/content-type.js';
+import { matchContentType } from '../utils/content-type.js';
+import { readHeader } from '../utils/header-value.js';
 import { parseLimit } from '../utils/limit.js';
 import { parseUrlEncoded } from '../utils/url-decode.js';
 import { readBody } from './reader.js';
@@ -83,7 +84,7 @@ export function urlencoded(options: UrlEncodedOptions = {}): Middleware {
         if (next) await next();
         return;
       }
-      const contentType = getContentType(ctx.headers);
+      const contentType = readHeader(ctx, 'content-type');
       if (!matchContentType(contentType, types)) {
         if (next) await next();
         return;

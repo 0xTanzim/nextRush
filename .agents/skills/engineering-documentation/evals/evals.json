@@ -1,0 +1,55 @@
+{
+  "skill_name": "engineering-documentation",
+  "notes": "Evals force different resource categories to load and exercise the v2 additions. eval-0 (concept create) → philosophy + voice/storytelling + concept template/EDS-007 + a mental-model diagram (EDS-012). eval-1 (API reference) → reference template/EDS-011 + code standard (EDS-013). eval-2 (review) → review workflow + rubric + EDS-014. eval-3 (landing) → EDS-018 + MDX components EDS-016. eval-4 (migration) → EDS-020 (breaking-changes table, before/after, rollback). eval-5 (decision guide) → EDS-021 judgment. eval-6 (a11y/SEO rewrite) → EDS-017 + rewrite workflow. Together they cover philosophy/, standards/ (incl 016/017/018/020/021), templates/, workflows/, and checklists/.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "concept-page-rate-limiting",
+      "prompt": "Write a concept page for our developer docs explaining rate limiting in a web API framework. The reader is an intermediate backend engineer who knows HTTP but has never implemented rate limiting themselves.",
+      "expected_output": "A concept-type page that opens from the problem, builds one mental model with a diagram, explains why before how, includes a small realistic runnable example, and discusses trade-offs. Follows the concept template flow (EDS-007), natural prose rhythm (EDS-004, no one-fragment-per-line padding), and has front-matter (EDS-017).",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "api-reference-createServer",
+      "prompt": "Write the API reference page for a function called createServer(options) in our Node HTTP framework. It takes options { port: number, host?: string, maxConnections?: number } and returns a Server instance. Document it properly.",
+      "expected_output": "A reference-type page that inverts the flow (signature first), with a parameters table, return value, behavior, one realistic example, errors, and related links — matching the reference template and EDS-011. Scannable, complete, no storytelling.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "review-existing-middleware-page",
+      "prompt": "Review the documentation page at ./input/middleware-page.md and give me an engineering review — what's strong, what's weak, and specific improvements. It's for our framework's docs.",
+      "expected_output": "A structured engineering review scored against the six-axis rubric (workflows/review-page.md), each axis −10..+10 with an average and verdict, grounded in the EDS-014 checklist. Feedback is specific and cites named standards (not grammar-level, not vague). Names the top three fixes by impact.",
+      "files": ["input/middleware-page.md"]
+    },
+    {
+      "id": 3,
+      "name": "landing-page-with-components",
+      "prompt": "Write the docs homepage / overview page for our HTTP framework. It should let a developer decide in 30 seconds whether to use it and where to start.",
+      "expected_output": "A landing-type page (EDS-018): one-line value proposition, an 'at a glance' facts block, a runnable quick start front-and-center, and choose-your-path cards routing to tutorial/guides/reference. Uses MDX components appropriately (EDS-016 — Cards for routing, not component soup); routes rather than teaches. Front-matter present (EDS-017).",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "migration-guide-v2-to-v3",
+      "prompt": "Write a migration guide for upgrading our framework from v2 to v3. Breaking changes: app.plugin() is removed in favor of app.use()/app.extend(); the Context body is now typed as unknown instead of any; Node 18 support is dropped for Node 22+.",
+      "expected_output": "A migration-type page (EDS-020) that leads with a breaking-changes table, gives an honest effort estimate, shows before/after for every breaking change, is a step-by-step checklist (Steps), and includes verification and a rollback path. Honest about scope; does not read like a changelog.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "decision-guide-session-strategy",
+      "prompt": "Our cookies/auth docs need a section helping readers choose between signed cookies, encrypted sessions, JWT, and server-side sessions. Write it.",
+      "expected_output": "A decision guide (EDS-021) framed as the reader's decision: one-line options, checkable 'choose X when…' criteria (not vibes), a comparison table across the axes that actually drive the choice, a stated sensible default, and the pitfalls of picking each for the wrong reason. Teaches judgment, not a neutral feature matrix.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "rewrite-for-accessibility-and-rhythm",
+      "prompt": "Rewrite the page at ./input/cookies-page.md. It reads choppy (one sentence per line), has no front-matter, uses a diagram with no explanation, and signals warnings with color only. Fix it without changing any technical meaning.",
+      "expected_output": "A rewrite (workflows/rewrite-page.md) that fixes prose rhythm (EDS-004), adds front-matter and a proper heading outline, adds alt text / an adjacent explanation for the diagram, and replaces color-only signals with labelled callouts (EDS-017, EDS-016) — while preserving every technical claim exactly. Confirms no meaning changed.",
+      "files": ["input/cookies-page.md"]
+    }
+  ]
+}

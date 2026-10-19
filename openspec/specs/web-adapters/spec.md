@@ -277,6 +277,7 @@ capability and produce the documented outcome for that platform.
   whose negotiated capabilities report that the raw request target is unavailable
 - **THEN** the adapter produces the outcome its capability and documentation declare, and the suite
   fails if the adapter's reported capability and its observed behaviour disagree
+
 ### Requirement: The Web per-request-work optimization is validated by allocation and coverage gates
 
 Because the `wrk` RPS suite drives only the Node server, acceptance for the siblings SHALL rest on
@@ -415,8 +416,9 @@ produces for a target without dot segments.
 ### Requirement: The handler timeout is armed only when the handler has not already settled
 
 The Web adapters SHALL arm the handler timeout only when the handler has not already settled
-synchronously, matching the Node adapter's fast path. When a timer is armed, the timeout interval,
-the 504 response body, the cancellation signal, and the warning text SHALL be unchanged.
+synchronously, matching the Node adapter's fast path. A response the handler already committed SHALL
+be delivered rather than replaced by the 504. When a timer is armed, the timeout interval, the 504
+response body, the cancellation signal, and the warning text SHALL be unchanged.
 
 #### Scenario: A synchronous handler arms no timer
 
@@ -434,12 +436,20 @@ the 504 response body, the cancellation signal, and the warning text SHALL be un
 - **WHEN** the conformance and adapter test suites run the timeout scenarios
 - **THEN** Node, Bun, Deno, Edge and serverless produce the same observable outcome
 
+#### Scenario: A committed response is not replaced by the 504
+
+- **WHEN** a handler commits a response and then continues working past the configured timeout
+- **THEN** the client receives the handler's committed response rather than a 504, and the observable
+  outcome matches the Node adapter for the same handler
+
 ### Requirement: The Web adapters share one per-request runner
 
 The Web adapters SHALL use one shared per-request runner for boot, context construction, timeout
 arming and response finalization, rather than per-adapter copies of that logic. Each adapter SHALL
 supply only its platform bindings, and a behaviour fixed in the runner SHALL take effect on every
-adapter without a second edit.
+adapter without a second edit. The runner SHALL flush the recorded outgoing response once, after the
+middleware chain settles, and SHALL derive the materialised `Response` from the record rather than
+from a private builder state that post-handler middleware cannot reach.
 
 #### Scenario: One runner serves every Web adapter
 
@@ -452,3 +462,44 @@ adapter without a second edit.
 - **WHEN** a behaviour is changed in the shared runner
 - **THEN** every Web adapter's tests and the conformance suite observe the change with no
   adapter-local patch
+
+#### Scenario: The flush reads the record
+
+- **WHEN** a post-handler middleware writes a header or replaces the body, and the runner flushes
+- **THEN** the materialised `Response` carries that write, and no adapter-local path bypasses the
+  record
+
+### Requirement: The Web response builder records instead of committing
+
+The Web response builder SHALL record the outgoing status, headers and body, and SHALL NOT produce a
+`Response` until the runner flushes after the chain settles. A post-handler header write or body
+replacement SHALL be visible on the flushed `Response`. The builder's existing byte-level guarantees
+— the default `Content-Type` strings, HEAD/204/304 body suppression, accumulated `Set-Cookie`, the
+resolve-before-commit serialization guarantee, and the unanswered-error envelope — SHALL be unchanged.
+
+#### Scenario: A response method materialises nothing
+
+- **WHEN** a handler calls `ctx.json()`, `ctx.send()`, `ctx.html()` or `ctx.redirect()`
+- **THEN** no `Response` object is constructed for that request until the runner flushes
+
+#### Scenario: A post-handler write reaches the materialised Response
+
+- **WHEN** a middleware sets a header after `await next()` on a Web adapter
+- **THEN** the flushed `Response` carries the header
+
+#### Scenario: A post-handler body replacement reaches the materialised Response
+
+- **WHEN** a middleware replaces the recorded body after `await next()` on a Web adapter
+- **THEN** the flushed `Response` carries the new bytes, and any `Content-Length` it declares
+  matches them — never the length of the body that was replaced
+
+#### Scenario: Existing byte-level guarantees are unchanged
+
+- **WHEN** the conformance and adapter suites run the JSON, text, HTML, redirect, HEAD, 204, 304 and
+  cookie scenarios
+- **THEN** status, header values and body bytes are identical to the pre-change output
+
+#### Scenario: A serialization failure still leaves the response uncommitted
+
+- **WHEN** `ctx.json(value)` is called with a value `JSON.stringify` cannot represent
+- **THEN** it throws before the record is committed, and the error handler can still answer

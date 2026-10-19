@@ -87,6 +87,16 @@ export interface BodyParserContext {
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
 
   /**
+   * Single-name header lookup, when the context provides one.
+   *
+   * @remarks
+   * Preferred over `headers` by the parsers: reading `headers` materializes the
+   * whole record, while `get(name)` reads one value. Optional so narrow test
+   * doubles that only implement `headers` keep working.
+   */
+  get?(name: string): string | undefined;
+
+  /**
    * Body source for cross-runtime body reading
    *
    * @remarks

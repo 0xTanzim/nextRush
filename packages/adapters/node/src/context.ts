@@ -9,15 +9,18 @@
 
 import { HttpError } from '@nextrush/errors';
 import {
-  assertHeaderSafe,
   getRuntime,
   isBodylessResponse,
+  LAST_RESORT_ERROR_STATUS,
   METHODS_WITHOUT_BODY,
   NULL_PROTO,
+  OutgoingResponse,
   resolveClientIp,
   serializeJson,
+  unansweredErrorBody,
   UNINITIALIZED_COOKIES,
 } from '@nextrush/runtime';
+import type { OutgoingHeaderEntry } from '@nextrush/runtime';
 import {
   runNDJSONStream,
   runSSEStream,
@@ -33,6 +36,7 @@ import type {
     IncomingHeaders,
     NDJSONStreamWriter,
     NodeStreamLike,
+    OutgoingResponseHandle,
     PlatformId,
     ProxyTrust,
     QueryParams,
@@ -45,7 +49,8 @@ import type {
     TextStreamWriter,
     WebStreamLike,
 } from '@nextrush/types';
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import { OUTGOING_RESPONSE } from '@nextrush/types';
+import type { IncomingMessage, OutgoingHttpHeaders, ServerResponse } from 'node:http';
 import { createEmptyBodySource, NodeBodySource } from './body-source';
 import { parseQueryString } from './utils';
 
@@ -83,6 +88,12 @@ const EMPTY_QUERY: QueryParams = Object.freeze(Object.create(NULL_PROTO)) as Que
 
 /** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
 const RESOLVED_NEXT: Promise<void> = Promise.resolve();
+
+/** The content types the Node response methods record. */
+const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
+const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
+const HTML_CONTENT_TYPE = 'text/html; charset=utf-8';
+const BINARY_CONTENT_TYPE = 'application/octet-stream';
 
 /**
  * Wait for `res` to drain, settling early if the response socket disconnects
@@ -197,8 +208,20 @@ export class NodeContext implements AdapterContext {
   private _state?: ContextState;
 
   private _next: (() => Promise<void>) | null = null;
-  private _responded = false;
+  /** The recorded response the adapter flushes once the chain has settled. */
+  private readonly _outgoing = new OutgoingResponse();
   private _abortController?: AbortController;
+
+  /**
+   * The response the adapter will flush, for middleware that runs after the
+   * handler and rewrites it (compression, timer).
+   *
+   * @internal Carries no semver guarantee and is not part of the documented
+   * `Context` surface; {@link OUTGOING_RESPONSE} is the only key.
+   */
+  get [OUTGOING_RESPONSE](): OutgoingResponseHandle {
+    return this._outgoing;
+  }
 
   constructor(req: IncomingMessage, res: ServerResponse, options: NodeContextOptions = {}) {
     this._req = req;
@@ -314,219 +337,287 @@ export class NodeContext implements AdapterContext {
   // ===========================================================================
 
   /**
-   * Whether the response should suppress the body per HTTP semantics.
-   * HEAD requests, 204 No Content, and 304 Not Modified must not include a body (RFC 7231).
+   * Whether the response can no longer be changed: either this context already
+   * answered, or the platform has already begun sending the headers. Every
+   * response method and `set()` gates on this one check, so a write that arrives
+   * too late has a single meaning on this adapter instead of one per method.
    */
-  private shouldSuppressBody(): boolean {
-    return isBodylessResponse(this.method, this.status);
+  private isCommitted(): boolean {
+    return this._outgoing.committed || this._res.headersSent;
   }
 
   json(data: unknown): void {
-    if (this._responded || this._res.headersSent) return;
+    if (this.isCommitted()) return;
 
     // Serialize before committing: a value JSON cannot represent throws here,
     // with the response still unwritten, so the application error handler can
-    // still answer. Marking it responded first is what used to turn a
+    // still answer. Marking it committed first is what used to turn a
     // serialization failure into a socket that hung.
     const json = serializeJson(data);
 
-    const res = this._res;
-    this._responded = true;
-
-    // HP-14: one outgoing-header-map write instead of two setHeader calls.
-    // Node merges these with any headers set earlier via setHeader() (e.g. a
-    // middleware's ctx.set() headers, including accumulated Set-Cookie), giving
-    // writeHead precedence — so prior headers survive and json()'s Content-Type
-    // still overrides a middleware-set one, byte-identical to the old two-call form.
-    res.writeHead(this.status, {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Content-Length': String(Buffer.byteLength(json)),
-    });
-
-    if (this.shouldSuppressBody()) {
-      res.end();
-    } else {
-      res.end(json);
-    }
+    this._outgoing.status = this.status;
+    this._outgoing.setBody(json, JSON_CONTENT_TYPE);
   }
 
   send(data: ResponseBody): void {
-    if (this._responded || this._res.headersSent) return;
+    if (this.isCommitted()) return;
 
-    const res = this._res;
-    res.statusCode = this.status;
-    const suppress = this.shouldSuppressBody();
+    const outgoing = this._outgoing;
+    outgoing.status = this.status;
+    const hasContentType =
+      outgoing.hasHeader('Content-Type') || this._res.hasHeader('Content-Type');
 
     if (data === null || data === undefined) {
-      this._responded = true;
-      res.end();
+      outgoing.setBody(null);
       return;
     }
 
     if (typeof data === 'string') {
-      this._responded = true;
-      if (!res.getHeader('Content-Type')) {
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      }
-      res.setHeader('Content-Length', Buffer.byteLength(data));
-      res.end(suppress ? undefined : data);
+      outgoing.setBody(data, hasContentType ? undefined : TEXT_CONTENT_TYPE);
       return;
     }
 
     if (Buffer.isBuffer(data)) {
-      this._responded = true;
-      if (!res.getHeader('Content-Type')) {
-        res.setHeader('Content-Type', 'application/octet-stream');
-      }
-      res.setHeader('Content-Length', data.length);
-      res.end(suppress ? undefined : data);
+      outgoing.setBody(data, hasContentType ? undefined : BINARY_CONTENT_TYPE);
       return;
     }
 
-    // Uint8Array (non-Buffer) — convert to Buffer for Node.js response
+    // Uint8Array (non-Buffer) — convert to Buffer for Node.js response.
+    // `Buffer.from` is the only step that can throw here (a detached backing
+    // store), and a throw after the response looks committed would leave the
+    // request unanswered.
     if (data instanceof Uint8Array) {
-      // Build the outgoing buffer before committing: `Buffer.from` is the only
-      // step that can throw here (a detached backing store), and a throw after
-      // the response looks committed would leave the request unanswered.
-      const buf = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
-      this._responded = true;
-      if (!res.getHeader('Content-Type')) {
-        res.setHeader('Content-Type', 'application/octet-stream');
-      }
-      res.setHeader('Content-Length', buf.length);
-      res.end(suppress ? undefined : buf);
+      const buffer = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+      outgoing.setBody(buffer, hasContentType ? undefined : BINARY_CONTENT_TYPE);
       return;
     }
 
-    // ArrayBuffer — wrap as Buffer
     if (data instanceof ArrayBuffer) {
-      const buf = Buffer.from(data);
-      this._responded = true;
-      if (!res.getHeader('Content-Type')) {
-        res.setHeader('Content-Type', 'application/octet-stream');
-      }
-      res.setHeader('Content-Length', buf.length);
-      res.end(suppress ? undefined : buf);
+      outgoing.setBody(Buffer.from(data), hasContentType ? undefined : BINARY_CONTENT_TYPE);
       return;
     }
 
-    // Readable stream (Node.js style)
     if (typeof (data as NodeStreamLike).pipe === 'function') {
-      const stream = data as {
-        pipe(dest: ServerResponse): void;
-        on(event: string, listener: (err: Error) => void): void;
-        destroy?(err?: Error): void;
-      };
-      // Wiring happens before committing: `.on` is only proven present by its own
-      // call, so a duck-typed object carrying `pipe` and nothing else must not be
-      // able to leave a response marked sent and never written.
-      stream.on('error', (err: Error) => {
-        if (!res.headersSent) {
-          res.statusCode = 500;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: 'Internal Server Error' }));
-        } else {
-          res.destroy(err);
-        }
-      });
-      // Clean up source stream on client disconnect
-      res.on('close', () => {
-        if (stream.destroy) stream.destroy();
-      });
-      this._responded = true;
-      if (!res.getHeader('Content-Type')) {
-        res.setHeader('Content-Type', 'application/octet-stream');
-      }
-      stream.pipe(res);
+      this.sendNodeStream(data as NodeStreamLike, hasContentType);
       return;
     }
 
-    // Web ReadableStream — convert to Node.js pipeline
     if (
       typeof (data as WebStreamLike).getReader === 'function' &&
       'locked' in (data as WebStreamLike)
     ) {
-      // Acquiring the reader can throw (a locked or disturbed stream), so it
-      // happens before the response looks committed.
-      const reader = (data as ReadableStream<Uint8Array>).getReader();
-      this._responded = true;
-      if (!res.getHeader('Content-Type')) {
-        res.setHeader('Content-Type', 'application/octet-stream');
-      }
-      // Clean up reader on client disconnect
-      res.on('close', () => {
-        void reader.cancel().catch((): undefined => undefined);
-      });
-      const pump = async (): Promise<void> => {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) {
-            res.end();
-            return;
-          }
-          if (!res.write(value)) {
-            await waitForDrainOrDisconnect(res);
-          }
-        }
-      };
-      pump().catch((err: unknown) => {
-        if (err instanceof StreamAbortedError) {
-          // Client disconnected while backpressured — expected, no response
-          // to salvage; the `res.on('close')` cleanup above already cancelled
-          // the reader.
-          return;
-        }
-        if (!res.headersSent) {
-          res.statusCode = 500;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: 'Internal Server Error' }));
-        } else {
-          res.destroy(err instanceof Error ? err : new Error(String(err)));
-        }
-      });
+      this.sendWebStream(data as ReadableStream<Uint8Array>, hasContentType);
       return;
     }
 
-    // Object - delegate to json() which manages its own _responded flag
+    // Object - delegate to json() which manages its own commit guard.
     if (typeof data === 'object') {
       this.json(data);
       return;
     }
 
-    // Default: convert to string
-    const str = String(data);
-    this._responded = true;
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Content-Length', Buffer.byteLength(str));
-    res.end(str);
+    outgoing.setBody(String(data), hasContentType ? undefined : TEXT_CONTENT_TYPE);
   }
 
   html(content: string): void {
-    if (this._responded || this._res.headersSent) return;
-    this._responded = true;
+    if (this.isCommitted()) return;
 
-    const res = this._res;
-    res.statusCode = this.status;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Content-Length', Buffer.byteLength(content));
-
-    if (this.shouldSuppressBody()) {
-      res.end();
-    } else {
-      res.end(content);
-    }
+    this._outgoing.status = this.status;
+    this._outgoing.setBody(content, HTML_CONTENT_TYPE);
   }
 
   redirect(url: string, status = 302): void {
-    if (this._responded || this._res.headersSent) return;
-    this._responded = true;
+    if (this.isCommitted()) return;
 
+    // Plain text avoids HTML injection via user-controlled URLs.
+    this._outgoing.status = status;
+    this._outgoing.set('Location', url);
+    this._outgoing.setBody(`Redirecting to ${url}`, TEXT_CONTENT_TYPE);
+  }
+
+  // ===========================================================================
+  // Response Flushing
+  // ===========================================================================
+
+  /**
+   * Flush the recorded response to the socket exactly once.
+   *
+   * @remarks
+   * Called by the adapter's request handler after the middleware chain settles.
+   * A response nothing recorded is still answered: an error status gets the
+   * framework's envelope, a success status the documented empty `text/plain`
+   * response. This is the adapter finalizer of the three redundant layers that
+   * keep a request from going unanswered.
+   *
+   * @internal
+   */
+  flushResponse(): void {
     const res = this._res;
-    res.statusCode = status;
-    res.setHeader('Location', url);
-    // Use plain text to avoid HTML injection via user-controlled URLs
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.end(`Redirecting to ${url}`);
+    // A direct `ctx.raw.res` writer (the static middleware, a hand-rolled
+    // stream) has already committed; there is nothing left to flush.
+    if (res.headersSent) return;
+
+    const record = this._outgoing;
+    if (!record.committed) {
+      record.status = this.status;
+      if (this.status >= LAST_RESORT_ERROR_STATUS) {
+        record.setBody(JSON.stringify(unansweredErrorBody(this.status)), JSON_CONTENT_TYPE);
+      } else {
+        // F-09: a handler that resolves without responding must still carry an
+        // explicit Content-Type. text/plain is the honest default: no body.
+        record.set('Content-Type', TEXT_CONTENT_TYPE);
+        record.commit();
+      }
+    }
+
+    record.flush((flushed) => {
+      const body = flushed.body;
+      res.writeHead(flushed.status, this.nodeHeaders(flushed, body));
+      if (body === null || isBodylessResponse(this.method, flushed.status)) {
+        res.end();
+      } else {
+        // Write the recorded form through unchanged. A string body stays a
+        // string, which is what the pre-record path did: `res.end` encodes it
+        // inside Node, so an untouched response allocates no intermediate byte
+        // array (RFC-041 §14.2). Only a rewritten body is already bytes.
+        res.end(body);
+      }
+    });
+  }
+
+  /**
+   * Apply the recorded head to the socket and freeze the record, for a path
+   * that writes its body itself.
+   *
+   * @remarks
+   * Unlike {@link flushResponse} this does not call `writeHead`: the headers go
+   * on through `setHeader` and Node sends them with the first body write. That
+   * keeps the pre-existing behaviour where a stream that errors before its
+   * first chunk can still be answered with a 500 instead of a destroyed socket.
+   */
+  private applyRecordHead(): void {
+    const res = this._res;
+    this._outgoing.status = this.status;
+    this._outgoing.commit();
+    this._outgoing.flush((record) => {
+      res.statusCode = record.status;
+      const contentType = record.contentType;
+      if (contentType !== undefined && !res.hasHeader('Content-Type')) {
+        res.setHeader('Content-Type', contentType);
+      }
+      for (const [name, value] of record.extraHeaders()) {
+        if (!res.hasHeader(name)) res.setHeader(name, value);
+      }
+    });
+  }
+
+  /**
+   * The recorded headers in the shape `writeHead` accepts.
+   *
+   * @remarks
+   * `Content-Length` is derived from the body actually written, so a rewrite can
+   * never flush a length that disagrees with the bytes. It stays absent for an
+   * unmeasurable body, which keeps chunked encoding. A string body is measured
+   * with `Buffer.byteLength` rather than by encoding it: measuring must not cost
+   * the copy that writing the string through avoids.
+   */
+  private nodeHeaders(
+    record: OutgoingResponse,
+    body: string | Uint8Array | null
+  ): OutgoingHttpHeaders {
+    const headers: OutgoingHttpHeaders = {};
+
+    const contentType = record.contentType;
+    if (contentType !== undefined) headers['Content-Type'] = contentType;
+
+    const entries: readonly OutgoingHeaderEntry[] = record.extraHeaders();
+    for (const [name, value] of entries) {
+      if (!Object.hasOwn(headers, name)) {
+        headers[name] = value;
+        continue;
+      }
+      const existing = headers[name];
+      headers[name] = Array.isArray(existing) ? [...existing, value] : [String(existing), value];
+    }
+
+    if (body !== null) {
+      headers['Content-Length'] =
+        typeof body === 'string' ? String(Buffer.byteLength(body)) : String(body.byteLength);
+    }
+
+    return headers;
+  }
+
+  /** Adapt a Node-style readable into the response, committing at the pipe. */
+  private sendNodeStream(data: NodeStreamLike, hasContentType: boolean): void {
+    const stream = data as {
+      pipe(dest: ServerResponse): void;
+      on(event: string, listener: (err: Error) => void): void;
+      destroy?(err?: Error): void;
+    };
+    const res = this._res;
+
+    // Wiring happens before committing: `.on` is only proven present by its own
+    // call, so a duck-typed object carrying `pipe` and nothing else must not be
+    // able to leave a response marked sent and never written.
+    stream.on('error', (err: Error) => {
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+      } else {
+        res.destroy(err);
+      }
+    });
+    res.on('close', () => {
+      if (stream.destroy) stream.destroy();
+    });
+
+    if (!hasContentType) this._outgoing.set('Content-Type', BINARY_CONTENT_TYPE);
+    this.applyRecordHead();
+    stream.pipe(res);
+  }
+
+  /** Pump a Web `ReadableStream` into the response, committing at the pump. */
+  private sendWebStream(data: ReadableStream<Uint8Array>, hasContentType: boolean): void {
+    // Acquiring the reader can throw (a locked or disturbed stream), so it
+    // happens before the response looks committed.
+    const reader = data.getReader();
+    const res = this._res;
+
+    if (!hasContentType) this._outgoing.set('Content-Type', BINARY_CONTENT_TYPE);
+    this.applyRecordHead();
+
+    res.on('close', () => {
+      void reader.cancel().catch((): undefined => undefined);
+    });
+
+    const pump = async (): Promise<void> => {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          res.end();
+          return;
+        }
+        if (!res.write(value)) {
+          await waitForDrainOrDisconnect(res);
+        }
+      }
+    };
+    pump().catch((err: unknown) => {
+      if (err instanceof StreamAbortedError) {
+        // Client disconnected while backpressured — expected, no response to
+        // salvage; the `res.on('close')` cleanup above already cancelled it.
+        return;
+      }
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+      } else {
+        res.destroy(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
   }
 
   // ===========================================================================
@@ -584,16 +675,15 @@ export class NodeContext implements AdapterContext {
    * when the stream is fully flushed; rejects on a non-abort transport error.
    */
   sendStream(source: ReadableStream<Uint8Array>): Promise<void> {
-    if (this._responded || this._res.headersSent) return Promise.resolve();
+    if (this.isCommitted()) return Promise.resolve();
 
     const res = this._res;
     // Acquiring the reader can throw (an already-locked or disturbed stream), so
     // it happens before the response looks committed — otherwise the throw would
     // leave a response that is marked sent and was never written.
     const reader = source.getReader();
-    this._responded = true;
+    this.applyRecordHead();
 
-    res.statusCode = this.status;
     // Cancel the source if the client disconnects mid-stream.
     res.on('close', () => {
       void reader.cancel().catch((): undefined => undefined);
@@ -648,20 +738,23 @@ export class NodeContext implements AdapterContext {
   // ===========================================================================
 
   set(field: string, value: string | number | string[]): void {
-    // Guard against CRLF injection (header splitting) via the shared helper.
-    assertHeaderSafe(field, value);
+    // Validates the field/value grammar, and discards (once per process) a
+    // write that arrives after the response was flushed.
+    const accepted = this._outgoing.set(field, value);
+    if (!accepted || !this._outgoing.flushing) return;
 
+    // A write made *while* the flush runs — the position Node invokes an
+    // `on-headers` bridge listener, after the head was serialized from the
+    // record but before it reached the socket — must still land.
+    this.writeHeaderToResponse(field, value);
+  }
+
+  /** Write one header straight to the socket, preserving `Set-Cookie` accumulation. */
+  private writeHeaderToResponse(field: string, value: string | number | string[]): void {
     const res = this._res;
 
-    // Set-Cookie must accumulate across calls (multiple headers), not overwrite —
-    // matching the web adapter's append semantics so `ctx.set('Set-Cookie', …)`
-    // behaves identically on every runtime. An array value means "set exactly
-    // these", so it still replaces (Node emits one header per array element).
-    //
-    // HP-15: gate the toLowerCase() allocation behind a constant-time pre-check —
-    // 'set-cookie' is exactly 10 chars and starts with 's'/'S' — so a lowercased
-    // string is only ever allocated for a field that could actually be set-cookie,
-    // not for every header. Detection stays case-insensitive across all casings.
+    // An array value means "set exactly these", so it replaces; a scalar
+    // `Set-Cookie` accumulates, matching the record and the Web adapters.
     if (
       !Array.isArray(value) &&
       field.length === 10 &&
@@ -675,7 +768,6 @@ export class NodeContext implements AdapterContext {
         appendHeader.call(res, field, cookie);
         return;
       }
-      // Fallback for response objects without appendHeader: merge manually.
       const existing = res.getHeader(field);
       if (existing === undefined) {
         res.setHeader(field, [cookie]);
@@ -741,14 +833,14 @@ export class NodeContext implements AdapterContext {
    * Check if response has been sent
    */
   get responded(): boolean {
-    return this._responded;
+    return this._outgoing.committed;
   }
 
   /**
    * Mark response as sent (for streaming scenarios)
    */
   markResponded(): void {
-    this._responded = true;
+    this._outgoing.commit();
   }
 }
 

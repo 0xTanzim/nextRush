@@ -4,14 +4,11 @@
  * Compression middleware for NextRush applications.
  *
  * @remarks
- * Compression rewrites the outgoing body, so it needs an adapter that still
- * exposes that body after the handler ran. Both shipped adapter families commit
- * the response before the middleware chain unwinds — the Node adapter writes and
- * ends it inside the handler, the Web adapters record it privately and build the
- * `Response` afterwards — so a response produced with `ctx.json()`/`send()` is
- * already gone by the time this middleware looks. It never reads the parsed
- * request body as a substitute, and it reports the situation once per process
- * rather than failing silently. See the package README's compatibility notes.
+ * Compression rewrites the outgoing body, so it needs the response the adapter
+ * is about to send. Every shipped adapter records that response on the context
+ * (RFC-041) and flushes it once the middleware chain unwinds, so this middleware
+ * reads and replaces the recorded body through {@link outgoingResponseOf}. It
+ * never reads the parsed request body as a substitute.
  *
  * @packageDocumentation
  */
@@ -28,52 +25,13 @@ import {
 } from './constants.js';
 import { isCompressible } from './content-type.js';
 import { selectEncoding } from './negotiation.js';
+import { outgoingResponseOf, type OutgoingBody, type OutgoingResponseView } from './outgoing.js';
 import type {
   CompressionInfo,
   CompressionMiddleware as CompressionMiddlewareFn,
   CompressionOptions,
   ResolvedCompressionOptions,
 } from './types.js';
-
-// ============================================================================
-// Outgoing Response Shape
-// ============================================================================
-
-/**
- * The outgoing response an adapter still exposes after the handler ran.
- *
- * `body` is the buffered outgoing body — the only thing compression can rewrite.
- * An adapter that has already written the body out leaves it `undefined`, which
- * is information, not a failure: it says the body can no longer be transformed.
- */
-interface OutgoingResponse {
-  body?: unknown;
-  getHeader?: (name: string) => string | number | string[] | undefined;
-}
-
-/**
- * Resolve the adapter's outgoing response, or `null` when the adapter exposes
- * none.
- *
- * Header access is the marker. The Web context reports `res` as `undefined` on
- * every request, because its response is recorded privately and materialised
- * after the chain, so there is nothing here to inspect or rewrite.
- */
-function outgoingResponseOf(ctx: Context): OutgoingResponse | null {
-  const res = ctx.raw?.res as OutgoingResponse | undefined;
-  return typeof res?.getHeader === 'function' ? res : null;
-}
-
-/**
- * Read a response header from the same shape everything else is read from.
- */
-function responseHeaderOf(res: OutgoingResponse, name: string): string | undefined {
-  const value = res.getHeader?.(name);
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return String(value);
-  if (Array.isArray(value)) return value[0];
-  return undefined;
-}
 
 // ============================================================================
 // Options Resolution
@@ -138,27 +96,30 @@ function isCompressionCandidate(ctx: Context, options: ResolvedCompressionOption
 /**
  * Whether the response headers allow compression.
  *
- * @param res - The adapter's outgoing response
+ * @param response - The outgoing response view
  * @param options - Resolved options
  * @returns Whether compression should be applied
  */
-function shouldCompressResponse(res: OutgoingResponse, options: ResolvedCompressionOptions): boolean {
+function shouldCompressResponse(
+  response: OutgoingResponseView,
+  options: ResolvedCompressionOptions
+): boolean {
   // SEC-17: Cache-Control: no-transform is an explicit instruction that no
   // intermediary may transform the entity body — compression is exactly
   // such a transform.
-  const cacheControl = responseHeaderOf(res, 'cache-control');
+  const cacheControl = response.header('cache-control');
   if (cacheControl && hasNoTransformDirective(cacheControl)) {
     return false;
   }
 
   // Check if already encoded
-  const contentEncoding = responseHeaderOf(res, 'content-encoding');
+  const contentEncoding = response.header('content-encoding');
   if (contentEncoding && contentEncoding !== 'identity') {
     return false;
   }
 
   // Check content type
-  const contentType = responseHeaderOf(res, 'content-type');
+  const contentType = response.header('content-type');
 
   return isCompressible(contentType, {
     contentTypes: options.contentTypes,
@@ -178,26 +139,9 @@ function hasNoTransformDirective(cacheControl: string): boolean {
 }
 
 /**
- * Read the buffered outgoing body, or `null` when the adapter has none.
- *
- * Deliberately narrow: `ctx.body` carries the *parsed request body*, so reading
- * it here would compress the request the client sent back to it. Only the body
- * the adapter still holds for the response is eligible.
- */
-function getResponseBody(res: OutgoingResponse): string | Uint8Array | Buffer | object | null {
-  const body = res.body;
-
-  if (body === undefined || body === null || typeof body === 'function') {
-    return null;
-  }
-
-  return body as string | Uint8Array | Buffer | object;
-}
-
-/**
  * Convert body to Uint8Array for compression.
  */
-function bodyToBytes(body: unknown): Uint8Array {
+function bodyToBytes(body: OutgoingBody): Uint8Array {
   if (typeof body === 'string') {
     return new TextEncoder().encode(body);
   }
@@ -224,13 +168,6 @@ function applyBreachMitigation(ctx: Context): void {
   ctx.set('X-Pad', 'x'.repeat(paddingLength));
 }
 
-/**
- * Set the compressed body on the adapter's outgoing response.
- */
-function setCompressedBody(res: OutgoingResponse, data: Uint8Array): void {
-  res.body = data;
-}
-
 // ============================================================================
 // Main Middleware
 // ============================================================================
@@ -245,12 +182,12 @@ function setCompressedBody(res: OutgoingResponse, data: Uint8Array): void {
  * - Custom filter function
  *
  * @remarks
- * Compression needs the outgoing body, so it applies only where the adapter
- * still exposes it after the handler ran. On the shipped adapters a response
- * written with `ctx.json()`/`send()`/`html()` has already been committed by
- * then: nothing is compressed, the request body is never used as a substitute,
- * and the situation is reported once per process. See the package README's
- * compatibility notes.
+ * Compression reads the response the adapter recorded and rewrites its body
+ * after the handler ran, so it behaves the same on every shipped adapter: Node,
+ * Bun, Deno, the edge runtimes and serverless all flush the recorded response
+ * once the middleware chain unwinds. The parsed request body is never used as a
+ * substitute. A streamed response has no recorded body to rewrite and is left
+ * untouched.
  *
  * @example
  * ```typescript
@@ -298,10 +235,17 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
     }
 
     const outgoing = outgoingResponseOf(ctx);
-    const outgoingBody = outgoing === null ? null : getResponseBody(outgoing);
-
-    if (outgoing === null || outgoingBody === null) {
+    if (outgoing === null) {
+      // No adapter-visible response at all: the one case where this middleware
+      // genuinely cannot act, and the one worth reporting.
       warnNoOutgoingBodyOnce();
+      return;
+    }
+
+    const outgoingBody = outgoing.body();
+    if (outgoingBody === null) {
+      // A bodyless or streamed response: nothing to rewrite, and nothing wrong —
+      // the adapter sends it as the handler produced it.
       return;
     }
 
@@ -337,10 +281,9 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
 
       // Set response headers
       ctx.set('Content-Encoding', encoding);
-      ctx.set('Content-Length', String(result.data.length));
 
       // Update Vary header
-      const vary = responseHeaderOf(outgoing, 'vary');
+      const vary = outgoing.header('vary');
       if (!vary?.toLowerCase().includes('accept-encoding')) {
         ctx.set('Vary', vary ? `${vary}, ${VARY_HEADER}` : VARY_HEADER);
       }
@@ -355,8 +298,11 @@ export function compression(options: CompressionOptions = {}): CompressionMiddle
         applyBreachMitigation(ctx);
       }
 
-      // Set compressed body
-      setCompressedBody(outgoing, result.data);
+      // Replace the recorded body, then describe it. The order matters: a body
+      // replacement invalidates the length recorded for the body it replaced, so
+      // the compressed length is written after the swap.
+      outgoing.replaceBody(result.data);
+      ctx.set('Content-Length', String(result.data.length));
     } catch (error: unknown) {
       // Compression failed — graceful degradation: send the original uncompressed response.
       // Make the failure observable via state for logging/monitoring middleware.

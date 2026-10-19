@@ -23,10 +23,12 @@
     "bench:alloc:router": "node scripts/alloc/router-match-alloc.js",
     "bench:alloc:param-match": "node scripts/alloc/param-match-alloc.js",
     "bench:alloc:handler": "node scripts/alloc/handler-alloc.js",
+    "bench:alloc:web-runner": "node --expose-gc --max-semi-space-size=256 scripts/alloc/web-runner-alloc-child.js armed 200000",
     "bench:alloc:native-hello": "node scripts/alloc/native-hello-alloc.js",
     "bench:express-bridge": "node scripts/express-bridge-ab.js",
     "bench:express-bridge:ladder": "node scripts/express-bridge-ladder.js",
     "bench:alloc:web": "node scripts/alloc/web-context-alloc.js",
+    "bench:alloc:response-construction": "node scripts/alloc/response-construction-alloc.js",
     "bench:validate": "node scripts/validate-parity.js",
     "bench:verify": "node scripts/run.js --profile verify --rotate --compare --scenario hello-world",
     "bench:check": "node scripts/check-regression.js",
@@ -51,7 +53,9 @@
     "@nextrush/runtime": "workspace:*",
     "@nextrush/static": "workspace:*",
     "@nextrush/types": "workspace:*",
+    "@nextrush/validation": "workspace:*",
     "autocannon": "8.0.0",
+    "elysia": "catalog:",
     "express": "5.2.1",
     "fastify": "5.11.2",
     "hono": "4.13.0",
@@ -60,7 +64,9 @@
     "koa-router": "14.0.0",
     "koa-static": "5.0.0",
     "morgan": "catalog:",
-    "response-time": "catalog:"
+    "response-time": "catalog:",
+    "workerd": "1.20261011.1",
+    "zod": "catalog:tooling"
   },
   "engines": {
     "node": ">=22.0.0"
