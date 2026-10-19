@@ -209,8 +209,8 @@ function createBunRequestRunner(
   let handler = boot.handler;
 
   return async (request: Request, server: ReturnType<typeof Bun.serve>): Promise<Response> => {
-    const clientIp = server.requestIP(request)?.address ?? '';
-    const ctx = createBunContext(request, clientIp, proxy);
+    // The platform address is resolved on the first `ctx.ip` read, not here.
+    const ctx = createBunContext(request, () => server.requestIP(request)?.address ?? '', proxy);
 
     try {
       handler ??= await boot.ensure();

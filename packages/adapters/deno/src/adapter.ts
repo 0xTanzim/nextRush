@@ -213,13 +213,9 @@ export function createHandler(
   let handler = boot.handler;
 
   return async (request: Request, info: DenoServeHandlerInfo): Promise<Response> => {
-    const ctx = createDenoContext(
-      request,
-      {
-        remoteAddr: { hostname: info.remoteAddr.hostname },
-      },
-      proxy
-    );
+    // The connection info is handed over as-is; `hostname` is read on the first
+    // `ctx.ip` read, not here.
+    const ctx = createDenoContext(request, info, proxy);
 
     try {
       handler ??= await boot.ensure();
