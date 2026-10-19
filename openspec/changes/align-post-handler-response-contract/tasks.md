@@ -13,24 +13,24 @@
 
 ## 2. Node: a post-commit header write is a discarded, reported no-op
 
-- [ ] 2.1 (RED) Add a node-adapter test with an outer middleware that has post-`next()` work and an
+- [x] 2.1 (RED) Add a node-adapter test with an outer middleware that has post-`next()` work and an
       inner middleware that calls `ctx.set()` after the handler committed the response; assert the
       outer work ran, the client received the handler's response, and nothing rejected. Verify: the
       test fails against `packages/adapters/node/src/context.ts` for the expected reason (the outer
       post-`next()` work never ran).
-- [ ] 2.2 (RED) Add a test asserting the discarded write produces exactly one warning per process
+- [x] 2.2 (RED) Add a test asserting the discarded write produces exactly one warning per process
       that names the field. Verify: the test fails today because no warning exists.
-- [ ] 2.3 (GREEN) Guard `ctx.set()`/`setHeader` in `packages/adapters/node/src/context.ts` on the
+- [x] 2.3 (GREEN) Guard `ctx.set()`/`setHeader` in `packages/adapters/node/src/context.ts` on the
       committed state (`_responded || this._res.headersSent`), matching the guards the response
       methods already carry, and emit the once-per-process warning. Verify: 2.1 and 2.2 pass.
-- [ ] 2.4 (REFACTOR) Extract the committed-state check and the once-per-process warning into one
+- [x] 2.4 (REFACTOR) Extract the committed-state check and the once-per-process warning into one
       small helper shared by `set` and the response methods, with no behaviour change. Verify: the
       full `@nextrush/adapter-node` suite passes.
-- [ ] 2.5 Confirm the header-validation guard is unweakened: an invalid field name or a value with
+- [x] 2.5 Confirm the header-validation guard is unweakened: an invalid field name or a value with
       control characters still throws a typed error before commit, and the post-commit path does not
       bypass it. Verify: the existing header-validation tests pass unchanged plus one new assertion
       covering a post-commit invalid write.
-- [ ] 2.6 Document the discard-and-report behaviour in the READMEs of the middleware that writes
+- [x] 2.6 Document the discard-and-report behaviour in the READMEs of the middleware that writes
       headers after the handler (`packages/middleware/timer`, `packages/middleware/compression`).
       Verify: each README states that a post-handler write after commit is discarded and reported
       once.

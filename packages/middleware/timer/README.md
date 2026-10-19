@@ -285,7 +285,7 @@ already responded. Whether that write lands depends on the adapter's response mo
 | Adapter family | Header written after the handler | Result |
 | -------------- | -------------------------------- | ------ |
 | Web (Bun, Deno, Edge, serverless, Next.js) | Yes -- the response is recorded and built after the chain unwinds | `X-Response-Time` / `Server-Timing` appear as documented |
-| Node | No -- the response is already on the wire | The header cannot appear; the write itself fails |
+| Node | No -- the response is already committed | The header cannot appear; the write is discarded and reported once per process |
 
 This is why `exposeHeader` defaults to `false` on every adapter: the measurement is always in
 `ctx.state`, and the header is opt-in where it can work. A recorded response model that post-handler
@@ -293,10 +293,16 @@ work can still modify is the structural fix and is deferred; `src/__tests__/real
 pins both behaviours (opt-in header on the Web family, absence on Node) so the documentation cannot
 drift from reality.
 
-> [!CAUTION]
-> On the Node adapter, enabling `exposeHeader: true` makes the late write fail on every request. The
-> response itself is still delivered intact, but the failure surfaces through the middleware chain --
-> keep `exposeHeader` disabled on Node until the recorded response model lands.
+A write that arrives after commit is discarded rather than rejected, and the first one per process is
+reported naming the field, so a middleware that silently stopped having an effect still shows up in
+the log. It no longer throws, so the rest of the chain -- including every outer middleware's
+post-`next()` work -- still runs and the request still answers normally.
+
+> [!WARNING]
+> On the Node adapter, enabling `exposeHeader: true` attempts a header write the response can no
+> longer accept. The write is discarded and reported once per process, and the request still answers
+> normally, but the header can never arrive -- keep `exposeHeader` disabled on Node until the recorded
+> response model lands.
 
 > [!IMPORTANT]
 > NextRush is **ESM-only, permanently** -- no CommonJS build. On Node >=22, CommonJS consumers

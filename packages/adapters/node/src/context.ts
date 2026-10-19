@@ -47,6 +47,7 @@ import type {
 } from '@nextrush/types';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createEmptyBodySource, NodeBodySource } from './body-source';
+import { warnPostCommitHeaderWriteOnce } from './post-commit-write';
 import { parseQueryString } from './utils';
 
 /**
@@ -321,8 +322,18 @@ export class NodeContext implements AdapterContext {
     return isBodylessResponse(this.method, this.status);
   }
 
+  /**
+   * Whether the response can no longer be changed: either this context already
+   * answered, or the platform has already begun sending the headers. Every
+   * response method and `set()` gates on this one check, so a write that arrives
+   * too late has a single meaning on this adapter instead of one per method.
+   */
+  private isCommitted(): boolean {
+    return this._responded || this._res.headersSent;
+  }
+
   json(data: unknown): void {
-    if (this._responded || this._res.headersSent) return;
+    if (this.isCommitted()) return;
 
     // Serialize before committing: a value JSON cannot represent throws here,
     // with the response still unwritten, so the application error handler can
@@ -351,7 +362,7 @@ export class NodeContext implements AdapterContext {
   }
 
   send(data: ResponseBody): void {
-    if (this._responded || this._res.headersSent) return;
+    if (this.isCommitted()) return;
 
     const res = this._res;
     res.statusCode = this.status;
@@ -502,7 +513,7 @@ export class NodeContext implements AdapterContext {
   }
 
   html(content: string): void {
-    if (this._responded || this._res.headersSent) return;
+    if (this.isCommitted()) return;
     this._responded = true;
 
     const res = this._res;
@@ -518,7 +529,7 @@ export class NodeContext implements AdapterContext {
   }
 
   redirect(url: string, status = 302): void {
-    if (this._responded || this._res.headersSent) return;
+    if (this.isCommitted()) return;
     this._responded = true;
 
     const res = this._res;
@@ -584,7 +595,7 @@ export class NodeContext implements AdapterContext {
    * when the stream is fully flushed; rejects on a non-abort transport error.
    */
   sendStream(source: ReadableStream<Uint8Array>): Promise<void> {
-    if (this._responded || this._res.headersSent) return Promise.resolve();
+    if (this.isCommitted()) return Promise.resolve();
 
     const res = this._res;
     // Acquiring the reader can throw (an already-locked or disturbed stream), so
@@ -650,6 +661,16 @@ export class NodeContext implements AdapterContext {
   set(field: string, value: string | number | string[]): void {
     // Guard against CRLF injection (header splitting) via the shared helper.
     assertHeaderSafe(field, value);
+
+    // A committed response can no longer accept headers. Node rejects the write
+    // with ERR_HTTP_HEADERS_SENT, and that rejection escapes the middleware,
+    // unwinds the stack and silently skips every outer post-next() step — while
+    // the request still answers normally. Discard the write and report it once,
+    // matching the response methods below.
+    if (this.isCommitted()) {
+      warnPostCommitHeaderWriteOnce(field);
+      return;
+    }
 
     const res = this._res;
 
