@@ -50,7 +50,8 @@ resolve-before-commit serialization guarantee, and the unanswered-error envelope
 #### Scenario: A post-handler body replacement reaches the materialised Response
 
 - **WHEN** a middleware replaces the recorded body after `await next()` on a Web adapter
-- **THEN** the flushed `Response` carries the new bytes and a `Content-Length` matching them
+- **THEN** the flushed `Response` carries the new bytes, and any `Content-Length` it declares
+  matches them — never the length of the body that was replaced
 
 #### Scenario: Existing byte-level guarantees are unchanged
 

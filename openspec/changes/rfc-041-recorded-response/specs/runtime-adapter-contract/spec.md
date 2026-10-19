@@ -70,7 +70,8 @@ conformance suite rather than being treated as an adapter-specific detail.
 
 - **WHEN** the conformance suite runs a middleware that replaces the outgoing body after
   `await next()` against every shipped adapter
-- **THEN** every adapter delivers the rewritten body and the matching `Content-Length`
+- **THEN** every adapter delivers the rewritten body, and none declares a `Content-Length` that
+  disagrees with it
 
 #### Scenario: A committed response outlives the timeout on every adapter
 

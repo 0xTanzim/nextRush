@@ -123,7 +123,6 @@ export const nodeDriver: ConformanceDriver = {
   honorsCloudflareIp: false, // Node ignores cf-connecting-ip (F-11)
   // The response is written and ended inside the handler, so a header set after
   // `await next()` resolves has no open response to land in.
-  honorsPostHandlerHeaderWrite: false,
   rawRequestTarget: getRuntimeCapabilities().rawRequestTarget,
 
   async dispatch(configure: Configure, init?: DispatchInit): Promise<DispatchResult> {
