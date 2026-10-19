@@ -17,15 +17,15 @@
 
 ## Progress Tracker
 
-**Overall:** `[████████░░░░░░░░░░░░]` 40% — 2 / 5 phases complete · Doc status: `Approved`
+**Overall:** `[████████████████████]` 100% — 5 / 5 phases closed · Doc status: `Approved`
 
 | Phase | Part / deliverable                                              | Status       |
 | ----- | --------------------------------------------------------------- | ------------ |
 | P0    | Profiles: hello, POST (parsed/unparsed), middleware ×5 on Bun and Node | ✅ Complete — Bun hello §3.7; Node/POST/middleware §3.8; verdict §3.10 |
 | P1    | Lazy context fill + const-header skip (no API change)           | ✅ shipped — lazy incoming headers `db9bbda9`, lazy client IP `64ca11de`, shared settled-handler runner `836dd6a5`; parity `7c36e897` |
-| P2    | Compiled request validator (Tier 2+) from existing metadata     | not started — verdict: not justified yet (§3.10) |
-| P3    | Compiled response serializer (Tier 3) + docs incentive          | not started — verdict: gate unmet (§3.10) |
-| P4    | Scoped middleware DX; Rust only if profile names it             | not started  |
+| P2    | Compiled request validator (Tier 2+) from existing metadata     | ✅ closed — evidence-negative, 1.5 % end-to-end delta (§3.11) |
+| P3    | Compiled response serializer (Tier 3) + docs incentive          | ✅ closed — gate tripped, prototype rejected by measurement (RFC-042, §3.11) |
+| P4    | Scoped middleware DX; Rust only if profile names it             | ✅ closed — existing compiled path + README/scaffold docs (§3.11); Rust not justified |
 
 ---
 
@@ -280,6 +280,35 @@ P0 asked for the shapes that were missing, not for an optimization. They now exi
   ratio is ungated by design, and whether that allocation delta reaches Node request time is a
   separate question this RFC does not answer. Harness:
   `apps/benchmark/scripts/alloc/response-construction-alloc.js`.
+
+### 3.11 P1–P4 verdicts (2026-10-19)
+
+The P0 profile rows were extended with a realistic schema entry and a large-response
+entry. The same rule applies to all four: a phase ships only when a profile names a
+framework-attributable cost above the 5 % bar.
+
+| Phase | Verdict | Evidence |
+| --- | --- | --- |
+| **P1** | **Already shipped, no action.** | Lazy incoming headers (`db9bbda9`), lazy client IP (`64ca11de`) and the settled-handler runner (`836dd6a5`) are in the measured path. The profile reruns below do not name any of them as a remaining hot cost. |
+| **P2** | **Closed evidence-negative.** | `inproc-nextrush-schema-post` (bodyParser + real `z.object`) vs `inproc-nextrush-schema-control` (same middleware, identity Standard Schema): 30.702 µs vs 30.248 µs, a 0.454 µs / 1.5 % delta. The wrapper's own self time is 0.0–0.1 %; the schema library's own rows (`runChecks`, `ZodObject`) total ≈1 %. The wrapper never reaches 5 % of request CPU. |
+| **P3** | **Gate tripped, implementation rejected.** | `inproc-nextrush-large-response` attributes 88.1 % self to `JSON.stringify`. A byte-identical fixed-key prototype was built and differentially tested, then measured at 75 s against 17 s for the same profile — 4.4× slower. Reverted; verdict recorded in [RFC-042](042-fixed-key-serializer-rejected.md). Keep `JSON.stringify`. |
+| **P4** | **Closed with docs, no runtime change.** | Per-route middleware is already compiled at registration and covered by `packages/router/src/__tests__/middleware-pipeline.test.ts` (ordering, short-circuit, async, errors). The missing piece was discoverability: `packages/core/README.md` now documents the route-scoped argument form and one scaffold template route uses it. The five-middleware profile attributes 3.4 % + 2.5 % self to the user middleware frames and 2.4 % + 1.5 % to dispatch; no router, header scan or query scan is dominant, so Rust remains unjustified. No new API. |
+
+Commands:
+
+```bash
+node apps/benchmark/scripts/dev-check/check.mjs profile --entry inproc-nextrush-schema-post --rt bun
+node apps/benchmark/scripts/dev-check/check.mjs profile --entry inproc-nextrush-schema-control --rt bun
+node apps/benchmark/scripts/dev-check/check.mjs profile --entry inproc-nextrush-large-response --rt bun
+BODY_BYTES=102400 node apps/benchmark/scripts/dev-check/check.mjs profile --entry inproc-nextrush-post --rt bun
+```
+
+Profile files: `CPU.20261019.193633.567963.0.001.md` (schema POST),
+`CPU.20261019.193719.568528.0.001.md` (schema control),
+`CPU.20261019.193823.569451.0.001.md` (large response, native),
+`CPU.20261019.194427.573137.0.001.md` (large response, rejected prototype),
+`CPU.20261019.193907.570341.0.001.md` (100 KiB POST),
+`CPU.20261019.195555.582947.0.001.md` (five-middleware stack).
 
 ## 4. Goals and Non-Goals
 

@@ -446,11 +446,6 @@ effect this change could have, so no before/after claim is made for it. The Node
 destroyed sockets whose recorded response was ready to flush — the failure the conformance drivers
 had been working around locally with `httpServer.timeout = 5_000`.
 
-**Next change (not this one).** A measurement-only change that runs this gate: (a) add the copy
-counter to the recorder, (b) A/B the Node flush-after-chain path against today's write path, (c) run
-the existing `compression-gzip`, `timer-header`, and `server-timing-header` probes on both runtimes
-and record the before/after table. No response-model code changes until that table exists.
-
 ---
 
 ## 15. Phased Implementation Plan
