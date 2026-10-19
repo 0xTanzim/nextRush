@@ -111,13 +111,15 @@ adapter populates, so it warns once and returns. It previously fell back to `ctx
 this RFC could redesign the same surface. Both are interim: **this RFC must preserve them**, not
 supersede them.
 
-1. **A response-header write after the response is committed is discarded and reported once per
+1. **A response-header write after the response headers have been sent is discarded and reported once per
    process.** It no longer throws on Node, so it no longer aborts the remaining middleware chain.
    Measured before the fix: an inner `ctx.set()` reached `res.setHeader()` after `headersSent`, threw,
    and skipped every outer middleware's post-`next()` work, which `handleError` then swallowed because
    `ctx.responded` was already true. After the fix the whole chain completes and the discarded field is
-   named once. P2 makes the late write *land* instead of being discarded — strictly better — but it must
-   not reintroduce a throw, a chain abort, or a silent drop.
+   named once. A write made *while* `writeHead` runs — after `ctx.responded` is set but before the
+   headers are sent, which is where Node invokes `on-headers` listeners — is still legal and lands.
+   P2 makes the late write *land* instead of being discarded — strictly better — but it must not
+   reintroduce a throw, a chain abort, or a silent drop.
 2. **A response the handler already committed outlives the handler timeout.** Measured before the fix:
    a handler that answered and then worked past the configured timeout returned the Web adapters'
    `504 Gateway Timeout`, discarding a correct response, while the same handler on Node returned its own

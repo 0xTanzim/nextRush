@@ -78,6 +78,15 @@ Consequence to accept: a middleware that intended to set a header and now silent
 by the once-per-process warning and by the compression/timer README notes that already exist for the
 same surface.
 
+**Refinement (found by the integration gate).** `set()` cannot share the response methods' exact
+condition. Those guard on `_responded || headersSent` because they also have to prevent a second
+response; `set()` must guard on `headersSent` alone. Node runs `on-headers` listeners *inside*
+`writeHead` — after `_responded` is set and before the headers are sent — and the express compat
+surface writes headers from exactly there, so the wider condition discarded them and broke
+`response-time` and `on-headers` through `@nextrush/express-bridge`. `set()` is brought into line with
+the *contract* (a write that can no longer land is a reported no-op) without inheriting a condition
+that exists to stop a response being sent twice.
+
 ### D2 — A committed response wins over the handler timeout
 
 When the handler has already committed a response, every adapter delivers that response; the 504 is

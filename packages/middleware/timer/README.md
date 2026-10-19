@@ -293,7 +293,7 @@ work can still modify is the structural fix and is deferred; `src/__tests__/real
 pins both behaviours (opt-in header on the Web family, absence on Node) so the documentation cannot
 drift from reality.
 
-A write that arrives after commit is discarded rather than rejected, and the first one per process is
+A write that arrives after the headers are sent is discarded rather than rejected, and the first one per process is
 reported naming the field, so a middleware that silently stopped having an effect still shows up in
 the log. It no longer throws, so the rest of the chain -- including every outer middleware's
 post-`next()` work -- still runs and the request still answers normally.

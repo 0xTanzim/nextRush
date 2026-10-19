@@ -115,11 +115,45 @@ function createMockRes(): ServerResponse {
   const socket = new Socket();
   const req = new IncomingMessage(socket);
   const res = new ServerResponse(req);
+  // A real `ServerResponse` flips `headersSent` when `writeHead` runs, and the
+  // discard guard reads exactly that field, so the stand-in has to model it.
+  Object.defineProperty(res, 'headersSent', { value: false, writable: true, configurable: true });
   vi.spyOn(res, 'setHeader').mockImplementation(() => res);
   vi.spyOn(res, 'end').mockImplementation(() => res);
-  vi.spyOn(res, 'writeHead').mockImplementation(() => res);
+  vi.spyOn(res, 'writeHead').mockImplementation(() => {
+    (res as unknown as { headersSent: boolean }).headersSent = true;
+    return res;
+  });
   return res;
 }
+
+describe('a header written from inside writeHead', () => {
+  it('still lands, because the response is not on the wire yet', () => {
+    const res = createMockRes();
+    const ctx = new NodeContext(createMockReq(), res);
+    const written: string[] = [];
+    let respondedInside = false;
+
+    vi.spyOn(res, 'setHeader').mockImplementation((name: string) => {
+      written.push(name);
+      return res;
+    });
+    // Node runs `on-headers`-style listeners inside `writeHead`: `responded` is
+    // already true there, while the headers can still legally be set. The compat
+    // bridge writes headers from exactly this position.
+    vi.spyOn(res, 'writeHead').mockImplementation(() => {
+      respondedInside = ctx.responded;
+      ctx.set('x-during-headers', 'v');
+      (res as unknown as { headersSent: boolean }).headersSent = true;
+      return res;
+    });
+
+    ctx.json({ ok: true });
+
+    expect(respondedInside).toBe(true);
+    expect(written).toContain('x-during-headers');
+  });
+});
 
 describe('the header-validation guard is unchanged', () => {
   it('still throws a typed error for an invalid write after commit', () => {

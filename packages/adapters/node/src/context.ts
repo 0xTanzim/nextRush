@@ -662,12 +662,16 @@ export class NodeContext implements AdapterContext {
     // Guard against CRLF injection (header splitting) via the shared helper.
     assertHeaderSafe(field, value);
 
-    // A committed response can no longer accept headers. Node rejects the write
-    // with ERR_HTTP_HEADERS_SENT, and that rejection escapes the middleware,
-    // unwinds the stack and silently skips every outer post-next() step — while
-    // the request still answers normally. Discard the write and report it once,
-    // matching the response methods below.
-    if (this.isCommitted()) {
+    // Once the headers are on the wire Node rejects the write with
+    // ERR_HTTP_HEADERS_SENT, and that rejection escapes the middleware, unwinds
+    // the stack and silently skips every outer post-next() step — while the
+    // request still answers normally. Discard the write and report it once.
+    //
+    // The condition is `headersSent`, not `_responded`: `_responded` is set just
+    // before `writeHead`, so a listener that Node runs *inside* `writeHead` (the
+    // compat surface's `on-headers` bridge does exactly this) would be discarded
+    // even though the header can still legally be set there.
+    if (this._res.headersSent) {
       warnPostCommitHeaderWriteOnce(field);
       return;
     }

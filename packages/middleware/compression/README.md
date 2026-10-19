@@ -318,7 +318,7 @@ recorded response model that post-handler work can still modify is the structura
 the real-adapter tests in `src/__tests__/real-adapter.test.ts` pin this behaviour so it cannot drift
 from the documentation.
 
-The same commit model means a response-*header* write made after the handler committed is discarded
+The same commit model means a response-*header* write made after the headers are sent is discarded
 and reported once per process, naming the field, instead of failing the request. The chain still
 completes, so a middleware that writes a header after `await ctx.next()` keeps its post-`next()` work
 on every adapter.

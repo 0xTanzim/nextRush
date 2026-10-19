@@ -2,13 +2,12 @@
 
 ## ADDED Requirements
 
-### Requirement: A response-header write after the response is committed is a no-op, not a chain-aborting throw
+### Requirement: A response-header write after the response headers are sent is a no-op, not a chain-aborting throw
 
-When `ctx.set()` is called after the response has been committed (`ctx.responded` is true or the
-underlying `ServerResponse.headersSent` is true), the Node adapter SHALL NOT throw a platform error
-and MUST NOT reject the middleware chain. The write SHALL be discarded, and the situation SHALL be
-reported once per process. Every middleware that runs after the handler MUST still complete its
-post-`next()` work.
+When `ctx.set()` is called after the response headers have been sent (`ServerResponse.headersSent` is
+true), the Node adapter SHALL NOT throw a platform error and MUST NOT reject the middleware chain:
+the write is discarded and reported once per process. Every middleware that runs after the handler
+MUST still complete its post-`next()` work.
 
 #### Scenario: A post-handler header write does not abort the chain
 
@@ -22,6 +21,13 @@ post-`next()` work.
 - **WHEN** a post-handler header write is discarded
 - **THEN** a single warning per process identifies the field name and the committed-response cause,
   so the condition is observable without a per-request log storm
+
+#### Scenario: A write made while writeHead runs still lands
+
+- **WHEN** a listener that Node invokes inside `writeHead` calls `ctx.set()` — the position the
+  compat surface's `on-headers` bridge writes from
+- **THEN** the header is present on the response, because `ctx.responded` is already true there while
+  the headers have not been sent yet
 
 #### Scenario: A pre-commit write is unaffected
 
