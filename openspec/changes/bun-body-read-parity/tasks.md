@@ -35,7 +35,7 @@
 - [ ] 5.4 Run per-package coverage for the touched packages; verify line coverage stays at or above 90% and does not decrease.
 - [x] 5.5 Run the after-profile with the exact commands from 2.1 and 2.2; record `POST us`, ratio, and top functions in the same report. Verify the Bun POST result is materially lower and Node/Deno are not worse than the baseline noise floor.
 - [x] 5.6 Run a CPU-pinned after A/B with the same three-run protocol from 2.3; verify the median Bun POST win is larger than the recorded spread.
-- [ ] 5.7 Run a wire POST measurement (the existing benchmark POST scenario or a pinned `wrk` POST run) before and after; record whether the in-process win translates to the socket path. Verify the result is recorded even if the wire path does not improve.
+- [x] 5.7 Run a wire POST measurement (the existing benchmark POST scenario or a pinned `wrk` POST run) before and after; record whether the in-process win translates to the socket path. Verify the result is recorded even if the wire path does not improve.
 - [x] 5.8 Tighten `apps/benchmark/scripts/dev-check/budgets.json` for the Bun `inproc.post.nextrush.vs_hono` rule only after 5.5/5.6 show the win; set max and target with the measured spread as headroom. Verify `bookkeeping` and the Bun gate pass.
 - [x] 5.9 Run the full `bundle cold inproc probe bookkeeping` gate on Bun, Node, and Deno; verify zero FAIL, with only the existing Deno `FB-03` KNOWN result.
 - [x] 5.10 Run `pnpm bench:validate` (or the repository's current equivalent) and verify response bodies and content types remain byte-identical across all benchmark servers.

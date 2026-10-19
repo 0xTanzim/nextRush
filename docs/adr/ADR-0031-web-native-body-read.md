@@ -41,7 +41,7 @@ Because the declared length then proves the whole body fits, a single native rea
 - **Positive:** measured Bun POST 26.74 → **11.87 µs** median (ratio 6.22 → **2.65**, three CPU-pinned runs, faithful harness); Deno 48.32 → 25.24 µs on the shared source; Node control unchanged at 0.77× Hono; no public API, configuration, or dependency change.
 - **Negative / cost:** `WebBodySource._buffer` gains a second branch and a larger behaviour matrix; the fast path buffers the whole body, which is acceptable only because the declared length proves it fits. The change does not address GET/wire overhead.
 - **Neutral:** the body parser still decodes and parses after the read, so the floor is the native read plus `TextDecoder`/`JSON.parse`, not zero.
-- **Follow-up:** wire POST is not measured (no dev-check POST wire scenario); evaluate a `request.text()` fast path if the after-profile shows decode dominating (it does not — `parse` and native `arrayBuffer` lead). The `inproc.post.nextrush.vs_hono` budget is ratcheted to max 3.5 / target 3.0 from the measured three-run spread.
+- **Follow-up:** wire POST is measured by `dev-check` (`wire.post.*`): Bun 9.07k → 22.06k rps (**2.43×**), throughput ratio to Hono 0.32 → 0.77 (`report/performance/bun-body-read-baseline.md` §5.7). A `request.text()` fast path was not taken because the after-profile shows `parse` and native `arrayBuffer` leading, not decode. The `inproc.post.nextrush.vs_hono` budget is ratcheted to max 3.5 / target 3.0 from the measured three-run spread.
 
 ## Compliance / enforcement
 

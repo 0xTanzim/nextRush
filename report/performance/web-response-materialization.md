@@ -119,5 +119,6 @@ excluded by the framework's ownership and composability rules.
 
 ## 9. Limitation
 
-Wire POST remains unmeasured: `dev-check` has no POST wire scenario. The `workerd` binary is absent,
-so Edge real-runtime conformance could not run locally.
+Wire POST is now measured by `dev-check` (`wire.post.*`); `bun-body-read-baseline.md` §5.7
+records the before/after. Edge real-runtime conformance ran against `workerd 2026-10-11`:
+15/15 probes INFO, 0 FAIL.

@@ -4,8 +4,12 @@
 // plus real requests per second over a socket (wire).
 
 import { spawnSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { has, median, runtimeArgs } from '../harness.mjs';
+import { rawRequest } from '../raw-http.mjs';
 import { summarizeWire } from '../wire-summary.mjs';
+import { WIRE_POST_BODY, parseWrkRps, wrkArgs, wrkPostScript } from '../wrk.mjs';
 
 /** Bundle size per entry, in KB, as the bundler produces it. */
 export function stageBundle(ctx) {
@@ -159,21 +163,58 @@ export function stageInproc(ctx) {
   }
 }
 
-function wrkRps(ctx, port) {
+function wrkRps(port, options = {}) {
   // Pin away from the server's own cores when the tool is available: an
   // unpinned client competes with the process being measured.
   const pin = has('taskset') ? ['taskset', '-c', '4-7'] : [];
-  const cmd = [...pin, 'wrk', '-t2', '-c64', '-d3s', `http://127.0.0.1:${port}/`];
+  const cmd = [...pin, 'wrk', ...wrkArgs({ url: `http://127.0.0.1:${port}/`, ...options })];
   const r = spawnSync(cmd[0], cmd.slice(1), { encoding: 'utf8' });
-  const m = /Requests\/sec:\s+([\d.]+)/.exec(r.stdout);
-  return m ? Number(m[1]) : 0;
+  return parseWrkRps(r.stdout);
+}
+
+/** Three runs per case: one socket sample moves several percent on a shared machine. */
+function threeRuns(port, options) {
+  return [wrkRps(port, options), wrkRps(port, options), wrkRps(port, options)];
+}
+
+/** Fail loudly when a POST entry answers the wrong thing; wrk would count an error loop. */
+async function assertPostAnswers(port, entry) {
+  const probe = await rawRequest(port, {
+    method: 'POST',
+    target: '/',
+    headers: { 'content-type': 'application/json' },
+    body: WIRE_POST_BODY,
+  });
+  if (probe.status !== 200) throw new Error(`wire POST ${entry} answered ${probe.status}`);
+  let parsed;
+  try {
+    parsed = JSON.parse(probe.body);
+  } catch {
+    throw new Error(`wire POST ${entry} answered non-JSON: ${probe.body.slice(0, 80)}`);
+  }
+  if (parsed?.ok !== true) throw new Error(`wire POST ${entry} answered ${probe.body.slice(0, 80)}`);
 }
 
 /** Requests per second through a real listener, median of three runs per case. */
 export async function stageWire(ctx) {
   if (!has('wrk')) return ctx.row('WARN', 'wire', 'skipped', 'wrk not installed');
+  const postScript = join(ctx.out, 'wrk-post.lua');
+  writeFileSync(postScript, wrkPostScript());
   const res = {};
   let port = 4300;
+  const run = async (entry, env = {}, options = {}) => {
+    const { out } = ctx.build(entry, ctx.target);
+    port += 1;
+    return ctx.withServer(out, port, env, () => threeRuns(port, options));
+  };
+  const runPost = async (entry) => {
+    const { out } = ctx.build(entry, ctx.target);
+    port += 1;
+    return ctx.withServer(out, port, {}, async () => {
+      await assertPostAnswers(port, entry);
+      return threeRuns(port, { script: postScript });
+    });
+  };
   const cases = [
     ['raw', 'serve-raw', {}],
     ['hono', 'serve-hono', {}],
@@ -182,13 +223,7 @@ export async function stageWire(ctx) {
   ];
   if (ctx.rt === 'bun') cases.push(['elysia', 'serve-elysia', {}]);
   for (const [key, entry, env] of cases) {
-    const { out } = ctx.build(entry, ctx.target);
-    port += 1;
-    res[key] = await ctx.withServer(out, port, env, () => [
-      wrkRps(ctx, port),
-      wrkRps(ctx, port),
-      wrkRps(ctx, port),
-    ]);
+    res[key] = await run(entry, env);
   }
   const raw = summarizeWire(res.raw);
   const hono = summarizeWire(res.hono);
@@ -203,4 +238,12 @@ export async function stageWire(ctx) {
     const elysia = summarizeWire(res.elysia);
     ctx.row('INFO', 'wire.elysia.rps', `${elysia.display} (Bun-only)`);
   }
+
+  const postHono = summarizeWire(await runPost('serve-hono-post'));
+  const postNr = summarizeWire(await runPost('serve-nextrush-post'));
+  ctx.row('INFO', 'wire.post.hono.rps', postHono.display);
+  const postNrText = ctx.record('wire.post.nextrush.rps', Math.round(postNr.median));
+  ctx.row('INFO', 'wire.post.nextrush.rps', `${postNrText} rps (${String(Math.round(postNr.min))}–${String(Math.round(postNr.max))})`);
+  const postRatio = postHono.median > 0 ? Number((postNr.median / postHono.median).toFixed(2)) : 0;
+  ctx.row('INFO', 'wire.post.nextrush.vs_hono', ctx.record('wire.post.nextrush.vs_hono', postRatio));
 }

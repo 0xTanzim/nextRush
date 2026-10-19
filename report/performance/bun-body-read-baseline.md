@@ -51,7 +51,20 @@ After profile: `Request` 12.6%, `parse` 9.0%, `arrayBuffer` 6.2%, `encode` 4.9%,
 
 ## 5.7 Wire POST
 
-Not measured: `dev-check` has no POST wire scenario (the `wire` stage drives GET only, and `wrk/post.lua` does not exist). Recorded as a limitation rather than claimed. The in-proc win and the cross-adapter conformance suite carry the evidence for this change.
+Scenario added to `dev-check`: `wire` now starts `serve-nextrush-post` and `serve-hono-post`, requires one raw POST to answer `200 {"ok":true}`, then runs `wrk -t2 -c64 -d3s` with a 1 KB JSON body (`lib/wrk.mjs`), median of three runs. Both entries use the same adapter path as their GET counterparts.
+
+A/B against `ee1769e7` (pre-fast-path) with the new scenario copied into a worktree, Bun, alternating arms on the same machine. Ratio is NextRush ÷ Hono **throughput**:
+
+| arm | run | `wire.post.nextrush.rps` | `wire.post.hono.rps` | ratio |
+| --- | ---: | ---: | ---: | ---: |
+| before | 1 | 9,013 | 27,581 | 0.33 |
+| after | 1 | 21,504 | 30,066 | 0.72 |
+| after | 2 | 22,608 | 27,985 | 0.81 |
+| before | 2 | 9,133 | 28,433 | 0.32 |
+
+The native read translates to the socket path: median POST throughput 9,073 → 22,056 rps (**2.43×**), and the ratio to Hono moves from 0.32–0.33 to 0.72–0.81. Hono stayed within 27.6–30.1k rps across all four runs, so the change is far outside machine drift. NextRush still serves fewer POSTs/second than Hono on Bun; the change closes most, not all, of the gap.
+
+On Node the same scenario reports `wire.post.nextrush.vs_hono` 1.00 (16,359 vs 16,398 rps, one run), consistent with `NodeBodySource` being unchanged.
 
 ## 5.8 Budget ratchet
 
@@ -63,6 +76,7 @@ Not measured: `dev-check` has no POST wire scenario (the `wire` stage drives GET
 ## Verification
 
 - `packages/runtime` 350/350 (body-source 40/40), `@nextrush/body-parser` green, `@nextrush/adapter-bun` 127/127, `@nextrush/adapter-deno` 121/121.
-- Conformance: Node suite 436/436; real Bun 56/56; real Deno 56/56; Edge/workerd unavailable locally (no binary).
+- Conformance: Node suite 436/436; real Bun 56/56; real Deno 56/56; real Edge via
+  `workerd 2026-10-11`: 15/15 probes INFO, 0 FAIL.
 - Lint + `tsc --noEmit` clean for touched packages.
-- Not done in this pass: body-parser-specific fast-path integration tests, adapter-level body-source matrix additions (tasks 3.4/3.5), wire POST.
+- Not done in this pass: body-parser-specific fast-path integration tests (task 3.4).
