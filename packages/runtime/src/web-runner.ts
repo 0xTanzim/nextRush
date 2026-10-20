@@ -101,10 +101,9 @@ export const SETTLE_TURNS = 4;
  * Whether a context has already committed its response.
  *
  * @remarks
- * The post-timeout check cannot read `ctx.responded` directly: control-flow
- * analysis does not treat an `await` as a mutation point, so the field stays
- * narrowed to the `false` established by the pre-dispatch check. Going through a
- * call reads the value as it is when the timer fired.
+ * Read through a call so the value is the one at the deadline, not a narrowing
+ * established earlier in the request function. The check decides between the
+ * committed response and a 504, so it must observe the flag after the race.
  */
 function hasCommittedResponse(ctx: WebRunnerContext): boolean {
   return ctx.responded;
@@ -146,7 +145,9 @@ async function dispatchWithTimeout(
   }
 
   if (outcome.done) {
-    await settlement;
+    // `settlement` has already run its handlers by the time `done` is visible (it
+    // is the promise that set it), so awaiting it here would add one microtask
+    // hop to every fast-path request for no observation.
     if (outcome.failed) throw outcome.error;
     return false;
   }
@@ -212,38 +213,33 @@ export function createWebRunner<TCtx extends WebRunnerContext, TExtra = undefine
       if (options.timeout > 0) {
         const dispatch = handler(ctx);
 
-        // A handler that committed its response before returning its promise
-        // cannot be timed out: the 504 is reserved for a request that produced
-        // nothing, so no timer needs arming. The chain is still awaited — a
-        // post-handler middleware may still land a header on the recorded
-        // response — and the settlement wrapper is allocated only on the path
-        // that can actually arm a timer.
-        if (ctx.responded) {
-          await dispatch;
-        } else {
-          const timedOut = await dispatchWithTimeout(dispatch, options.timeout, () => {
-            ctx.triggerTimeout();
-          });
+        // Every dispatch is bounded by the deadline, including one that already
+        // committed its response. Commitment is not settlement: a handler can
+        // publish its response and then keep running (a post-`next()` middleware,
+        // or a body that never closes), and awaiting that chain without a bound
+        // holds the connection open for the lifetime of the server. The turn
+        // window still lets a chain that settles quickly avoid arming a timer.
+        const timedOut = await dispatchWithTimeout(dispatch, options.timeout, () => {
+          ctx.triggerTimeout();
+        });
 
-          if (timedOut) {
-            // A handler that committed a response after its promise was returned
-            // and then ran past the timeout: the response is already produced, so
-            // answer it. Node keeps the committed response in the same situation
-            // (its 504 write is guarded the same way), and `triggerTimeout` above
-            // already aborted `ctx.signal`. No warning is emitted, because the
-            // warning states that a 504 was returned.
-            if (hasCommittedResponse(ctx)) {
-              return ctx.getResponse();
-            }
-
-            if (options.timeoutWarningSource !== undefined) {
-              logger.warn(
-                `[nextrush/${options.label}] Request timed out after ${String(options.timeout)}ms ` +
-                  `(${options.timeoutWarningSource}) — returning 504. ${ctx.method} ${ctx.path}`
-              );
-            }
-            return jsonErrorResponse(504, 'Gateway Timeout');
+        if (timedOut) {
+          // A handler that committed a response before the deadline is answered
+          // with that response: the 504 is reserved for a request that produced
+          // nothing. Node keeps the committed response in the same situation, and
+          // `triggerTimeout` above already aborted `ctx.signal`. No warning is
+          // emitted, because the warning states that a 504 was returned.
+          if (hasCommittedResponse(ctx)) {
+            return ctx.getResponse();
           }
+
+          if (options.timeoutWarningSource !== undefined) {
+            logger.warn(
+              `[nextrush/${options.label}] Request timed out after ${String(options.timeout)}ms ` +
+                `(${options.timeoutWarningSource}) — returning 504. ${ctx.method} ${ctx.path}`
+            );
+          }
+          return jsonErrorResponse(504, 'Gateway Timeout');
         }
       } else {
         await handler(ctx);

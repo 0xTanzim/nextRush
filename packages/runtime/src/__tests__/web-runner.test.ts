@@ -310,14 +310,15 @@ describe('createWebRunner', () => {
     expect(ctx?.timeoutTriggered).toBe(1);
   });
 
-  it('arms no timer for a handler that committed its response and then outlived the timeout', async () => {
+  it('cuts off a handler that committed its response and then outlived the timeout', async () => {
+    // Commitment is not settlement. The response is already produced, so the
+    // committed body is delivered instead of a 504 — but the wait is bounded by
+    // the deadline, and the still-running handler is cancelled cooperatively.
+    // Awaiting this chain without a bound would hold the connection open for as
+    // long as the handler runs (or forever, if it never settles).
     const app = new FakeApp(async (ctx) => {
       ctx.json({ ok: true });
-      // Still running when a timer would fire, so a racing runner arms one and
-      // cancels this handler. A settled handler must not be raced at all — and
-      // a setTimeout spy cannot prove that, because a synchronously-settled
-      // handler never reaches the arming point even when the runner races.
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     });
 
     let ctx: TestCtx | undefined;
@@ -327,11 +328,15 @@ describe('createWebRunner', () => {
       makeContext: () => (ctx = makeContext()),
     });
 
+    const started = Date.now();
     const response = await run(new Request('http://localhost/'), undefined);
+    const elapsed = Date.now() - started;
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
-    expect(ctx?.timeoutTriggered).toBe(0);
+    // Delivered at the deadline, not when the handler finally finished.
+    expect(elapsed).toBeLessThan(100);
+    expect(ctx?.timeoutTriggered).toBe(1);
   });
 
   it('arms a timer when the handler has not settled', async () => {
