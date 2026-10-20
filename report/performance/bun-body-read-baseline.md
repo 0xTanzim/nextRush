@@ -76,6 +76,10 @@ On Node the same scenario reports `wire.post.nextrush.vs_hono` 1.00 (16,359 vs 1
 ## Verification
 
 - `packages/runtime` 350/350 (body-source 40/40), `@nextrush/body-parser` green, `@nextrush/adapter-bun` 127/127, `@nextrush/adapter-deno` 121/121.
+- Coverage (lines / statements): `@nextrush/runtime` **92.60 / 90.79** (pre-change, measured in a worktree at
+  `ee1769e7`: 91.56 / 89.85); `@nextrush/body-parser` **95.50 / 95.31**. `adapter-bun` (86.58 lines)
+  and `adapter-deno` (85.93) have unchanged source in this change and are pre-existing exclusions in
+  `scripts/check-coverage.ts`; their added tests cannot lower source coverage.
 - Conformance: Node suite 436/436; real Bun 56/56; real Deno 56/56; real Edge via
   `workerd 2026-10-11`: 15/15 probes INFO, 0 FAIL.
 - Lint + `tsc --noEmit` clean for touched packages.

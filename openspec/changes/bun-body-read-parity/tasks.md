@@ -32,7 +32,7 @@
 - [x] 5.1 Run `pnpm --filter @nextrush/runtime --filter @nextrush/body-parser --filter @nextrush/adapter-bun --filter @nextrush/adapter-deno test`; verify all pass with no skipped new tests.
 - [x] 5.2 Run the cross-adapter conformance suite across Node, Bun, Deno, and Edge; verify observable body-reading behavior is identical and no scenario regresses.
 - [x] 5.3 Run ESLint and `tsc --noEmit` (strict) for the touched packages; verify zero errors and no new warnings.
-- [ ] 5.4 Run per-package coverage for the touched packages; verify line coverage stays at or above 90% and does not decrease.
+- [x] 5.4 Run per-package coverage for the touched packages; verify line coverage stays at or above 90% and does not decrease.
 - [x] 5.5 Run the after-profile with the exact commands from 2.1 and 2.2; record `POST us`, ratio, and top functions in the same report. Verify the Bun POST result is materially lower and Node/Deno are not worse than the baseline noise floor.
 - [x] 5.6 Run a CPU-pinned after A/B with the same three-run protocol from 2.3; verify the median Bun POST win is larger than the recorded spread.
 - [x] 5.7 Run a wire POST measurement (the existing benchmark POST scenario or a pinned `wrk` POST run) before and after; record whether the in-process win translates to the socket path. Verify the result is recorded even if the wire path does not improve.
