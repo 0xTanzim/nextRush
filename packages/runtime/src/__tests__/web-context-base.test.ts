@@ -205,6 +205,27 @@ describe('WebContextBase — raw, signal, and streaming', () => {
     expect(signal.aborted).toBe(true);
   });
 
+  it('triggerTimeout() uses Error("Request timeout") as the abort reason', () => {
+    const ctx = makeContext();
+    const signal = ctx.signal;
+    ctx.triggerTimeout();
+    expect(signal.reason).toBeInstanceOf(Error);
+    expect((signal.reason as Error).message).toBe('Request timeout');
+  });
+
+  it('aborts ctx.signal with the request reason when the client disconnects', () => {
+    const client = new AbortController();
+    const ctx = makeContext({ signal: client.signal });
+    const signal = ctx.signal;
+    expect(signal.aborted).toBe(false);
+
+    const reason = new Error('client disconnected');
+    client.abort(reason);
+
+    expect(signal.aborted).toBe(true);
+    expect(signal.reason).toBe(reason);
+  });
+
   it('sendStream() marks the response committed and resolves', async () => {
     const ctx = makeContext();
     const stream = new ReadableStream<Uint8Array>({

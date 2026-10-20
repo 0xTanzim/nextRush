@@ -187,16 +187,35 @@ await serve(app, {
 | `logger` | `Logger` | No | `app.logger` | -- | Logger for adapter diagnostics |
 | `gracefulShutdown` | `boolean \| GracefulShutdownOptions` | No | `undefined` (no signal handler) | -- | Wires `SIGTERM`/`SIGINT` to `close()` |
 
-**Request timeout and a committed response**
+**The request timeout contract**
 
-A `504 Gateway Timeout` is reserved for a request that has produced nothing. A handler that commits a
-response and then keeps working past `timeout` has already produced the answer, so that response is
-delivered and the timeout does not replace it. The handler is still cancelled cooperatively: the
-timeout aborts `ctx.signal`. `@nextrush/adapter-node` already behaved this way.
+`timeout` bounds one request's dispatch. The shared Web runner in `@nextrush/runtime` implements
+it as follows; `serve()` and `createHandler()` behave identically.
 
-No timer is armed for a request whose handler has already committed its response when the runner
-takes over, so an already-settled handler performs no timeout racing. A handler that has not
-settled is still raced exactly as before.
+- **When the clock starts.** The deadline starts when the request is dispatched to the middleware
+  chain, after the one-time boot barrier that applies to the first request only. Time spent
+  waiting for the application to boot is not charged to the request.
+- **What it covers.** The whole chain, until it *settles* -- not until it commits a response. A
+  handler that answers and then keeps running (a post-`next()` middleware, or a body that never
+  closes) is still bounded. A dispatch that settles within a bounded number of microtask turns
+  never arms a timer, so the fast path pays no timer cost.
+- **`timeout: 0`** disables the deadline: the runner awaits the chain with no timer and never
+  produces a `504`.
+- **What the deadline does.** It aborts `ctx.signal` with an `Error('Request timeout')` as the
+  abort reason. Cancellation is cooperative -- the runner does not terminate handler code, so a
+  handler that ignores `ctx.signal` keeps running until it returns.
+- **Committed response.** `504 Gateway Timeout` is reserved for a request that produced nothing.
+  If the handler committed a response before the deadline, that response is delivered and the
+  timeout does not replace it. In this case no timeout warning is logged, because the warning
+  states that a `504` was returned. `@nextrush/adapter-node` behaves the same way.
+- **Client disconnect.** `ctx.signal` is an `AbortSignal.any()` of the platform's
+  `request.signal` and the runner's timeout controller. A client that disconnects aborts it with
+  the runtime's own reason for that request. A disconnect does not cancel the dispatch: the
+  deadline is the only bound on how long the chain may run.
+- **Late rejections.** After a `504` (or the committed response) has been returned, an error
+  thrown later by the still-running handler is observed by the runner's rejection handler and
+  discarded. It cannot surface as an unhandled rejection and cannot change the response already
+  sent.
 
 > **Behaviour change (observable):** this shape previously returned `504 Gateway Timeout` on every Web
 > adapter and discarded the handler's response, while Node delivered it. **Migration:** a handler that
