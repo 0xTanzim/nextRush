@@ -84,3 +84,15 @@ On Node the same scenario reports `wire.post.nextrush.vs_hono` 1.00 (16,359 vs 1
   `workerd 2026-10-11`: 15/15 probes INFO, 0 FAIL.
 - Lint + `tsc --noEmit` clean for touched packages.
 - Not done in this pass: body-parser-specific fast-path integration tests (task 3.4).
+
+## Close-out (2026-10-21)
+
+Task 3.4 is now complete: `packages/middleware/body-parser/src/__tests__/limit-and-hotpath.test.ts` carries
+a `BP-K` block that pins 1 KB JSON parity between the text and byte paths, `rawBody` byte-for-byte
+fidelity, a chunked 900 KB body still failing a 10 KB limit through the incremental reader, and the
+text-read error mapping (`BodyConsumedError`, a generic failure, and a non-`Error` rejection).
+
+The follow-on native **text** read (RFC-045 Phase 1) is measured separately in RFC-045 §14.1. Its
+full-request POST figures overlap this report's recorded baseline once run-to-run spread is counted, so
+that change is justified by the isolated body-read probe and the removed allocation/microtask hop
+rather than by a full-POST delta. No number in this report was revised, and no budget row was touched.

@@ -250,3 +250,40 @@ The follow-up is **not** a matcher rewrite. In priority order:
 - CPU sampling at 100 µs attributes ~4% to the matcher with sampling error of a few tenths of a
   percent; the qualitative conclusion (matcher is a small minority of route-params cost) is robust
   to that error.
+
+---
+
+## 8. Addendum (2026-10-21) — reproduction during the RFC-045 close-out
+
+The RFC-045 Phase 1 close-out re-asked whether the dynamic-route path held an avoidable operation
+worth a bounded change. It does not, and this section records the measurement so the question is not
+reopened on the same evidence.
+
+**Probe:** Bun 1.4.3, `N = 200,000` per sample, 5 samples, six rotating paths (to defeat
+`canonicalizePath`'s single-entry memo), canonicalized once up front and passed to
+`resolveMatch(state, hasParamRoutes, method, path, canonical)` so routing work is isolated from URL
+parsing.
+
+| Arm | ns/op |
+| --- | ---: |
+| canonicalize (up front, excluded from the deltas) | 153.7 |
+| dynamic route, full `resolveMatch` | 531.3 |
+| static route, full `resolveMatch` | 152.2 |
+| **dynamic − static, full** | **379.1** |
+| dynamic route, matcher only | 402.6 |
+| static route, matcher only | 69.9 |
+| **dynamic − static, matcher only** | **332.7** (88% of the 379.1 delta) |
+| params bag: `Object.create(NULL_PROTO)` | 28.9 |
+| params bag: object literal | 22.2 |
+| **params bag delta** | **6.7** (2% of the 379.1 delta) |
+
+**Verdict: no change shipped.** 88% of the avoidable dynamic-route cost is the segment-trie walk
+itself, which the report's §3/§5 already found to be ~4% of CPU on a real socket with the allocation
+escape-elided and a trim projected at ≈0. The params bag — the only cheap target — is 6.7 ns (2%).
+A radix rewrite remains RFC-015-deferred; nothing here justifies reopening it.
+
+**Superseded figure:** a `0.788 µs` static-versus-dynamic delta appears in
+`report/performance/bun-context-response-phase2.md:121`. That number is a *full dispatch* delta
+between two different routes (`/set/0` vs `/json`, including the handler and response), not matcher
+cost. The matcher-attributable figure is **379 ns**, of which the trimmable part is 47 ns. Any future
+router proposal should cite this section, not the 0.788 µs line.
