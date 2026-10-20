@@ -12,6 +12,21 @@ import type { BodyParserContext } from '../types.js';
 import { parseContentLength } from '../utils/content-type.js';
 import { readHeader } from '../utils/header-value.js';
 
+/** Shared utf-8 decoder: `decode()` without `{ stream: true }` is stateless. */
+const UTF8_DECODER = new TextDecoder('utf-8');
+
+/**
+ * Structural probe for a body source that can read text directly.
+ *
+ * @remarks
+ * Probed rather than imported so this package keeps its only dependency on
+ * `@nextrush/types` instead of gaining a runtime dependency for one optional
+ * capability.
+ */
+interface TextCapableBodySource {
+  readTextIfProvenWithin?: (limit: number) => Promise<string | undefined>;
+}
+
 /**
  * Read body from request using cross-runtime BodySource API.
  *
@@ -67,6 +82,56 @@ export async function readBody(ctx: BodyParserContext, limit: number): Promise<U
     }
 
     // Handle BodySource-specific errors
+    if (err instanceof Error) {
+      if (err.name === 'BodyConsumedError') {
+        throw Errors.bodyReadError('Body has already been consumed');
+      }
+      if (err.name === 'BodyTooLargeError') {
+        throw Errors.entityTooLargeStreaming(limit);
+      }
+      throw Errors.bodyReadError(err.message);
+    }
+
+    throw Errors.bodyReadError('Unknown error reading body');
+  }
+}
+
+/**
+ * Read the body as a decoded string, preferring a bounded native text read.
+ *
+ * @param ctx - Request context.
+ * @param limit - Maximum body size in bytes.
+ * @returns Decoded body.
+ * @throws BodyParserError on size limit, abort, or stream error.
+ *
+ * @remarks
+ * The text path is taken only when the body source can prove the body fits —
+ * a declared `Content-Length` within `limit`. Everything else falls back to
+ * {@link readBody}, which enforces the limit incrementally while reading, so an
+ * unprovable length is never materialised just to be checked afterwards.
+ */
+export async function readBodyText(ctx: BodyParserContext, limit: number): Promise<string> {
+  const bodySource = ctx.bodySource;
+  if (!bodySource) return '';
+
+  const contentLength =
+    bodySource.contentLength ?? parseContentLength(readHeader(ctx, 'content-length'));
+  if (contentLength !== undefined && contentLength > limit) {
+    throw Errors.entityTooLarge(contentLength, limit);
+  }
+
+  try {
+    const capable = bodySource as unknown as TextCapableBodySource;
+    if (typeof capable.readTextIfProvenWithin === 'function') {
+      const text = await capable.readTextIfProvenWithin(limit);
+      if (text !== undefined) return text;
+    }
+    return UTF8_DECODER.decode(await readBody(ctx, limit));
+  } catch (err) {
+    if (err instanceof Error && err.name === 'BodyParserError') {
+      throw err;
+    }
+
     if (err instanceof Error) {
       if (err.name === 'BodyConsumedError') {
         throw Errors.bodyReadError('Body has already been consumed');

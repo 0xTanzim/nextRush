@@ -9,6 +9,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { json } from '../parsers/json.js';
 import { bodyParser } from '../parsers/combined.js';
+import { readBodyText } from '../parsers/reader.js';
 import { DEFAULT_LIMITS } from '../constants.js';
 import type { BodyParserContext, BodyParserBodySource } from '../types.js';
 import type { BodySource } from '@nextrush/types';
@@ -176,6 +177,156 @@ describe('BP-E — combined parser routes once, output matches individual parser
     const { ctx } = makeCtx({ body: 'x', contentType: 'multipart/form-data; boundary=x' });
     await expect(bodyParser()(ctx, vi.fn())).rejects.toMatchObject({
       code: 'UNSUPPORTED_CONTENT_TYPE',
+    });
+  });
+});
+
+describe('BP-K — text path integration (parity with the byte path)', () => {
+  interface TextCtxOptions {
+    body: string;
+    /** Omitted → chunked transport: no declared length. */
+    contentLength?: number;
+    /** Text capability result; `undefined` means "declined, read bytes instead". */
+    provenText?: string;
+    /** When set, the text capability rejects with this value. */
+    textThrows?: unknown;
+  }
+
+  /**
+   * A source shaped like the Web adapters: it may prove the body fits, and it
+   * falls back to an incremental byte read when it cannot.
+   */
+  function makeTextCtx(opts: TextCtxOptions): {
+    ctx: BodyParserContext;
+    calls: { bufferLimit: number | undefined; textLimit: number | undefined };
+  } {
+    const bytes = new TextEncoder().encode(opts.body);
+    const calls: { bufferLimit: number | undefined; textLimit: number | undefined } = {
+      bufferLimit: undefined,
+      textLimit: undefined,
+    };
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (opts.contentLength !== undefined) headers['content-length'] = String(opts.contentLength);
+
+    const ctx: BodyParserContext = {
+      method: 'POST',
+      path: '/',
+      headers,
+      bodySource: {
+        text: async () => opts.body,
+        buffer: async (limit?: number) => {
+          calls.bufferLimit = limit;
+          if (limit !== undefined && bytes.byteLength > limit) {
+            const err = new Error(`Body too large: ${bytes.byteLength} > ${limit}`);
+            err.name = 'BodyTooLargeError';
+            throw err;
+          }
+          return bytes;
+        },
+        readTextIfProvenWithin: async (limit: number) => {
+          calls.textLimit = limit;
+          if (opts.textThrows !== undefined) throw opts.textThrows;
+          return opts.provenText;
+        },
+        json: async () => JSON.parse(opts.body),
+        get consumed() {
+          return false;
+        },
+        get contentLength() {
+          return opts.contentLength;
+        },
+        get contentType() {
+          return 'application/json';
+        },
+      },
+    };
+    return { ctx, calls };
+  }
+
+  it('1 KB JSON parses identically on the text path and the byte path', async () => {
+    const body = JSON.stringify({ items: Array.from({ length: 100 }, (_, i) => ({ i, s: 'x'.repeat(4) })) });
+    expect(body.length).toBeGreaterThan(1024);
+
+    const { ctx: textCtx, calls } = makeTextCtx({
+      body,
+      contentLength: body.length,
+      provenText: body,
+    });
+    const { ctx: byteCtx } = makeCtx({ body, contentLength: body.length });
+
+    await json()(textCtx, vi.fn().mockResolvedValue(undefined));
+    await json()(byteCtx, vi.fn().mockResolvedValue(undefined));
+
+    expect(textCtx.body).toEqual(byteCtx.body);
+    expect(calls.textLimit).toBe(DEFAULT_LIMITS.JSON);
+    // The text path never materialises a buffer.
+    expect(calls.bufferLimit).toBeUndefined();
+  });
+
+  it('rawBody bytes are identical whether or not the source can prove the body fits', async () => {
+    const body = '{"name":"zoë","note":"café"}';
+    const expected = new TextEncoder().encode(body);
+
+    const { ctx: textCtx, calls } = makeTextCtx({
+      body,
+      contentLength: expected.byteLength,
+      provenText: body,
+    });
+    const { ctx: byteCtx } = makeCtx({ body, contentLength: expected.byteLength });
+
+    await json({ rawBody: true })(textCtx, vi.fn().mockResolvedValue(undefined));
+    await json({ rawBody: true })(byteCtx, vi.fn().mockResolvedValue(undefined));
+
+    expect(Array.from(textCtx.rawBody as Uint8Array)).toEqual(Array.from(expected));
+    expect(Array.from(textCtx.rawBody as Uint8Array)).toEqual(
+      Array.from(byteCtx.rawBody as Uint8Array)
+    );
+    // Requesting bytes must bypass the text capability entirely.
+    expect(calls.textLimit).toBeUndefined();
+    expect(calls.bufferLimit).toBe(DEFAULT_LIMITS.JSON);
+  });
+
+  it('a chunked 900 KB body still fails a 10 KB limit through the incremental reader', async () => {
+    const body = JSON.stringify({ x: 'a'.repeat(900 * 1024) });
+    // No contentLength: the text capability cannot prove the body fits, so the
+    // parser must fall through to the limit-enforcing byte read.
+    const { ctx, calls } = makeTextCtx({ body, provenText: undefined });
+    const next = vi.fn();
+
+    await expect(json({ limit: '10kb' })(ctx, next)).rejects.toMatchObject({
+      code: 'ENTITY_TOO_LARGE',
+    });
+
+    expect(calls.textLimit).toBe(10 * 1024);
+    expect(calls.bufferLimit).toBe(10 * 1024);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('maps a consumed body from the text read to BODY_READ_ERROR', async () => {
+    const consumed = Object.assign(new Error('already read'), { name: 'BodyConsumedError' });
+    const { ctx } = makeTextCtx({ body: '{}', textThrows: consumed });
+
+    await expect(readBodyText(ctx, DEFAULT_LIMITS.JSON)).rejects.toMatchObject({
+      code: 'BODY_READ_ERROR',
+      cause: 'Body has already been consumed',
+    });
+  });
+
+  it('keeps the underlying message when the text read fails for another reason', async () => {
+    const { ctx } = makeTextCtx({ body: '{}', textThrows: new Error('stream closed') });
+
+    await expect(readBodyText(ctx, DEFAULT_LIMITS.JSON)).rejects.toMatchObject({
+      code: 'BODY_READ_ERROR',
+      cause: 'stream closed',
+    });
+  });
+
+  it('maps a non-Error rejection from the text read to BODY_READ_ERROR', async () => {
+    const { ctx } = makeTextCtx({ body: '{}', textThrows: 'not an error' });
+
+    await expect(readBodyText(ctx, DEFAULT_LIMITS.JSON)).rejects.toMatchObject({
+      code: 'BODY_READ_ERROR',
+      cause: 'Unknown error reading body',
     });
   });
 });

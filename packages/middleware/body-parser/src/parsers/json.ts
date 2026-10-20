@@ -15,7 +15,7 @@ import { bufferToString, toRawBody } from '../utils/buffer.js';
 import { isJsonContentType, matchContentType } from '../utils/content-type.js';
 import { readHeader } from '../utils/header-value.js';
 import { parseLimit } from '../utils/limit.js';
-import { readBody } from './reader.js';
+import { readBody, readBodyText } from './reader.js';
 
 /**
  * Iterative JSON depth checker.
@@ -132,27 +132,44 @@ export function json(options: JsonOptions = {}): Middleware {
       }
     }
 
-    // Read body
-    const buffer = await readBody(ctx, limitBytes);
+    // A caller that needs the bytes (`rawBody`, `verify`) reads them directly.
+    // Otherwise the parser only needs the decoded string, so a body source that
+    // can prove the body fits hands it over without materialising a buffer.
+    const needsBytes = rawBody || verify !== undefined;
+    let str: string;
+    let depthCheckBytes: number;
 
-    // Store raw body if requested (Buffer on Node, Uint8Array on edge)
-    if (rawBody) {
-      ctx.rawBody = toRawBody(buffer);
+    if (needsBytes) {
+      const buffer = await readBody(ctx, limitBytes);
+
+      if (rawBody) {
+        ctx.rawBody = toRawBody(buffer);
+      }
+
+      if (buffer.length === 0) {
+        if (next) await next();
+        return;
+      }
+
+      if (verify) {
+        await verify(ctx, toRawBody(buffer), 'utf-8');
+      }
+
+      str = bufferToString(buffer);
+      depthCheckBytes = buffer.length;
+    } else {
+      str = await readBodyText(ctx, limitBytes);
+
+      if (str.length === 0) {
+        if (next) await next();
+        return;
+      }
+
+      // Decoded length is a lower bound on the UTF-8 size; three bytes per code
+      // unit is the upper bound, which keeps the depth guard conservative for
+      // multi-byte bodies instead of skipping a walk that could matter.
+      depthCheckBytes = str.length * 3;
     }
-
-    // Handle empty body
-    if (buffer.length === 0) {
-      if (next) await next();
-      return;
-    }
-
-    // Invoke verify callback before parsing
-    if (verify) {
-      await verify(ctx, toRawBody(buffer), 'utf-8');
-    }
-
-    // Parse JSON
-    const str = bufferToString(buffer);
 
     try {
       const parsed: unknown = JSON.parse(str, reviver);
@@ -175,7 +192,7 @@ export function json(options: JsonOptions = {}): Middleware {
         maxDepth !== undefined &&
         typeof parsed === 'object' &&
         parsed !== null &&
-        buffer.length >= 2 * (maxDepth + 1)
+        depthCheckBytes >= 2 * (maxDepth + 1)
       ) {
         checkJsonDepth(parsed, maxDepth);
       }
