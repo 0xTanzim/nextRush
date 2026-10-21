@@ -246,4 +246,8 @@ export async function stageWire(ctx) {
   ctx.row('INFO', 'wire.post.nextrush.rps', `${postNrText} rps (${String(Math.round(postNr.min))}–${String(Math.round(postNr.max))})`);
   const postRatio = postHono.median > 0 ? Number((postNr.median / postHono.median).toFixed(2)) : 0;
   ctx.row('INFO', 'wire.post.nextrush.vs_hono', ctx.record('wire.post.nextrush.vs_hono', postRatio));
+  if (ctx.rt === 'bun') {
+    const postElysia = summarizeWire(await runPost('serve-elysia-post'));
+    ctx.row('INFO', 'wire.post.elysia.rps', `${postElysia.display} (Bun-only)`);
+  }
 }

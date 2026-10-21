@@ -156,7 +156,8 @@ context.
 The stage also drives a parsed 1 KB JSON POST for NextRush and Hono (`wire.post.*`) with the
 same `wrk` settings. Each POST case first sends one request through a raw socket and requires
 `200 {"ok":true}`; without that check an entry that 404s or throws would still produce a fast,
-plausible request rate. The POST rows are `INFO` for the same reason as the GET rows.
+plausible request rate. The POST rows are `INFO` for the same reason as the GET rows. On Bun,
+Elysia's POST rate is added as a reference point (`wire.post.elysia.rps`).
 
 `inproc` takes the best of three runs per entry. Two samples left a ~40% spread on a loaded
 machine, and this ratio is a gate — three halves it for a few seconds of runtime. The committed

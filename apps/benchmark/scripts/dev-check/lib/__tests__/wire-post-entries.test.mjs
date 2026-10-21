@@ -20,7 +20,11 @@ const DEVCHECK = resolve(import.meta.dirname, '..', '..');
 const ENTRIES = join(DEVCHECK, 'entries');
 const BUNDLER = join(DEVCHECK, 'lib', 'build.ts');
 const RUNTIMES = ['bun', 'node'];
-const ENTRIES_UNDER_TEST = ['serve-nextrush-post', 'serve-hono-post'];
+const ENTRIES_UNDER_TEST = [
+  { name: 'serve-nextrush-post', runtimes: RUNTIMES },
+  { name: 'serve-hono-post', runtimes: RUNTIMES },
+  { name: 'serve-elysia-post', runtimes: ['bun'] },
+];
 
 const bunAvailable = spawnSync('bun', ['--version'], { encoding: 'utf8' }).status === 0;
 const skipBun = bunAvailable ? false : 'bun is required by the dev-check toolkit';
@@ -62,8 +66,8 @@ function bundle(entry, runtime) {
   return out;
 }
 
-for (const entry of ENTRIES_UNDER_TEST) {
-  for (const runtime of RUNTIMES) {
+for (const { name: entry, runtimes } of ENTRIES_UNDER_TEST) {
+  for (const runtime of runtimes) {
     test(`${entry} answers the wire POST on ${runtime}`, { skip: skipBun, timeout: 30_000 }, async () => {
       const file = bundle(entry, runtime);
       const port = await freePort();
