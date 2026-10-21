@@ -34,7 +34,7 @@ describe('NodeContext - serialize before commit', () => {
     ctx.flushResponse();
 
     expect(writeHead).toHaveBeenCalledWith(200, {
-      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Type': 'application/json',
       'Content-Length': '11',
     });
     expect(end).toHaveBeenCalledWith('{"ok":true}');

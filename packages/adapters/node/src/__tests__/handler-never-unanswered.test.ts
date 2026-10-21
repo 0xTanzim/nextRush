@@ -56,7 +56,7 @@ describe('a serialization failure is answered rather than left hanging', () => {
     const res = await request(app);
 
     expect(res.status).toBe(500);
-    expect(res.contentType).toBe('application/json; charset=utf-8');
+    expect(res.contentType).toBe('application/json');
     expect(JSON.parse(res.body)).toMatchObject({ status: 500 });
   });
 
@@ -97,7 +97,7 @@ describe('the adapter finalizer answers an error status nothing wrote', () => {
     const res = await request(app);
 
     expect(res.status).toBe(503);
-    expect(res.contentType).toBe('application/json; charset=utf-8');
+    expect(res.contentType).toBe('application/json');
     expect(JSON.parse(res.body)).toEqual({ error: 'Service Unavailable' });
   });
 
@@ -136,7 +136,7 @@ describe('the application error path answers when the error handler does not', (
     const res = await request(app);
 
     expect(res.status).toBe(500);
-    expect(res.contentType).toBe('application/json; charset=utf-8');
+    expect(res.contentType).toBe('application/json');
     expect(JSON.parse(res.body)).toMatchObject({ status: 500, code: 'INTERNAL_ERROR' });
   });
 });

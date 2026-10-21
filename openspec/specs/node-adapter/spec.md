@@ -151,10 +151,13 @@ naming the value class, and SHALL leave the response uncommitted so the applicat
 still answer. A value that serializes to `undefined` SHALL be rejected the same way instead of
 producing an empty body.
 
+The recorded JSON media type SHALL be `application/json` — RFC 8259 §8.1 defines no `charset`
+parameter for it — and SHALL be the same value on every adapter.
+
 #### Scenario: A JSON response is byte-identical
 
 - **WHEN** `ctx.json(data)` is called
-- **THEN** the status, `Content-Type: application/json; charset=utf-8`, `Content-Length`, and body bytes are identical to today
+- **THEN** the status, `Content-Type: application/json`, `Content-Length`, and body bytes are identical to today
 
 #### Scenario: Headers set before json() survive the writeHead
 

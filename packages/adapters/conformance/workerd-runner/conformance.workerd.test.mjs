@@ -217,10 +217,10 @@ test('F-03 (widened): HEAD carries Content-Length equal to the GET body length o
   assert.equal(headRes.headers.get('content-length'), String(new TextEncoder().encode(getBody).length));
 });
 
-test('F-05 (widened): a framework 404 carries application/json; charset=utf-8 on real workerd', async () => {
+test('F-05 (widened): a framework 404 carries the shared application/json media type on real workerd', async () => {
   const res = await (await getMf()).dispatchFetch('http://localhost/boom');
   assert.equal(res.status, 404);
-  assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(res.headers.get('content-type'), 'application/json');
 });
 
 test('response conformance: Set-Cookie array sets multiple cookies on real workerd', async () => {
@@ -238,7 +238,7 @@ test('error propagation: an unknown thrown Error maps to 500 with no message lea
 test('never unanswered: a serialization failure is answered with a 500 on real workerd', async () => {
   const res = await (await getMf()).dispatchFetch('http://localhost/unserializable');
   assert.equal(res.status, 500);
-  assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(res.headers.get('content-type'), 'application/json');
   assert.notEqual(await res.text(), '');
 });
 
@@ -261,7 +261,7 @@ test('boot-before-dispatch: a route declared on the app router is reached on rea
 test('boot-before-dispatch: an unrouted path is a 404, not an empty 200, on real workerd', async () => {
   const res = await (await getMf()).dispatchFetch('http://localhost/unrouted');
   assert.equal(res.status, 404);
-  assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(res.headers.get('content-type'), 'application/json');
   assert.deepEqual(await res.json(), { error: 'Not Found' });
 });
 
@@ -273,7 +273,7 @@ test('error body: a malformed body answers one framework body, with no engine te
   });
 
   assert.equal(res.status, 400);
-  assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.equal(res.headers.get('content-type'), 'application/json');
   // The exact body the cross-adapter suite pins on every other adapter.
   assert.equal(
     await res.text(),

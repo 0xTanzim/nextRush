@@ -188,7 +188,7 @@ describe('HP-5: response methods behave identically over private req/res', () =>
     const res = await fetch(baseUrl);
     const body = await res.text();
     expect(res.status).toBe(200);
-    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('application/json');
     expect(body).toBe('{"message":"hello"}');
   });
 

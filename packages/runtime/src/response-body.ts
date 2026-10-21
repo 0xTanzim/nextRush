@@ -13,7 +13,9 @@
 import type { NodeStreamLike, ResponseBody } from '@nextrush/types';
 import { serializeJson } from './serialize-json';
 
-const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
+/** Bare JSON: RFC 8259 defines no `charset` parameter, and Deno's static-response
+ * fast path accepts only this literal (see `response-builder.ts`). */
+const JSON_CONTENT_TYPE = 'application/json';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
 const BINARY_CONTENT_TYPE = 'application/octet-stream';
 

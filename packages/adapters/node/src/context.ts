@@ -89,8 +89,9 @@ const EMPTY_QUERY: QueryParams = Object.freeze(Object.create(NULL_PROTO)) as Que
 /** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
 const RESOLVED_NEXT: Promise<void> = Promise.resolve();
 
-/** The content types the Node response methods record. */
-const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
+/** The content types the Node response methods record. JSON carries no charset:
+ * RFC 8259 defines none, and the Web adapters emit the same bare value. */
+const JSON_CONTENT_TYPE = 'application/json';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
 const HTML_CONTENT_TYPE = 'text/html; charset=utf-8';
 const BINARY_CONTENT_TYPE = 'application/octet-stream';

@@ -348,11 +348,11 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(res.setCookies()).toEqual(['b=2']);
   });
 
-  registerScenario(driver, '#7 content-type parity: json/send/html carry identical charset (F-16)', {}, async () => {
+  registerScenario(driver, '#7 content-type parity: json/send/html carry the shared media types (F-16)', {}, async () => {
     const jsonRes = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.json({ ok: true }); });
     });
-    expect(jsonRes.header('content-type')).toBe('application/json; charset=utf-8');
+    expect(jsonRes.header('content-type')).toBe('application/json');
 
     const textRes = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.send('plain'); });
@@ -442,9 +442,10 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     const body = json<{ error: string; message: string }>(unknown);
     expect(body.message).toBe('Internal Server Error');
     expect(unknown.text()).not.toContain('secret-leak-123');
-    // F-05: framework-generated error responses carry a uniform Content-Type
-    // (application/json; charset=utf-8) on every adapter — no bare application/json.
-    expect(unknown.header('content-type')).toBe('application/json; charset=utf-8');
+    // F-05: framework-generated error responses carry one media type on every
+    // adapter. JSON has no `charset` parameter (RFC 8259 §8.1), and the bare
+    // value is what Deno's static-response fast path accepts.
+    expect(unknown.header('content-type')).toBe('application/json');
   });
 
   registerScenario(driver, '#5/#12 serialization failure: a body JSON cannot represent is answered, never left empty', {}, async () => {
@@ -463,7 +464,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
       });
 
       expect(res.status, label).toBe(500);
-      expect(res.header('content-type'), label).toBe('application/json; charset=utf-8');
+      expect(res.header('content-type'), label).toBe('application/json');
       expect(res.text(), label).not.toBe('');
     }
     cyclic = {};
@@ -489,7 +490,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     });
 
     expect(res.status).toBe(500);
-    expect(res.header('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.header('content-type')).toBe('application/json');
     expect(json<{ status: number }>(res).status).toBe(500);
     expect(res.text()).not.toBe('');
   });
@@ -516,7 +517,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     });
 
     expect(res.status).toBe(503);
-    expect(res.header('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.header('content-type')).toBe('application/json');
     expect(json<{ error: string }>(res).error).toBe('Service Unavailable');
   });
 
@@ -590,7 +591,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
       // framework constant, not the engine's own parse text, and the 4xx reports
       // its own code rather than reading to a client like a server fault.
       expect(res.status).toBe(400);
-      expect(res.header('content-type')).toBe('application/json; charset=utf-8');
+      expect(res.header('content-type')).toBe('application/json');
       expect(res.text()).toBe(
         '{"error":"BodyParserError","message":"Invalid JSON","code":"INVALID_JSON","status":400}'
       );

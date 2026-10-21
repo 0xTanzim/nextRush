@@ -23,7 +23,7 @@ describe('WebResponseBuilder - serialize before commit', () => {
     const res = builder.getResponse(200);
 
     expect(res.status).toBe(200);
-    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('application/json');
     await expect(res.text()).resolves.toBe('{"ok":true}');
   });
 
@@ -58,7 +58,7 @@ describe('WebResponseBuilder - serialize before commit', () => {
     const res = builder.getResponse(500);
 
     expect(res.status).toBe(500);
-    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('application/json');
     await expect(res.json()).resolves.toEqual({ error: 'Internal Server Error' });
   });
 

@@ -142,7 +142,7 @@ describe('WebContextBase — response methods', () => {
     ctx.json({ ok: true });
     const res = ctx.getResponse();
     expect(res.status).toBe(201);
-    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('application/json');
   });
 
   it('send() writes a text body', () => {

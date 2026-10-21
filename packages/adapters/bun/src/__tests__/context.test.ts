@@ -123,7 +123,7 @@ describe('BunContext', () => {
       ctx.json({ message: 'hello' });
 
       const response = ctx.getResponse();
-      expect(response.headers.get('Content-Type')).toBe('application/json; charset=utf-8');
+      expect(response.headers.get('Content-Type')).toBe('application/json');
       expect(response.status).toBe(200);
     });
 

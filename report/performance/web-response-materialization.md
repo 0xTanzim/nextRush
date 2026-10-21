@@ -1,4 +1,16 @@
-# Web response materialization — investigation record (change rejected)
+# Web response materialization — investigation record (change rejected, later superseded)
+
+> **Correction (2026-10-21).** The verdict below is **superseded**, and this file is kept because the
+> history is the record. The revert was decided on **Bun** wall-clock throughput (noise-bound) and on
+> **Bun/Node allocation bytes**, and **Deno was never measured** — which is where the platform has a
+> static-response fast path that the framework's media type missed. A later measurement with a
+> server-CPU-per-request instrument (the paired protocol) kept the change and added the JSON media
+> type that unlocks that fast path: **−16.6 % server CPU per request on Deno GET**, −8.1 % on Deno
+> POST, and **no CPU regression on Bun** despite the +12 B allocation the spike below measured.
+>
+> The current record is
+> [`json-media-type-and-response-construction.md`](json-media-type-and-response-construction.md);
+> the governing decision is RFC-046 / ADR-0034. §4's "Decision: revert" is corrected in place below.
 
 Question: can `WebResponseBuilder.getResponse()` avoid the per-response `Headers` instance and its
 `has`/`set` calls for the common content-type-only response, and does that reduce Bun's per-request
@@ -65,10 +77,25 @@ runs."* No single construction wins on both runtimes — Bun prefers `pairs`, No
 and runtime branching is forbidden by the portability rule. The current `Headers` + `set` code is the
 recorded compromise.
 
-**Decision: revert.** The change made Bun's dominant path allocate slightly more while the loud
+**Decision at the time: revert.** The change made Bun's dominant path allocate slightly more while the loud
 metric stayed flat. Keeping it would have required contradicting a deterministic, reproducible
 measurement with a noise-bound one. Reverted to `f47ee4a0`; `ARCHITECTURE.md` unchanged for this
 path.
+
+**Corrected verdict (2026-10-21): kept.** The revert was right on the evidence it had — Bun's
+allocation bytes really are worse, and Bun's wall-clock really was flat — but the question was asked
+on two runtimes and answered on one. The later measurement adds:
+
+- **Deno**, where the platform's `Response` constructor has a static fast path that the framework's
+  media type missed: **−16.6 % server CPU per request on GET** (4/4 pairs faster) and −8.1 % on
+  POST. The construction itself costs **1.019 µs** with a `Headers` instance against **0.230 µs**
+  with the plain init record — measured in isolation, 5 rounds.
+- **Bun and Node, measured on CPU per request** rather than wall-clock throughput: **no regression**
+  (Bun −0.33 µs/req, 3/4 pairs faster; Node inside the noise). The +12.2 B allocation the spike
+  measured is real and below the CPU floor.
+- The media type that makes the fast path reachable — `application/json`, with no `charset`
+  parameter, which RFC 8259 §8.1 defines and which Hono and Express already send — is a separate,
+  wire-visible change, recorded in RFC-046 / ADR-0034.
 
 ## 5. Candidates measured and rejected in the same pass
 

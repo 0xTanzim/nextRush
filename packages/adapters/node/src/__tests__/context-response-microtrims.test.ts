@@ -155,7 +155,7 @@ describe('HP-14: ctx.json() writes headers with a single writeHead', () => {
 
     expect(res.writeHead).toHaveBeenCalledTimes(1);
     expect(res.writeHead).toHaveBeenCalledWith(200, {
-      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Type': 'application/json',
       'Content-Length': String(Buffer.byteLength('{"message":"hello"}')),
     });
     // Content-Type / Content-Length must NOT also go through setHeader.
@@ -180,7 +180,7 @@ describe('HP-14: ctx.json() writes headers with a single writeHead', () => {
     const res = await fetch(baseUrl);
     const body = await res.text();
     expect(res.status).toBe(200);
-    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('application/json');
     expect(res.headers.get('content-length')).toBe(String(Buffer.byteLength(body)));
     expect(body).toBe('{"message":"hello"}');
   });
@@ -193,7 +193,7 @@ describe('HP-14: ctx.json() writes headers with a single writeHead', () => {
     const res = await fetch(baseUrl);
     await res.text();
     expect(res.headers.get('x-custom')).toBe('v');
-    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('application/json');
   });
 
   it('preserves accumulated Set-Cookie across the writeHead', async () => {
@@ -212,7 +212,7 @@ describe('HP-14: ctx.json() writes headers with a single writeHead', () => {
     await serve((ctx) => ctx.json({ ok: true }));
     const res = await fetch(baseUrl, { method: 'HEAD' });
     expect(res.status).toBe(200);
-    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('application/json');
     expect(await res.text()).toBe('');
   });
 

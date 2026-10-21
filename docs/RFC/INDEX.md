@@ -74,6 +74,7 @@ invent a new structure per RFC.
 | [043](runtime-adapters/043-web-native-body-read.md) | Native body reads for provable-length Web requests | Approved — measured Bun/Deno POST fast path, behaviour-neutral | runtime-adapters |
 | [044](runtime-adapters/044-bun-request-path-trims.md) | Bun request-path trims — native drain accounting and thunk-free address resolution | Approved — accepted on allocation evidence; wire before/after inside the recorded spread | runtime-adapters |
 | [045](runtime-adapters/045-bun-request-hotpath-phase-1.md) | Bun request hot path — Phase 1: native text body reads, cheaper timeout dispatch, flattened JSON parsing | **Shipped** — isolated JSON read 6.07 → 3.77 µs; full POST within run noise; ADR-0033 | runtime-adapters |
+| [046](runtime-adapters/046-json-media-type-and-response-construction.md) | One JSON media type, and a plain init record for the Web response | **Shipped** — Deno GET −16.6 % server CPU/req, POST −8.1 %; no Bun/Node regression; ADR-0034 | runtime-adapters |
 
 ## Note on RFC-005 (Plugin System)
 
