@@ -47,6 +47,7 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0032](ADR-0032-bun-request-path-trims.md) | Bun request-path trims — native drain accounting and thunk-free address resolution | Accepted | `docs/RFC/runtime-adapters/044-bun-request-path-trims.md` |
 | [ADR-0033](ADR-0033-bun-request-hotpath-phase-1.md) | Bun request hot path — internal limited text reads, bounded timeout dispatch, one shared JSON read/parse tail | Accepted · Shipped | `docs/RFC/runtime-adapters/045-bun-request-hotpath-phase-1.md` |
 | [ADR-0034](ADR-0034-json-media-type-and-response-construction.md) | One JSON media type, and a plain init record for the Web response | Accepted · Shipped | `docs/RFC/runtime-adapters/046-json-media-type-and-response-construction.md` |
+| [ADR-0035](ADR-0035-shared-request-deadline.md) | One shared timer serves the request deadline | Accepted · Shipped | `docs/RFC/runtime-adapters/046-json-media-type-and-response-construction.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

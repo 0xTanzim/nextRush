@@ -19,6 +19,7 @@
 import type { FetchContext } from '@nextrush/types';
 import type { Logger } from '@nextrush/types';
 import { createBootGate, type BootableApp } from './boot-gate';
+import { DeadlineScheduler } from './deadline-scheduler';
 import { jsonErrorResponse } from './response-builder';
 
 /**
@@ -110,14 +111,23 @@ function hasCommittedResponse(ctx: WebRunnerContext): boolean {
 }
 
 /**
- * Await a dispatch, arming a timeout timer only if it is still pending.
+ * Await a dispatch, arming a deadline only if it is still pending.
  *
- * @returns `true` when the timeout won the race (the caller answers 504)
+ * @returns `true` when the deadline won the race (the caller answers 504)
+ *
+ * @remarks
+ * The deadline is served by the runner's shared {@link DeadlineScheduler}, so a
+ * request that outlives the settle window does not pay for its own timer. The
+ * race itself is one deferred promise rather than a `Promise.race` over two
+ * promises: whichever of the dispatch and the deadline settles first resolves
+ * it, and the dispatch's rejection is observed here so a rejection that
+ * arrives after the deadline is not left unhandled.
  */
 async function dispatchWithTimeout(
   dispatch: Dispatch,
   timeoutMs: number,
-  onTimeout: () => void
+  onTimeout: () => void,
+  deadlines: DeadlineScheduler
 ): Promise<boolean> {
   // A holder, not a bare `let`: the settlement is observed from a callback, and a
   // flat variable would be narrowed to its initial value by control-flow analysis
@@ -127,16 +137,23 @@ async function dispatchWithTimeout(
     failed: false,
   };
 
+  const race: { settle?: (timedOut: boolean) => void } = {};
+  const raced = new Promise<boolean>((resolve) => {
+    race.settle = resolve;
+  });
+
   // Both outcomes are handled here, so this promise never rejects unobserved
   // while the microtask window is still open.
-  const settlement = dispatch.then(
+  dispatch.then(
     () => {
       outcome.done = true;
+      race.settle?.(false);
     },
     (error: unknown) => {
       outcome.done = true;
       outcome.failed = true;
       outcome.error = error;
+      race.settle?.(false);
     }
   );
 
@@ -145,34 +162,36 @@ async function dispatchWithTimeout(
   }
 
   if (outcome.done) {
-    // `settlement` has already run its handlers by the time `done` is visible (it
-    // is the promise that set it), so awaiting it here would add one microtask
-    // hop to every fast-path request for no observation.
+    // The dispatch has already settled, so there is nothing to race and no
+    // deadline to register.
     if (outcome.failed) throw outcome.error;
     return false;
   }
 
-  const TIMEOUT = Symbol('timeout');
-  let timerId: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const winner = await Promise.race([
-      settlement,
-      new Promise<typeof TIMEOUT>((resolve) => {
-        timerId = setTimeout(() => {
-          resolve(TIMEOUT);
-        }, timeoutMs);
-      }),
-    ]);
-
-    if (winner === TIMEOUT) {
+  // A holder, for the same reason `outcome` is one: the deadline callback runs
+  // outside this flow, so a flat variable would be narrowed to its initial
+  // value by control-flow analysis.
+  const state: { timedOut: boolean; timeoutError?: Error } = { timedOut: false };
+  const registration = deadlines.register(timeoutMs, () => {
+    state.timedOut = true;
+    race.settle?.(true);
+    try {
       onTimeout();
-      return true;
+    } catch (error: unknown) {
+      state.timeoutError = error instanceof Error ? error : new Error(String(error), { cause: error });
     }
-    if (outcome.failed) throw outcome.error;
-    return false;
+  });
+
+  try {
+    await raced;
   } finally {
-    if (timerId !== undefined) clearTimeout(timerId);
+    registration.cancel();
   }
+
+  if (state.timeoutError !== undefined) throw state.timeoutError;
+  if (state.timedOut) return true;
+  if (outcome.failed) throw outcome.error;
+  return false;
 }
 
 /**
@@ -204,6 +223,10 @@ export function createWebRunner<TCtx extends WebRunnerContext, TExtra = undefine
   // request awaits the barrier, so a steady-state request adds no promise hop.
   let handler = boot.handler;
 
+  // One scheduler per runner: the pending deadlines of this adapter share a
+  // single timer instead of each request arming its own.
+  const deadlines = new DeadlineScheduler();
+
   return async (request: Request, extra: TExtra): Promise<Response> => {
     const ctx = options.makeContext(request, extra);
 
@@ -219,9 +242,14 @@ export function createWebRunner<TCtx extends WebRunnerContext, TExtra = undefine
         // or a body that never closes), and awaiting that chain without a bound
         // holds the connection open for the lifetime of the server. The turn
         // window still lets a chain that settles quickly avoid arming a timer.
-        const timedOut = await dispatchWithTimeout(dispatch, options.timeout, () => {
-          ctx.triggerTimeout();
-        });
+        const timedOut = await dispatchWithTimeout(
+          dispatch,
+          options.timeout,
+          () => {
+            ctx.triggerTimeout();
+          },
+          deadlines
+        );
 
         if (timedOut) {
           // A handler that committed a response before the deadline is answered

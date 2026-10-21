@@ -339,7 +339,7 @@ describe('createWebRunner', () => {
     expect(ctx?.timeoutTriggered).toBe(1);
   });
 
-  it('arms a timer when the handler has not settled', async () => {
+  it('arms a deadline when the handler has not settled', async () => {
     const app = new FakeApp(() => new Promise<void>(() => undefined));
     const realSetTimeout = globalThis.setTimeout;
     let armed = 0;
@@ -356,7 +356,10 @@ describe('createWebRunner', () => {
     }
 
     expect(response?.status).toBe(504);
-    expect(armed).toBe(1);
+    // The deadline is served by the runner's shared scheduler, so the count is
+    // not one-per-request: a platform that fires its timer a fraction early
+    // makes the scheduler re-arm for the remaining time.
+    expect(armed).toBeGreaterThanOrEqual(1);
   });
 
   it('does not race at all when the timeout is disabled', async () => {
