@@ -89,9 +89,14 @@ export interface WebStreamRunners {
  * the streaming methods, and `get`/`next`/`throw`/`assert` live here, once.
  */
 export abstract class WebContextBase implements FetchContext {
-  readonly method: HttpMethod;
-  readonly url: string;
-  readonly path: string;
+  // `declare` on every field the constructor assigns: with
+  // `useDefineForClassFields` (ES2022) a plain `field;` declaration emits a
+  // per-instance define for `undefined` that the constructor immediately
+  // overwrites. A context is built once per request, so those defines are pure
+  // hot-path cost. Initialized fields below keep their initializer.
+  declare readonly method: HttpMethod;
+  declare readonly url: string;
+  declare readonly path: string;
   /**
    * Declared here, not added by the router, so dispatch's assignment is a value
    * write to an existing slot rather than a property addition that transitions
@@ -100,10 +105,10 @@ export abstract class WebContextBase implements FetchContext {
    *
    * @see RFC-029
    */
-  readonly originalPath: string;
-  readonly query: QueryParams;
-  readonly runtime: Runtime;
-  readonly bodySource: BodySource;
+  declare readonly originalPath: string;
+  declare readonly query: QueryParams;
+  declare readonly runtime: Runtime;
+  declare readonly bodySource: BodySource;
 
 
 
@@ -115,7 +120,7 @@ export abstract class WebContextBase implements FetchContext {
    * every header and resolving the address may call the platform, so both are
    * resolved on first read (see {@link RequestInputs}).
    */
-  protected readonly _inputs: RequestInputs;
+  declare protected readonly _inputs: RequestInputs;
 
   /**
    * Named deployment platform, when known (RFC-026).
@@ -127,7 +132,7 @@ export abstract class WebContextBase implements FetchContext {
    * Tier-1 handler); the field lives here, not duplicated per subclass, since
    * every Web adapter must satisfy the same {@link Context.platform} contract.
    */
-  readonly platform: PlatformId | undefined;
+  declare readonly platform: PlatformId | undefined;
 
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
@@ -143,14 +148,14 @@ export abstract class WebContextBase implements FetchContext {
   cookies: CookieCapability = UNINITIALIZED_COOKIES;
 
   private _next: (() => Promise<void>) | null = null;
-  private readonly _response: WebResponseBuilder;
+  declare private readonly _response: WebResponseBuilder;
   /** Lazily-created combiner of the request signal and the timeout signal (F-08). */
-  private _abort?: CombinedAbort;
+  declare private _abort?: CombinedAbort;
   /** The platform request, held privately so `raw` is built lazily (HP-5-web). */
-  protected readonly _req: Request;
+  declare protected readonly _req: Request;
   /** Memoized `{ req, res }` wrapper — built only when `ctx.raw` is read (HP-5-web). */
-  private _raw?: WebRawHttp;
-  private readonly _streamRunners: WebStreamRunners;
+  declare private _raw?: WebRawHttp;
+  declare private readonly _streamRunners: WebStreamRunners;
 
   /**
    * @param request - The platform Web `Request`.
