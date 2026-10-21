@@ -10,6 +10,10 @@ runs:
   steps:
     - uses: pnpm/action-setup@v5
 
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: 1.4.3
+
     - uses: actions/setup-node@v6
       with:
         node-version: 24
