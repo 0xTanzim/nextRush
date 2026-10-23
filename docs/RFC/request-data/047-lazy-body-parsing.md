@@ -410,7 +410,7 @@ Bun 1.4.4, `perf/bun-body-read-parity` at `687610d9`, 1 KB JSON `POST`, identica
 | ------------------------------ | ------------------------------- | ------------------------------------------------------------------------ | ------- |
 | Unread-request parser cost     | → 0 ns in the parser stage      | 0 body-source calls in all 9 rounds of every run (counted, not inferred) | **met** |
 | Wire CPU/req, unread workload  | measured, paired, order-flipped | −31.3 % / −30.1 % per request (9.39 → 6.45 µs); framework-only −46.6 % / −44.9 % | **met** |
-| Read-request regression        | ≤ 50 ns                         | **+518 ns** (paired, n = 100 × 2 000 iters; best quartile +375 ns)        | **not met** |
+| Read-request regression        | ≤ 50 ns                         | **+518 ns** (paired, n = 100 × 2 000 iters; best quartile +375 ns); +0.31–0.72 µs across the six paired runs in §14.2 | **not met** |
 | Error parity for read requests | identical status/body/envelope  | 344 body-parser tests + conformance on 6 drivers, both modes             | **met** |
 | Eager path                     | no externally observable change  | behaviour identical (320 pre-existing tests pass unmodified, 348 with the new ones);
 the eager branch now returns through the shared `read` closure and one extra async frame, and that frame was **not** separately measured | **met (behaviour) / unmeasured (cost)** |
@@ -438,6 +438,53 @@ regression for lazy-mode requests that read their body, and with the measured re
 Wire numbers are a paired, order-flipped A/B against a null control whose own delta was 0.19–2.05 %,
 so the unread result is resolvable; sub-1 % candidates remain unresolvable in this environment and
 were not claimed.
+
+### 14.2 Read-path decomposition (follow-up, 2026-10-23)
+
+The read regression was re-measured after implementation with the install split into components, to
+test whether the dominant term was removable. Same box, Bun 1.4.4, 1 KB JSON `POST`, `taskset -c 2`,
+in-process paired ABBA arms, one process per run (`/tmp/nextrush-performance/c13/`). Each row is a
+paired delta in ns/request against the shipped lazy read path. The null control (two arms running the
+same build) measured +4 to +38 ns with a ±0.1–0.3 µs band, so only effects wider than the band are
+called findings.
+
+| Arm (difference from the shipped lazy read path)                                   | Paired delta (ns/req)                  | Verdict                                              |
+| ----------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------- |
+| per-request `Object.defineProperty` removed (attribution only — breaks the contract) | −309 / −444 / −325 / −780 (four runs)  | **dominant term**, sign consistent, magnitude unstable |
+| memoized `.then` chain removed (attribution only)                                   | −60 / −570 / −65 / −135 (four runs)    | **inconclusive** — not reproducible                  |
+| shared descriptor object + per-request state (semantics-preserving candidate)        | +27 [−131, +106]                       | **no improvement — rejected**                        |
+| no accessor at all, reader slot only (attribution only)                             | +109 / +137 vs eager (two runs)        | floor for this design                                |
+
+Three corrections to the first draft:
+
+1. **The install costs more end to end than its isolated parts suggest.** An isolated microbenchmark
+   over real `BunContext` instances measures 168 ns per install (tight across 15 rounds: 148–200),
+   split as `defineProperty` ≈113 ns and reader + memo closures ≈66 ns. Removing the same call from
+   the request path saves 0.3–0.8 µs, two to five times that. The difference is consistent with the
+   own-property transition invalidating the inline caches the context had already been accessed
+   through, but this box cannot separate that from allocation/GC effects: defining the same
+   descriptor on a throwaway object measured −236 ns [−460, +135] against the shipped path and
+   +467 ns [323, 659] against the no-install arm, so the two attributions do not decompose cleanly.
+   Both the isolated and the end-to-end number are real; the split between them is not resolved by
+   this instrument.
+2. **The shared-descriptor candidate does not help.** It looked like −0.2 µs in two early runs, but
+   the third measured +27 ns [−131, +106], and the isolated install difference is only ~11 ns. Early
+   figure was noise.
+3. **The class-level accessor was rejected on structure, not on a measurement — and it cannot be
+   measured by shadowing.** A prototype accessor is never consulted while `body: unknown = undefined`
+   remains a class field, because class fields are installed with `CreateDataProperty`, which bypasses
+   the prototype setter. A replica built that way silently stopped throwing `BODY_NOT_READ`; the
+   contract check caught it, and its timings are therefore "no accessor", not "prototype accessor".
+   Measuring the alternative requires editing `WebContextBase` and `NodeContext`, and it cannot avoid
+   its structural cost: the field initializer of every context would run through the setter and every
+   eager-mode `ctx.body` read would go through the getter. That cost on the default path, for an
+   opt-in feature, is the rejection reason — no percentage is claimed for it either way.
+
+Consequence for the ≤50 ns target: with the accessor removed entirely the read path still pays
+~0.11–0.14 µs over eager (reader slot, one delegation, one promise chain). The target is unreachable
+while an unread `ctx.body` must throw (§2, decision 3); meeting it would require returning `undefined`
+instead, which is the silent-failure mode this RFC exists to prevent.
+
 
 ## 15. Phased Implementation
 

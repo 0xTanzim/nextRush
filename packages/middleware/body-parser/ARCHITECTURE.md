@@ -387,8 +387,9 @@ through a middleware. Lazy mode changes *when* `read` runs, never *what* it does
 error codes, statuses, `verify` ordering, and depth guard are identical in both modes.
 
 Two costs are stated plainly rather than hidden. The per-request accessor install is the dominant
-lazy-mode cost: a body-reading request is ~0.4-0.5 µs slower than eager (measured on Bun 1.4.4),
-while an unread request is ~31 % faster end to end. Abort propagation is **not** re-plumbed: a body
+lazy-mode cost: a body-reading request is ~0.3-0.8 µs slower than eager (measured on Bun 1.4.4,
+RFC-047 §14.2), while an unread request is ~31 % faster end to end. Abort propagation is **not**
+re-plumbed: a body
 read is bounded by the adapter's existing cancellation (the Node adapter's request-abort rejection,
 the Web adapters' stream errors) and by the dispatch deadline, so the reader introduces no second
 cancellation path and no new signal parameter.
@@ -545,18 +546,31 @@ These are part of the package's architecture. They do not change without an RFC:
 | `bodyParser()` default enablement | `json`/`urlencoded` on by default; `text`/`raw` require an explicit (even empty) options object | An app must opt in to `text: {}` or `raw: {}` rather than getting them for free — avoids silently treating an unexpected `Content-Type` as raw bytes or plain text | `parsers/combined.ts` |
 | Failure-message content | A framework constant per failure kind, with the engine/adapter text kept as a non-enumerable `BodyParserError.cause` | Losing the raw engine text from the response means a client cannot read *why* the parse failed — it branches on `error.code` instead — in exchange for a body that is identical on every runtime for the same request | `errors.ts`, `parsers/json.ts`, `parsers/urlencoded.ts`, `parsers/reader.ts` |
 | Default for an unparsed content type | `'ignore'` — continue with `ctx.body` undefined — with `'reject'` available per parser instance | The safer policy for a JSON API is the one that is *not* the default, so a caller who wants `415` must say so; changing the default would silently turn previously-accepted requests into errors, so it is scheduled for the next major rather than shipped | `parsers/combined.ts`, `types.ts` |
-| Lazy body parsing (`lazy: true`) | Defer read + parse into a reader installed on a symbol slot; `ctx.body` becomes a per-request throwing accessor | Lazy-mode requests that read their body pay ~0.4-0.5 µs more than eager (install + one promise hop) in exchange for ~31 % end-to-end savings on requests that never read; the eager path keeps its shape and cost | `lazy.ts`, `types.ts`, `RFC-047` |
+| Lazy body parsing (`lazy: true`) | Defer read + parse into a reader installed on a symbol slot; `ctx.body` becomes a per-request throwing accessor | Lazy-mode requests that read their body pay ~0.3-0.8 µs more than eager (the accessor install; RFC-047 §14.2) in exchange for ~31 % end-to-end savings on requests that never read; the eager path keeps its shape and cost | `lazy.ts`, `types.ts`, `RFC-047` |
 
 ## Rejected alternatives
 
 ### A `body` accessor declared on the context class for both modes
 
 Declaring `body` as a getter/setter on `WebContextBase` and `NodeContext` would remove the
-per-request `Object.defineProperty` from lazy mode and make every context monomorphic. It was
-rejected because it charges every request — including the eager default — for an opt-in feature: two
-extra state fields and an accessor on the most-read property in the framework, to save ~0.4 µs that
-only a lazy-mode request which reads its body pays. Deferred rather than dismissed: RFC-047 §14
-records the measured gap and names this as the next thing to test if lazy mode becomes the default.
+per-request `Object.defineProperty` from lazy mode and make every context monomorphic. Rejected
+because it charges the default path for an opt-in feature by construction: the `body` field
+initializer of every context would run through the setter, and every eager-mode `ctx.body` read — the
+most-read property in the framework — would go through the getter. No percentage is claimed for that
+cost, in either direction: the alternative was not measured, because a faithful measurement needs
+those two classes edited. A prototype accessor shadowed by the own `body` field is never consulted —
+class fields are installed with `CreateDataProperty` — so a subclass replica measures "no accessor",
+not "prototype accessor" (RFC-047 §14.2 records that mistake and the numbers). Deferred rather than
+dismissed: RFC-047 §14.2 records the measured gap and names this as the thing to test if lazy mode
+becomes the default.
+
+### A shared `body` descriptor with per-request state
+
+Replacing the per-request descriptor literal and the closures with one module-level descriptor plus a
+state object measured +27 ns [−131, +106] against the shipped path, and ~11 ns in isolation — inside
+noise. Rejected as no improvement rather than as wrong: it is also not obviously simpler, because the
+accessor has to reach into the reader's state.
+
 
 ### A single generic `parse()` function with a `contentType` mode parameter
 Rejected: each content type (JSON, URL-encoded, text, raw) has genuinely different security

@@ -1169,3 +1169,64 @@ cd packages/adapters/conformance/bun-runner && bun test          # 58 pass, real
 cd packages/adapters/conformance/deno-runner && deno task conformance  # 58 passed, real Deno + socket
 cd packages/adapters/conformance/workerd-runner && node --test conformance.workerd.test.mjs  # 16 pass
 ```
+
+### 16.6 Read-path follow-up — decomposition and the two rejected designs (2026-10-23)
+
+RFC-047 shipped with a known read-path regression (`§16.4`). This follow-up asked whether the
+dominant term was removable without charging the eager default. Six paired runs, plus one isolated
+microbenchmark, on the same box (Bun 1.4.4, 1 KB JSON `POST`, `taskset -c 2`). Paired deltas in
+ns/request; the null control (two arms, same build) measured +4 to +38 ns with a ±0.1–0.3 µs band.
+
+| Run | C − D (read regression) | C − D, no per-request `defineProperty` | Shared-descriptor candidate |
+| --- | ----------------------- | -------------------------------------- | --------------------------- |
+| 1 | +618.0 | −308.9 | −200.4 |
+| 2 | +313.0 | −444.4 | −186.9 |
+| 3 | +391.8 | −324.8 | +27.2 [−131, +106] |
+| 4 † | +421.2 | — | — |
+| 5 † | +324.8 | — | — |
+| 6 | +722.5 | −780.0 | — |
+
+† Same baseline arms driven through `createWebRunner` directly (`proto.ts`) instead of
+`createHandler`; the C and D arms are otherwise identical.
+
+- **The regression is real and its size varies with this box, not with the code.** Six paired
+  medians span +0.31 to +0.72 µs for the same two builds. The RFC's +518 ns sits inside that range.
+  No single value should be quoted as "the" cost; the range is the honest statement.
+- **The per-request accessor install is the dominant term.** Removing it is negative in all four
+  runs that measured it (−0.31 to −0.78 µs), and it is the only arm whose sign never flipped.
+- **Isolated install cost: 168 ns/ctx** (15 rounds, 148–200 ns), split as `defineProperty` ≈113 ns
+  and reader + memo closures ≈66 ns. The end-to-end saving from removing the call is two to five
+  times that, so the isolated number understates it. Whether the remainder is the property-map
+  transition invalidating inline caches, or allocation/GC interaction, was **not** resolved:
+  putting the same descriptor on a throwaway object measured −236 ns [−460, +135] against the
+  shipped path but +467 ns [323, 659] against the no-install arm, which does not decompose.
+- **Shared descriptor + per-request state: rejected.** Runs 1–2 suggested −0.2 µs; run 3 measured
+  +27 ns [−131, +106] and the isolated difference is ~11 ns. The earlier figure was noise.
+- **Memoized `.then` chain: inconclusive.** −60 / −570 / −65 / −135 across four runs. Not
+  removable anyway — it is the single-reader guarantee.
+- **Floor for the current design:** with the accessor removed entirely, lazy reads still cost
+  +109 / +137 ns over eager (reader slot, one delegation, one promise chain). The RFC's ≤50 ns
+  target is therefore unreachable while an unread `ctx.body` must throw.
+
+#### Discarded experiment — the prototype accessor replica
+
+The obvious way to test "declare `body` once on the class" without editing the framework is a
+subclass with a prototype accessor. **That measurement is invalid, and the record is kept so it is
+not repeated.** `body: unknown = undefined` is a class field, and class fields are installed with
+`CreateDataProperty`, which bypasses a prototype setter: the own data property shadows the accessor
+and the accessor is never consulted. The first timing runs looked favourable (−388 ns on the lazy
+read arm, no measurable eager cost) but a contract check showed the replica had stopped throwing
+`BODY_NOT_READ`, and a handler that writes `ctx.body` during an in-flight read no longer won. The
+timings were measuring "no accessor at all", not "prototype accessor".
+
+The class-level alternative therefore remains **unmeasured**, and it cannot be measured without
+editing `WebContextBase` and `NodeContext`. It is still rejected on structure rather than on a
+number: the field initializer of every context would run through the setter, and every eager-mode
+`ctx.body` read would go through the getter — a cost on the default path for an opt-in feature.
+
+#### Artifacts
+
+All outside the repository, disposable: `/tmp/nextrush-performance/c13/` — `harness` reproduction,
+`decomp.ts` (variant arms), `decomp2.ts` (throwaway-descriptor arm), `microinstall.ts`,
+`proto.ts` + `proto-correctness.ts` (the discarded replica and the check that falsified it),
+`variants/bp-*.js` (patched builds of the current dist).
