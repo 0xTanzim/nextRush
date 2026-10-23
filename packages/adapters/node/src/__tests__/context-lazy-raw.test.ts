@@ -195,7 +195,7 @@ describe('HP-5: response methods behave identically over private req/res', () =>
   it('send() sends text with the right content-type', async () => {
     await serve((ctx) => ctx.send('plain text'));
     const res = await fetch(baseUrl);
-    expect(res.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('text/plain;charset=UTF-8');
     expect(await res.text()).toBe('plain text');
   });
 

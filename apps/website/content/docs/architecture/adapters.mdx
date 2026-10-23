@@ -98,9 +98,12 @@ The suite runs 20+ shared assertions across three files. A representative sample
 - `Set-Cookie` set as an array produces multiple `Set-Cookie` headers, and survives a bodyless
   `204` response; a later `ctx.set('Set-Cookie', [...])` call replaces the earlier one rather than
   appending.
-- `ctx.json()`, `ctx.send()`, and `ctx.html()` all carry an identical `; charset=utf-8` suffix on
-  `Content-Type` — verified byte-identical across adapters, not merely present in some form.
-- `ctx.redirect()` defaults to **302**, sets `Location`, and sends a `text/plain; charset=utf-8`
+- `ctx.json()` carries the bare `application/json` (RFC 8259 defines no `charset`), `ctx.send()`
+  carries `text/plain;charset=UTF-8`, and `ctx.html()` carries `text/html; charset=utf-8` —
+  byte-identical across adapters, not merely present in some form. The `send()` spelling is the
+  literal Deno's `Response` constructor accepts for its static-response fast path; RFC 9110 makes the
+  missing space and the charset case insignificant.
+- `ctx.redirect()` defaults to **302**, sets `Location`, and sends a `text/plain;charset=UTF-8`
   body of the literal string `Redirecting to <path>`.
 - `ctx.state` is a mutable bag shared across the middleware chain.
 - Middleware executes in onion order: before-handlers run top-down, after-handlers run

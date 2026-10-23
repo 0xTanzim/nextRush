@@ -149,11 +149,11 @@ describe('WebResponseBuilder', () => {
     expect(json.getResponse(200).headers.get('Content-Type')).toBe(
       'application/json'
     );
-    expect(text.getResponse(200).headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+    expect(text.getResponse(200).headers.get('Content-Type')).toBe('text/plain;charset=UTF-8');
     expect(binary.getResponse(200).headers.get('Content-Type')).toBe('application/octet-stream');
     expect(html.getResponse(200).headers.get('Content-Type')).toBe('text/html; charset=utf-8');
     expect(redirect.getResponse(200).headers.get('Content-Type')).toBe(
-      'text/plain; charset=utf-8'
+      'text/plain;charset=UTF-8'
     );
   });
 
@@ -171,7 +171,7 @@ describe('WebResponseBuilder', () => {
     const str = new WebResponseBuilder('GET');
     str.send('hello', 200);
     expect(await str.getResponse(200).text()).toBe('hello');
-    expect(str.getResponse(200).headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+    expect(str.getResponse(200).headers.get('Content-Type')).toBe('text/plain;charset=UTF-8');
 
     const obj = new WebResponseBuilder('GET');
     obj.send({ a: 1 }, 200);
@@ -198,7 +198,7 @@ describe('WebResponseBuilder', () => {
     const res = rb.getResponse(200);
     expect(res.status).toBe(302);
     expect(res.headers.get('Location')).toBe('/login');
-    expect(res.headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+    expect(res.headers.get('Content-Type')).toBe('text/plain;charset=UTF-8');
   });
 
   it('set() accumulates Set-Cookie and replaces on array', () => {

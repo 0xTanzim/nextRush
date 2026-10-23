@@ -162,7 +162,7 @@ describe('WebContextBase — response methods', () => {
     const ctx = makeContext();
     ctx.send('plain text');
     const res = ctx.getResponse();
-    expect(res.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('text/plain;charset=UTF-8');
   });
 
   it('html() writes an HTML body', () => {

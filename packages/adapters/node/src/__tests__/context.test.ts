@@ -144,7 +144,7 @@ describe('NodeContext', () => {
       ctx.flushResponse();
 
       expect(writtenHeaders(res)).toMatchObject({
-        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Type': 'text/plain;charset=UTF-8',
         'Content-Length': String(Buffer.byteLength('Hello World')),
       });
       expect(res.end).toHaveBeenCalledWith('Hello World');
@@ -205,7 +205,7 @@ describe('NodeContext', () => {
       expect(res.statusCode).toBe(302);
       expect(writtenHeaders(res)).toMatchObject({
         Location: '/login',
-        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Type': 'text/plain;charset=UTF-8',
       });
       expect(res.end).toHaveBeenCalled();
     });

@@ -120,7 +120,7 @@ describe('the adapter finalizer answers an error status nothing wrote', () => {
     const res = await request(app);
 
     expect(res.status).toBe(200);
-    expect(res.contentType).toBe('text/plain; charset=utf-8');
+    expect(res.contentType).toBe('text/plain;charset=UTF-8');
     expect(res.body).toBe('');
   });
 });

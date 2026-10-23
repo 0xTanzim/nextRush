@@ -92,7 +92,8 @@ const RESOLVED_NEXT: Promise<void> = Promise.resolve();
 /** The content types the Node response methods record. JSON carries no charset:
  * RFC 8259 defines none, and the Web adapters emit the same bare value. */
 const JSON_CONTENT_TYPE = 'application/json';
-const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
+/** Matches the Web adapters' value, which Deno's static-response fast path requires. */
+const TEXT_CONTENT_TYPE = 'text/plain;charset=UTF-8';
 const HTML_CONTENT_TYPE = 'text/html; charset=utf-8';
 const BINARY_CONTENT_TYPE = 'application/octet-stream';
 

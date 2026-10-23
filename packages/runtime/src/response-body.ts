@@ -16,7 +16,14 @@ import { serializeJson } from './serialize-json';
 /** Bare JSON: RFC 8259 defines no `charset` parameter, and Deno's static-response
  * fast path accepts only this literal (see `response-builder.ts`). */
 const JSON_CONTENT_TYPE = 'application/json';
-const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
+/**
+ * No space after `;`, upper-case `UTF-8`: this is the exact literal Deno's
+ * `Response` constructor accepts for its static-response fast path. The
+ * conventional `text/plain; charset=utf-8` spelling costs ~0.4 µs more per
+ * response there; RFC 9110 makes both the whitespace and the case of the
+ * charset value insignificant, so the media type is unchanged.
+ */
+const TEXT_CONTENT_TYPE = 'text/plain;charset=UTF-8';
 const BINARY_CONTENT_TYPE = 'application/octet-stream';
 
 /** A body resolved from a `ResponseBody`, ready to be committed. */

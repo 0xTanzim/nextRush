@@ -39,7 +39,8 @@ import { LAST_RESORT_ERROR_STATUS, unansweredErrorBody } from './unanswered-resp
  * native re-map) while `application/json` skips both.
  */
 const JSON_CONTENT_TYPE = 'application/json';
-const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
+/** Deno's static-response fast-path literal for text (see `response-body.ts`). */
+const TEXT_CONTENT_TYPE = 'text/plain;charset=UTF-8';
 const HTML_CONTENT_TYPE = 'text/html; charset=utf-8';
 
 /**

@@ -357,7 +357,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     const textRes = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.send('plain'); });
     });
-    expect(textRes.header('content-type')).toBe('text/plain; charset=utf-8');
+    expect(textRes.header('content-type')).toBe('text/plain;charset=UTF-8');
 
     const htmlRes = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.html('<b>hi</b>'); });
@@ -371,7 +371,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     });
     expect(res.status).toBe(302);
     expect(res.header('location')).toBe('/dest');
-    expect(res.header('content-type')).toBe('text/plain; charset=utf-8');
+    expect(res.header('content-type')).toBe('text/plain;charset=UTF-8');
     expect(res.text()).toBe('Redirecting to /dest');
   });
 
