@@ -285,6 +285,15 @@ export class Application {
   /** Whether ready() mounted the app-owned router (so close() can undo it) */
   private _routerMounted = false;
 
+  /**
+   * The dispatch middleware of the last router mounted at the application root.
+   *
+   * @remarks
+   * Recorded so {@link syncDispatchSafe} can prove that the application's only
+   * middleware is a router dispatch, rather than assuming it from the count.
+   */
+  private _rootRoutesMiddleware: Middleware | undefined;
+
   /** In-flight boot promise — memoized so concurrent ready() calls share one boot (H-1) */
   private _readyPromise: Promise<this> | null = null;
 
@@ -336,6 +345,23 @@ export class Application {
   /** Get middleware count */
   get middlewareCount(): number {
     return this.middlewareStack.length;
+  }
+
+  /**
+   * Whether a request chain can finish without leaving work pending once the
+   * route handler returns.
+   *
+   * @remarks
+   * True only when the application's *only* middleware is a router dispatch
+   * mounted at the root. That middleware returns the route executor's promise
+   * directly and never resumes after the handler, so a handler that settles
+   * synchronously really does complete the request. Any other middleware can
+   * resume after `next()` and still mutate the response, so the Web runner must
+   * not answer early when one is present. Adapters read this through
+   * `WebRunnerApp.syncDispatchSafe`.
+   */
+  get syncDispatchSafe(): boolean {
+    return this.middlewareStack.length === 1 && this.middlewareStack[0] === this._rootRoutesMiddleware;
   }
 
   /** Get registered extension count */
@@ -390,7 +416,9 @@ export class Application {
     this.assertConfigurable('route');
     // Root mount optimization: skip all prefix processing
     if (path === '/' || path === '') {
-      this.middlewareStack.push(router.routes());
+      const rootMiddleware = router.routes();
+      this._rootRoutesMiddleware = rootMiddleware;
+      this.middlewareStack.push(rootMiddleware);
       return this;
     }
 
@@ -617,7 +645,9 @@ export class Application {
     // Mount the app-owned router LAST, so routes run after all middleware
     // (both user- and extension-registered).
     if (this.router) {
-      this.middlewareStack.push(this.router.routes());
+      const rootMiddleware = this.router.routes();
+      this._rootRoutesMiddleware = rootMiddleware;
+      this.middlewareStack.push(rootMiddleware);
       this._routerMounted = true;
     }
 
@@ -878,6 +908,7 @@ export class Application {
     if (this._routerMounted) {
       this.middlewareStack.pop();
       this._routerMounted = false;
+      this._rootRoutesMiddleware = undefined;
     }
 
     return errors;

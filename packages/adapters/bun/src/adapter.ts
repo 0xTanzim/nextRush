@@ -177,12 +177,16 @@ export interface ServerInstance {
 }
 
 /**
- * A Bun fetch handler `(request, server) => Promise<Response>`.
+ * A Bun fetch handler `(request, server) => Response | Promise<Response>`.
+ *
+ * @remarks
+ * The union is the synchronous dispatch fast path: `Bun.serve` accepts either, so
+ * a route that finishes without a pending promise is answered without a hop.
  */
 export type BunFetchHandler = (
   request: Request,
   server: ReturnType<typeof Bun.serve>
-) => Promise<Response>;
+) => Response | Promise<Response>;
 
 /**
  * Build the shared per-request runner for the Bun adapter.

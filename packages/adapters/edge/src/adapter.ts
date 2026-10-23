@@ -131,7 +131,7 @@ export function createFetchHandler(
   options: FetchHandlerOptions = {}
 ): FetchHandler {
   const run = createEdgeRunner(app, options);
-  return (request: Request, executionContext?: EdgeExecutionContext): Promise<Response> =>
+  return (request: Request, executionContext?: EdgeExecutionContext): Response | Promise<Response> =>
     run(request, { executionContext });
 }
 
@@ -155,7 +155,7 @@ interface EdgeExtras {
 function createEdgeRunner(
   app: Application,
   options: FetchHandlerOptions
-): (request: Request, extras: EdgeExtras) => Promise<Response> {
+): (request: Request, extras: EdgeExtras) => Response | Promise<Response> {
   const proxy = app.options.proxy ?? false;
   // F-07/ADR-0010: default to DEFAULT_EDGE_TIMEOUT_MS when the caller specifies
   // none (`undefined`); `0` remains an explicit opt-out (no framework timeout).
@@ -224,7 +224,7 @@ export function createCloudflareHandler<Env = Record<string, unknown>>(
   const run = createEdgeRunner(app, options);
 
   return {
-    fetch: (request: Request, env: Env, ctx: EdgeExecutionContext): Promise<Response> =>
+    fetch: (request: Request, env: Env, ctx: EdgeExecutionContext): Response | Promise<Response> =>
       run(request, { executionContext: ctx, env }),
   };
 }

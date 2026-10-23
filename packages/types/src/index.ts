@@ -241,3 +241,13 @@ export {
   type OutgoingResponseHandle,
 } from './outgoing-response';
 
+// ============================================================================
+// Synchronous Dispatch Marker (internal)
+// ----------------------------------------------------------------------------
+// Set by a route executor whose handler settled without leaving work pending,
+// read by the Web runner to answer without awaiting. Marked `@internal`: it is a
+// protocol between the router and the adapters, not public application surface.
+// ============================================================================
+
+export { DISPATCH_SETTLED_SYNC, type DispatchMarkerCarrier } from './dispatch-marker';
+
