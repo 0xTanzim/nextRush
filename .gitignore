@@ -176,3 +176,6 @@ feedback
 .clinerules
 .codex
 .agents/skills/.openspec-target
+
+# Raw benchmark output is reproducible evidence, kept locally
+report/performance/raw/
