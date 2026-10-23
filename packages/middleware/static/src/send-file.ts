@@ -106,10 +106,10 @@ export async function sendFile(
   if (options.etag || options.lastModified) {
     if (isFresh(ctx, stat, etag)) {
       ctx.status = 304;
-      // Remove content headers for 304
-      ctx.raw.res.removeHeader('Content-Type');
-      ctx.raw.res.removeHeader('Content-Length');
-      ctx.raw.res.end();
+      // `setBody(null)` drops any recorded Content-Length, and the context is
+      // what puts the status and the validators on the wire — a direct
+      // `raw.res.end()` here sent 200.
+      ctx.send(null);
       return;
     }
   }
@@ -159,19 +159,23 @@ export async function sendFile(
       return;
     }
 
-    // Small files - read entire content with TOCTOU-safe fstat verification
+    // Small files - read entire content, then check it against the pre-open
+    // stat. `readFile` fstats the descriptor itself, so a separate
+    // `handle.stat()` here is one redundant syscall per request.
     if (stat.size <= options.highWaterMark) {
-      const fstat = await handle.stat();
       const content = await handle.readFile();
 
-      // Update Content-Length if the descriptor's own size differs from the
-      // pre-open stat (file grew/shrank between the safety check and open —
-      // the descriptor's view, not the stale stat, is authoritative).
-      if (fstat.size !== stat.size || content.length !== fstat.size) {
+      // The bytes actually read are authoritative: if the file grew or shrank
+      // between the safety check and the read, `Content-Length` must follow
+      // `content`, not the stale `stat`.
+      if (content.length !== stat.size) {
         ctx.set('Content-Length', content.length);
       }
 
-      ctx.raw.res.end(content);
+      // Through the context, not `raw.res`: the headers recorded by
+      // `setFileHeaders` only reach the socket on the adapter's single flush,
+      // and a direct write would deliver the bytes without any of them.
+      ctx.send(content);
       return;
     }
 

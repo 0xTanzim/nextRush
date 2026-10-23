@@ -71,6 +71,11 @@ function createMockContext(headers: Record<string, string> = {}): TestContext {
     set(name: string, value: string | number) {
       mockRes.setHeader(name, value);
     },
+    // The real adapter writes the body on its single flush; delegate so these
+    // tests observe the same bytes the middleware hands over.
+    send(data: unknown) {
+      mockRes.end(data);
+    },
     _test: { responseHeaders, statusCode: 200 },
   } as unknown as TestContext;
   return ctx;
