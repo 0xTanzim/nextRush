@@ -6,7 +6,7 @@
 | **Scope**       | The NextRush request-path cost campaign: every workload, every runtime     |
 | **Date**        | `2026-10-23`                                                               |
 | **Machine**     | Intel Core i5-8300H, 4C/8T, **shared**. SMT siblings 0↔4, 1↔5, 2↔6, 3↔7    |
-| **Runtimes**    | Bun 1.4.3 · Node v26.12.0 · Deno 2.9.7 · Hono 4.13.0 (comparison baseline) |
+| **Runtimes**    | Bun 1.4.4 · Node v26.12.0 · Deno 2.9.7 · Hono 4.13.0 (comparison baseline) |
 | **Status**      | `Live` — updated as each cycle lands                                       |
 
 ## 1. The measurement protocol (the only one that resolves here)
@@ -547,3 +547,343 @@ commands.
 - **F-15 — The remaining POST gap is body work, not timeout machinery.** At most ~1.8 µs of a
   ~26 µs request is the race; candidate #10 continues at content-type detection, the JSON parse, and
   the body-source read.
+
+## 12. Independent verification — 2026-10-23 (second session, same box)
+
+§10 and §11 were recorded by the session that made the changes. This section re-measured the shipped
+commits from a clean checkout, with the harness rebuilt from scratch, and re-ran every gate. The point
+is not to re-derive the same numbers — it is to check that a reader who only has the repository can
+land in the same place.
+
+Both arms were built from detached worktrees at the two commits, so `d21a4534` is the only difference
+between them:
+
+```bash
+git worktree add --detach /tmp/opencode/ab2/wt-before acdbe184
+git worktree add --detach /tmp/opencode/ab2/wt-after  d21a4534
+# each arm built from apps/benchmark/scripts/dev-check/entries/serve-nextrush[-post].ts
+node report/performance/raw/ab2.mjs --runtime bun --workload post \
+  --a /tmp/opencode/ab2/post-before.js --b /tmp/opencode/ab2/post-after.js --pairs 5 --label verify-post
+```
+
+| Comparison | Before | After | Paired median | Pairs | Verdict |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Bun POST 1 KB, `acdbe184` → `d21a4534` | 21.26 µs | **20.76 µs** | **−1.8 %** | 4/5 | **Confirmed** — same direction and consistency as §11, magnitude smaller |
+| Bun GET control, same two commits | 12.43 µs | 11.92 µs | −4.1 % | 2/5 | **No effect** — `settleTurnsFor(false)` returns `SETTLE_TURNS`, so GET runs identical code; one pair swung +21.8 %, which is this box, not the change |
+| Bun POST vs Hono 4.13.0 | 23.12 µs | 20.93 µs | **1.15×** (median per-pair ratio) | 4/5 | Ratio narrowed from 1.31×; window only good to ~±10 % |
+
+The replication of §11 is **−1.8 % against the recorded −2.7 %**, both at 4/5 pairs. The conservative
+statement of this change is therefore "about 2 % of POST CPU, consistently, a few percent of rps",
+not "2.7 %". The Hono ratio moved from 1.31× (before this commit, measured in §10's window) to
+1.15× here and 1.23× in §11's window: the direction is solid, the absolute ratio is not resolvable
+below roughly ±10 % in one 5-pair window, because Hono's own CPU/req moved 18.79 → 23.12 µs between
+windows on identical code.
+
+Gates re-run on the working tree at `d21a4534` plus the uncommitted text-media/static work:
+
+| Gate | Result |
+| --- | --- |
+| Package suites | types 21 · router 434 · core 208 · **runtime 402** |
+| Adapter suites | bun 129 · deno 123 · edge 134 · node 301 |
+| Conformance | 436/436 |
+| Typecheck | clean — runtime, bun, deno, edge, node |
+
+### 12.1 Findings
+
+- **F-16 — The scoreboard's `Runtimes` field is stale.** The header says `Bun 1.4.3`; `bun --version`
+  on this machine is **1.4.4**, and §11 states 1.4.4 for its own window. Every row measured after the
+  upgrade is therefore attributed to the wrong runtime in the one field a reader checks first. Fix:
+  state the version per section (as §11 does) or split the header field by date; do not silently
+  rewrite older rows.
+- **F-17 — `post-body-settle-window.md` §5.2 computes one row's delta with the opposite convention.**
+  The `timeout: 0` row's levels (31.1k vs 26.8k rps, 26.13 vs 27.98 µs) say the race-disabled arm
+  wins; the Δ cells say `+16.0 % rps` and `−6.6 % CPU`, which is `(baseline − change) / change` — the
+  inverse of the row directly above it, and it turns a −13.8 % rps drop into a +16.0 % gain. The
+  prose conclusion ("the upper bound for removing the race entirely") is correct; the two cells are
+  not, and any reader who checks the arithmetic will land on the opposite sign.
+- **F-18 — A single 5-pair window cannot pin a POST/Hono ratio.** Hono's own CPU per request moved
+  from 18.79 µs to 23.12 µs across two windows measuring identical Hono code. Campaign reporting
+  should therefore quote the ratio with its window's spread, as §11 does with its baseline/"change"
+  pair, rather than as a headline multiplier.
+
+### 12.2 Untracked scratch to clear before any commit
+
+15 `_x-*.ts` probe entries under `apps/benchmark/scripts/dev-check/entries/` remain from the §11
+session, plus the two `.changeset/` files that belong to the earlier text-media and static work.
+None of them are referenced by a committed report. `report/performance/raw/` is gitignored by design
+and holds the harness and raw output for §10–§12.
+
+---
+
+## 13. Candidate #10 part 2 — the JSON POST content-type/body/parse path (no change shipped)
+
+Scope: the one connected path a JSON POST runs after the router — `content-type` detection,
+body read/decoding, and `JSON.parse` — on Bun 1.4.4, branch `perf/bun-body-read-parity`
+(`d21a4534` + the working tree's unrelated text-media work). Three candidate optimizations were
+built, tested green, and **all three were reverted**: each measured below what any instrument on
+this machine can resolve. The durable result is the decomposition below, which says where the
+remaining per-request CPU actually is and therefore what not to optimise next.
+
+### 13.1 Instruments
+
+| Instrument | File | What it resolves |
+| --- | --- | --- |
+| Paired wire A/B | `raw/ab2.mjs` (unchanged) | Order-flipped pairs, server CPU/req from `/proc/<pid>/stat`. Decision-grade *within* a window only. |
+| In-process dispatch | `raw/c10-inproc.ts` (new) | `createHandler()` against a fresh 1 KB `Request`, modes `req`/`ctx`/`noparser`/`full`/`notimeout`, 3 internal rounds, min per mode. Removes the socket and the load generator. |
+| Parser decomposition | `raw/c10-parser.ts` (new) | `WebBodySource` → proven text → `bodyParser()` → depth-check ablation, interleaved rounds, min per mode. |
+| Pure op costs | `raw/c10-micro.ts` (new) | 2M-iteration measurements of one call each. |
+| CPU profile | `raw/c10-prof-post.ts` + `raw/c10-prof-analyze.mjs` | Bun `--cpu-prof`. Needs a graceful exit: the profiler does not flush on SIGINT/SIGTERM, so the entry carries a `/__stop` route. |
+
+### 13.2 Where a 1 KB JSON POST's CPU goes
+
+In-process, one process, min of 3 rounds (Bun 1.4.4, `taskset -c 2`). Every row builds a fresh
+`Request`, so Request construction is a constant in each row; the control row is what to
+subtract.
+
+| Mode | ns/op | Δ over control |
+| --- | ---: | ---: |
+| `req` — Request construction (control) | 1149.8 | — |
+| `ctx` — `new BunContext(request, ip)` | 362.2 | — |
+| `noparser` — dispatch, no `bodyParser()` | 3079.3 | +1929.5 |
+| `full` — `bodyParser()` + JSON + `ctx.json()` | 5927.4 | +4777.6 |
+| `notimeout` — same, `timeout: 0` | 5078.6 | +3928.8 |
+
+- **Framework JS per POST ≈ 4.78 µs.** Against the 20.8–26.0 µs wire CPU/req this window and §12's
+  measured, that is 18–23 % of the request; the rest is Bun's HTTP server, socket write, and GC.
+- **Parser path = `full` − `noparser` = 2.85 µs.**
+- **Deadline machinery = `full` − `notimeout` = 0.85 µs** (14 % of in-process dispatch, ~4 % of wire
+  CPU). This is the largest single NextRush-owned item left, and it is promise machinery required to
+  bound a dispatch: a handler that never settles must still release the connection, so the race
+  cannot be removed — only shaved.
+- **Context construction = 0.36 µs**, already small.
+
+Parser path decomposed (separate harness, 4 interleaved rounds, min):
+
+| Stage | ns over control |
+| --- | ---: |
+| `new WebBodySource(request)` — two native header reads | 318.6 |
+| `request.text()` — proven-length fast path | 596.1 |
+| `JSON.parse(1 KB)` | 406.0 |
+| `checkJsonDepth` (1-key object) | 145.9 |
+| middleware glue, `content-type` match, depth-bytes test, error envelope, `next()` | ≈ 378 |
+
+62 % of the parser path is native decode + parse. The framework's share of the whole POST request
+is small and flat: no single stage exceeds 0.6 µs.
+
+### 13.3 Candidates measured and rejected
+
+| Candidate | Measured | Verdict |
+| --- | --- | --- |
+| Allocation-free `matchContentType` (in-place base-type compare, no `slice`/`trim`/`toLowerCase`) | `application/json; charset=utf-8`: **−60.5 ns**; bare `application/json`: **+14.0 ns**; `Application/JSON`: +5.5 ns | **Rejected** — the benchmark sends the bare type, where the rewrite is slower. Bun's `toLowerCase()` on an already-lowercase literal is free, so the allocations it removed were not costing anything. |
+| `RequestInputs.get` without `toLowerCase()` | 63.3 ns vs 52.0 ns for a hoisted literal; folding an already-lowercase literal measures ~0 | **Rejected** — the "saving" was the literal, not the fold. |
+| Reuse `bodySource.contentType` instead of the parser's third `Headers.get` | 59.2 ns per lookup = **0.28 %** of a 20.8 µs request | **Rejected as unverifiable** — below the in-process resolution and far below the wire floor; it buys a new coupling between parser and body source for 0.28 %. |
+| Drop `checkJsonDepth` | 145.9 ns direct | **Rejected** — 0.7 % of the request for the only guard against a stack-depth DoS. |
+| `request.json()` instead of `request.text()` + `JSON.parse` | native `json()` ≈ **+250 ns** | **Rejected** — the current composition is already the faster one. |
+| `bodySource.json()` (arrayBuffer + `TextDecoder`) instead of the proven-text path | **+1075 ns** | **Rejected** — confirms `readTextIfProvenWithin` is the right path. |
+
+All three implemented candidates passed their gates — body-parser 320/320, runtime 402/402 — and
+were then reverted on measurement, not on doubt. The tree is unchanged: 21 modified and 17 untracked
+files, all present before this cycle.
+
+### 13.4 Fresh window (this session)
+
+| Comparison | A | B | Median Δ | Pairs |
+| --- | ---: | ---: | ---: | ---: |
+| NextRush POST vs Hono POST | 25.51 µs | 19.67 µs | **1.30× (5/5)** | 5 |
+| **Control: this tree vs §12's bundle** | 26.01 µs | 26.00 µs | **+0.0 % (2/5)** | 5 |
+
+The control is the important one: the bundle built from this tree and §12's bundle are the same code
+and the same cost, so nothing in this cycle changed the POST path. It also shows the cross-window
+problem in its plainest form — that identical bundle measured **20.76 µs in §12's window and
+26.0 µs in this one** (+25 %), while Hono has read 18.79, 23.12, and 19.67 µs on identical Hono
+code. The 1.15× of §12 and the 1.30× of this window describe the same two programs.
+
+### 13.5 Findings
+
+- **F-19 — Bun's sampler misattributes small functions by an order of magnitude.** `--cpu-prof`
+  reported `WebResponseBuilder`'s constructor at 14.55 % self time (2042 ms ≈ 5.5 µs/request), which
+  would make a trivial constructor the single largest line of framework code. Isolated measurement:
+  **76 ns**. The profiler remains useful for inclusive shape and for finding which *stage* to
+  instrument, but no per-frame self-time from it should be quoted as a cost.
+- **F-20 — Sequential in-process modes attribute JIT compile cost to whichever mode runs first.**
+  A non-interleaved harness reported the depth walk at 909 ns; interleaved rounds with a per-mode
+  minimum put it at 146 ns (and at 8 ns in the `maxDepth: Infinity` ablation). Any future in-process
+  harness must interleave modes and take per-mode minima, not measure modes in sequence.
+- **F-21 — Cross-window absolutes drift ~25 % on identical bundles, so a cross-framework ratio is
+  only meaningful inside one window.** Same bundle: 20.76 µs (§12) → 26.0 µs (here). Consequence:
+  1.15× and 1.30× are not a regression or an improvement, they are the box. Report the ratio with
+  the window's own baseline/control pair (as §12 does) and never compare a ratio across windows.
+- **F-22 — The conformance typecheck failure at `web-driver.ts:174` is real, pre-existing, and
+  attributable.** `pnpm --filter @nextrush/conformance typecheck` fails with TS2345: the driver's
+  `WebInvoke` (`web-driver.ts:33`) requires `Promise<Response>`, but `createBunHandler` now returns
+  `Response | Promise<Response>` after `a701579e` added the synchronous dispatch fast path. The file
+  was not touched by this cycle. Suggested fix: widen `WebInvoke`'s return type to
+  `Response | Promise<Response>` and let `toResult` await it (or `await` the bun driver's call).
+  Not applied: `suite.ts` in that package is modified by a concurrent session.
+- **F-23 — The duplicate `content-type` read is real but immaterial:** the body source reads the
+  header at context construction and the combined parser reads it again (59.2 ns). Recorded as a
+  deferred micro-optimization, not a candidate, because it cannot be verified end-to-end on this
+  machine.
+
+### 13.6 Reproduction
+
+```bash
+# in-process dispatch decomposition (control-relative, load-insensitive)
+cd apps/benchmark
+bun scripts/dev-check/lib/build.ts ../../report/performance/raw/c10-inproc.ts /tmp/c10-inproc.js bun --no-minify
+taskset -c 2 bun /tmp/c10-inproc.js
+
+# parser decomposition
+bun scripts/dev-check/lib/build.ts ../../report/performance/raw/c10-parser.ts /tmp/c10-parser.js bun --no-minify
+taskset -c 2 bun /tmp/c10-parser.js
+
+# paired wire baseline (5 pairs, order-flipped)
+cd /tmp/opencode/ab2
+node ab2.mjs --runtime bun --workload post --a /tmp/opencode/ab3/nr-post-clean.js \
+  --b /tmp/opencode/ab3/hono-post-clean.js --pairs 5 --label c10-nr-vs-hono-post
+```
+
+Raw output: `report/performance/raw/res-c10-nr-vs-hono-post-bun-post-*.json` and
+`res-c10-new-vs-old-nr-post-bun-post-*.json`. Both bundles were built with
+`entries/serve-nextrush-post.ts` and `entries/serve-hono-post.ts` through
+`scripts/dev-check/lib/build.ts`.
+
+### 13.7 Verdict
+
+No change shipped. The JSON POST path is at its practical floor for anything this box can
+distinguish: 4.78 µs of framework JS on a 20.8–26.0 µs request, of which 2.85 µs is the parser
+(62 % native decode and parse) and 0.85 µs is required promise machinery for a bounded dispatch.
+Every remaining NextRush-owned stage is under 0.6 µs, and the only one above that — the timeout
+race — trades correctness for its cost. Further work on this path should wait for either a
+measurement environment that can resolve sub-1 % deltas (pinned CPU frequency, exclusive core) or a
+change that removes a whole stage rather than shaving one.
+
+---
+
+## 14. Update — 2026-10-23: the wire/JS gap examined, framing eliminated, the eager-parse decision
+
+Third session on the same tree, same box. §13 concluded the JSON POST path was at its floor. This
+cycle asked the question §13 could not answer with in-process numbers: **why is the wire gap to Hono
+(25.51 vs 19.67 µs, §13) larger than the JS gap the in-process harness measures (4.78 µs total)?**
+A ~3 µs discrepancy cannot be explained by trimming a 60 ns operation, so the cycle looked for a
+structural difference in how the two programs use the runtime, not a faster operation.
+
+### 14.1 State verified before touching anything
+
+| Claimed | Verified |
+| --- | --- |
+| Branch `perf/bun-body-read-parity`, HEAD `d21a4534` | yes (`git log`) |
+| 21 modified / 17 untracked, nothing committed by the previous session | yes (`git status --porcelain`) |
+| `web-driver.ts:174` TS2345 still present | yes, reproduced with `tsc --noEmit` |
+| `bun --version` = 1.4.4, scoreboard header said 1.4.3 | yes → **F-16 fixed in this file's header** |
+| `report/performance/post-body-settle-window.md` still dirty | **no** — it is clean, so **F-17 is now actionable by its owner** (needs no coordination) |
+
+The two uncommitted changesets in the tree (`text-media-type-deno-fast-path`,
+`static-responses-emit-headers`) were verified rather than assumed: runtime 402/402, static 139/139,
+bun 129/129, deno 123/123, edge 134/134, node 301/301, conformance 436/436, conformance typecheck
+clean after the fix below. All of it is now committed (14.3).
+
+### 14.2 Framing was the one structural hypothesis that could have explained 3 µs — it is eliminated
+
+**Hypothesis.** If NextRush answered with a `Response` carrying no `Content-Length` for a string body,
+Bun would frame HTTP/1.1 responses with `Transfer-Encoding: chunked` while Hono's would carry a
+length. Chunked framing is per-chunk work on every response and would be invisible to an in-process
+`Response`-construction measurement — exactly the shape of the discrepancy.
+
+**Test.** Raw `POST /` on a socket, `Connection: close`, headers printed verbatim for both servers.
+
+```
+NextRush: HTTP/1.1 200 OK · Content-Type: application/json · Date: … · Content-Length: 11
+Hono:     HTTP/1.1 200 OK · Content-Type: application/json · Date: … · Content-Length: 11
+```
+
+Identical, byte for byte, including the length Bun computes itself for a string body.
+**Hypothesis rejected.** No response-framing stage exists to remove.
+
+### 14.3 The remaining 2.85 µs is work the contract owes, and the benchmark owes it too
+
+§13's decomposition stands: the parser stage is 2.85 µs of the 4.78 µs of framework JS, and 62 % of
+it is native (`request.text()` + `JSON.parse`). The benchmark's handler never reads `ctx.body`, so it
+is tempting to make `bodyParser()` parse lazily on first access and delete the whole stage.
+
+**Rejected, and this is the important part of the cycle.** Laziness is not a pure refactor here:
+
+- `bodyParser()` today answers malformed JSON with a 400 and an oversized body with a 413 **before the
+  handler runs**. Making the parse lazy moves both to first access, so a handler that ignores the body
+  would answer 200 to a payload the framework currently rejects. That is a public-contract change, not
+  an optimization.
+- The comparison would also stop being symmetric: Hono's arm calls `await c.req.json()` explicitly, so
+  a lazily-parsing NextRush arm would skip work the Hono arm performs. The "win" would be the
+  benchmark shape, not the framework.
+
+Per the campaign's own rule — never trade an API guarantee for a benchmark scenario — the eager parse
+stays. Making it lazy is an RFC-level decision (a documented `bodyParser({ lazy: true })` opt-in is the
+defensible form), and it is the largest single win available: **~2.85 µs, ~60 % of framework JS, on
+this workload**.
+
+### 14.4 A correctness defect fixed while verifying (F-22)
+
+`createBunHandler()` has returned `Response | Promise<Response>` since the synchronous dispatch fast
+path (`a701579e`), but the conformance driver's `WebInvoke` still demanded a promise. Widened the
+contract to the union and made the one `.catch()` call site adopt the result with `Promise.resolve()`,
+so a synchronously answered dispatch is safe there too. `tsc --noEmit` is clean; conformance 436/436.
+
+### 14.5 Commits made from this tree (classification per the task's commit policy)
+
+| Commit | Contents |
+| --- | --- |
+| `0185397a` | `.gitignore` — `.qoder/` (comment restored) |
+| `6973163e` | `package.json`, `pnpm-lock.yaml` — pnpm 12.14.0 (pnpm self-artifacts only, no third-party changes) |
+| `81211bc6` | text media type `text/plain;charset=UTF-8` across runtime + node + conformance + docs + changeset |
+| `1f1a0fe5` | static: buffered file body and 304 committed through `ctx.send()`, plus docs + changeset |
+| `61cd13e7` | conformance `WebInvoke` union (F-22) |
+| *(this file)* | §14 + F-16 header correction |
+
+Not committed: `report/performance/raw/**` (gitignored reproduction artifacts, preserved by design).
+
+### 14.6 Scratch removed from the repository
+
+The 15 `_x-*.ts` probes that accumulated in `apps/benchmark/scripts/dev-check/entries/` were the
+campaign's throwaway instruments. Their reproducibility value is preserved outside the product tree at
+`/tmp/nextrush-performance/preserved-probes/`, and they are deleted from the repository. New
+experiments live under `/tmp/nextrush-performance/<experiment>/` and import built packages by absolute
+path — never a `_x-*` file in the repo.
+
+### 14.7 Where the next cycle should look
+
+Ranked by expected size, not by novelty:
+
+1. **Lazy body parsing as an opt-in** (`bodyParser({ lazy: true })`, or a separate `bodyParser.lazy()`)
+   — ~2.85 µs on this workload, ~60 % of framework JS. Requires an RFC because the 400/413 timing
+   moves; do not ship it as an implicit default.
+2. **The middleware hop itself (~1 µs of the parser stage).** A POST grammar runs two app middlewares
+   (`bodyParser` → root router), which takes `compose()`'s general path: one `dispatch` closure, one
+   `next` closure per layer, and its recursion. §13 did not attribute this; this cycle could not
+   attribute it either without an instrument that the box cannot currently stabilise. Attribute it
+   first, then decide — a `len === 2` fast path would duplicate the composer's semantics for ~100 ns
+   and is not worth it on its own.
+3. **A measurement rig, before any of the above.** Every candidate ranked 3 or lower is smaller than
+   this box's cross-window drift. Pinned CPU frequency (`cpupower frequency-set -g performance` or a
+   fixed `scaling_setspeed`), no SMT sibling for the server, and exclusive cores would make ±0.5 %
+   claims meaningful; nothing here can currently resolve them.
+4. Node/edge/serverless remain untouched by this cycle. The Node adapter's own `context.ts` is a
+   separate 858-line response implementation — a duplicated stage worth auditing on its own merits,
+   but not a Bun win and not something to change for symmetry.
+
+### 14.8 Reproduction
+
+```bash
+# F-22 verification
+cd packages/adapters/conformance && pnpm exec tsc --noEmit
+
+# framing test (raw headers, both servers)
+PORT=3101 bun /tmp/nextrush-performance/probe/nr.ts &
+PORT=3102 bun apps/benchmark/scripts/dev-check/entries/serve-hono-post.ts &
+node /tmp/nextrush-performance/probe/head.mjs 3101
+node /tmp/nextrush-performance/probe/head.mjs 3102
+
+# the affected suites committed above
+pnpm --filter @nextrush/runtime test -- --maxWorkers=2
+pnpm --filter @nextrush/static test -- --maxWorkers=2
+pnpm --filter @nextrush/adapter-conformance test -- --maxWorkers=2
+```
