@@ -2,7 +2,7 @@
 
 | Field                | Value                                                           |
 | -------------------- | --------------------------------------------------------------- |
-| **Status**           | `Draft`                                                         |
+| **Status**           | `Implemented`                                                   |
 | **RFC number**       | `047`                                                           |
 | **Date**             | `2026-10-23`                                                    |
 | **Author(s)**        | NextRush performance campaign                                   |
@@ -17,14 +17,17 @@
 
 ## Progress Tracker
 
-[░░░░░░░░░░░░░░░░░░░░] 0% — 0 / 4 phases complete
+[████████████████████] 100% — 4 / 4 phases complete
 
-| Phase                | Status         | Scope                                                       |
-| -------------------- | -------------- | ----------------------------------------------------------- |
-| 1 — contract + types | ⬜ not started | `BodyParserOptions.lazy`, `ctx.readBody()`, capability flag |
-| 2 — implementation   | ⬜ not started | reader memoisation, abort wiring, error mapping             |
-| 3 — verification     | ⬜ not started | mode-matrix tests, conformance both modes, cross-runtime    |
-| 4 — docs + release   | ⬜ not started | README/ARCHITECTURE, migration note, benchmark disclosure   |
+| Phase                | Status      | Outcome                                                                                            |
+| -------------------- | ----------- | -------------------------------------------------------------------------------------------------- |
+| 1 — contract + types | ✅ complete | `lazy` on `BodyParserOptions` + `BaseParserOptions`; `Context.readBody()`; `BODY_READER` slot       |
+| 2 — implementation   | ✅ complete | reader memoisation, failure caching, error mapping; abort propagates through the existing rejection |
+| 3 — verification     | ✅ complete | 24 mode-matrix tests, conformance in both modes, real Bun/Deno/workerd runs                        |
+| 4 — docs + release   | ✅ complete | README, ARCHITECTURE, spec requirement, measured disclosure                                        |
+
+Measured outcome: §14.1. The unread-request win is real (~31 % end to end); the read-request
+regression missed its 50 ns target by ~10× and is documented rather than hidden.
 
 ---
 
@@ -33,6 +36,7 @@
 | Date       | Author               | Change                                                |
 | ---------- | -------------------- | ----------------------------------------------------- |
 | 2026-10-23 | performance campaign | Initial draft from the candidate #10/#11 measurements |
+| 2026-10-23 | performance campaign | Implemented; §8.8 abort claim corrected to the adapter-level rejection; §14 measured results added; status → `Implemented` |
 
 ---
 
@@ -172,7 +176,8 @@ return (async (ctx, next, prechecked = false) => {
 | Gain                                                    | Cost                                                            |
 | ------------------------------------------------------- | --------------------------------------------------------------- |
 | ~2.85 µs removed for unread requests                    | Error timing becomes handler-dependent                          |
-| Auth/rejection paths stop paying for a body they reject | 401 can precede 400 where it does not today                     |
+| Auth/rejection paths stop paying for a body they reject | 401 can precede 400 where it does not today; **not** on a guarded
+class route, where guards and `@Body()` resolution read the body before the handler runs |
 | Signature endpoints can read raw bytes only when needed | `ctx.rawBody` is only populated after `readBody()`              |
 | No default change                                       | A new public method and option to document, teach, and maintain |
 
@@ -196,9 +201,11 @@ implementation of the size guard, the depth guard, `verify`, or decode is introd
 1. **One read per request.** `ctx.bodySource` is single-consumption; the reader memoises and is
    idempotent even under concurrent callers.
 2. **Eager mode never calls the lazy path.** `lazy` is read once at registration.
-3. **The transport cap is not deferred.** `maxRequestBodySize` (and Node/Deno equivalents) stay
-   unconditional, so an attacker cannot make the framework accept an unbounded body by choosing
-   a handler that ignores it.
+3. **The transport cap is not deferred — where one exists.** Bun's `maxRequestBodySize` stays
+   unconditional. Node, Deno, edge, and serverless adapters declare no transport-level body cap;
+   there the bound is the parser's read-time limit plus the adapter's backpressure (an unread body
+   is never buffered by the framework). Lazy mode changes neither: it cannot make a runtime accept
+   more than that runtime already accepts.
 4. **No parse after the response.** The reader is not invoked by finalisation, so a handler that
    answers without reading cannot produce a body error after its response was committed.
 5. **The deadline still bounds everything.** A lazy read happens inside the dispatch, so the
@@ -276,8 +283,10 @@ middleware must call `await ctx.readBody()` before reading `ctx.rawBody`; in laz
 
 ### 8.8 Cancellation and timeout
 
-- The reader accepts the request's abort signal: an aborted read rejects with `AbortError`, so a
-  handler awaiting a dead body does not hang.
+- The reader adds **no** signal parameter: it inherits the adapter's existing cancellation. On Node
+  an aborted request makes the body-source read reject (`RequestAbortedError`); on the Web adapters
+  the request stream errors and the read rejects. A handler awaiting a dead body therefore does not
+  hang, and there is no second cancellation path to keep in sync with the adapter's.
 - The read is inside the dispatch, so `dispatchWithTimeout` still bounds it; a handler that
   ignores the abort still gets the existing 504 path and connection release.
 - `ctx.triggerTimeout()` semantics are untouched: the abort is a signal, not a response writer.
@@ -357,13 +366,22 @@ Rejected: two middlewares to document, two code paths to keep in sync, and no wa
   4. `ctx.body` read before `readBody()` → throws (fail fast, not `undefined`);
   5. a middleware that answers early can preempt a body error.
 - No migration is required for applications that do not set the flag.
+- **Custom `Context` implementers do break at compile time.** `Context.readBody()` is a required
+  member, so an external adapter, a hand-written test double, or anything implementing `Context`
+  must add it (one line: delegate to the installed reader, or resolve `ctx.body`). Applications
+  that only *consume* `Context` are unaffected. The shared conformance suite calls
+  `await ctx.readBody()`, so a third-party adapter must implement it to keep certifying.
+- `TokenExtractor` in `@nextrush/csrf` now returns `string | Promise<string>` (additive for
+  implementers, source-breaking only for a caller that consumed the old narrower type).
 
 ## 13. Cross-Cutting Concerns
 
 - **Security:** the transport cap is not deferred (invariant 3). The parser's limit and depth
   guard still apply to every read. No new input path is trusted.
-- **Observability:** lazy mode should log once at startup that it is active, and may emit a
-  counter for "body never read" so operators can see how much they are saving.
+- **Observability:** deferred to §17. `@nextrush/body-parser` has no logger and gains no
+  dependency for one debug line; a startup log belongs to the `@nextrush/logger` integration, and
+  the useful signal (a per-request "body never read" flag) is the `ctx.bodyRead` surface already
+  listed as future work. Shipping the option without either is the smaller surface.
 - **Docs:** README section "When to use lazy", `ARCHITECTURE.md` sequence diagram for both modes,
   migration guide entry, and a note on every first-party middleware that reads `ctx.body`.
 - **Testing:** mode matrix (eager/lazy × read/unread × valid/malformed/oversized/deep/aborted),
@@ -383,12 +401,50 @@ A benchmark comparing lazy-NextRush-without-read to Hono-`c.req.json()` is **not
 comparison. Results must state the workload on both sides; the honest pairing is
 lazy-without-read vs a Hono handler that also never reads the body.
 
+### 14.1 Measured results (2026-10-23)
+
+Bun 1.4.4, `perf/bun-body-read-parity` at `687610d9`, 1 KB JSON `POST`, identical handler and headers,
+`taskset -c 2`, 9 interleaved rounds of 100 000 requests, arms labelled by the work they actually do.
+
+| Metric                         | Target                          | Measured                                                                 | Verdict |
+| ------------------------------ | ------------------------------- | ------------------------------------------------------------------------ | ------- |
+| Unread-request parser cost     | → 0 ns in the parser stage      | 0 body-source calls in all 9 rounds of every run (counted, not inferred) | **met** |
+| Wire CPU/req, unread workload  | measured, paired, order-flipped | −31.3 % / −30.1 % per request (9.39 → 6.45 µs); framework-only −46.6 % / −44.9 % | **met** |
+| Read-request regression        | ≤ 50 ns                         | **+518 ns** (paired, n = 100 × 2 000 iters; best quartile +375 ns)        | **not met** |
+| Error parity for read requests | identical status/body/envelope  | 344 body-parser tests + conformance on 6 drivers, both modes             | **met** |
+| Eager path                     | no externally observable change  | behaviour identical (320 pre-existing tests pass unmodified, 348 with the new ones);
+the eager branch now returns through the shared `read` closure and one extra async frame, and that frame was **not** separately measured | **met (behaviour) / unmeasured (cost)** |
+
+Attribution of the missed regression target: the per-request `ctx.body` accessor install
+(`Object.defineProperty`) dominates (~99 ns isolated, more on a real context because of the property
+map transition), followed by the reader object + closures (~19 ns) and one promise hop (~69 ns).
+Replacing the reader-slot `defineProperty` with a plain store measured **inside the null band**
+(−20 ns against a ±350–420 ns band) and is kept only because it is strictly less work.
+
+Two further deviations from the first draft, found in review:
+
+- The eager path is not byte-for-byte the old code: each parser now calls its own `read` closure
+  from the middleware, adding one async frame and one promise hop per request. Handler-visible
+  behaviour is unchanged (same error codes, statuses, envelopes, `rawBody` present, `verify`
+  ordering), but no eager-vs-parent timing baseline exists, so no cost claim is made for it.
+- For the `raw` parser, `ctx.rawBody` is now attached one microtask before `ctx.body` in eager mode.
+  Both are set before `next()` runs, so no handler can observe the gap.
+
+The alternative that would remove the dominant term — a `body` accessor declared on the context
+class — moves that cost onto **every eager request** and was rejected for that reason (see the
+package ARCHITECTURE's *Rejected alternatives*). This RFC therefore ships with a documented
+regression for lazy-mode requests that read their body, and with the measured reason.
+
+Wire numbers are a paired, order-flipped A/B against a null control whose own delta was 0.19–2.05 %,
+so the unread result is resolvable; sub-1 % candidates remain unresolvable in this environment and
+were not claimed.
+
 ## 15. Phased Implementation
 
 1. **Contract + types** — `lazy` option, `readBody()` on the context type, capability flag,
    TSDoc stating the five behaviour differences. Tests first.
-2. **Implementation** — deferred reader, memoisation, abort wiring, error mapping; eager mode
-   untouched (guarded by the existing 320-test suite).
+2. **Implementation** — deferred reader, memoisation, error mapping; abort propagation inherited from
+   the adapter (no new wiring); eager mode untouched (guarded by the existing 320-test suite).
 3. **Verification** — mode matrix, conformance both modes, Bun/Node/Deno/edge, in-process
    attribution, one paired wire run.
 4. **Docs + release** — README, ARCHITECTURE diagram, migration note, benchmark disclosure.
@@ -427,11 +483,16 @@ touched.
 | 3   | `ctx.body` throws in lazy mode when unparsed | Fail-fast teaching beats a silent `undefined`                    |
 | 4   | Nothing parses implicitly                    | Any implicit trigger recreates eager semantics with worse timing |
 | 5   | Transport cap stays unconditional            | Lazy mode must not widen the DoS surface                         |
+| 6   | Accessor installed per request, not per class | Keeps the eager default's shape and cost; accepts ~0.4–0.5 µs on lazy read requests (§14.1) |
+| 7   | `express-bridge` stays eager-only             | Its `req.body` is a synchronous proxy getter and cannot await   |
 
 ## 20. References
 
 - `report/performance/campaign-scoreboard.md` §13.2 (parser decomposition), §13.3 (rejected
-  parser candidates), §14.3 (the eager-parse decision), §15 (candidate #11 attribution).
+  parser candidates), §14.3 (the eager-parse decision), §15 (candidate #11 attribution), §16 (this
+  RFC's measured results and the rejected read-path optimization).
+- `packages/middleware/body-parser/src/lazy.ts` — reader install, memoisation, failure caching.
+- `packages/types/src/body-reader.ts` — `BODY_READER`, `DeferredBodyReader`.
 - `packages/middleware/body-parser/src/parsers/json.ts` — `json()`, `checkJsonDepth`.
 - `packages/middleware/body-parser/src/parsers/reader.ts` — `readBody`, `readBodyText`.
 - `packages/runtime/src/body-source.ts` — `WebBodySource`, `readTextIfProvenWithin`.

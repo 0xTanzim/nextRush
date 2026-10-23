@@ -1086,8 +1086,86 @@ node report/performance/raw/ab2.mjs --runtime bun --workload post \
 1. **A measurement rig, still.** Every remaining candidate is smaller than the ±1.6 % median drift
    between two identical binaries measured here. Pinned frequency, no SMT sibling, exclusive
    cores. Until then only stage removals ≥1 % are worth attempting.
-2. **Lazy body parsing, if RFC-047 is accepted** — the only remaining stage-removal of ~2.85 µs.
+2. **Lazy body parsing** — **closed**: implemented as RFC-047; measured in §16. The stage removal is
+   real for requests that never read a body, and the read path pays for the deferral.
 3. **Dynamic-route matching (282.5 ns)** — the largest single routing cost, and the only place
    native routing had a resolvable mechanism. Needs the rig before any claim.
 4. **Nothing below ~1 %.** The composer, executor, `.then`, canonicalizer and depth guard are each
    measured, contract-bound and below this box's resolution.
+
+---
+
+## 16. RFC-047 lazy body parsing — implementation measurement (2026-10-23)
+
+RFC-047 moved from `Draft` to `Implemented` on `perf/bun-body-read-parity`. This section records what
+was measured, what this box could not resolve, and the one target that was missed. Nothing here is
+inferred from a build succeeding; every arm is a timed run and the unread arms carry a call count.
+
+### 16.1 Environment and workload
+
+Bun 1.4.4, system Node v26.12.0, `perf/bun-body-read-parity` at HEAD `687610d9` plus the RFC-047
+working tree. `taskset -c 2`, `nice -n -5`. One 1 KB JSON `POST`, identical handler and headers in
+every arm. Warmup 20 000; phase 1 = 100 000 iterations × 9 interleaved rounds (order rotated per
+round); phase 2 = 100 ABBA pairs × 2 000 iterations. Arms are labelled by the work they actually do,
+and R is the request-construction floor with no framework at all.
+
+### 16.2 In-process result (run 3, primary)
+
+| Arm | Workload                         | Median ns/req | Min     | Max      |
+| --- | -------------------------------- | ------------- | ------- | -------- |
+| A   | eager, handler never reads       | 9 388.9       | 9 118.2 | 10 672.4 |
+| B   | lazy, handler never reads        | 6 454.3       | 6 108.2 | 7 571.7  |
+| C   | lazy, handler calls `readBody()` | 10 149.0      | 9 382.5 | 11 977.9 |
+| D   | eager, handler calls `readBody()`| 9 261.2       | 8 896.7 | 10 619.0 |
+| A2  | null control (duplicate of A)    | 9 421.2       | 8 993.4 | 12 244.0 |
+| R   | floor, no framework              | 3 087.2       | 2 955.7 | 4 112.8  |
+
+| Comparison | Phase 1 (medians) | Phase 2 (paired, n = 100) | Null band (phase 2) |
+| ---------- | ----------------- | ------------------------- | ------------------- |
+| B − A (unread saving) | −2 934.7 ns (−31.3 %) | −3 337.7 ns | ±350 ns |
+| C − D (read regression) | +887.9 ns | **+518.1 ns** | ±350 ns |
+| Framework-only (arm − R) | A 6 301.8 → B 3 367.1 ns (**−46.6 %**) | — | — |
+
+Run 4 reproduced the shape (−30.1 % unread, +518.0 ns read regression) with a background-load spike in
+one round, so only the sign and magnitude are quoted from it.
+
+### 16.3 Read-path proof (counted, not inferred)
+
+Per-round body-source counts `(text, buffer, request-text, reads)`:
+
+- B = `(0, 0, 0, 0)` in all 9 rounds of both runs — the lazy-unread path performs no read at all.
+- A, A2, C, D = `(100 000, 0, 100 000, 0)` — exactly one read per request.
+- R = `(0, 0, 0, 0)`.
+
+### 16.4 Verdict
+
+- **Unread saving: real and large.** −31 % end to end, −46 % of the framework's own CPU, backed by a
+  zero read count. This is the RFC's actual product win.
+- **Read regression: +518 ns, ~10× the RFC's 50 ns target.** Reproduced to 0.1 ns across two runs.
+  The dominant term is the per-request `body` accessor install (`Object.defineProperty`, ~99 ns
+  isolated and more on a real context), then the reader object + closures, then one promise hop.
+- **The cheap optimization did not help.** Replacing the reader-slot `defineProperty` with a plain
+  store measured −20 ns against a ±350–420 ns null band — i.e. inside noise. It is kept because it is
+  strictly less work, not because it was measured as a win.
+- **The alternative was rejected on cost, not on difficulty.** A class-declared `body` accessor would
+  remove the dominant term but charge every eager request — the default — for an opt-in feature.
+  Deferred with its rationale in the package ARCHITECTURE, not silently dropped.
+
+### 16.5 Artifacts and commands
+
+```bash
+# all harness code and raw output (disposable, outside the repo)
+ls /tmp/nextrush-performance/c12/
+#   attrib.ts, harness.ts, raw-inprocess-1..4.json, raw-wire-*.json
+
+# the measurement itself (Bun)
+taskset -c 2 bun /tmp/nextrush-performance/c12/harness.ts --rounds 9 --iterations 100000
+```
+
+Real-runtime verification for the same change (not part of the timing claim):
+
+```bash
+cd packages/adapters/conformance/bun-runner && bun test          # 58 pass, real Bun + socket
+cd packages/adapters/conformance/deno-runner && deno task conformance  # 58 passed, real Deno + socket
+cd packages/adapters/conformance/workerd-runner && node --test conformance.workerd.test.mjs  # 16 pass
+```

@@ -126,6 +126,11 @@ function bodyParser(options?: BodyParserOptions): Middleware;
       description: 'Raw parser options — disabled by default',
       default: 'undefined',
     },
+    lazy: {
+      type: 'boolean',
+      description: 'Defer every parser until `await ctx.readBody()`',
+      default: 'false',
+    },
   }}
 />
 
@@ -292,6 +297,53 @@ function raw(options?: RawOptions): Middleware;
 
 ---
 
+## Lazy Parsing
+
+By default the parser reads, verifies, and parses the body **before** `next()` runs. With
+`lazy: true` it stops after detection and defers the rest to `await ctx.readBody()`:
+
+```ts
+app.use(bodyParser({ lazy: true }));
+
+app.post('/webhooks/github', async (ctx) => {
+  // A request that never reaches this line costs no body work at all.
+  const payload = await ctx.readBody<{ action: string }>();
+  return ctx.json({ received: payload.action });
+});
+```
+
+Detection still runs eagerly — method, media type, and an already-parsed body decide who owns the
+request — so `multipart/form-data` and `onUnsupportedContentType: 'reject'` keep answering `415`
+before your handler. Bytes, the size limit, `verify`, decoding, parsing, and the JSON depth guard all
+run inside `readBody()`.
+
+`readBody()` exists in both modes, is idempotent, shares one read between concurrent callers, and
+caches a failure for the rest of the request.
+
+<Callout type="warn">
+  In lazy mode `ctx.body` **throws** `BODY_NOT_READ` until `readBody()` succeeds, so a missing await
+  fails loudly instead of looking like an empty body. That applies to requests the parser claimed —
+  a bodyless method or an unmatched `Content-Type` under the default policy still leaves it
+  `undefined`.
+</Callout>
+
+What changes when you opt in:
+
+| Eager (default)                                 | `lazy: true`                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------------------- |
+| `ctx.body` holds the parsed value before `next()` | On a claimed request, `ctx.body` throws `BODY_NOT_READ` until `readBody()` succeeds |
+| A malformed body rejects before `next()`         | It rejects at the `readBody()` call site, so your handler can catch it   |
+| An oversized body answers `413` before `next()`  | `413` only if the body is read — the adapter's transport cap still applies |
+| `ctx.rawBody` is populated before `next()`       | Populated by `readBody()`, at the same moment as `ctx.body`              |
+
+Use eager parsing when most requests need the body, when a malformed payload must be rejected before
+any handler runs, or through `@nextrush/express-bridge` (whose `req.body` is a synchronous getter).
+Measured on Bun 1.4.4, a 1 KB JSON `POST` whose handler never reads the body drops from 9.39 µs to
+6.45 µs per request (−31 %); a request that does read it pays roughly 0.4–0.5 µs more than eager
+parsing.
+
+---
+
 ## Integration Example
 
 An API server with error handling, JSON parsing, and webhook signature verification:
@@ -376,6 +428,7 @@ app.use(async (ctx, next) => {
 | `BODY_READ_ERROR`          | 400    | Error reading request stream                                          |
 | `REQUEST_CLOSED`           | 400    | Connection closed before body was received                            |
 | `REQUEST_ABORTED`          | 400    | Client aborted the request                                            |
+| `BODY_NOT_READ`            | 500    | `ctx.body` read under `lazy: true` before `await ctx.readBody()`      |
 
 ---
 
@@ -408,6 +461,11 @@ app.use(async (ctx, next) => {
 **`UNSUPPORTED_CONTENT_TYPE` error:**
 
 - The combined parser throws this for `multipart/form-data` requests. Use a separate multipart parser.
+
+**`BODY_NOT_READ` error:**
+
+- `lazy: true` is active and something read `ctx.body` before awaiting the read. Call
+  `const body = await ctx.readBody()` first, or drop `lazy: true`.
 
 ---
 
