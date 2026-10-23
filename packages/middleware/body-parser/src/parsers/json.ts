@@ -10,6 +10,7 @@ import type { Middleware } from '@nextrush/types';
 
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES, DEFAULT_JSON_MAX_DEPTH, DEFAULT_LIMITS } from '../constants.js';
 import { Errors } from '../errors.js';
+import { hasResolvedBody, installLazyReader } from '../lazy.js';
 import type { BodyParserContext, JsonOptions } from '../types.js';
 import { bufferToString, toRawBody } from '../utils/buffer.js';
 import { isJsonContentType, matchContentType } from '../utils/content-type.js';
@@ -58,37 +59,27 @@ function checkJsonDepth(value: unknown, maxDepth: number): void {
 }
 
 /**
- * Create JSON body parser middleware.
+ * The JSON parser's two halves: the middleware and the bare read.
  *
- * Parses incoming requests with JSON payloads and sets `ctx.body`
- * to the parsed JSON object.
+ * @internal
  *
- * @param options - Parser configuration
- * @returns Middleware function
- *
- * @example
- * ```typescript
- * import { createApp } from '@nextrush/core';
- * import { json } from '@nextrush/body-parser';
- *
- * const app = createApp();
- *
- * // Parse JSON bodies up to 1MB
- * app.use(json());
- *
- * // Custom configuration
- * app.use(json({
- *   limit: '5mb',
- *   strict: true,
- *   rawBody: true,
- * }));
- *
- * app.post('/api/users', async (ctx) => {
- *   console.log(ctx.body); // Parsed JSON object
- * });
- * ```
+ * @remarks
+ * `read` is the eager parser's whole body without detection, assignment or
+ * `next()`, so the combined parser and the lazy reader share one implementation
+ * of the byte limit, `verify`, decoding, `strict` and the depth guard. Not
+ * exported from the package entry point.
  */
-export function json(options: JsonOptions = {}): Middleware {
+export interface JsonParserParts {
+  readonly middleware: Middleware;
+  readonly read: (ctx: BodyParserContext) => Promise<unknown>;
+}
+
+/**
+ * Create the JSON parser's middleware and its read function.
+ *
+ * @internal
+ */
+export function createJsonParser(options: JsonOptions = {}): JsonParserParts {
   const {
     limit = DEFAULT_LIMITS.JSON,
     reviver,
@@ -97,6 +88,7 @@ export function json(options: JsonOptions = {}): Middleware {
     strict = true,
     verify,
     maxDepth = DEFAULT_JSON_MAX_DEPTH,
+    lazy = false,
   } = options;
 
   // Pre-compute configuration
@@ -106,32 +98,7 @@ export function json(options: JsonOptions = {}): Middleware {
   // Optimize for default case (single 'application/json' type)
   const useSimpleCheck = types.length === 1 && types[0] === 'application/json';
 
-  return (async (
-    ctx: BodyParserContext,
-    next?: () => Promise<void>,
-    prechecked = false
-  ): Promise<void> => {
-    // Detection (method / already-parsed / content-type) is skipped when the combined
-    // parser has already routed to us (BP-E — single detection per request).
-    if (!prechecked) {
-      if (BODYLESS_METHODS.has(ctx.method)) {
-        if (next) await next();
-        return;
-      }
-      if (ctx.body !== undefined) {
-        if (next) await next();
-        return;
-      }
-      const contentType = readHeader(ctx, 'content-type');
-      const isMatch = useSimpleCheck
-        ? isJsonContentType(contentType)
-        : matchContentType(contentType, types);
-      if (!isMatch) {
-        if (next) await next();
-        return;
-      }
-    }
-
+  const read = async (ctx: BodyParserContext): Promise<unknown> => {
     // A caller that needs the bytes (`rawBody`, `verify`) reads them directly.
     // Otherwise the parser only needs the decoded string, so a body source that
     // can prove the body fits hands it over without materialising a buffer.
@@ -147,8 +114,7 @@ export function json(options: JsonOptions = {}): Middleware {
       }
 
       if (buffer.length === 0) {
-        if (next) await next();
-        return;
+        return undefined;
       }
 
       if (verify) {
@@ -161,8 +127,7 @@ export function json(options: JsonOptions = {}): Middleware {
       str = await readBodyText(ctx, limitBytes);
 
       if (str.length === 0) {
-        if (next) await next();
-        return;
+        return undefined;
       }
 
       // Decoded length is a lower bound on the UTF-8 size; three bytes per code
@@ -197,7 +162,7 @@ export function json(options: JsonOptions = {}): Middleware {
         checkJsonDepth(parsed, maxDepth);
       }
 
-      ctx.body = parsed;
+      return parsed;
     } catch (err) {
       // Re-throw BodyParserError
       if (err instanceof Error && err.name === 'BodyParserError') {
@@ -207,7 +172,74 @@ export function json(options: JsonOptions = {}): Middleware {
       // Wrap JSON parse errors
       throw Errors.invalidJson((err as Error).message);
     }
+  };
+
+  const middleware = (async (
+    ctx: BodyParserContext,
+    next?: () => Promise<void>
+  ): Promise<void> => {
+    if (BODYLESS_METHODS.has(ctx.method)) {
+      if (next) await next();
+      return;
+    }
+    if (hasResolvedBody(ctx)) {
+      if (next) await next();
+      return;
+    }
+    const contentType = readHeader(ctx, 'content-type');
+    const isMatch = useSimpleCheck
+      ? isJsonContentType(contentType)
+      : matchContentType(contentType, types);
+    if (!isMatch) {
+      if (next) await next();
+      return;
+    }
+
+    // Lazy mode installs the reader and returns; the read happens only if the
+    // application asks for the body (RFC-047).
+    if (lazy) {
+      installLazyReader(ctx, () => read(ctx));
+    } else {
+      ctx.body = await read(ctx);
+    }
 
     if (next) await next();
   }) as unknown as Middleware;
+
+  return { middleware, read };
+}
+
+/**
+ * Create JSON body parser middleware.
+ *
+ * Parses incoming requests with JSON payloads and sets `ctx.body`
+ * to the parsed JSON object.
+ *
+ * @param options - Parser configuration
+ * @returns Middleware function
+ *
+ * @example
+ * ```typescript
+ * import { createApp } from '@nextrush/core';
+ * import { json } from '@nextrush/body-parser';
+ *
+ * const app = createApp();
+ *
+ * // Parse JSON bodies up to 1MB
+ * app.use(json());
+ *
+ * // Custom configuration
+ * app.use(json({
+ *   limit: '5mb',
+ *   strict: true,
+ *   rawBody: true,
+ * }));
+ *
+ * app.post('/api/users', async (ctx) => {
+ *   console.log(ctx.body); // Parsed JSON object
+ * });
+ * ```
+ */
+export function json(options: JsonOptions = {}): Middleware {
+  return createJsonParser(options).middleware;
 }

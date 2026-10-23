@@ -230,6 +230,24 @@ export const Errors = {
   },
 
   /**
+   * The body was read before it was parsed (lazy mode).
+   *
+   * @remarks
+   * A programming error, not a client error: with `bodyParser({ lazy: true })`
+   * the body is parsed only by `await ctx.readBody()`. Status 500 keeps the
+   * message out of production responses while the stack trace names the
+   * offending middleware in development.
+   */
+  bodyNotRead(): BodyParserError {
+    return new BodyParserError(
+      'Request body has not been read. With bodyParser({ lazy: true }) call ' +
+        '`await ctx.readBody()` before reading `ctx.body`.',
+      500,
+      'BODY_NOT_READ'
+    );
+  },
+
+  /**
    * Unsupported content type (e.g., multipart/form-data)
    */
   unsupportedContentType(contentType: string, hint?: string): BodyParserError {

@@ -161,6 +161,55 @@ export interface BaseParserOptions {
    * Throw an error to reject the body.
    */
   readonly verify?: VerifyCallback;
+
+  /**
+   * Defer reading and parsing the body until the application asks for it.
+   *
+   * @remarks
+   * The default (`false`) parses eagerly, before `next()` runs, so a malformed
+   * or oversized body is rejected before any handler or middleware side effect.
+   *
+   * With `lazy: true` the middleware only *detects* — method, existing body,
+   * media type — and installs a reader. Bytes are acquired, the size limit is
+   * enforced, `verify` runs, and the body is parsed only when the handler calls
+   * `await ctx.readBody()`. A request whose body is never read costs nothing.
+   *
+   * Five observable differences, all consequences of that timing change:
+   *
+   * 1. On a request this parser claimed, `ctx.body` **throws**
+   *    (`BODY_NOT_READ`) before a successful `readBody()`, instead of being
+   *    `undefined`. Read it only after awaiting. A request no parser claimed
+   *    (bodyless method, unmatched media type under the default policy) keeps
+   *    its `undefined`.
+   * 2. A malformed body rejects at the `readBody()` call site, so a handler can
+   *    `try/catch` it, instead of rejecting before the handler runs.
+   * 3. An oversized body returns `413` only if the body is read. A runtime-level
+   *    cap (Bun's `maxRequestBodySize`) still applies unconditionally; the other
+   *    adapters have no transport cap, and this option does not add or relax one.
+   * 4. `ctx.rawBody` is populated only after `readBody()`, at the same moment as
+   *    `ctx.body`.
+   * 5. A middleware that answers early (`401`, `404`) preempts a body error that
+   *    eager parsing would have raised first.
+   *
+   * `readBody()` is idempotent and safe to call concurrently: the body source is
+   * read once and a failure is cached for the rest of the request. It exists in
+   * both modes, so handler code does not have to change when the flag changes.
+   *
+   * @default false
+   *
+   * @example
+   * ```typescript
+   * app.use(bodyParser({ lazy: true }));
+   *
+   * app.post('/hooks', async (ctx) => {
+   *   const payload = await ctx.readBody<{ id: string }>();
+   *   return ctx.json({ received: payload.id });
+   * });
+   * ```
+   *
+   * @see RFC-047
+   */
+  readonly lazy?: boolean;
 }
 
 /**
@@ -280,6 +329,27 @@ export interface BodyParserOptions {
    * @default 'ignore'
    */
   readonly onUnsupportedContentType?: 'ignore' | 'reject';
+
+  /**
+   * Defer reading and parsing every body until `await ctx.readBody()`.
+   *
+   * @remarks
+   * One flag governs the whole combined parser. A per-parser `lazy` inside
+   * `json`/`urlencoded`/`text`/`raw` is ignored here — mixing lazy JSON with
+   * eager form parsing would make error timing depend on the media type, which
+   * is exactly the non-determinism this option must not introduce.
+   *
+   * Detection still runs eagerly: an unsupported media type under
+   * `onUnsupportedContentType: 'reject'` and a `multipart/*` body both answer
+   * `415` before the handler, because neither decision needs the bytes.
+   *
+   * See {@link BaseParserOptions.lazy} for the five observable differences.
+   *
+   * @default false
+   *
+   * @see RFC-047
+   */
+  readonly lazy?: boolean;
 }
 
 /**
@@ -299,7 +369,8 @@ export type BodyParserErrorCode =
   | 'REQUEST_ABORTED'
   | 'INVALID_CONTENT_TYPE'
   | 'UNSUPPORTED_CONTENT_TYPE'
-  | 'UNSUPPORTED_CHARSET';
+  | 'UNSUPPORTED_CHARSET'
+  | 'BODY_NOT_READ';
 
 /**
  * Result of reading a request body
