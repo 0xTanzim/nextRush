@@ -38,6 +38,7 @@ export {
   defineRequestConformance,
   defineResponseConformance,
   defineRuntimeConformance,
+  type ConformanceSuiteOptions,
 } from './suite';
 
 // Scenario proof-level ledger: which assertion was proven over a real socket, on

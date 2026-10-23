@@ -23,7 +23,7 @@
  */
 
 import type { Application } from '@nextrush/core';
-import { bodyParser } from '@nextrush/body-parser';
+import { bodyParser, type BodyParserOptions } from '@nextrush/body-parser';
 import { cookies } from '@nextrush/cookies';
 import { createRouter } from '@nextrush/router';
 import { registerScenario } from './scenario';
@@ -31,6 +31,21 @@ import { expect } from '@nextrush/adapter-conformance/test-primitives';
 import { OUTGOING_RESPONSE } from '@nextrush/types';
 import type { ConformanceDriver } from './drivers/types';
 import { json } from './support';
+
+/**
+ * Per-run adjustments for the reusable suite.
+ *
+ * @remarks
+ * The suite exercises one body-parser configuration: with no options the
+ * middleware runs its documented default (eager parsing). A caller can pass
+ * `{ bodyParser: { lazy: true } }` to run the same scenarios through deferred
+ * parsing, which proves the two modes are observationally identical instead of
+ * trusting the lazy unit tests alone.
+ */
+export interface ConformanceSuiteOptions {
+  /** Options applied to every `bodyParser()` the suite installs. */
+  readonly bodyParser?: BodyParserOptions;
+}
 
 /** Request-side behaviors (audit F-01, spec rows #1-#4, #11, #16-#18). */
 export function defineRequestConformance(driver: ConformanceDriver): void {
@@ -303,7 +318,10 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
 }
 
 /** Response-side behaviors (audit F-01, spec rows #5-#10, #12). */
-export function defineResponseConformance(driver: ConformanceDriver): void {
+export function defineResponseConformance(
+  driver: ConformanceDriver,
+  options?: ConformanceSuiteOptions
+): void {
   registerScenario(driver, '#5/#9 (F-02): ctx.set() headers survive an implicit empty response', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
@@ -575,9 +593,9 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     async () => {
       const res = await driver.dispatch(
         (app) => {
-          app.use(bodyParser());
-          app.use((ctx) => {
-            ctx.json({ parsed: ctx.body });
+          app.use(bodyParser(options?.bodyParser));
+          app.use(async (ctx) => {
+            ctx.json({ parsed: await ctx.readBody() });
           });
         },
         {
@@ -607,10 +625,10 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
 
       const res = await driver.dispatch(
         (app) => {
-          app.use(bodyParser({ onUnsupportedContentType: 'reject' }));
-          app.use((ctx) => {
+          app.use(bodyParser({ ...options?.bodyParser, onUnsupportedContentType: 'reject' }));
+          app.use(async (ctx) => {
             handlerRan = true;
-            ctx.json({ parsed: ctx.body });
+            ctx.json({ parsed: await ctx.readBody() });
           });
         },
         {
@@ -633,9 +651,9 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     async () => {
       const res = await driver.dispatch(
         (app) => {
-          app.use(bodyParser());
-          app.use((ctx) => {
-            ctx.json({ body: ctx.body ?? null });
+          app.use(bodyParser(options?.bodyParser));
+          app.use(async (ctx) => {
+            ctx.json({ body: (await ctx.readBody()) ?? null });
           });
         },
         {
@@ -883,10 +901,6 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
 }
 
 /**
- * The full cross-adapter conformance suite for one driver — request + response
- * + runtime behaviors. External adapter authors wrap this in a `describe`.
- */
-/**
  * Cookie capability behaviors (RFC-034): the uninitialized diagnostic and the
  * activated store must be observable-identical on every adapter.
  */
@@ -958,9 +972,20 @@ export function defineCookieConformance(driver: ConformanceDriver): void {
   });
 }
 
-export function defineConformanceSuite(driver: ConformanceDriver): void {
+/**
+ * The full cross-adapter conformance suite for one driver — request + response
+ * + runtime behaviors. External adapter authors wrap this in a `describe`.
+ *
+ * Pass `options` to run the same scenarios against a different body-parser
+ * configuration (e.g. `{ bodyParser: { lazy: true } }`); omitting it keeps the
+ * suite on the default eager parser.
+ */
+export function defineConformanceSuite(
+  driver: ConformanceDriver,
+  options?: ConformanceSuiteOptions
+): void {
   defineRequestConformance(driver);
-  defineResponseConformance(driver);
+  defineResponseConformance(driver, options);
   defineRuntimeConformance(driver);
   defineCookieConformance(driver);
 }
