@@ -75,11 +75,13 @@ function parseCookie(cookieHeader: string, name: string): string | undefined {
  * logs, `Referer` headers, and browser history. Applications that need
  * query-string extraction supply an explicit `getTokenFromRequest`.
  */
-const defaultTokenExtractor: TokenExtractor = (ctx) => {
+const defaultTokenExtractor: TokenExtractor = async (ctx) => {
   const headerToken = ctx.get(CSRF_HEADER) ?? ctx.get(XSRF_HEADER);
   if (headerToken) return headerToken;
 
-  const body = ctx.body as Record<string, unknown> | undefined;
+  // The body may be unread under lazy parsing (RFC-047); reading it here is the
+  // documented explicit consumption, not an implicit one.
+  const body = (await ctx.readBody()) as Record<string, unknown> | undefined;
   if (body && typeof body === 'object' && CSRF_FIELD in body) {
     const val = body[CSRF_FIELD];
     if (typeof val === 'string') return val;
@@ -383,7 +385,7 @@ export function csrf(options: CsrfOptions): CsrfMiddleware {
     }
 
     // Extract submitted token from header/body
-    const submittedToken = resolved.getTokenFromRequest(ctx);
+    const submittedToken = await resolved.getTokenFromRequest(ctx);
     if (!submittedToken) {
       return resolved.onError(ctx, ERRORS.MISSING_TOKEN);
     }

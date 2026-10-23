@@ -40,6 +40,7 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
     headers: {},
     ip: '192.168.1.1',
     body: null,
+    readBody: async <T = unknown>() => null as T,
     params: {},
     status: 200,
     state: {},

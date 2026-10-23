@@ -39,7 +39,11 @@ export function validate(arg: StandardSchemaV1 | RequestSchemas): Middleware {
     // Validate every target before mutating anything, so a later failure never
     // leaves ctx.body half-updated (atomic).
     if (schemas.body) {
-      const outcome = await check(schemas.body, ctx.body, 'body', issues);
+      // A body schema must consume the body explicitly: under lazy parsing
+      // (RFC-047) `ctx.body` throws until `readBody()` resolves. In eager mode
+      // this resolves from the already-parsed value.
+      const source = await ctx.readBody();
+      const outcome = await check(schemas.body, source, 'body', issues);
       if (outcome.ok) {
         coercedBody = outcome.value;
         bodyValidated = true;

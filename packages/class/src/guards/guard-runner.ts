@@ -50,7 +50,10 @@ export async function executeGuards(
     params: ctx.params,
     query: ctx.query,
     headers: ctx.headers,
-    body: ctx.body,
+    // A guard may inspect the body, and it reads it synchronously from this
+    // snapshot, so the body must be resolved before the guards run (RFC-047).
+    // Eager mode resolves from the already-parsed value at no cost.
+    body: await ctx.readBody(),
     state: ctx.state,
     get: (name: string) => ctx.get(name),
   };

@@ -108,6 +108,7 @@ export class TestModuleRef {
     body?: unknown
   ): Context & { status: number; responseBody: unknown } {
     let responseBody: unknown;
+    let requestBody = body;
 
     const ctx = {
       method: method.toUpperCase() as Context['method'],
@@ -116,7 +117,15 @@ export class TestModuleRef {
       query: {},
       headers: {},
       ip: '127.0.0.1',
-      body,
+      get body() {
+        return requestBody;
+      },
+      set body(value: unknown) {
+        requestBody = value;
+      },
+      // Mirrors the real contract: a write to `ctx.body` (a validation coercion,
+      // a terminal framework write) is what a later read returns.
+      readBody: async <T = unknown>() => requestBody as T,
       params: {},
       status: 200,
       state: {},

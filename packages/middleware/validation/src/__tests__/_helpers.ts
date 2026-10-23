@@ -23,6 +23,9 @@ export function mockCtx(
 ): Context {
   return {
     body: init.body,
+    // RFC-047: the middleware consumes the body through `readBody()`, so the
+    // stub must resolve the same value it advertises on `body`.
+    readBody: async <T = unknown>() => init.body as T,
     query: init.query ?? {},
     params: init.params ?? {},
   } as unknown as Context;

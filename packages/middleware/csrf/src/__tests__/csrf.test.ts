@@ -13,6 +13,7 @@ interface MockContext {
   url: string;
   status: number;
   body: unknown;
+  readBody: <T = unknown>() => Promise<T>;
   query: Record<string, string>;
   state: Record<string, unknown>;
   requestHeaders: Record<string, string>;
@@ -41,6 +42,8 @@ function createMockContext(
     url: overrides.path ?? '/',
     status: 200,
     body: overrides.body,
+    // RFC-047: no stream in the mock, so the captured request body is the read.
+    readBody: async <T = unknown>() => overrides.body as T,
     query: overrides.query ?? {},
     state: overrides.state ?? {},
     requestHeaders,

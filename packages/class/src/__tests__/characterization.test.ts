@@ -34,6 +34,8 @@ function createCapturingContext(method: string, path: string, body?: unknown): {
     headers: {},
     ip: '127.0.0.1',
     body,
+    // RFC-047: guards receive the body through `readBody()`, not `ctx.body`.
+    readBody: async <T = unknown>() => body as T,
     params: {},
     status: 200,
     state: {},

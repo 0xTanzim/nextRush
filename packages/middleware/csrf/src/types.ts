@@ -94,8 +94,15 @@ export interface CsrfCookieOptions {
  * The token must come from a header, form body, or query — NOT from the cookie.
  * Cookie-only validation is insecure because browsers auto-send cookies on
  * cross-site requests.
+ *
+ * @remarks
+ * May return a promise: with `bodyParser({ lazy: true })` a body-derived token
+ * requires `await ctx.readBody()` first (RFC-047). Existing synchronous
+ * extractors keep working unchanged.
  */
-export type TokenExtractor = (ctx: Context) => string | undefined | null;
+export type TokenExtractor = (
+  ctx: Context
+) => string | undefined | null | Promise<string | undefined | null>;
 
 // ============================================================================
 // Session Identifier
