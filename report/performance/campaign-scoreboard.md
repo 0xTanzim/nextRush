@@ -1230,3 +1230,36 @@ All outside the repository, disposable: `/tmp/nextrush-performance/c13/` — `ha
 `decomp.ts` (variant arms), `decomp2.ts` (throwaway-descriptor arm), `microinstall.ts`,
 `proto.ts` + `proto-correctness.ts` (the discarded replica and the check that falsified it),
 `variants/bp-*.js` (patched builds of the current dist).
+
+## 17. Update — 2026-10-23: the unknown workloads, Node POST attributed, and a cold-start win
+
+Full evidence, tables, and reproduction commands: `report/performance/request-matrix-and-cold-start.md`.
+
+**Shipped — `2d9c7be9` `perf(adapter-node): load node:http2 on demand`.** `tls-server.ts`
+imported `node:http2` at module scope, and the `nextrush` meta package re-exports the Node
+adapter, so every cold start paid that module's native initialisation even for a plain-HTTP
+server. Bun 1.4.4, importing the meta package: **31.3 → 19.9 ms median (−36 %, 5/5 runs)**.
+Node 26 showed no change outside noise — `process.moduleLoadList` shows the http2 internals are
+loaded either way — so the claim is Bun-only. `createNodeServer` is internal and `serve()`
+already awaited; TLS/HTTP2 (13), adapter (310), and conformance (756) suites pass.
+
+**The unknown workloads are now measured** (Bun, in-process CPU/req, 7 rounds, null control
+−56 ns): dynamic route +322 ns; middleware +536 ns/layer; response header ~340–400 ns; 404
++580 ns; thrown 500 +3.47 µs (intentional 5xx logging); single-chunk stream +7.1 µs; 16 KB JSON
++28.2 µs; 1 KB POST unread +527 ns, with `bodyParser()` +4.16 µs.
+
+**Node POST decomposed** (wire, CPU/req): raw 27.67 µs → NextRush without a parser 29.00 µs
+(+1.33 µs) → with `bodyParser()` 38.50 µs. The adapter plus core is 4.8 % of the request; body
+handling is 25 %. A CPU profile puts the largest single frame at `writeUtf8String` (15.4 %,
+Node's own write path), with the whole body path at ≈4.8 % of samples.
+
+**Rejected on evidence, not on taste.** The Node per-request `setTimeout` (the Deno 8.28 µs
+precedent) costs **200 ns** here and 0.65 % of sampled CPU — the shared scheduler would save tens
+of nanoseconds against the adapter's riskiest contract. Passing header pairs straight to
+`new Response` is *slower* than `new Headers()` + `append`; the only faster shape collapses
+duplicate `set-cookie`. The Node body path is below wire noise. Stream-runner hoists are 1–2
+allocations, sub-0.5 %.
+
+**Recorded, not fixed:** oxlint fails on `adapters/node/src/body-source.ts:168`
+(pre-existing); `runtime/src/web-runner.ts:145-146` claims Node arms a deadline only after a
+microtask window, but the uncommitted branch arms it synchronously.
