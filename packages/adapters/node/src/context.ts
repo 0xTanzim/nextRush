@@ -29,6 +29,7 @@ import {
 } from '@nextrush/stream';
 import type {
     AdapterContext,
+    BodyReaderCarrier,
     BodySource,
     ContextState,
     CookieCapability,
@@ -49,7 +50,7 @@ import type {
     TextStreamWriter,
     WebStreamLike,
 } from '@nextrush/types';
-import { OUTGOING_RESPONSE } from '@nextrush/types';
+import { BODY_READER, OUTGOING_RESPONSE } from '@nextrush/types';
 import type { IncomingMessage, OutgoingHttpHeaders, ServerResponse } from 'node:http';
 import { createEmptyBodySource, NodeBodySource } from './body-source';
 import { parseQueryString } from './utils';
@@ -790,6 +791,25 @@ export class NodeContext implements AdapterContext {
       return value[0];
     }
     return value;
+  }
+
+  // ===========================================================================
+  // Request Body
+  // ===========================================================================
+
+  /**
+   * Read the request body, parsing it once and caching the result (RFC-047).
+   *
+   * @remarks
+   * Delegates to the reader a body parser installed in lazy mode; with eager
+   * parsing (the default) the body is already parsed, so this resolves from it
+   * without touching the body source — and without allocating the lazily-built
+   * `NodeBodySource`.
+   */
+  readBody<T = unknown>(): Promise<T> {
+    const reader = (this as BodyReaderCarrier)[BODY_READER];
+    if (reader === undefined) return Promise.resolve(this.body as T);
+    return reader.read<T>();
   }
 
   // ===========================================================================

@@ -59,6 +59,20 @@ export {
 } from './context';
 
 // ============================================================================
+// Deferred Request-Body Reader Contract (RFC-047, internal)
+// ----------------------------------------------------------------------------
+// The slot a lazy body parser installs on a context and `Context.readBody()`
+// delegates to. Marked `@internal`: a protocol between the body parser and the
+// context, not documented application surface.
+// ============================================================================
+
+export {
+  BODY_READER,
+  type BodyReaderCarrier,
+  type DeferredBodyReader,
+} from './body-reader';
+
+// ============================================================================
 // Cookie Capability Contracts (RFC-034) — implemented by @nextrush/cookies
 // ============================================================================
 

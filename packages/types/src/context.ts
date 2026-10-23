@@ -141,6 +141,13 @@ export interface Context {
    * This is the **request body**, not the response body.
    * Use `ctx.json()`, `ctx.send()`, or `ctx.html()` to set response output.
    *
+   * @remarks
+   * With `bodyParser({ lazy: true })` the body is not parsed until
+   * {@link readBody} is called, and reading this property before then throws a
+   * `BodyParserError` (`BODY_NOT_READ`) instead of returning `undefined` — a
+   * silent `undefined` would be indistinguishable from "no body". Prefer
+   * `await ctx.readBody()` in handler code that must work in both modes.
+   *
    * @example
    * ```typescript
    * app.post('/users', async (ctx) => {
@@ -149,6 +156,37 @@ export interface Context {
    * ```
    */
   body: unknown;
+
+  /**
+   * Read the request body, parsing it once and caching the result.
+   *
+   * @remarks
+   * The portable way to consume a request body: the same call works with eager
+   * parsing (resolves from the body the middleware already parsed) and with
+   * `bodyParser({ lazy: true })` (performs the deferred read and parse).
+   *
+   * Concurrent calls share a single read, so the single-consumption body source
+   * is never drained twice. A failed read caches its error for the rest of the
+   * request, so a retry cannot re-read a consumed stream or produce a different
+   * outcome.
+   *
+   * Resolves with `undefined` when no parser claimed the request (a bodyless
+   * method, an unmatched media type under the `'ignore'` policy) or when the
+   * parser found an empty JSON body.
+   *
+   * @typeParam T - Expected parsed body type. Not validated; the caller asserts.
+   *
+   * @example
+   * ```typescript
+   * app.post('/hooks', async (ctx) => {
+   *   const payload = await ctx.readBody<{ id: string }>();
+   *   return ctx.json({ received: payload.id });
+   * });
+   * ```
+   *
+   * @see RFC-047
+   */
+  readBody<T = unknown>(): Promise<T>;
 
   // =========================================================================
   // ROUTE PARAMS - Input (Set by router)

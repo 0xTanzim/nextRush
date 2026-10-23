@@ -21,7 +21,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as typesApi from '../index';
 
 // Runtime (value) exports — the only ones Object.keys() can see.
-import { ContentType, HTTP_METHODS, HttpStatus, OUTGOING_RESPONSE, ROUTE_METADATA, SECURITY_AUDIT, DISPATCH_SETTLED_SYNC } from '../index';
+import { BODY_READER, ContentType, HTTP_METHODS, HttpStatus, OUTGOING_RESPONSE, ROUTE_METADATA, SECURITY_AUDIT, DISPATCH_SETTLED_SYNC } from '../index';
 
 // Type-only exports — locked by assignability, not Object.keys().
 import type {
@@ -120,6 +120,10 @@ describe('Public API surface (runtime exports)', () => {
       // runner (synchronous dispatch). Exported so both packages can share one
       // symbol identity without a runtime dependency between them.
       'DISPATCH_SETTLED_SYNC',
+      // RFC-047: the slot a lazy body parser installs on the context. Exported
+      // so `@nextrush/body-parser`, `@nextrush/runtime` and the Node adapter
+      // share one symbol identity without a runtime dependency between them.
+      'BODY_READER',
     ].sort();
 
     expect(actualExports).toEqual(expectedRuntime);
@@ -131,6 +135,7 @@ describe('Public API surface (runtime exports)', () => {
     expect(typeof OUTGOING_RESPONSE).toBe('symbol');
     expect(typeof DISPATCH_SETTLED_SYNC).toBe('symbol');
     expect(typeof SECURITY_AUDIT).toBe('symbol');
+    expect(typeof BODY_READER).toBe('symbol');
   });
 });
 

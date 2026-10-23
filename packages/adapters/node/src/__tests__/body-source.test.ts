@@ -86,6 +86,20 @@ describe('NodeBodySource', () => {
 
       await expect(source.buffer()).rejects.toBeInstanceOf(RequestAbortedError);
     });
+
+    it('RFC-047: a deferred read on an already-dead request settles instead of hanging', async () => {
+      const readable = new Readable({ read() {} });
+      const req = readable as unknown as IncomingMessage;
+      req.headers = { 'content-type': 'application/json' };
+      readable.push(Buffer.from('{"a":1}'));
+      readable.destroy(); // client gone before the application asked for the body
+
+      const source = new NodeBodySource(req);
+
+      // Lazy mode can start the read long after the request arrived, so the
+      // `data`/`end`/`close` events this would wait for have already fired.
+      await expect(source.buffer()).rejects.toBeInstanceOf(RequestAbortedError);
+    });
   });
 });
 

@@ -160,6 +160,15 @@ export class NodeBodySource implements BodySource {
       return empty;
     }
 
+    // RFC-047: a deferred read can start long after the request arrived, so the
+    // client may already be gone. In that state no `data`/`end`/`close` event can
+    // still arrive, and listeners attached below would never fire. Eager parsing
+    // never sees this (it subscribes while the request is live); without the
+    // check a lazy read would hang until the dispatch deadline.
+    if (req.readableAborted === true || req.destroyed) {
+      throw new RequestAbortedError();
+    }
+
     // Accumulate via event listeners rather than `for await…of`: this avoids the
     // async-iterator + per-chunk promise allocation of iterating an IncomingMessage,
     // while a single-settle guard (D2) and explicit cleanup preserve every observable

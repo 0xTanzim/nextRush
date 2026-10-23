@@ -20,8 +20,9 @@
  */
 
 import { HttpError } from '@nextrush/errors';
-import { OUTGOING_RESPONSE } from '@nextrush/types';
+import { BODY_READER, OUTGOING_RESPONSE } from '@nextrush/types';
 import type {
+  BodyReaderCarrier,
   BodySource,
   ContextState,
   CookieCapability,
@@ -325,6 +326,27 @@ export abstract class WebContextBase implements FetchContext {
   /** Read one incoming header; never builds the record (see {@link RequestInputs}). */
   get(field: string): string | undefined {
     return this._inputs.get(field);
+  }
+
+  // ===========================================================================
+  // Request Body
+  // ===========================================================================
+
+  /**
+   * Read the request body, parsing it once and caching the result (RFC-047).
+   *
+   * @remarks
+   * Delegates to the reader a body parser installed in lazy mode; with eager
+   * parsing (the default) the body is already parsed, so this resolves from it
+   * without touching the body source.
+   *
+   * The slot is only present on contexts a lazy parser claimed, so an eager
+   * request allocates nothing and keeps the context's existing shape.
+   */
+  readBody<T = unknown>(): Promise<T> {
+    const reader = (this as BodyReaderCarrier)[BODY_READER];
+    if (reader === undefined) return Promise.resolve(this.body as T);
+    return reader.read<T>();
   }
 
   // ===========================================================================
