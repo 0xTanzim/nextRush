@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 
-import { createSecureServer, type Http2SecureServer } from 'node:http2';
+import type { Http2SecureServer } from 'node:http2';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 
 /** TLS configuration passed through to `node:http2.createSecureServer`. */
@@ -28,14 +28,24 @@ export interface TlsConfig {
  * transparently — matching design D4 (RFC-028).
  *
  * @returns The created server.
+ *
+ * @remarks
+ * `node:http2` is loaded on demand, not at module scope. Its initialisation is
+ * native work measured at ~19 ms on Bun and 11–23 ms on Node, and the meta
+ * package re-exports this adapter, so a static import charged that cost to every
+ * cold start — including the overwhelmingly common non-TLS server that never
+ * touches `createSecureServer`. `serve()` is already asynchronous, so awaiting
+ * the import moves the cost to the only path that needs it.
  */
-export function createNodeServer(
+export async function createNodeServer(
   handler: (req: IncomingMessage, res: ServerResponse) => void,
   tls?: TlsConfig
-): Server {
+): Promise<Server> {
   if (!tls) {
     return createServer(handler);
   }
+
+  const { createSecureServer } = await import('node:http2');
 
   return createSecureServer(
     {
