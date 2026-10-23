@@ -24,13 +24,19 @@ import { capabilitiesFor } from '@nextrush/runtime';
 import { buildConformanceApp } from './app-shape';
 import type { Configure, ConformanceDriver, DispatchInit, DispatchResult } from './types';
 
-/** Builds a Web `Response` from an app + request for one specific adapter. */
+/**
+ * Builds a Web `Response` from an app + request for one specific adapter.
+ *
+ * The union mirrors the adapters' own handler contract: a dispatch that settles
+ * synchronously is answered with a bare `Response` (the synchronous dispatch fast
+ * path), so every call site must adopt the result rather than assume a promise.
+ */
 type WebInvoke = (
   app: Application,
   request: Request,
   options: { timeout?: number },
   directIp: string
-) => Promise<Response>;
+) => Response | Promise<Response>;
 
 /** Normalize a Web `Response` (already produced by the adapter) into a result. */
 async function toResult(response: Response): Promise<DispatchResult> {
@@ -115,7 +121,7 @@ function createWebDriver(
       });
       await app.ready();
       const request = buildRequest({ path: '/' }, controller.signal);
-      const pending = invoke(app, request, {}, '');
+      const pending = Promise.resolve(invoke(app, request, {}, ''));
       setTimeout(() => {
         controller.abort();
       }, 5);
