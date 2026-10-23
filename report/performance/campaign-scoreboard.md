@@ -1260,6 +1260,16 @@ of nanoseconds against the adapter's riskiest contract. Passing header pairs str
 duplicate `set-cookie`. The Node body path is below wire noise. Stream-runner hoists are 1–2
 allocations, sub-0.5 %.
 
+**Connection path measured** (Node, server CPU from `/proc`, N = 12 000, interleaved pairs): a
+fresh connection costs ~88 µs of CPU — 2.8× a kept-alive request. NextRush adds **+9.2 µs per new
+connection** (137.5 → 146.7 µs, 5/5 pairs, disjoint ranges) and nothing measurable per kept-alive
+request. The premium is the eager `req.socket.remoteAddress` read in `getClientIp`
+(`adapters/node/src/context.ts:282`), visible in the churn profile as `Socket._getpeername`
+(1.29 % of samples, ≈5.5 % of busy CPU, parent chain `getClientIp ← NodeContext`). A ceiling test
+with the read removed recovers ~3.3 µs on churn and nothing on keep-alive — and since churn has
+one request per socket, per-socket memoisation cannot capture it without breaking the documented
+`ctx.ip`-survives-teardown guarantee. **Rejected, recorded.**
+
 **Recorded, not fixed:** oxlint fails on `adapters/node/src/body-source.ts:168`
 (pre-existing); `runtime/src/web-runner.ts:145-146` claims Node arms a deadline only after a
 microtask window, but the uncommitted branch arms it synchronously.

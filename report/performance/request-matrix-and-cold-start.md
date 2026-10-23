@@ -20,6 +20,7 @@ change was accepted; four candidates were rejected on evidence.
 | Response-header materialisation (`new Headers()` + append) | **REJECT** | 5 headers cost 921 ns; the only faster shape drops duplicate/case semantics |
 | Node body-read path (listeners, `Buffer.concat`, closures) | **REJECT** | Whole body path is 4.8 % of sampled CPU; below wire-measurement noise |
 | Hoist per-request stream runners; drop Deno's eager IP closure | **REJECT** | 1–2 allocations per request; sub-0.5 %, not measurable here |
+| Memoise `ctx.ip` per socket | **REJECT** | Ceiling test (read removed entirely) shows no measurable cost on kept-alive requests; churn has one request per socket, so memoisation cannot help there |
 
 ## 1. Method
 
@@ -190,7 +191,45 @@ request; the lifecycle investigation put these below 0.5 % and unmeasurable at
 these request costs. They remain available as cleanup, but not as a performance
 claim.
 
-## 6. Pre-existing issues found, not fixed
+## 6. Connection path — reuse vs churn
+
+Second question: what does a connection cost, and does the framework add anything to it?
+`churn.mjs` drives the same server two ways — one keep-alive socket for every request, and a
+fresh TCP connection per request — while server CPU comes from `/proc/<pid>/stat`. N = 12 000
+per run (0.83 µs tick resolution), interleaved pairs with the order flipped.
+
+| Shape | raw `node:http` | NextRush | Delta |
+| --- | ---: | ---: | ---: |
+| Keep-alive, 12 000 requests on one socket | 49.2 µs | 54.2 µs | +5.0 µs (3/3 pairs, not reproducible — see below) |
+| New connection per request | 137.5 µs | 146.7 µs | +9.2 µs (5/5 pairs, ranges disjoint) |
+
+Connection setup and teardown costs **~88 µs of server CPU** — 2.8× a kept-alive request. That
+is the OS accept path plus Node's socket lifecycle, and it dwarfs anything the framework does.
+
+**Attribution.** A `--cpu-prof` run of 40 000 churned requests shows a NextRush-only frame,
+`Socket._getpeername`, at 1.29 % of samples (≈5.5 % of busy CPU). Its parent chain is
+`_getpeername ← remoteAddress ← getClientIp ← NodeContext ← createNodeContext`. `getClientIp`
+(`adapters/node/src/context.ts:282`) reads `req.socket.remoteAddress` eagerly, deliberately, so
+that `ctx.ip` stays valid after the socket is torn down.
+
+**Ceiling test.** A patched copy of the adapter bundle with that read removed entirely:
+churn 140 / 147.5 / 150.8 µs against 149.2 / 150.8 / 154.2 µs — **−3.3 µs median, all three
+pairs the same sign**. On kept-alive requests the same patch changed nothing (53.3 µs both
+medians, pairs disagreeing in direction).
+
+**Why nothing was shipped.** Per-socket memoisation is the only shape that preserves `ctx.ip`
+stability, and it removes the syscall only for requests *after* the first on a socket — exactly
+the case where the ceiling test shows no measurable cost. Reading lazily would help churn but
+breaks the documented guarantee that `ctx.ip` survives teardown. So the finding stands as a
+finding: **a fresh connection costs ~9 µs more through NextRush than through raw `node:http`,
+and a kept-alive request costs nothing measurable.** Keep-alive, which every sane HTTP client
+uses by default, is already the fast path.
+
+*Correction.* A first 3-pair run suggested a +5 µs keep-alive gap between raw and NextRush. The
+interleaved ceiling test did not reproduce it, and this box's batch-to-batch drift is ±5 µs —
+the same size. It is not claimed.
+
+## 7. Pre-existing issues found, not fixed
 
 - `packages/adapters/node/src/body-source.ts:168` fails oxlint
   (`no-unnecessary-boolean-literal-compare`). Pre-existing; the file was not
@@ -201,18 +240,22 @@ claim.
   (`node/src/adapter.ts:401`). The comment is stale and is the one a future
   optimizer would trust.
 
-## 7. Unknowns
+## 8. Unknowns
 
 - No Deno, edge, Workerd, or serverless cold-start measurement. The `http2` result
   is Bun-only.
 - No allocation counter, GC trace, or RSS measurement; the `--cpu-prof` run gives
   CPU attribution only, and its 50 % idle share means percentages are of wall
   samples, not of busy CPU.
+- The connection path (§6) is Node-only, plain HTTP, with a strictly sequential client: no
+  TLS/HTTP-2 churn, no cross-runtime churn, and no concurrent load. Batch-to-batch drift in
+  CPU/req reaches ±5 µs at this request size, which is why a 3-pair result is reported as
+  unresolved rather than as a win.
 - Wire numbers come from a laptop with 8 logical cores and two client cores;
   `/proc` CPU accounting has 10 ms tick granularity, which is adequate over
   ~90 000 requests but not for sub-microsecond claims.
 
-## 8. Reproduction
+## 9. Reproduction
 
 ```bash
 # In-process workload matrix (Bun)
@@ -237,4 +280,15 @@ node prof-top.mjs prof/nr-post.cpuprofile 30
 
 # Cold start, before and after
 bun -e "const t=performance.now(); await import('<repo>/packages/nextrush/dist/index.js'); console.log(performance.now()-t)"
+
+# Connection path: keep-alive vs a fresh connection per request (server CPU from /proc)
+node churn.mjs --bundle ./node-raw.mjs --mode reuse --n 12000 --port 4901
+node churn.mjs --bundle ./node-raw.mjs --mode churn --n 12000 --port 4902
+node churn.mjs --bundle ./node-nr.mjs  --mode reuse --n 12000 --port 4903
+node churn.mjs --bundle ./node-nr.mjs  --mode churn --n 12000 --port 4904
+
+# Churn profile, and the caller of a suspect frame
+PORT=5202 node --cpu-prof --cpu-prof-dir=prof-churn-nr prof-nr.mjs &
+node churn-client.mjs --port 5202 --n 40000
+node prof-parents.mjs prof-churn-nr/*.cpuprofile '_getpeername'
 ```
