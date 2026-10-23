@@ -1059,6 +1059,10 @@ No product source changed, so the suites are a regression check rather than a ga
 
 ### 15.6 Reproduction
 
+The instruments and both raw A/B JSONs are preserved next to §13's evidence at
+`report/performance/raw/c11/` and `report/performance/raw/res-c11-*.json` (both gitignored).
+The `/tmp` paths below are where they were built and run.
+
 ```bash
 # Candidate A — dispatch attribution (one ctx, one handler, marginal only)
 taskset -c 2 bun /tmp/nextrush-performance/c11/attrib.ts
