@@ -144,8 +144,8 @@ window itself costs:
 | -------------------------------------------------- | -------: | -------: | ----------: | ----: |
 | `SETTLE_TURNS = 4` → `0` (constant patched)        |   30.5 k |   32.5 k |  +6.6 % rps |   5/5 |
 | same, CPU per request                              | 27.05 µs | 25.51 µs |  −5.7 % CPU |   5/5 |
-| `timeout: 0` → default (whole race disabled vs on) |   31.1 k |   26.8 k | +16.0 % rps |   5/5 |
-| same, CPU per request                              | 26.13 µs | 27.98 µs |  −6.6 % CPU |   5/5 |
+| `timeout: 0` → default (whole race disabled vs on) |   31.1 k |   26.8 k | −13.8 % rps |   5/5 |
+| same, CPU per request                              | 26.13 µs | 27.98 µs |  +7.1 % CPU |   5/5 |
 
 The second pair is the upper bound for removing the race entirely, not for this change; it is
 recorded because it shows how much of the POST cost was the timeout machinery and how much is body
