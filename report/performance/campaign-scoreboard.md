@@ -856,7 +856,7 @@ Ranked by expected size, not by novelty:
 1. **Lazy body parsing as an opt-in** (`bodyParser({ lazy: true })`, or a separate `bodyParser.lazy()`)
    — ~2.85 µs on this workload, ~60 % of framework JS. Requires an RFC because the 400/413 timing
    moves; do not ship it as an implicit default.
-2. **The middleware hop itself (~1 µs of the parser stage).** A POST grammar runs two app middlewares
+2. **The middleware hop itself (~1 µs of the parser stage).** *Superseded by §15.1: there is no such hop; the dispatch machinery is ≈185 ns and the parser stage's glue was already counted.* The original text follows. A POST grammar runs two app middlewares
    (`bodyParser` → root router), which takes `compose()`'s general path: one `dispatch` closure, one
    `next` closure per layer, and its recursion. §13 did not attribute this; this cycle could not
    attribute it either without an instrument that the box cannot currently stabilise. Attribute it
@@ -887,3 +887,203 @@ pnpm --filter @nextrush/runtime test -- --maxWorkers=2
 pnpm --filter @nextrush/static test -- --maxWorkers=2
 pnpm --filter @nextrush/adapter-conformance test -- --maxWorkers=2
 ```
+
+---
+
+## 15. Update — 2026-10-23: the middleware hop attributed, native Bun routing evaluated and rejected, a lazy-parse RFC
+
+Branch `perf/bun-body-read-parity`, HEAD `1bcf665c`, clean tree, Bun 1.4.4, Node v26.12.0,
+Deno 2.9.7. **No product source changed in this cycle.** Both candidates were measured, one was
+refuted, one was rejected, and the one direction with a real mechanism became an RFC.
+
+### 15.0 State reconciliation
+
+§14.5 lists six commits plus a row marked *(this file)* — seven in total, and `git log
+d21a4534..HEAD` reports seven. The earlier chat summary said "6"; the tracked table was correct.
+`apps/benchmark/scripts/dev-check/entries/` holds zero `_x-*.ts` files; all fifteen are preserved
+at `/tmp/nextrush-performance/preserved-probes/`. The conformance typecheck still exits 0
+(`cd packages/adapters/conformance && pnpm exec tsc --noEmit`), so F-22 remains fixed.
+
+### 15.1 Candidate A — the "~1 µs middleware hop" does not exist
+
+§14.7 ranked a ~1 µs middleware hop as the second-largest remaining item. It was a subtraction
+artifact: `full` − `noparser` − (native text) − (`JSON.parse`) was read as "hop", but the parser
+stage's own glue was already inside that difference and §13.2 had measured it (378 ns). The
+decomposition closes exactly:
+
+| Parser-stage component | ns |
+| --- | ---: |
+| `new WebBodySource(request)` | 318.6 |
+| `request.text()` | 596.1 |
+| `JSON.parse(1 KB)` | 406.0 |
+| `checkJsonDepth` | 145.9 |
+| glue: content-type, depth-bytes test, envelope, `next()` | 378.0 |
+| **total** | **1 844.6** |
+
+No remainder, so no hidden hop. Measuring the dispatch machinery directly confirms it.
+
+**Instrument** (`/tmp/nextrush-performance/c11/attrib.ts`): one pre-built `BunContext` and one
+route handler shared by every mode, interleaved rounds, min per mode, `taskset -c 2`, N = 200 000,
+Bun 1.4.4. Every mode is a real public entry point.
+
+| Mode | ns/op |
+| --- | ---: |
+| `handler` — the user handler alone | 78.4 |
+| `exec0` — compiled executor | 84.5 |
+| `canon` — `canonicalizePath('/')` | 93.8 |
+| `match` — `router.match('POST','/')` | 133.0 |
+| `routes` — `router.routes()(ctx)` (canon + match + executor) | 151.0 |
+| `c1` — `compose([routes])` | 176.3 |
+| `cb1` — `app.callback()`, one middleware | 213.8 |
+| `c2` — `compose([noop, routes])` | 219.9 |
+| `c3` — `compose([noop, noop, routes])` | 254.7 |
+| `cb2` — `app.callback()`, two middlewares | 263.4 |
+
+Marginal costs between modes with identical setup and identical contexts:
+
+| Marginal | ns | Required by the contract? |
+| --- | ---: | --- |
+| executor entry over the bare handler | 6.1 | yes |
+| canonicalize + match inside the routes middleware | 66.5 | yes (canonical path is public behaviour) |
+| single-middleware wrapper | 25.3 | yes (the middleware API is a `next` argument) |
+| general composer + one `noop` layer | 43.6 | yes |
+| one more middleware layer | 34.8 | yes |
+| `callback()`'s `.then` (rejection → error envelope) | 37.5–43.5 | yes — without it a thrown handler reaches the adapter's generic 500 instead of the framework envelope |
+
+The whole dispatch machinery for this app shape is **≈185 ns**, not ≈1 µs. Nothing in the table
+is removable without changing observable behaviour: the `.then` is the error-envelope route, the
+closures are the middleware contract, and canonicalization is documented behaviour.
+
+Two rows must not be added or subtracted: `match` standalone (133.0 ns) is *larger* than the
+route stage measured inside the middleware (66.5 ns) because a standalone call's `RouteMatch`
+escapes into the loop while the in-middleware one is consumed locally. Only same-shape marginal
+pairs are valid, which is how the table above is built.
+
+**Dynamic routes cost more, and that is the only shape worth discussing.**
+
+| Route shape | route stage (`routes` − `exec0`) |
+| --- | ---: |
+| static `/users` | 85.7 ns |
+| dynamic `/users/:id` | 282.5 ns |
+
+(separate run, N = 300 000, same instrument shape)
+
+### 15.2 Candidate B — Bun's native route table: measured, then rejected
+
+Bun 1.4.4 exposes `Bun.serve({ routes })` with static paths, `:params`, `*` wildcards and
+per-method maps, plus a `fetch` fallback for anything unmatched. Probed behaviour from this
+install: `/static/`, `//`, `/./` and `/%2F` all miss the table (no normalization), params are
+percent-decoded identically to NextRush (`%2F` → `/`, `%20` → space, `+` untouched), optional
+params and precedence agree on the cases tested (static beats param, static beats wildcard), and
+NextRush's trie additionally rejects conflicting param names at the same position.
+
+**Prototype.** `/tmp/nextrush-performance/c11/arm-native.ts` registers the one static POST route
+in Bun's table and runs the same middleware stack with the compiled executor as the terminal
+step, so the canonicalize + match stage is gone and nothing else changes. The `fetch` fallback is
+the unmodified NextRush handler, so misses, other methods, trailing slashes, case variants and
+encoded paths are answered by the real router.
+
+**Equivalence matrix** — 23 requests covering valid/charset/empty/malformed/deep JSON, no content
+type, text and form bodies, query strings, arrays, `GET`/`PUT`/`DELETE`/`OPTIONS`/`HEAD` on the
+POST route, a miss, a second route, a method mismatch, `//`, `/./`, `/%2F`, and a case variant.
+**23/23 identical** in status, `content-type`, `content-length` and body bytes
+(`/tmp/nextrush-performance/c11/matrix.mjs`).
+
+**Wire comparison** (`report/performance/raw/ab2.mjs`, 5 order-flipped pairs, `taskset` core 0 /
+client cores 1,3):
+
+| Pair | order | baseline CPU/req | native CPU/req | Δ |
+| --- | --- | ---: | ---: | ---: |
+| 1 | A→B | 23.16 µs | 22.04 µs | −4.9 % |
+| 2 | B→A | 23.04 µs | 22.94 µs | −0.4 % |
+| 3 | A→B | 23.63 µs | 23.34 µs | −1.2 % |
+| 4 | B→A | 24.88 µs | 24.16 µs | −2.9 % |
+| 5 | A→B | 24.24 µs | 24.43 µs | +0.8 % |
+| **median** | | **23.63 µs** | **23.34 µs** | **−1.2 %** (4/5) |
+
+**Null control, same harness, both sides the same bundle:** median **+1.6 %**, pairs +1.9 %,
+−2.5 %, +5.7 %, −0.1 %, +1.6 % (2/5). The harness can report ±1.6 % between identical binaries,
+so the native-route result is **inside the noise floor**.
+
+Arithmetic agrees with the control: removing 66.5 ns (static) is 0.28 % of 23.6 µs CPU/req and
+1.4 % of the 4.78 µs of framework JS. Only the dynamic shape (282.5 ns ≈ 1.2 %) is even
+nominally resolvable, and it cannot be resolved on this box either.
+
+**Verdict: rejected.** The benefit is 0.28–1.2 % of CPU/req at best, unverifiable here, against a
+permanent cost: a route compiler inside the Bun adapter that must mirror every NextRush pattern
+form, duplicate path spellings for `strict: false`, `server.reload()` on late registration,
+precedence parity between two different routers for every overlap, a second application instance
+per server (the prototype already trips the "different Application booted" guard), and a
+fallback path that makes an unmatched method cost *two* dispatches. None of that is justified by
+a stage that measures 66.5 ns.
+
+### 15.3 The eager-parse decision becomes RFC-047
+
+§14.3 deferred lazy body parsing because it moves 400/413 timing into the handler's call stack.
+That decision stands for the default. `docs/RFC/047-lazy-body-parsing.md` specifies the opt-in
+form: `bodyParser({ lazy: true })`, `await ctx.readBody()` available in both modes, `ctx.body`
+throwing when unread in lazy mode, no implicit trigger anywhere, the transport cap still
+unconditional, single-consumption memoisation, abort and deadline coverage, and a benchmark
+disclosure rule (an unread-body workload is not a parser-speed comparison). No prototype: the
+RFC has to be accepted before code, per the repo's RFC-before-implementation rule.
+
+### 15.4 Node context/response audit (separate, read-only)
+
+`report/core/context-review.md` already audited this surface; its conclusions still hold at HEAD
+on source inspection, and Node is ahead of Bun on one point rather than behind:
+
+| Concern | Node | Bun |
+| --- | --- | --- |
+| body source | lazy, memoised getter, no allocation for bodyless methods | **eager `new WebBodySource(request)` in the constructor** (318.6 ns) |
+| `raw` / `state` / signal | lazy `??=` | lazy |
+| response | `_outgoing` recorded response; a string body goes to `res.end` unchanged, no intermediate bytes | `WebResponseBuilder`, plain init record |
+| URL/query | `indexOf('?')` + `slice` | `requestTargetFromUrl` scan, no `URL` |
+
+No duplicated stage was found. The Bun-side eagerness is not a removable cost for this workload —
+the parser reads the body source on the next line anyway, and `ctx.bodyLength` (the runner's
+settle-window input) is derived from it. Recorded as a finding, not a change. The 858-line
+`context.ts` is a structural observation (HTTP + stream + SSE + NDJSON + flush in one class), not
+a performance one; splitting it is out of scope for this campaign and would be an unrelated
+refactor.
+
+### 15.5 Verification
+
+No product source changed, so the suites are a regression check rather than a gate on new code:
+
+| Check | Result |
+| --- | --- |
+| conformance typecheck (`tsc --noEmit`) | exit 0 |
+| perf gate — `bundle probe bookkeeping hygiene` | 23 PASS, 0 FAIL |
+| `_x-*.ts` in the repo | 0 |
+| scratch outside the repo | `/tmp/nextrush-performance/c11/` (8 files) |
+
+### 15.6 Reproduction
+
+```bash
+# Candidate A — dispatch attribution (one ctx, one handler, marginal only)
+taskset -c 2 bun /tmp/nextrush-performance/c11/attrib.ts
+
+# Candidate A — dynamic vs static route stage
+taskset -c 2 bun /tmp/nextrush-performance/c11/dyn.ts
+
+# Candidate B — semantic equivalence (23 cases, both arms)
+taskset -c 2 node /tmp/nextrush-performance/c11/matrix.mjs
+
+# Candidate B — paired, order-flipped wire comparison
+node report/performance/raw/ab2.mjs --runtime bun --workload post \
+  --a /tmp/nextrush-performance/c11/base.js \
+  --b /tmp/nextrush-performance/c11/native.js --pairs 5 --label c11-native-routes
+```
+
+### 15.7 Where the next cycle should look
+
+§14.7 items 1 and 2 are now closed (an RFC, and a refutation). Ranked by mechanism size:
+
+1. **A measurement rig, still.** Every remaining candidate is smaller than the ±1.6 % median drift
+   between two identical binaries measured here. Pinned frequency, no SMT sibling, exclusive
+   cores. Until then only stage removals ≥1 % are worth attempting.
+2. **Lazy body parsing, if RFC-047 is accepted** — the only remaining stage-removal of ~2.85 µs.
+3. **Dynamic-route matching (282.5 ns)** — the largest single routing cost, and the only place
+   native routing had a resolvable mechanism. Needs the rig before any claim.
+4. **Nothing below ~1 %.** The composer, executor, `.then`, canonicalizer and depth guard are each
+   measured, contract-bound and below this box's resolution.
