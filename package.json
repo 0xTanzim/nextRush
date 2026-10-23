@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@12.6.0",
+  "packageManager": "pnpm@12.14.0",
   "description": "NextRush v3 — minimal, modular TypeScript HTTP stack for Node.js and other runtimes",
   "engines": {
     "node": ">=22.0.0"
