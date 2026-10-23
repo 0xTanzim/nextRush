@@ -39,23 +39,26 @@ reproducible evidence, not repository history. Earlier cycles used throwaway scr
 workload on the same runtime, measured in the same session — the campaign's committed question is
 "what does the framework cost over the baseline", not "who is faster in absolute terms".
 
-| Workload                              | Runtime | CPU/req (now) |                 vs Hono | Quality                               | Major remaining costs                                                                             | Constraints                                                                | Status                                                                                |
-| ------------------------------------- | ------- | ------------: | ----------------------: | ------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Minimal GET                           | Deno    |      11.10 µs |      1.21× (2026-10-21) | Good — was 1.51× at HEAD              | context construction, dispatch scaffolding, Deno's native header handling                         | Deno's `Response` fast path needs an exact media type                      | ✅ improved this cycle (§10)                                                          |
-| Minimal GET                           | Bun     |      11.58 µs |               **1.10×** | Good — was 1.16×                      | context construction, dispatch scaffolding                                                        | Bun's `Headers` is cheap, so this class of work barely exists there        | ✅ improved this cycle (§10)                                                          |
-| Minimal GET                           | Node    |      23.83 µs | not measured this cycle | Fair                                  | Node's own HTTP + `writeHead` path dominates; the sync fast path cannot apply (callback runner)   | Node is not the campaign's target runtime                                  | ⬜ unchanged — no regression                                                          |
-| JSON POST (1 KB)                      | Deno    |      34.08 µs |      1.54× (2026-10-21) | Weak                                  | body reading dominates; the response path is no longer the bottleneck                             | body-read parity across runtimes                                           | ⬜ open — the next target                                                             |
-| JSON POST (1 KB)                      | Bun     |      24.55 µs |               **1.31×** | Weak — now the largest measured gap   | body reading through `bodyParser`; the chain is genuinely async there, so §10's path cannot apply | body-read parity across runtimes                                           | ⬜ open — the next target                                                             |
-| JSON POST (1 KB)                      | Node    |      40.12 µs | not measured this cycle | Fair                                  | body reading                                                                                      | —                                                                          | ⬜ unchanged — −3.0 % (3/3) from the shared resolved dispatch                         |
-| Static GET                            | Node    |     126.04 µs |                       — | Poor — 2.7× a `readFile`+`send` floor | `lstat` for symlink policy, `open`/`read`/`close`, one extra read inside `readFile`               | `serveStatic` is Node-only, so there is no cross-runtime parity to protect | ⚠️ measured — was 143.59 µs, now −13.6 %; range/large-file streams still drop headers |
-| Dynamic-route GET                     | —       |  not measured |                       — | Unknown                               | —                                                                                                 | —                                                                          | ⬜ not investigated                                                                   |
-| GET with middleware                   | —       |  not measured |                       — | Unknown                               | —                                                                                                 | —                                                                          | ⬜ not investigated                                                                   |
-| Raw-body POST                         | —       |  not measured |                       — | Unknown                               | —                                                                                                 | —                                                                          | ⬜ not investigated                                                                   |
-| Extra headers / multiple `Set-Cookie` | —       |  not measured |                       — | Unknown                               | —                                                                                                 | —                                                                          | ⬜ not investigated                                                                   |
-| Streaming / compression / error paths | —       |  not measured |                       — | Unknown                               | —                                                                                                 | —                                                                          | ⬜ not investigated                                                                   |
+| Workload                              | Runtime | CPU/req (now) |                 vs Hono | Quality                               | Major remaining costs                                                                                                       | Constraints                                                                | Status                                                                                |
+| ------------------------------------- | ------- | ------------: | ----------------------: | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Minimal GET                           | Deno    |      11.10 µs |      1.21× (2026-10-21) | Good — was 1.51× at HEAD              | context construction, dispatch scaffolding, Deno's native header handling                                                   | Deno's `Response` fast path needs an exact media type                      | ✅ improved this cycle (§10)                                                          |
+| Minimal GET                           | Bun     |      11.58 µs |               **1.10×** | Good — was 1.16×                      | context construction, dispatch scaffolding                                                                                  | Bun's `Headers` is cheap, so this class of work barely exists there        | ✅ improved this cycle (§10)                                                          |
+| Minimal GET                           | Node    |      23.83 µs | not measured this cycle | Fair                                  | Node's own HTTP + `writeHead` path dominates; the sync fast path cannot apply (callback runner)                             | Node is not the campaign's target runtime                                  | ⬜ unchanged — no regression                                                          |
+| JSON POST (1 KB)                      | Deno    |      34.08 µs |      1.54× (2026-10-21) | Weak                                  | body reading dominates; the response path is no longer the bottleneck                                                       | body-read parity across runtimes                                           | ⬜ open — the next target                                                             |
+| JSON POST (1 KB)                      | Bun     |  **26.47 µs** |  **1.23×** (2026-10-23) | Weak — still the largest measured gap | body reading through `bodyParser`; the settle window is now skipped for body-bearing requests, the remainder is parser work | body-read parity across runtimes                                           | 🔶 partly improved this cycle (§11)                                                   |
+| JSON POST (1 KB)                      | Node    |      40.12 µs | not measured this cycle | Fair                                  | body reading                                                                                                                | —                                                                          | ⬜ unchanged — −3.0 % (3/3) from the shared resolved dispatch                         |
+| Static GET                            | Node    |     126.04 µs |                       — | Poor — 2.7× a `readFile`+`send` floor | `lstat` for symlink policy, `open`/`read`/`close`, one extra read inside `readFile`                                         | `serveStatic` is Node-only, so there is no cross-runtime parity to protect | ⚠️ measured — was 143.59 µs, now −13.6 %; range/large-file streams still drop headers |
+| Dynamic-route GET                     | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
+| GET with middleware                   | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
+| Raw-body POST                         | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
+| Extra headers / multiple `Set-Cookie` | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
+| Streaming / compression / error paths | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
 
 The unmeasured rows are **unknown, not good**. The mission's workload matrix names them; the
 campaign has not yet produced numbers for them, and this report does not pretend otherwise.
+
+The Bun POST row was refreshed in §11's window. Its `CPU/req` is not comparable to the §10 rows
+measured in a different window — only its same-run ratio to Hono is.
 
 The rows refreshed on 2026-10-23 come from §10. Every ratio in the `vs Hono` column is computed
 from two arms measured **minutes apart on the same box in the same session**, never across
@@ -76,7 +79,7 @@ Hono arm was measured in that run; where it was not, the ratio cell carries its 
 | 7   | `pairs` response construction (`[['content-type', v]]`)              | The archived spike's best Bun allocation shape (−10.9 B)                                                                                                         | Not a plain object, so it cannot enter Deno's fast path; Node's worst `default` shape (+127 B)                                                                                                                                                                                                                                                                                                  | ❌ **rejected**                                                                   |
 | 8   | Runtime-branching construction                                       | Each runtime takes its cheapest shape                                                                                                                            | Forbidden by AGENTS.md §4                                                                                                                                                                                                                                                                                                                                                                       | ❌ **rejected**                                                                   |
 | 9   | Fixed-key JSON serializer                                            | `JSON.stringify` is 88 % of the large-response profile                                                                                                           | Byte-identical prototype measured **4.4× slower** (RFC-042)                                                                                                                                                                                                                                                                                                                                     | ❌ **rejected**                                                                   |
-| 10  | POST body read on Bun and Deno                                       | Body reading dominates the POST path (Bun **1.31×** Hono, Deno 1.54× Hono); §10's dispatch win cannot apply because `bodyParser` makes the chain genuinely async | Not yet investigated against the current code                                                                                                                                                                                                                                                                                                                                                   | ⬜ **open — next**                                                                |
+| 10  | POST body read on Bun and Deno                                       | Body reading dominates the POST path (Bun **1.31×** Hono, Deno 1.54× Hono); §10's dispatch win cannot apply because `bodyParser` makes the chain genuinely async | Timeout settle window removed for body-bearing requests: Bun POST **−2.7 % paired CPU (4/5)**, level medians 28.08 → 26.47 µs; ratio **1.31× → 1.23×**. The whole race is now at most ~1.8 µs of a ~26 µs request, so the remainder is parser work                                                                                                                                              | 🔶 **partly landed (§11)** — parser work is the remainder                         |
 | 11  | Context construction (`WebContextBase`)                              | 0.479 µs/req self time in the Deno profile                                                                                                                       | Partly addressed by #3; the rest is method normalisation, target derivation, query parse, body-source selection                                                                                                                                                                                                                                                                                 | ⬜ **open**                                                                       |
 | 12  | `requestTargetFromUrl` (0.235 µs/req)                                | Manual `charCodeAt` scan of the URL                                                                                                                              | The native alternative has a semantic defect (#6); the scan itself is a correctness-preserving cost                                                                                                                                                                                                                                                                                             | ⬜ **open — needs a different idea**                                              |
 | 13  | Dispatch/timeout micro-task turns                                    | `dispatchWithTimeout` 0.146 µs/req self                                                                                                                          | Partly addressed by RFC-045's bounded timeout dispatch                                                                                                                                                                                                                                                                                                                                          | ⬜ **open**                                                                       |
@@ -475,3 +478,72 @@ Raw output for every row above is written to `report/performance/raw/` (gitignor
   fast path by existing.** The two are coupled: any design for POST must decide whether the body read
   composes as application middleware (blocking the fast path) or becomes a per-route concern that
   can settle synchronously. That is a design question, not a trim — candidate #10.
+
+## 11. Update — 2026-10-23: the POST settle window (candidate #10, part 1)
+
+Detailed measurement record: [`post-body-settle-window.md`](post-body-settle-window.md). This section
+is the scoreboard's summary.
+
+### 11.1 What changed and why the old decision expired
+
+The Web runner gave every dispatch four microtask turns before arming its deadline. That window was
+measured when each request armed its own timer; F-02 and RFC 045 therefore said not to tune it. The
+shared scheduler (`53e2529b`, later the same day) made register + cancel ~0.2–0.3 µs, while four
+turns cost ~1.5 µs of Bun POST CPU — and a request that declares a body waits on I/O (a macrotask),
+so the turns could never let it settle.
+
+`WebContextBase` now exposes `bodyLength`, the `content-length` its body source already parses, and
+`settleTurnsFor()` returns zero turns for a declared, non-empty body. Bodyless methods,
+`content-length: 0`, and chunked bodies keep `SETTLE_TURNS`; `timeout: 0` still disables the race;
+the Node adapter is untouched. `request.body` was rejected as the signal: touching it costs more
+(+0.6–0.8 µs on Bun) than the window saves.
+
+### 11.2 Measurements
+
+Bun 1.4.4, 1 KB JSON POST through `bodyParser`, three arms, 5 interleaved rounds, CPU/req from
+`/proc`, `wrk -t2 -c64`, server pinned:
+
+| Arm                     | CPU/req (median) | rps (median) | Ratio to Hono |
+| ----------------------- | ---------------: | -----------: | ------------: |
+| `settleTurnsFor` (this) |     **26.47 µs** |   **31,064** |     **1.23×** |
+| `SETTLE_TURNS = 4`      |         28.08 µs |       29,912 |         1.31× |
+| Hono 4.13.0             |         21.45 µs |       37,391 |             — |
+
+Paired per round: −14.2 %, −2.5 %, +3.9 %, −2.7 %, −6.6 % CPU → **paired median −2.7 % (4/5)**;
+paired rps median +2.3 % (4/5). An earlier same-bundle window with only the constant patched
+measured 27.05 → 25.51 µs and 30.5 → 32.5 k rps (5/5), also 1.23× Hono. Disabling the entire race
+(`timeout: 0`) is worth 26.8 → 31.1 k rps (5/5) — the upper bound, not this change.
+
+GET is unchanged by construction: `bodyLength` is 0, so the window stays. Always-arming an async GET
+was re-measured at ~0.6 µs / ~3.5 %, which is why the rule is shape-scoped rather than global.
+
+### 11.3 Verification
+
+| Gate                              | Result                                                          |
+| --------------------------------- | --------------------------------------------------------------- |
+| `@nextrush/runtime`               | 32 files, 402 tests — pass                                      |
+| Adapters bun / deno / edge / node | 129 / 123 / 134 / 301 tests — pass                              |
+| Conformance                       | 436 tests — pass                                                |
+| dev-check `probe` (real sockets)  | Bun 16/16 PASS; Node 15/15 PASS                                 |
+| Typecheck runtime + 4 adapters    | clean; conformance has a pre-existing `web-driver.ts:174` error |
+| Lint runtime                      | 0 errors; one pre-existing warning at `response-builder.ts:181` |
+
+### 11.4 Reproduction
+
+Build `serve-nextrush-post.ts` and `serve-hono-post.ts` from the working tree (and the NextRush entry
+from a `HEAD` worktree for the baseline), run each pinned with the same 1 KB POST script, and compute
+CPU/req from `/proc/<pid>/stat` ticks ÷ requests. §5 and §8 of the detailed record carry the exact
+commands.
+
+### 11.5 Findings
+
+- **F-12 — A measured decision expires when its premise changes.** F-02's prohibition was correct for
+  per-request timers and became stale when the shared scheduler changed the cost of the alternative
+  by ~10×. Re-read the premise when the infrastructure under a decision moves.
+- **F-13 — Use a signal the request path already computed.** `request.body` costs more than the
+  window saves; `content-length` was already parsed for the size guard.
+- **F-14 — Shape-scoped, not global.** A global zero-turn rule would have cost GET ~3.5 % to buy
+  POST ~3–6 %.
+- **F-15 — The remaining POST gap is body work, not timeout machinery.** At most ~1.8 µs of a
+  ~26 µs request is the race; candidate #10 continues at content-type detection, the JSON parse, and
+  the body-source read.

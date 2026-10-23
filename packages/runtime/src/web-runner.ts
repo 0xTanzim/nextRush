@@ -33,6 +33,18 @@ import { jsonErrorResponse } from './response-builder';
 export interface WebRunnerContext extends FetchContext {
   /** Cancel the in-flight request cooperatively (called when the race times out). */
   triggerTimeout(reason?: unknown): void;
+
+  /**
+   * The request's declared body length in bytes, when the adapter knows it.
+   *
+   * @remarks
+   * Read from the `content-length` the body source already parsed; absent when
+   * the length is unknown (a chunked body) or the adapter does not report it.
+   * The runner uses it only to choose the settle window: a request with a
+   * declared, non-empty body arms its deadline immediately, because the body
+   * read is a macrotask and no microtask window can avoid the deadline.
+   */
+  readonly bodyLength?: number;
 }
 
 /**
@@ -102,15 +114,40 @@ type Dispatch = Promise<void>;
  * Microtask turns an already-resolving chain needs before it counts as unsettled.
  *
  * @remarks
- * Arming a timer is not free, and most handlers settle within a handful of
- * microtasks, so the race gives the dispatch a bounded number of turns first.
- * The bound is a trade: too low and a fast handler still pays for a timer, too
- * high and a genuinely stuck handler waits that many microtasks (nanoseconds)
- * before its timeout starts counting.
+ * Arming a timer is not free, and a bodyless handler can settle within a handful
+ * of microtasks, so the race gives such a dispatch a bounded number of turns
+ * before registering a deadline. The bound is a trade: too low and a fast
+ * handler still pays for a registration, too high and a genuinely stuck handler
+ * waits that many microtasks (nanoseconds) before its timeout starts counting.
  *
  * @internal Shared with the Node adapter so both timeout races use one bound.
  */
 export const SETTLE_TURNS = 4;
+
+/**
+ * Microtask turns a dispatch gets before its deadline is armed.
+ *
+ * @remarks
+ * A dispatch whose request carries a body cannot settle inside a microtask
+ * window: the body read waits on I/O, which is a macrotask on every supported
+ * runtime. The window only adds turns to such a request (measured on Bun: four
+ * turns cost ~1.5 µs of server CPU per POST on the wire), so the deadline is
+ * registered immediately (measured: ~0.26 µs for register + cancel).
+ *
+ * A request with no known body can settle inside the window, and there the
+ * window still saves it a registration (the "quick dispatch arms no timer"
+ * contract). So the window is applied per shape, not removed. The signal is the
+ * `content-length` the context's body source has already parsed: asking
+ * `request.body` here would initialise the stream and cost ~0.8 µs on Bun
+ * before the body is read, more than the window saves. A body with no declared
+ * length (chunked) keeps the window, the conservative choice.
+ *
+ * The Node adapter keeps the window for every request: its deadlines are
+ * per-request timers, so arming is the expensive outcome it must avoid.
+ */
+export function settleTurnsFor(hasBody: boolean): number {
+  return hasBody ? 0 : SETTLE_TURNS;
+}
 
 /**
  * Whether a context has already committed its response.
@@ -141,7 +178,8 @@ async function dispatchWithTimeout(
   dispatch: Dispatch,
   timeoutMs: number,
   onTimeout: () => void,
-  deadlines: DeadlineScheduler
+  deadlines: DeadlineScheduler,
+  settleTurns: number
 ): Promise<boolean> {
   // A holder, not a bare `let`: the settlement is observed from a callback, and a
   // flat variable would be narrowed to its initial value by control-flow analysis
@@ -171,7 +209,7 @@ async function dispatchWithTimeout(
     }
   );
 
-  for (let turn = 0; turn < SETTLE_TURNS && !outcome.done; turn += 1) {
+  for (let turn = 0; turn < settleTurns && !outcome.done; turn += 1) {
     await Promise.resolve();
   }
 
@@ -281,15 +319,16 @@ export function createWebRunner<TCtx extends WebRunnerContext, TExtra = undefine
         // committed its response. Commitment is not settlement: a handler can
         // publish its response and then keep running (a post-`next()` middleware,
         // or a body that never closes), and awaiting that chain without a bound
-        // holds the connection open for the lifetime of the server. The turn
-        // window still lets a chain that settles quickly avoid arming a timer.
+        // holds the connection open for the lifetime of the server. The settle
+        // window is shape-dependent (see `settleTurnsFor`).
         const timedOut = await dispatchWithTimeout(
           dispatch,
           options.timeout,
           () => {
             ctx.triggerTimeout();
           },
-          deadlines
+          deadlines,
+          settleTurnsFor((ctx.bodyLength ?? 0) > 0)
         );
 
         if (timedOut) {

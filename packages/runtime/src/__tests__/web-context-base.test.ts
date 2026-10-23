@@ -127,6 +127,19 @@ describe('WebContextBase — construction', () => {
     await expect(ctx.bodySource.text()).resolves.toBe('hello');
   });
 
+  it('reports the declared body length for a body-bearing request', () => {
+    // A runtime delivers the header; a client-side `Request` does not synthesize it.
+    const ctx = makeContext({ method: 'POST', headers: { 'content-length': '5' }, body: 'hello' });
+    expect(ctx.bodyLength).toBe(5);
+  });
+
+  it('reports no body length for a bodyless method or an undeclared body', () => {
+    expect(makeContext({ method: 'GET' }).bodyLength).toBe(0);
+
+    const undeclared = new TestContext(new Request('http://localhost/', { method: 'POST' }));
+    expect(undeclared.bodyLength).toBeUndefined();
+  });
+
   it('defaults params to the shared frozen empty object and status to 200', () => {
     const ctx = makeContext();
     expect(ctx.params).toEqual({});

@@ -109,8 +109,17 @@ export abstract class WebContextBase implements FetchContext {
   declare readonly query: QueryParams;
   declare readonly runtime: Runtime;
   declare readonly bodySource: BodySource;
-
-
+  /**
+   * The request's declared body length, read from the body source's parsed
+   * `content-length`; `undefined` when the length is unknown (chunked).
+   *
+   * @remarks
+   * Exposed for the runner's settle-window decision: a non-empty declared body
+   * means the dispatch waits on a body read (a macrotask), so the deadline can
+   * be armed immediately. Reading `request.body` for the same answer would
+   * initialise the body stream and cost ~0.8 µs on Bun before the read.
+   */
+  declare readonly bodyLength: number | undefined;
 
   /**
    * The lazily resolved request inputs (headers and client address).
@@ -193,9 +202,11 @@ export abstract class WebContextBase implements FetchContext {
     this.query = parseQueryString(target.search.slice(1));
 
     // Create body source
-    this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
+    const bodySource = METHODS_WITHOUT_BODY.has(this.method)
       ? createEmptyBodySource()
       : new WebBodySource(request);
+    this.bodySource = bodySource;
+    this.bodyLength = bodySource.contentLength;
 
     this._response = new WebResponseBuilder(this.method);
   }

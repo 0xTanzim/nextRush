@@ -21,10 +21,15 @@ import { WebResponseBuilder } from '../response-builder';
 class ContractContext {
   readonly method = 'POST' as const;
   readonly path = '/';
+  readonly bodyLength?: number;
   status = 200;
   timeoutTriggered = 0;
   body: unknown;
   private readonly builder = new WebResponseBuilder('POST');
+
+  constructor(bodyLength?: number) {
+    this.bodyLength = bodyLength;
+  }
 
   get responded(): boolean {
     return this.builder.responded;
@@ -81,14 +86,15 @@ function delay(ms: number): Promise<void> {
 
 function runWith(
   dispatch: (ctx: Ctx) => Promise<void>,
-  timeout: number
+  timeout: number,
+  bodyLength?: number
 ): { run: () => Promise<Response>; contexts: Ctx[] } {
   const contexts: Ctx[] = [];
   const run = createWebRunner<Ctx, undefined>(new ContractApp(dispatch) as never, {
     label: 'test',
     timeout,
     makeContext: () => {
-      const ctx = new ContractContext() as unknown as Ctx;
+      const ctx = new ContractContext(bodyLength) as unknown as Ctx;
       contexts.push(ctx);
       return ctx;
     },
@@ -231,5 +237,68 @@ describe('timeout contract — committed response vs settled dispatch', () => {
     }
 
     expect(armed).toBe(0);
+  });
+
+  it('arms the deadline at once for a dispatch that carries a body', async () => {
+    // A body read waits on I/O, so no microtask window can keep this dispatch
+    // off the deadline path: the deadline is registered before the first turn.
+    const { run } = runWith(
+      async (ctx) => {
+        ctx.json({ ok: true });
+      },
+      50,
+      1024
+    );
+
+    const realSetTimeout = globalThis.setTimeout;
+    let armed = 0;
+    globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+      armed += 1;
+      return realSetTimeout(...args);
+    }) as typeof setTimeout;
+
+    try {
+      const response = await run();
+      expect(response.status).toBe(200);
+    } finally {
+      globalThis.setTimeout = realSetTimeout;
+    }
+
+    expect(armed).toBe(1);
+  });
+
+  it('keeps the turn window for a declared empty body', async () => {
+    const { run } = runWith(
+      async (ctx) => {
+        ctx.json({ ok: true });
+      },
+      50,
+      0
+    );
+
+    const realSetTimeout = globalThis.setTimeout;
+    let armed = 0;
+    globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+      armed += 1;
+      return realSetTimeout(...args);
+    }) as typeof setTimeout;
+
+    try {
+      const response = await run();
+      expect(response.status).toBe(200);
+    } finally {
+      globalThis.setTimeout = realSetTimeout;
+    }
+
+    expect(armed).toBe(0);
+  });
+
+  it('answers 504 for a body-bearing dispatch that never settles', async () => {
+    const { run, contexts } = runWith(() => never(), 5, 1024);
+
+    const response = await run();
+
+    expect(response.status).toBe(504);
+    expect(contexts[0]?.timeoutTriggered).toBe(1);
   });
 });

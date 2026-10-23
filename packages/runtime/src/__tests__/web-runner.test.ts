@@ -11,7 +11,12 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@nextrush/types';
-import { createWebRunner, SETTLE_TURNS, type WebRunnerContext } from '../web-runner';
+import {
+  createWebRunner,
+  SETTLE_TURNS,
+  settleTurnsFor,
+  type WebRunnerContext,
+} from '../web-runner';
 import type { WebRunnerApp } from '../web-runner';
 import { WebResponseBuilder } from '../response-builder';
 
@@ -143,6 +148,13 @@ function runnerFor(
 describe('SETTLE_TURNS', () => {
   it('is the one shared settle-turn bound', () => {
     expect(SETTLE_TURNS).toBe(4);
+  });
+
+  it('skips the window for a dispatch that carries a body', () => {
+    // A body read is a macrotask, so the window cannot keep it off the deadline
+    // path; it only adds turns. A bodyless dispatch keeps the window.
+    expect(settleTurnsFor(true)).toBe(0);
+    expect(settleTurnsFor(false)).toBe(SETTLE_TURNS);
   });
 });
 
