@@ -91,6 +91,8 @@ Hono arm was measured in that run; where it was not, the ratio cell carries its 
 | 18  | Static: range/large-file streams still drop recorded headers         | `streamToResponse()` pipes to `ctx.raw.res`, bypassing the record                                                                                                | Observed: a `206` carries no `Content-Type`/`ETag`. Needs an adapter "flush head, then stream" hook — a public-surface decision                                                                                                                                                                                                                                                                 | ⬜ **open — blocked on an API decision**                                          |
 | 19  | Node: single-chunk body returned without `Buffer.concat` | Node's HTTP parser allocates each `data` chunk in its own exactly-sized backing buffer, so retaining a lone chunk pins no pool slab — the concat copy is unnecessary work | 16 KB POST **−5.2 %** (53.47 → 50.59 µs, 6/7); 1 KB −1.9 % (16/21, p ≈ 0.013); 64 KB neutral (4/5, two chunks fall back). SHA-256 identical at 1/16/64 KB and for a chunked split | ✅ **implemented, verified** (`442fc40f`, §18) |
 | 20  | Node: `ctx.signal` must not abort on normal completion | `res` emits `'close'` after `'finish'` and a completed `req` is still destroyed, so the old wiring aborted *every* completed request and forced the stream teardown path | 1-chunk stream **−21.9 %** (39.55 → 31.17 µs, 7/7); 16-chunk **−14.7 %** (7/7); null control +2.4 %. Half-variants recover only −0.3 % and −1.2 % — both guards are load-bearing | ✅ **implemented, verified** (`d170a145`, §18) — observable: post-completion `ctx.signal.aborted` is now `false` |
+| 21  | Node: hand-rolled byte queue instead of the Web `ReadableStream` hop        | The eager pump has exactly one consumer, so `node:internal/webstreams` may be pure overhead                     | Measured **slower**: +11.41 % stream1 (0/5 pairs) and +3.37 % stream16 (1/5) in a same-process four-arm run whose own null band is 1.53 %; cycles/op moved the same way                                                                                       | ❌ **rejected** — the stream premium is not this layer, so the RFC-gated `packages/stream` rewrite has no evidence behind it |
+| 22  | Node: flush the last chunk through `res.end(chunk)`                        | One fewer outgoing write per streamed response                                                                   | −4.60 % (5/5) on a 1-chunk stream, +0.72 % (2/5) on 16 chunks; 12/12 byte-identical bodies and every abort gate green                                                                                                                                            | ❌ **rejected on contract** — the last chunk waits for a next chunk, so an open stream (SSE/ndjson) lags by one event and a single-event stream never delivers |
 
 ## 4. Cross-runtime status of the completed cycle
 
@@ -1361,3 +1363,84 @@ the standing requirement whenever shared code moves.
 **Recorded, not fixed.** oxlint still fails on `adapters/node/src/body-source.ts:187`
 (`req.readableAborted === true`, pre-existing — the line number moved with the new function), and
 `runtime/src/web-runner.ts:145-146` still claims Node arms a deadline only after a microtask window.
+
+## 19. Update — 2026-10-24: what the remaining stream premium is not
+
+§18 shipped the normal-completion abort and left a ~13 µs stream premium over a raw `res.write`
+floor — measured same-process: 1-chunk 39.75 → 26.67 µs CPU/op (**−28.1 %**, 6/6) and 16-chunk
+60.30 → 40.21 (**−33.6 %**, 6/6). Two ceiling variants were built to find out which layer owns that
+premium. Both were proven behaviourally identical to control before any timing run.
+
+**Parity gate.** Each arm served a 12-path stream matrix (1 × 11 B, 1 × 0 B, 8 × 64 B, 64 × 1 KiB,
+200 × 8 KiB, 3 × 128 KiB, SSE-shaped, NDJSON-shaped, `/empty`, `/sse`, `/ndjson`, 3 × 32 B) with
+SHA-256-identical bodies and identical status, `Content-Type` and chunked framing, and passed all
+five semantic gates: throw-before-first-chunk → `500`; normal completion leaves `ctx.signal`
+un-aborted (the shipped `d170a145` semantics); mid-stream disconnect aborts and rejects the parked
+write with `StreamAbortedError`; a parked write with the reader stopped rejects instead of hanging.
+Raw: `/tmp/nextrush-performance/c16/H-final/logs/verify-{ctl,flush,direct}.json`.
+
+**Harness.** `/tmp/nextrush-performance/c16/H-final/alt2.mjs` — one server process hosting four arms
+on four ports, pinned to core 6, `wrk -t2 -c64` on cores 4/5, 3 s warm per arm per workload × 2
+passes, then 5 rounds of ABBA bursts (5 s each). CPU is that process's cumulative
+`process.cpuUsage()` read over a control socket and divided by wrk's request count — 1 µs
+resolution, four orders finer than `/proc/<pid>/stat` ticks — with a 20 ms cpufreq sampler so
+cycles/op is reported next to µs/op. Same-process is required at this scale: two processes running
+byte-identical bundles differed by 0.6–5.6 % on this box, which is larger than the effects being
+chased. Absolute µs/op still drifted 31 → 47 µs across rounds with clock and temperature (cycles/op
+tracked it, 126 k → 167 k), so only the within-round paired delta reads.
+
+| Arm                                                 | stream1 µs/op | vs ctl                            | stream16 µs/op | vs ctl                       |
+| --------------------------------------------------- | ------------- | --------------------------------- | -------------- | ---------------------------- |
+| `ctl` — `e90f1f87`                                  | 43.04         | —                                 | 54.85          | —                            |
+| `null` — identical build, second bundle             | 43.12         | −0.68 µs / −1.53 % (sd 1.82, 3/5) | 54.76          | −0.09 µs / −0.16 % (sd 3.20) |
+| `flushend` — last chunk via `res.end(chunk)`        | 41.06         | **−1.98 µs / −4.60 % (5/5)**      | 55.25          | +0.39 µs / +0.72 % (2/5)     |
+| `direct` — `ByteQueue` for the Web `ReadableStream` | 48.60         | **+3.61 µs / +11.41 % (0/5)**     | 56.70          | +1.85 µs / +3.37 % (1/5)     |
+
+Raw rows and machine-readable summary: `logs/alt2-stream1+stream16-fourarm-*.json`,
+`logs/freq-*.txt`, `logs/fourarm.log`.
+
+**Rejected — `direct`, on measurement.** Replacing `new ReadableStream(...)` in
+`packages/stream/src/run.ts` with a hand-rolled single-consumer queue — same algorithm, same
+one-chunk high-water mark, same lockstep pull, same cancel-releases-a-parked-producer path, and the
+identical adapter pump, since `sendStream()` only ever calls `getReader()` — costs **3.61 µs** on a
+1-chunk response and **1.85 µs** on a 16-chunk one, inside a run whose own null arm differs by
+0.68 µs. Node's internal web-streams implementation is cheaper than a faithful user-land equivalent,
+so the Web-stream detour is **not** where the stream premium lives. That closes the only candidate
+that would have justified an RFC-gated rewrite of shared, cross-runtime stream code.
+
+**Rejected — `flushend`, on contract (the number is real, the win is unbuyable).** Ending the
+response with the last chunk instead of `write(chunk)` + `end()` measures −4.60 % (5/5) on 1-chunk —
+exactly the shape where one of the two writes is the entire response — and nothing on 16 chunks.
+It cannot ship at any price: the pump cannot know which chunk is last, so every chunk waits for its
+successor. A stream that stays open (SSE, NDJSON, live progress) would deliver each event one event
+late, and a single-event stream would never deliver at all. Recorded so the next reader does not
+re-derive the defect from a tempting two-write-saves-one syscall story.
+
+**Rejected — the drain-queue ceiling variant** (earlier window, restart-paired `ab.mjs`, 7 pairs):
+**+8.83 %** on stream1 (0/7) and **+0.33 %** on stream16 (3/7) — slower, not closer to the floor.
+The patch itself is gone; the JSON survives at `H-residual/logs/res-stream1-ceiling-queue-*`. The
+`sink` variant turned out to be a no-op build — its bundle was byte-identical to control — so it
+never measured anything and is not a data point.
+
+**Where the premium is, then.** Not in one removable layer. ~2 µs of it is the second write per
+response, reachable only by breaking streaming latency; none of it is the Web-stream machinery; the
+remainder spreads across the per-chunk pump await, the recorded-header/`Response` path and the
+request lifecycle, each individually below what this harness resolves. The one-write shape flushend
+was chasing already exists for anything whose body is known before the head goes out: the buffered
+commit is `writeHead` + `res.end(body)` (`adapters/node/src/context.ts:486`), so an application that
+has its payload should return it rather than stream it. The honest reading of the
+campaign's streaming line is that ~13 µs (1-chunk) and ~20 µs (16-chunk) of server CPU/op is the
+price of the architecture that provides backpressure, cancellation, the F-01 parked-write rejection,
+error-before-headers `500`, and portability across five runtimes. A raw `res.write` loop has none of
+those, which is why its floor is not a target.
+
+**Closed — the ~3 µs connection residual.** §18 left it unattributed. The profile that would
+attribute it is dominated by Node's own `writeUtf8String` (23.2 %) and `flushResponse` (30 %
+inclusive), and the one framework-side candidate that was priced (`ctx.ip`) is rejected on its
+documented guarantee. Recorded as _not ours to take_, with the caveat that it was never attributed
+by removal — reopening it needs a variant, not another profile.
+
+**Verification state.** Nothing shipped from this section: the tree stays at `e90f1f87` and the
+variant sources live only in the `/tmp` worktrees named above. The two recorded-not-fixed items from
+§18 (oxlint `adapters/node/src/body-source.ts:187`, and `runtime/src/web-runner.ts:145-146` claiming
+a deadline window Node does not have) are unchanged.
