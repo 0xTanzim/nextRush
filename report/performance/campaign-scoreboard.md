@@ -1399,6 +1399,18 @@ tracked it, 126 k → 167 k), so only the within-round paired delta reads.
 Raw rows and machine-readable summary: `logs/alt2-stream1+stream16-fourarm-*.json`,
 `logs/freq-*.txt`, `logs/fourarm.log`.
 
+**Second harness, same verdict.** The pricing was repeated restart-paired and separate-process —
+`ab.mjs` with server CPU from `/proc/<pid>/stat` divided by wrk's request count, order-flipped, 5
+pairs, arm bundles booted through `launch.mjs` because they export `start(port)` rather than
+listening at import. Its null arm — a second byte-identical build of the same source — measured
+**+8.10 %** (min +0.54, max +14.66, 0/5 favour B), so in this window the restart-paired harness
+resolves nothing below ~10 %, which is exactly the confound the same-process design removes. Within
+it `direct` came out +13.68 % (0/5) on 1 chunk and +2.07 % (2/5) on 16 — same direction, no win —
+and `flushend` −3.76 % (4/5) on 1 chunk. Two independent same-process sessions priced flushend
+(−5.72 %, 6/6 and −4.60 %, 5/5), which is why its number is recorded as real even though the
+contract rules it out; the restart-paired rows are at
+`logs/res-stream1{6}-sp-{null,direct,flush,direct16}-*.json`.
+
 **Rejected — `direct`, on measurement.** Replacing `new ReadableStream(...)` in
 `packages/stream/src/run.ts` with a hand-rolled single-consumer queue — same algorithm, same
 one-chunk high-water mark, same lockstep pull, same cancel-releases-a-parked-producer path, and the
