@@ -641,13 +641,18 @@ export class NodeContext implements AdapterContext {
       const abort = (): void => {
         if (!controller.signal.aborted) controller.abort();
       };
-      this._res.on('close', abort);
-      // F-10: `req 'aborted'` is deprecated (Node 16+) in favor of `req 'close'`
-      // combined with `req.destroyed`/`req.aborted` state — a request stream
-      // that closes without having fully completed is the client-disconnect
-      // signal `'aborted'` used to carry, without relying on the deprecated event.
+      // A normal response also emits 'close' after 'finish'. Only a premature
+      // close means the client is gone; aborting a completed request makes the
+      // signal lie and forces the stream teardown path on every normal stream.
+      this._res.on('close', () => {
+        if (!this._res.writableFinished) abort();
+      });
+      // F-10: `req 'aborted'` is deprecated (Node 16+). A request stream that
+      // closes before completing is the client-disconnect signal it replaced.
+      // `req.destroyed` alone cannot stand in for that: a fully received
+      // request is also destroyed when a normal connection tears down.
       this._req.on('close', () => {
-        if (this._req.destroyed || !this._req.complete) abort();
+        if (!this._req.complete) abort();
       });
     }
     return this._abortController.signal;

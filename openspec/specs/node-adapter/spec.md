@@ -663,8 +663,15 @@ MUST NOT rely on the deprecated `req 'aborted'` event.
 
 #### Scenario: Disconnect detection uses a non-deprecated mechanism
 - **WHEN** the adapter wires client-disconnect detection for `ctx.signal` and body reads
-- **THEN** it uses `req`/`res` `'close'` (with the destroyed/aborted checks) rather than the
-  deprecated `req 'aborted'` event
+- **THEN** it uses `req`/`res` `'close'` guarded by premature-close state (`res` `'close'` without
+  `writableFinished`, `req` `'close'` without `complete`) rather than the deprecated `req 'aborted'`
+  event
+
+#### Scenario: A normally completed request leaves ctx.signal un-aborted
+- **WHEN** a response or stream finishes normally and `req`/`res` emit their post-completion `'close'`
+- **THEN** `ctx.signal.aborted` stays `false` — the signal reports client abandonment, not request
+  completion, matching the Bun/Deno/Edge adapters whose Web request signals abort only on a real
+  disconnect
 
 ### Requirement: Node adapter supports TLS and negotiated HTTP/2
 `@nextrush/adapter-node`'s `ServeOptions` SHALL include an optional `tls: { cert: string | Buffer; key: string | Buffer; ca?: string | Buffer }` field, matching the shape already shipped in `@nextrush/adapter-bun`. When `tls` is present, `serve()` SHALL construct a `node:http2` secure server with ALPN negotiation, falling back to HTTP/1.1 for clients that do not negotiate `h2`. When `tls` is absent, `serve()` SHALL behave exactly as before this change (plain `node:http`, HTTP/1.1 only). The canonical host-binding field remains `host`; this requirement MUST NOT introduce a `hostname` field.

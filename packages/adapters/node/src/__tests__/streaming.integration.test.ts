@@ -130,6 +130,30 @@ describe('Node streaming integration', () => {
     expect(observedAbort).toBe(true);
   });
 
+  it('does not abort ctx.signal when the stream completes normally', async () => {
+    let aborted = false;
+    let handlerFinished = false;
+
+    await serve(async (ctx) => {
+      ctx.signal.addEventListener('abort', () => {
+        aborted = true;
+      });
+      await ctx.stream(async (writer) => {
+        await writer.write('complete');
+      });
+      handlerFinished = true;
+    });
+
+    const res = await fetch(baseUrl);
+    expect(await res.text()).toBe('complete');
+
+    // `res` emits 'close' after a normal finish; the client is not gone, so the
+    // request signal must stay un-aborted. Give the close event time to fire.
+    await new Promise((r) => setTimeout(r, 100));
+    expect(handlerFinished).toBe(true);
+    expect(aborted).toBe(false);
+  });
+
   describe('backpressured disconnect (F-01)', () => {
     /**
      * Opens a raw TCP socket to the running server, sends a minimal HTTP/1.1
