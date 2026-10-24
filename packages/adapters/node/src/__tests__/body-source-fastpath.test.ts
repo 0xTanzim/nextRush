@@ -156,6 +156,27 @@ describe('NodeBodySource.buffer() — behavior matrix (§2)', () => {
     expect(req.listenerCount('data')).toBe(0);
   });
 
+  it('2.4c single exact-size chunk → returned without a copy', async () => {
+    const chunk = Buffer.alloc(16 * 1024, 0x61);
+    const source = new NodeBodySource(makeReq([chunk]));
+    const buf = await source.buffer();
+    // Node's HTTP parser hands each `data` chunk its own exact-size backing
+    // buffer, so retaining it pins no pool slab — no copy is needed.
+    expect(buf).toBe(chunk);
+  });
+
+  it('2.4d single pooled slice → copied, so no oversized backing buffer is retained', async () => {
+    const backing = Buffer.alloc(64, 0x62);
+    backing.write('slice', 8);
+    const cases = [backing.subarray(0, 5), backing.subarray(8, 13)];
+    for (const slice of cases) {
+      const source = new NodeBodySource(makeReq([slice]));
+      const buf = await source.buffer();
+      expect(buf).not.toBe(slice);
+      expect(Buffer.from(buf).toString('utf8')).toBe(slice.toString('utf8'));
+    }
+  });
+
   it('2.5 all chunk types (Buffer/string/Uint8Array/ArrayBuffer) concatenate correctly', async () => {
     const ab = new ArrayBuffer(2);
     new Uint8Array(ab).set([0x21, 0x21]); // "!!"

@@ -17,6 +17,25 @@ import { Readable, Transform } from 'node:stream';
  */
 const DEFAULT_BODY_LIMIT = 1024 * 1024;
 
+/**
+ * Collapse collected chunks without copying a single exact-size chunk.
+ *
+ * @remarks
+ * Node's HTTP parser allocates each `data` chunk in its own exactly-sized
+ * backing buffer, so retaining that chunk pins no pool slab. A view into a
+ * larger buffer is still concatenated: returning it would retain the whole
+ * backing allocation for the lifetime of the request.
+ */
+function collectBody(chunks: Buffer[]): Buffer {
+  if (chunks.length === 1) {
+    const only = chunks[0];
+    if (only?.byteOffset === 0 && only.buffer.byteLength === only.byteLength) {
+      return only;
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
 function chunkToBuffer(raw: unknown): Buffer {
   if (Buffer.isBuffer(raw)) {
     return raw;
@@ -231,7 +250,7 @@ export class NodeBodySource implements BodySource {
       };
 
       const onEnd = (): void => {
-        settleResolve(Buffer.concat(chunks));
+        settleResolve(collectBody(chunks));
       };
 
       const onError = (err: Error): void => {
