@@ -4,7 +4,7 @@
 | --------------- | -------------------------------------------------------------------------- |
 | **Report type** | `Performance`                                                              |
 | **Scope**       | The NextRush request-path cost campaign: every workload, every runtime     |
-| **Date**        | `2026-10-23`                                                               |
+| **Date**        | `2026-10-24`                                                               |
 | **Machine**     | Intel Core i5-8300H, 4C/8T, **shared**. SMT siblings 0↔4, 1↔5, 2↔6, 3↔7    |
 | **Runtimes**    | Bun 1.4.4 · Node v26.12.0 · Deno 2.9.7 · Hono 4.13.0 (comparison baseline) |
 | **Status**      | `Live` — updated as each cycle lands                                       |
@@ -46,13 +46,14 @@ workload on the same runtime, measured in the same session — the campaign's co
 | Minimal GET                           | Node    |      23.83 µs | not measured this cycle | Fair                                  | Node's own HTTP + `writeHead` path dominates; the sync fast path cannot apply (callback runner)                             | Node is not the campaign's target runtime                                  | ⬜ unchanged — no regression                                                          |
 | JSON POST (1 KB)                      | Deno    |      34.08 µs |      1.54× (2026-10-21) | Weak                                  | body reading dominates; the response path is no longer the bottleneck                                                       | body-read parity across runtimes                                           | ⬜ open — the next target                                                             |
 | JSON POST (1 KB)                      | Bun     |  **26.47 µs** |  **1.23×** (2026-10-23) | Weak — still the largest measured gap | body reading through `bodyParser`; the settle window is now skipped for body-bearing requests, the remainder is parser work | body-read parity across runtimes                                           | 🔶 partly improved this cycle (§11)                                                   |
-| JSON POST (1 KB)                      | Node    |      40.12 µs | not measured this cycle | Fair                                  | body reading                                                                                                                | —                                                                          | ⬜ unchanged — −3.0 % (3/3) from the shared resolved dispatch                         |
+| JSON POST (1 KB)                      | Node    |      36.80 µs | not measured this cycle | Fair                                  | body reading — `JSON.parse` 1.51 µs and the listener/promise/GC tail ≈4.4 µs remain; the single-chunk copy is gone (§18) | —                                                                          | 🔶 improved — −1.9 % (16/21 pairs, 2026-10-24 §18); 16 KB −5.2 %, 64 KB neutral       |
 | Static GET                            | Node    |     126.04 µs |                       — | Poor — 2.7× a `readFile`+`send` floor | `lstat` for symlink policy, `open`/`read`/`close`, one extra read inside `readFile`                                         | `serveStatic` is Node-only, so there is no cross-runtime parity to protect | ⚠️ measured — was 143.59 µs, now −13.6 %; range/large-file streams still drop headers |
 | Dynamic-route GET                     | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
 | GET with middleware                   | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
 | Raw-body POST                         | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
 | Extra headers / multiple `Set-Cookie` | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
-| Streaming / compression / error paths | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
+| Streaming response (1 / 16 chunks)    | Node    | 31.17 / 45.46 µs |                   — | Improved — −21.9 % / −14.7 % this cycle | the pump and per-chunk writer work; the first-chunk dispatch premium remains | Node-only change; Bun/Deno share `@nextrush/stream` but not the abort wiring | 🔶 improved this cycle (§18, 7/7 pairs each)                                          |
+| Compression / error paths             | —       |  not measured |                       — | Unknown                               | —                                                                                                                           | —                                                                          | ⬜ not investigated                                                                   |
 
 The unmeasured rows are **unknown, not good**. The mission's workload matrix names them; the
 campaign has not yet produced numbers for them, and this report does not pretend otherwise.
@@ -88,6 +89,8 @@ Hono arm was measured in that run; where it was not, the ratio cell carries its 
 | 16  | Static: `lstat` for the symlink policy → `O_NOFOLLOW`                | One syscall per request; also closes the lstat→open race                                                                                                         | ~15 µs/req in the profile (6.8 % of samples), but it changes `followSymlinks: true` to a second open and needs its own error mapping                                                                                                                                                                                                                                                            | ⬜ **open — needs a security review**                                             |
 | 17  | Static: `readFile()`'s second read to reach EOF                      | Node reads `size + 1`, then reads again for EOF                                                                                                                  | ~5 µs/req (4.6 % of samples). Fixing it means a hand-rolled exact-size read with a grow-detection fallback                                                                                                                                                                                                                                                                                      | ⬜ **open**                                                                       |
 | 18  | Static: range/large-file streams still drop recorded headers         | `streamToResponse()` pipes to `ctx.raw.res`, bypassing the record                                                                                                | Observed: a `206` carries no `Content-Type`/`ETag`. Needs an adapter "flush head, then stream" hook — a public-surface decision                                                                                                                                                                                                                                                                 | ⬜ **open — blocked on an API decision**                                          |
+| 19  | Node: single-chunk body returned without `Buffer.concat` | Node's HTTP parser allocates each `data` chunk in its own exactly-sized backing buffer, so retaining a lone chunk pins no pool slab — the concat copy is unnecessary work | 16 KB POST **−5.2 %** (53.47 → 50.59 µs, 6/7); 1 KB −1.9 % (16/21, p ≈ 0.013); 64 KB neutral (4/5, two chunks fall back). SHA-256 identical at 1/16/64 KB and for a chunked split | ✅ **implemented, verified** (`442fc40f`, §18) |
+| 20  | Node: `ctx.signal` must not abort on normal completion | `res` emits `'close'` after `'finish'` and a completed `req` is still destroyed, so the old wiring aborted *every* completed request and forced the stream teardown path | 1-chunk stream **−21.9 %** (39.55 → 31.17 µs, 7/7); 16-chunk **−14.7 %** (7/7); null control +2.4 %. Half-variants recover only −0.3 % and −1.2 % — both guards are load-bearing | ✅ **implemented, verified** (`d170a145`, §18) — observable: post-completion `ctx.signal.aborted` is now `false` |
 
 ## 4. Cross-runtime status of the completed cycle
 
@@ -1273,3 +1276,88 @@ one request per socket, per-socket memoisation cannot capture it without breakin
 **Recorded, not fixed:** oxlint fails on `adapters/node/src/body-source.ts:168`
 (pre-existing); `runtime/src/web-runner.ts:145-146` claims Node arms a deadline only after a
 microtask window, but the uncommitted branch arms it synchronously.
+
+## 18. Update — 2026-10-24: the normal-completion abort, the single-chunk body, and a corrected connection premium
+
+Harness: `/tmp/nextrush-performance/c15/G-judge/ab.mjs` — control built from a `git worktree` at
+`b9d7a022`, candidate from the working tree, both through `dev-check/lib/build.ts` source aliasing.
+Server pinned to core 6, `wrk -t2 -c64` on cores 4 and 5, 2 s warmup + 6 s measure, order-flipped
+pairs, server CPU/req from `/proc/<pid>/stat`. Null control (identical build, restart-paired) sits
+at +2.4 % (stream1), +0.4 % (post16k), +2.3 % (post1k); the per-pair noise floor is ±4–5 %, so only
+medians over ≥5 pairs resolve a 2 % difference. Raw rows: `/tmp/nextrush-performance/c15/G-judge/logs/`.
+
+**Shipped — `442fc40f` `perf(adapter-node): return a single body chunk without copying`.** Node's
+HTTP parser hands every `data` chunk in its own exactly-sized backing buffer, so a single-chunk body
+can be returned as-is: no pool slab is retained, and the `Buffer.concat` copy disappears. A view into
+a larger buffer still concatenates — returning it would retain the whole backing allocation for the
+request's lifetime. Judge-reproduced (µs CPU/req, control → candidate): 16 KB POST 53.47 → 50.59
+(**−5.2 %**, 6/7 pairs, range −6.5..+1.7); 1 KB POST 37.48 → 36.80 (−1.9 %, 16/21, sign-test
+p ≈ 0.013); 1 KB without the parser −2.1 % (5/6); 64 KB −1.3 % (4/5) — two chunks (65 436 + 100)
+and correctly neutral. Causality traced on real sockets: 34 488/34 488 requests arrive as one chunk
+at 1 KB, 26 303/26 303 at 16 KB. SHA-256 identical at 1/16/64 KB and for a chunked body split across
+three writes; 413 (>1 MB parser, 2 MB raw) and 400 invalid-JSON byte-identical; keep-alive two-POST
+isolation and pipelined GETs unaffected. No pooling: the returned buffer is exact-size.
+
+**Shipped — `d170a145` `perf(adapter-node): stop aborting the request signal on normal completion`.**
+`ctx.signal` wired `res 'close'` straight to abort and treated `req.destroyed` as a disconnect. A
+normal response also emits `'close'` after `'finish'`, and a fully received request is also destroyed
+when the connection tears down — so *every* completed request aborted its own signal. The guards now
+read premature-close state (`res` without `writableFinished`, `req` without `complete`). Judge
+reproduction (µs CPU/req): 1-chunk stream 39.55 → 31.17 (**−21.9 %**, −8.4 µs, 7/7 pairs, range
+−23.0..−20.6); 16-chunk stream 52.00 → 45.46 (**−14.7 %**, −6.5 µs, 7/7); GET JSON −0.6 % (4/6,
+inside noise — no regression). **Both clauses are load-bearing**: half-variants traced one abort per
+normal stream each and recovered only −0.3 % (res-only, 3/5) and −1.2 % (req-only, 4/5); the full
+change traces zero abort events on a completed stream. Correctness on real sockets: mid-stream
+disconnect still aborts and the parked write still rejects `StreamAbortedError`; post-body /
+before-response disconnects still abort; the F-01 backpressured settle contract is untouched.
+Observable change, pinned as a `node-adapter` spec scenario plus a minor changeset: reading
+`ctx.signal` after a normal completion now yields `aborted === false`, matching the web adapters —
+the signal reports client abandonment, not request completion.
+
+**Corrected — §17's connection premium.** §17 recorded "+9.2 µs per new connection and nothing
+measurable per kept-alive request". Re-measured against the shipped dist (server CPU/op, N = 12 000,
+interleaved pairs): churn raw 89.2 [81.7–100.4] vs NextRush 98.3 [96.3–116.7], paired median
+**+13.34 µs (5/5)**; keep-alive raw 46.7 [45.6–48.5] vs NextRush 50.6 [50.4–53.3], paired median
+**+4.79 µs (5/5, +3.54..+6.45)** — the "nothing per kept-alive" half of that claim does **not**
+reproduce. With `bodyParser()`: churn 120.4, keep-alive 61.5. The connection-specific premium is
+≈8.5 µs. The `ctx.ip` read remains the largest identified share: removing it entirely recovers
+−5.83 µs on churn (5/5) and a lazy memoised variant −5.42 (5/5) while adding +0.8 on keep-alive.
+**Lazy `ctx.ip` is rejected on the documented guarantee**, re-confirmed this cycle: the current
+adapter returns `"127.0.0.1"` from `ctx.ip` 100 ms after the response, a lazy variant returns `""`
+when the value was never read before teardown, and `_peername` is undefined on fresh sockets.
+Residual ≈3 µs of the connection premium stays unattributed — the profile is dominated by Node's own
+`writeUtf8String` (23.2 %) and `flushResponse` (30 % inclusive), not by framework code.
+
+**Not reproducible — §17's Node POST wire rows.** Under current load, the reported raw 27.67 /
+no-parser 29.00 / parser 38.50 µs measures instead as raw 30.24, no-parser 36.75, parser 48.57–53.96;
+the paired raw → parser delta is **+18.3 µs (5/5)**, not +9.5. The in-process decomposition survives:
+Node body stage 7.03 µs at 1 KB (parser 9.35, no-parser 2.33) — `JSON.parse` 1.51, decode 0.57,
+concat 0.43 (this cycle removes the concat copy at 1–16 KB single-chunk), listeners/promise/GC ≈4.4;
+16 KB stage 17.53 with parse 14.20, decode 4.73, concat 4.36; 64 KB is essentially all parse.
+
+**Rejected on measurement, not taste.** Replacing `AbortSignal.any`: micro 2.6–3.9 µs but ~0.75 µs
+on the full request path, wire unconfirmed, and the micro evidence was later invalidated — an
+orphaned runaway process had accumulated abort listeners on a single long-lived base signal, inflating
+the raw numbers; semantic risk medium. `bufferToString` in the parser reader: −0.65 µs at 16 KB,
+below wire noise, and BOM semantics differ from `TextDecoder`. Payload micro: `concat(chunks, total)`,
+preallocated write position, `Buffer.toString` vs `TextDecoder`, Bun limit-check skip, lazy body-read
+variants. Cold-start deferral beyond the shipped http2: `node:http` is ~60 % of meta import (Bun 13.5
+of 19.0 ms) and deferring it just moves the cost into `listen` (meta+listen 28.3 ms vs adapter-bun
+14.4 ms); `node:stream` and `@nextrush/stream` deferrals land inside ±1.1 ms noise; the lazy-TLS
+first-use penalty is 3.9 → 7.2 ms (Node) and 6.5 → 13.1 ms (Bun) — net positive. Guardrail gap: the
+cold-stage check measures core+router+adapter, not the meta package. Bun's 16 KB response premium
+(+80.6 µs in-process, +89.7 µs wire) is 86.3 µs of native `JSON.stringify` (78.3 % of the profile);
+a pre-serialized string costs +3.43 µs wire — not framework work. Also rejected: Bun light entry and
+`Response.json` (≤0.3 µs or RFC-gated), dropping `content-length` for byte bodies, extra IP caching,
+direct-response bypass, deferring `method.toUpperCase`/`getRuntime`/`OutgoingResponse`.
+
+**Verification state.** The F baseline at `b9d7a022` was green across the board (stream 39, runtime
+236, body-parser 315, adapter-node 310, adapter-bun 129, adapter-deno 123, in-process conformance
+756, real Bun 58 + 54 scenarios, real Deno 58 + 54). Post-change: adapter-node 313/313, conformance
+756/756, typecheck clean. Both shipped files live under `packages/adapters/node/src/` and no other
+adapter imports them, so real-runtime Bun/Deno conformance was not re-run for this change; it remains
+the standing requirement whenever shared code moves.
+
+**Recorded, not fixed.** oxlint still fails on `adapters/node/src/body-source.ts:187`
+(`req.readableAborted === true`, pre-existing — the line number moved with the new function), and
+`runtime/src/web-runner.ts:145-146` still claims Node arms a deadline only after a microtask window.

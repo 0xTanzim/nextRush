@@ -11,6 +11,10 @@ This campaign measured the workloads the scoreboard still listed as unknown,
 decomposed the Node POST path with a CPU profile, and measured cold start. One
 change was accepted; four candidates were rejected on evidence.
 
+> **Updated 2026-10-24.** Two further Node changes shipped from the follow-up cycle
+> (`442fc40f`, `d170a145`), §3's wire rows and §6's "nothing per kept-alive" claim are corrected in
+> place, and `campaign-scoreboard.md` §18 carries the reproduction numbers.
+
 ## 0. Outcome
 
 | Candidate | Verdict | Evidence |
@@ -18,9 +22,11 @@ change was accepted; four candidates were rejected on evidence.
 | Load `node:http2` on demand | **ACCEPT** — `2d9c7be9` | Bun cold import of the meta package 31.3 → 19.9 ms median (−36 %, 5/5 runs) |
 | Node: shared `DeadlineScheduler` instead of per-request `setTimeout` | **REJECT** | Timer pair costs 200 ns on Node 26 (not Deno's 2.15 µs); 0.65 % of sampled CPU |
 | Response-header materialisation (`new Headers()` + append) | **REJECT** | 5 headers cost 921 ns; the only faster shape drops duplicate/case semantics |
-| Node body-read path (listeners, `Buffer.concat`, closures) | **REJECT** | Whole body path is 4.8 % of sampled CPU; below wire-measurement noise |
+| Node body-read path (listeners, `Buffer.concat`, closures) | **REJECT** → revised 2026-10-24 | Whole body path is 4.8 % of sampled CPU and the broad rewrite stayed below measurement noise, but the narrow single-chunk case did reproduce — it shipped as `442fc40f`, see below |
+| Node: skip the request-signal abort on normal completion | **ACCEPT** — `d170a145` | 1-chunk stream 39.55 → 31.17 µs CPU/req (−21.9 %, 7/7 pairs); 16-chunk 52.00 → 45.46 µs (−14.7 %, 7/7); null control +2.4 % |
+| Node: return a single-chunk body without `Buffer.concat` | **ACCEPT** — `442fc40f` | 16 KB POST 53.47 → 50.59 µs (−5.2 %, 6/7); 1 KB −1.9 % (16/21, p ≈ 0.013); 64 KB neutral as predicted |
 | Hoist per-request stream runners; drop Deno's eager IP closure | **REJECT** | 1–2 allocations per request; sub-0.5 %, not measurable here |
-| Memoise `ctx.ip` per socket | **REJECT** | Ceiling test (read removed entirely) shows no measurable cost on kept-alive requests; churn has one request per socket, so memoisation cannot help there |
+| Memoise `ctx.ip` per socket | **REJECT** | Ceiling test (read removed entirely) shows no measurable cost on kept-alive requests; churn has one request per socket, so memoisation cannot help there. Re-measured 2026-10-24: churn carries a real +13.34 µs (5/5) premium of which the IP read explains −5.83 µs if removed, and keep-alive carries a real +4.79 µs (5/5) that the IP read does *not* explain (+0.8 µs) — so the rejection stands on the `ctx.ip`-survives-teardown guarantee, and §6's "nothing per kept-alive" claim is retracted |
 
 ## 1. Method
 
@@ -98,6 +104,11 @@ Wire measurement, 1 KB JSON POST, CPU/req from `/proc`:
 
 So the Node adapter plus core costs **1.3 µs** per request (4.8 %), and body
 handling costs **9.5 µs** (25 %).
+
+> **Corrected 2026-10-24.** These absolute rows do not reproduce under load on the same box: the
+> same arms measure raw 30.24, no-parser 36.75, parser 48.57–53.96 µs, and the paired raw → parser
+> delta is **+18.3 µs (5/5)**, not +9.5. Treat this table as a 2026-10-23 snapshot; the current
+> numbers are in `campaign-scoreboard.md` §18.
 
 A `--cpu-prof` run at 18.7 k req/s (5 s, 8 096 samples) attributes that 9.5 µs:
 
@@ -229,11 +240,25 @@ uses by default, is already the fast path.
 interleaved ceiling test did not reproduce it, and this box's batch-to-batch drift is ±5 µs —
 the same size. It is not claimed.
 
+*Second correction (2026-10-24). The keep-alive gap is real — the above disclaimer is retracted.*
+Re-measured against the shipped dist with server CPU/op and disjoint per-arm ranges: churn raw
+89.2 [81.7–100.4] vs NextRush 98.3 [96.3–116.7], paired median **+13.34 µs (5/5)**; keep-alive raw
+46.7 [45.6–48.5] vs NextRush 50.6 [50.4–53.3], paired median **+4.79 µs (5/5)**. The earlier "changed
+nothing" reading was of the *IP ceiling patch* on keep-alive, which is a separate question — removing
+the `ctx.ip` read still moves keep-alive by only +0.8 µs. So the correct statement is: a fresh
+connection costs ~13 µs more and a kept-alive request ~4.8 µs more through NextRush than raw
+`node:http`, of which the IP read explains ~5.4–5.8 µs on churn (rejected: lazy reads break the
+`ctx.ip`-survives-teardown guarantee), and the rest sits in Node's own write path
+(`flushResponse` 30 % inclusive, `writeUtf8String` 23.2 %) with ~3 µs still unattributed. Full
+numbers: `campaign-scoreboard.md` §18.
+
 ## 7. Pre-existing issues found, not fixed
 
-- `packages/adapters/node/src/body-source.ts:168` fails oxlint
-  (`no-unnecessary-boolean-literal-compare`). Pre-existing; the file was not
-  touched by this campaign.
+- `packages/adapters/node/src/body-source.ts` fails oxlint
+  (`no-unnecessary-boolean-literal-compare` on `req.readableAborted === true`). Pre-existing — it
+  was already failing at `:168` before this campaign; `442fc40f` touched the file for an unrelated
+  fast path and shifted it to `:187`, and deliberately left it alone rather than bundle a drive-by
+  fix into a performance change.
 - `packages/runtime/src/web-runner.ts:145-146` states that the Node adapter
   "keeps the window for every request: its deadlines are per-request timers".
   The code arms the timer synchronously on the uncommitted branch
