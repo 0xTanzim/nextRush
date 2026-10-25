@@ -1,8 +1,8 @@
-# NextRush v3 Copilot Instructions
+# NextRush v4 Copilot Instructions
 
 ## Project Overview
 
-**NextRush v3** is a minimal, modular, high-performance Node.js framework.
+**NextRush v4** is a minimal, modular, high-performance Node.js framework.
 
 | Attribute       | Value                                     |
 | --------------- | ----------------------------------------- |

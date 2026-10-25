@@ -1,7 +1,7 @@
 /**
  * @nextrush/helmet - Core middleware implementation
  *
- * Enterprise-grade security headers middleware for NextRush v3.
+ * Enterprise-grade security headers middleware for NextRush v4.
  * Sets comprehensive HTTP security headers following OWASP recommendations.
  *
  * @packageDocumentation

@@ -1,7 +1,7 @@
 /**
  * @nextrush/events - Type definitions
  *
- * Simple, type-safe event system for NextRush v3.
+ * Simple, type-safe event system for NextRush v4.
  */
 
 /**

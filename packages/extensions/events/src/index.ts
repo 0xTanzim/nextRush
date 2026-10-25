@@ -1,5 +1,5 @@
 /**
- * @nextrush/events - Type-safe Event Emitter for NextRush v3
+ * @nextrush/events - Type-safe Event Emitter for NextRush v4
  *
  * A simple, fast, async-ready event system with full TypeScript support.
  *

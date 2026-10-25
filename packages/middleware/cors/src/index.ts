@@ -1,7 +1,7 @@
 /**
  * @nextrush/cors - Enterprise-grade CORS middleware
  *
- * A security-hardened, spec-compliant CORS middleware for NextRush v3.
+ * A security-hardened, spec-compliant CORS middleware for NextRush v4.
  * Implements all OWASP recommendations and modern security features.
  *
  * @security
