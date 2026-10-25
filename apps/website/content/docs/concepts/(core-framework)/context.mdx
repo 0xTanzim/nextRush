@@ -218,7 +218,7 @@ With `proxy: false` (the default), `ctx.ip` reflects the real socket peer and fo
 
 ## Performance
 
-- **Complexity** — `ctx` is a per-request object created once; reading `ctx.query` or `ctx.params` is a plain property access, not a re-parse. Query parsing runs a single time when `ctx` is built.
+- **Complexity** — `ctx` is a per-request object created once; reading `ctx.params` is a plain property access. The query string is parsed on the first read of `ctx.query` and memoized, so a request that never reads the bag never pays for the parse.
 - **Memory** — `ctx.params`, `ctx.query`, and `ctx.state` are plain objects passed by reference and never deep-cloned, so mutating one mutates the live request state for the rest of the pipeline.
 - **Scaling** — `ctx.get()` does a case-insensitive lookup that costs slightly more than a direct `ctx.headers[key]` read, and `ctx.send()` inspects its argument's type to choose serialization. In a hot path where the header casing or response type is already known, `ctx.headers[key]`, `ctx.json()`, or `ctx.html()` skip that work. Measure with [`apps/benchmark`](https://github.com/0xTanzim/nextRush/tree/main/apps/benchmark) before optimizing.
 
