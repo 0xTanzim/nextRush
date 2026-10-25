@@ -35,10 +35,11 @@ import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 
 const execFileAsync = promisify(execFile);
 
-interface ChangesetFrontmatter {
+export interface ChangesetFrontmatter {
   readonly packageName: string;
   readonly bumpType: 'patch' | 'minor' | 'major';
 }
@@ -58,7 +59,10 @@ async function pathExists(filePath: string): Promise<boolean> {
  * lines — not full YAML, so a minimal line-based parse is sufficient and
  * avoids adding a YAML dependency for this one check.
  */
-function parseChangesetFrontmatter(contents: string, filePath: string): ChangesetFrontmatter[] {
+export function parseChangesetFrontmatter(
+  contents: string,
+  filePath: string
+): ChangesetFrontmatter[] {
   const lines = contents.split('\n');
   const firstDelimiter = lines.indexOf('---');
   if (firstDelimiter === -1) return [];
@@ -69,10 +73,17 @@ function parseChangesetFrontmatter(contents: string, filePath: string): Changese
 
   const entries: ChangesetFrontmatter[] = [];
   for (const line of lines.slice(firstDelimiter + 1, secondDelimiter)) {
-    const match = /^"([^"]+)":\s*(patch|minor|major)\s*$/.exec(line.trim());
-    if (match) {
-      entries.push({ packageName: match[1], bumpType: match[2] as ChangesetFrontmatter['bumpType'] });
-    }
+    // Changesets accepts quoted and unquoted package keys. A bare-name-only
+    // pattern silently ignored every single-quoted changeset, which made this
+    // gate report "0 packages" while real bumps went unchecked.
+    const match = /^(.+?):\s*(patch|minor|major)\s*$/.exec(line.trim());
+    if (!match) continue;
+    const rawName = match[1].trim();
+    const packageName = /^(['"]).*\1$/.test(rawName) ? rawName.slice(1, -1) : rawName;
+    entries.push({
+      packageName,
+      bumpType: match[2] as ChangesetFrontmatter['bumpType'],
+    });
   }
   return entries;
 }
@@ -114,7 +125,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  const packageBumps = new Map<string, { bumpType: string; files: string[] }>();
+  const packageBumps = new Map<
+    string,
+    { bumpType: ChangesetFrontmatter['bumpType']; files: string[] }
+  >();
   for (const file of changesetFiles) {
     const contents = await readFile(file, 'utf8');
     for (const { packageName, bumpType } of parseChangesetFrontmatter(contents, file)) {
@@ -123,7 +137,7 @@ async function main(): Promise<void> {
         existing.files.push(file);
         // Highest-severity bump wins for the "is this even meaningful" check.
         const severity = { patch: 0, minor: 1, major: 2 } as const;
-        if (severity[bumpType as keyof typeof severity] > severity[existing.bumpType as keyof typeof severity]) {
+        if (severity[bumpType] > severity[existing.bumpType]) {
           existing.bumpType = bumpType;
         }
       } else {
@@ -161,12 +175,16 @@ async function main(): Promise<void> {
 
   // eslint-disable-next-line no-console
   console.log(
-    `✅ Changeset baseline check passed (${packageBumps.size} package(s) across ${changesetFiles.length} changeset file(s) — every bump type is declared against a package with real npm history).`
+    `✅ Changeset baseline check passed (${String(packageBumps.size)} package(s) across ${String(changesetFiles.length)} changeset file(s) — every bump type is declared against a package with real npm history).`
   );
 }
 
-main().catch((err: unknown) => {
-  // eslint-disable-next-line no-console
-  console.error(err);
-  process.exitCode = 1;
-});
+const isDirectExecution = path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectExecution) {
+  main().catch((err: unknown) => {
+    // eslint-disable-next-line no-console
+    console.error(err);
+    process.exitCode = 1;
+  });
+}
