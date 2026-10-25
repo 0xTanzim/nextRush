@@ -34,6 +34,18 @@
         "**/*.test.mjs"
       ]
     },
+    "nextrush#test": {
+      "dependsOn": ["build", "@nextrush/dev#build"],
+      "outputs": [],
+      "inputs": [
+        "src/**/*",
+        "tests/**/*",
+        "scripts/**/*",
+        "**/*.test.ts",
+        "**/*.test.js",
+        "**/*.test.mjs"
+      ]
+    },
     "test:watch": {
       "cache": false,
       "persistent": true
