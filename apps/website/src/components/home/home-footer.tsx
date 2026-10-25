@@ -2,6 +2,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 
+// Static export: the year is fixed at build time, and computing it during render
+// would make the component impure.
+const copyrightYear = new Date().getFullYear();
+
 const runtimeLinks = [
   { name: 'Node.js', icon: '/icons/nodejs.svg', href: '/docs/getting-started' },
   { name: 'Bun', icon: '/icons/bun.svg', href: '/docs/getting-started' },
@@ -66,7 +70,14 @@ export function HomeFooter() {
                     href={runtime.href}
                     className="inline-flex items-center gap-1.5 rounded-full border border-fd-border px-2.5 py-1 text-xs text-fd-muted-foreground transition-colors hover:border-[var(--brand-link)]/40 hover:text-fd-foreground"
                   >
-                    <Image src={runtime.icon} alt="" width={14} height={14} className="size-3.5" aria-hidden="true" />
+                    <Image
+                      src={runtime.icon}
+                      alt=""
+                      width={14}
+                      height={14}
+                      className="size-3.5"
+                      aria-hidden="true"
+                    />
                     {runtime.name}
                   </Link>
                 ))}
@@ -105,7 +116,7 @@ export function HomeFooter() {
 
           <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-[color-mix(in_srgb,var(--brand-link)_8%,var(--border-default))] pt-6 sm:flex-row">
             <p className="text-sm text-fd-muted-foreground">
-              © {new Date().getFullYear()} NextRush. MIT License.
+              © {copyrightYear} NextRush. MIT License.
             </p>
             <div className="flex items-center gap-5">
               <a
