@@ -7,7 +7,6 @@
 '@nextrush/csrf': minor
 '@nextrush/validation': patch
 '@nextrush/testing': patch
-'@nextrush/adapter-conformance': patch
 ---
 
 Opt-in lazy body parsing: `bodyParser({ lazy: true })` defers the read and the parse until the
