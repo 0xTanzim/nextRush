@@ -8,10 +8,16 @@
 | **Author(s)**        | `NextRush performance campaign`                                       |
 | **Group**            | `runtime-adapters`                                                    |
 | **Packages touched** | `@nextrush/runtime`, `@nextrush/adapter-node`, `@nextrush/adapter-bun`, `@nextrush/adapter-deno`, `@nextrush/adapter-edge`, `@nextrush/adapter-serverless`, `@nextrush/adapter-conformance` |
-| **Framework impact** | `Breaking (wire media type; major + migration note)`                  |
+| **Framework impact** | `Wire-visible media type; released as a minor (maintainer decision, migration note)` |
 | **Supersedes**       | —                                                                     |
 | **Superseded by**    | —                                                                     |
 | **Related**          | `RFC-041`, `ADR-0030`, `ADR-0034`                                     |
+
+> **Release classification (2026-10-25).** The maintainer classified this change as a **minor**
+> release: the wire header value changes and an exact-string assertion must be updated, but no
+> client that parses the media type can observe a difference, and no exported API, status, or body
+> changes. Passages below that describe the change as a "major" record the original review and are
+> superseded by this decision; see ADR-0034.
 
 ---
 
@@ -205,7 +211,7 @@ path requires the plain-object *shape* and the accepted *value*, and neither alo
 
 ### Costs
 
-- **A breaking wire change.** Applications that assert the exact header string must update it.
+- **A wire-visible change.** Applications that assert the exact header string must update it.
 - The `Headers` path now has two entry conditions instead of one — a response with extra headers
   takes a different construction than one without, so the two paths must stay behaviourally
   identical (the conformance suite pins this).
@@ -412,7 +418,7 @@ against the convention of the framework it is benchmarked against.
 
 | Risk                     | Mitigation                                                                 | Likelihood | Impact |
 | ------------------------ | -------------------------------------------------------------------------- | ---------- | ------ |
-| An application asserts the exact old header string | Documented as breaking, with the migration note in §12 and the changeset; the value is now identical on every adapter, so one assertion update covers all of them | Low | Low |
+| An application asserts the exact old header string | Documented as a wire-visible minor change, with the migration note in §12 and the changeset; the value is now identical on every adapter, so one assertion update covers all of them | Low | Low |
 | The plain init record drops a repeated header | The path is taken only when the recorded response has zero extra headers; the multi-value path is unchanged and pinned by the multi-`Set-Cookie` conformance scenario | Low | High |
 | A future change reintroduces the `Headers` instance on the hot path | The conformance scenario pins the media type; the campaign report pins the measurement and its protocol | Low | Medium |
 | Deno changes its accepted literals | The change degrades to the current cost, not below it: the plain init record with a non-accepted value (0.674 µs) is still cheaper than the `Headers` shape (1.019 µs) | Low | Low |
@@ -421,7 +427,7 @@ against the convention of the framework it is benchmarked against.
 
 ## 12. Backward Compatibility & Migration
 
-- **Compatibility:** _Breaking — requires a major bump._
+- **Compatibility:** _Wire-visible; released as a minor (see the classification note above)._
 - **What changes:** the `Content-Type` of every framework-generated JSON response, on every adapter:
   `application/json; charset=utf-8` → `application/json`.
 - **What does not change:** the status, the body bytes, `Content-Length`, the header set, the
@@ -438,7 +444,7 @@ expect(res.headers.get('content-type')).toBe('application/json');
   parsing keys off the `application/json` type, and the `charset` parameter was never required for
   it. Only an exact-string comparison needs updating.
 - **Deprecation window:** none — the value is wrong today by the framework's own standards, so it
-  changes at the major boundary rather than being deprecated first.
+  changes in this minor release rather than being deprecated first.
 
 ---
 
@@ -539,7 +545,7 @@ the paired delta per pair.
 | Branch on the runtime to take the cheapest path?      | No                                                                 | AGENTS.md §4 forbids runtime identity in behaviour |
 | Drop the `Headers` path entirely?                    | No                                                                 | A repeated field supplied through an object literal is joined by Bun and Node |
 | Keep the `declare` change although it is unmeasurable? | Yes                                                             | It removes a provably dead per-instance write and no measurement showed a cost |
-| Is the media-type change breaking?                   | Yes, at a major boundary                                           | The header value is observable by clients |
+| Is the media-type change breaking?                   | Wire-visible; classified minor                                     | The header value is observable, but only an exact-string assertion changes; parsing clients are unaffected |
 
 ---
 

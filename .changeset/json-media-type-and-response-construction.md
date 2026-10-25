@@ -1,21 +1,20 @@
 ---
-'@nextrush/runtime': major
-'@nextrush/core': major
-'@nextrush/router': major
-'@nextrush/types': major
-'@nextrush/errors': major
-'@nextrush/di': major
-'@nextrush/adapter-node': major
-'@nextrush/adapter-bun': major
-'@nextrush/adapter-deno': major
-'@nextrush/adapter-edge': major
-'@nextrush/adapter-serverless': major
-'@nextrush/adapter-nextjs': major
-'nextrush': major
+'@nextrush/runtime': minor
+'@nextrush/core': minor
+'@nextrush/router': minor
+'@nextrush/types': minor
+'@nextrush/errors': minor
+'@nextrush/di': minor
+'@nextrush/adapter-node': minor
+'@nextrush/adapter-bun': minor
+'@nextrush/adapter-deno': minor
+'@nextrush/adapter-edge': minor
+'@nextrush/adapter-serverless': minor
+'@nextrush/adapter-nextjs': minor
+'nextrush': minor
 ---
 
-**BREAKING** — a JSON response's `Content-Type` is now `application/json`, with no `charset`
-parameter.
+A JSON response's `Content-Type` is now `application/json`, with no `charset` parameter.
 
 **What changes.** Every framework-generated JSON response — a handler's `ctx.json()`, an object
 passed to `ctx.send()`, and the framework's own `404`/`500`/`504` envelope — carries
@@ -47,11 +46,17 @@ multi-value `Set-Cookie` behaviour, `text/plain` and `text/html`, and every othe
 behaviour. Request parsing, routing, middleware ordering, `ctx.next()`, body limits, raw-body bytes,
 UTF-8 correctness, caching, streaming, and error status mapping are all untouched.
 
-**Why the bump is major.** The header value is observable by clients, and a client that asserts the
-exact string must change. The change also removes a per-request `Headers` allocation from every Web
-response, and the bare media type lets Deno's `Response` constructor take its static fast path —
-together **−16.6 % server CPU per request on Deno GET** and −8.1 % on Deno POST, measured against
-the previous release, with no regression on Bun or Node.
+**Why this is a minor release.** No exported API, status, body, or request behavior changes, and
+JSON parsing keys off the media type rather than the exact header string. The one observable
+difference is the `Content-Type` value: an application that compares it to the old parameterised
+string exactly must update that assertion as shown above. The maintainer classified that
+wire-visible difference as a minor change for this release line; it is documented here rather
+than left implicit.
+
+**Performance.** The change removes a per-request `Headers` allocation from every Web response,
+and the bare media type lets Deno's `Response` constructor take its static fast path — together
+**−16.6 % server CPU per request on Deno GET** and −8.1 % on Deno POST, measured against the
+previous release, with no regression on Bun or Node.
 
 **The request deadline no longer costs a timer per request.** A request that waits on I/O — a body
 read, a database call — is still pending when the timeout window opens, so the framework armed a

@@ -21,8 +21,8 @@ byte-identical to itself.
 `text/plain;charset=UTF-8` is one of them; the conventional `text/plain; charset=utf-8` spelling is
 not, and pays for header-list validation plus a native re-map on every response. Priced in isolation
 on Deno 2.9.7, constructing the response costs **612 ns with the old spelling and 197 ns with this
-one**. `application/json` was already corrected for the same reason; `text/plain` was the remaining
-common media type outside the fast path.
+one**. `application/json` is corrected in the pending JSON media-type changeset for the same reason;
+`text/plain` was the remaining common media type outside the fast path.
 
 **Migration.** Applications that _parse_ the media type are unaffected. RFC 9110 §5.6.1 makes the
 whitespace around `;` insignificant, and the charset value was already case-insensitive, so this is
@@ -45,10 +45,9 @@ vs 602 ns on Deno — noise), so changing it would be wire churn with nothing be
 
 **Why the bump is minor, not major.** Semantically the two spellings are the same media type, so no
 client that parses `Content-Type` can observe a difference. The bump signals a wire-visible byte
-change in case a consumer asserts the exact string — the same class of change as the earlier
-`application/json` one, which was released as a major because it also _removed_ a parameter. A
-maintainer who considers exact-string assertions part of the contract can promote this changeset to
-`major` before release; no code change is needed.
+change in case a consumer asserts the exact string — the same class of change as the pending
+`application/json` one, which is also classified as a minor: it removes a parameter, but no client
+that parses the media type can observe that, and only an exact-string assertion needs updating.
 
 **Measured.** Deno text workload, paired A/B on server CPU per request: median **−2.3 %** over 7
 pairs (mean −4.3 %, 5/7 pairs faster), consistent with the −415 ns at the `Response` boundary.

@@ -77,9 +77,11 @@ header, because both Bun and Node silently join a repeated field supplied throug
 - **Positive:** Deno server CPU per request falls 16.6 % (GET) and 8.1 % (POST); one fewer
   per-request allocation on every Web adapter; one JSON media type on every adapter; a media type the
   framework's standards and the ecosystem majority agree on.
-- **Negative / cost:** the wire header value changes — a breaking change at a major boundary, with a
-  migration note for applications that assert the exact string; and the response path now has two
-  constructions whose behavioural equivalence must be maintained and pinned by tests.
+- **Negative / cost:** the wire header value changes — observable to any client that asserts the
+  exact string, so those applications need the migration note below. The maintainer classified the
+  release as a **minor**: no client that parses the media type observes a difference, and no
+  exported API, status, or body changes. Also, the response path now has two constructions whose
+  behavioural equivalence must be maintained and pinned by tests.
 - **Neutral:** the `declare` change on the context fields shipped with this decision; its effect is
   below the measurement floor, and it is kept because it removes a provably dead per-instance write.
 - **Follow-up:** the static-file MIME table still maps `.json` to the parameterised value — a
