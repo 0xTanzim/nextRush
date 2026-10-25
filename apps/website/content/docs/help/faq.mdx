@@ -14,7 +14,7 @@ A modular backend framework for Node.js, Bun, Deno, and Edge runtimes. Under 3,0
 
 ### Can I use NextRush in production?
 
-Yes. NextRush v3 ships as **semver-stable** releases on npm (core packages at `3.1.0` today): breaking changes bump the major version per [Semantic Versioning](https://semver.org/). Follow release notes and upgrade guides when upgrading major versions. For regulated environments, run your usual QA and staging gates before rollout.
+Yes. NextRush v4 ships as **semver-stable** releases on npm (core packages at `4.0.2` today): breaking changes bump the major version per [Semantic Versioning](https://semver.org/). Follow release notes and upgrade guides when upgrading major versions. For regulated environments, run your usual QA and staging gates before rollout.
 
 ### What Node.js version does NextRush require?
 
@@ -38,7 +38,7 @@ Different projects need different levels of structure. A 50-line microservice do
 
 ### How does the package hierarchy work?
 
-NextRush is **35 publishable packages** in the monorepo, organized in a strict dependency chain:
+NextRush is **38 publishable packages** in the monorepo, organized in a strict dependency chain:
 
 ```
 types → errors → core → router → runtime → di → class → adapters → middleware
@@ -125,10 +125,10 @@ NextRush's `compose()` pre-compiles the middleware pipeline, so per-middleware o
 
 | Runtime                   | Adapter                    | Package version |
 | -------------------------- | --------------------------- | ---------------- |
-| Node.js 22+                | `@nextrush/adapter-node`    | `3.1.0`           |
-| Bun                         | `@nextrush/adapter-bun`     | `1.0.0`           |
-| Deno                        | `@nextrush/adapter-deno`    | `1.0.0`           |
-| Edge (Cloudflare, Vercel)   | `@nextrush/adapter-edge`    | `1.0.0`           |
+| Node.js 22+                | `@nextrush/adapter-node`    | `4.0.2`           |
+| Bun                         | `@nextrush/adapter-bun`     | `1.0.1`           |
+| Deno                        | `@nextrush/adapter-deno`    | `1.0.1`           |
+| Edge (Cloudflare, Vercel)   | `@nextrush/adapter-edge`    | `1.0.1`           |
 
 See the [Compatibility Matrix](/docs/help/compatibility-matrix) for the full, regularly re-derived package/version table.
 
