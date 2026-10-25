@@ -164,7 +164,12 @@ export class NodeContext implements AdapterContext {
    * @see RFC-029
    */
   readonly originalPath: string;
-  readonly query: QueryParams;
+  /**
+   * Backing field for the lazily parsed {@link query}. Assigned in the
+   * constructor so every context keeps one shape: the shared empty bag for a
+   * query-less target, `undefined` ("not parsed yet") otherwise.
+   */
+  declare private _query: QueryParams | undefined;
   readonly headers: IncomingHeaders;
   readonly ip: string;
   readonly runtime: Runtime;
@@ -237,15 +242,34 @@ export class NodeContext implements AdapterContext {
     const questionIndex = this.url.indexOf('?');
     if (questionIndex !== -1) {
       this.path = this.url.slice(0, questionIndex);
-      this.query = parseQueryString(this.url.slice(questionIndex + 1));
+      this._query = undefined;
     } else {
       this.path = this.url;
-      this.query = EMPTY_QUERY;
+      this._query = EMPTY_QUERY;
     }
     this.originalPath = this.path;
 
     this.headers = req.headers;
     this.ip = this.getClientIp(req, options.proxy ?? false);
+  }
+
+  /**
+   * The parsed query bag, materialized on the first read and then memoized.
+   *
+   * @remarks
+   * A query string is optional work: many requests carry one that the handler
+   * never reads. The constructor only locates the search boundary (it already
+   * does for {@link path}); parsing waits for the first read, and a query-less
+   * request keeps returning the shared frozen empty bag without a parse.
+   */
+  get query(): QueryParams {
+    let parsed = this._query;
+    if (parsed === undefined) {
+      const questionIndex = this.url.indexOf('?');
+      parsed = parseQueryString(questionIndex === -1 ? '' : this.url.slice(questionIndex + 1));
+      this._query = parsed;
+    }
+    return parsed;
   }
 
   /**

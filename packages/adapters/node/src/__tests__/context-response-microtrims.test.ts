@@ -138,6 +138,23 @@ describe('HP-2: query-less request uses a shared frozen empty query object', () 
     expect(parsed).not.toBe(shared);
     expect(parsed).toEqual({ a: '1' });
   });
+
+  it('[trim] parses a query string on the first read only, then reuses that bag', () => {
+    const decode = vi.spyOn(globalThis, 'decodeURIComponent');
+    try {
+      const ctx = new NodeContext(createMockReq({ url: '/search?q=%41' }), createMockRes());
+      expect(decode).not.toHaveBeenCalled();
+
+      const first = ctx.query;
+      expect(first).toEqual({ q: 'A' });
+      expect(decode).toHaveBeenCalledTimes(1);
+
+      expect(ctx.query).toBe(first);
+      expect(decode).toHaveBeenCalledTimes(1);
+    } finally {
+      decode.mockRestore();
+    }
+  });
 });
 
 // ===========================================================================

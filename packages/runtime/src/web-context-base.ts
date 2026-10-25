@@ -107,7 +107,12 @@ export abstract class WebContextBase implements FetchContext {
    * @see RFC-029
    */
   declare readonly originalPath: string;
-  declare readonly query: QueryParams;
+  /**
+   * Backing field for the lazily parsed {@link query}. Declared (not a plain
+   * field) and assigned in the constructor so every context keeps one shape;
+   * `undefined` is the "not parsed yet" sentinel.
+   */
+  declare private _query: QueryParams | undefined;
   declare readonly runtime: Runtime;
   declare readonly bodySource: BodySource;
   /**
@@ -200,7 +205,7 @@ export abstract class WebContextBase implements FetchContext {
     this.path = target.path;
     this.originalPath = target.path;
     this.url = target.search === '' ? target.path : target.path + target.search;
-    this.query = parseQueryString(target.search.slice(1));
+    this._query = undefined;
 
     // Create body source
     const bodySource = METHODS_WITHOUT_BODY.has(this.method)
@@ -210,6 +215,28 @@ export abstract class WebContextBase implements FetchContext {
     this.bodyLength = bodySource.contentLength;
 
     this._response = new WebResponseBuilder(this.method);
+  }
+
+  /**
+   * The parsed query bag, materialized on the first read and then memoized.
+   *
+   * @remarks
+   * A query string is optional work: many requests carry one (`?utm=…`,
+   * `?limit=…`) that the handler never reads, and middleware that does read it
+   * (logging, validation) is enabled per app rather than per request. Parsing in
+   * the constructor charged every query-bearing request for a bag it discarded.
+   * The search is located in {@link url} — which already joins path and search —
+   * instead of retaining a second string. A query-less context still resolves to
+   * the shared frozen empty bag on its first read.
+   */
+  get query(): QueryParams {
+    let parsed = this._query;
+    if (parsed === undefined) {
+      const queryMark = this.url.indexOf('?');
+      parsed = parseQueryString(queryMark === -1 ? '' : this.url.slice(queryMark + 1));
+      this._query = parsed;
+    }
+    return parsed;
   }
 
   /**
