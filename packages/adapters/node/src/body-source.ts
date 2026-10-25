@@ -184,7 +184,7 @@ export class NodeBodySource implements BodySource {
     // still arrive, and listeners attached below would never fire. Eager parsing
     // never sees this (it subscribes while the request is live); without the
     // check a lazy read would hang until the dispatch deadline.
-    if (req.readableAborted === true || req.destroyed) {
+    if (req.readableAborted || req.destroyed) {
       throw new RequestAbortedError();
     }
 
