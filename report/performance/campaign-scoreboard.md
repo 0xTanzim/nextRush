@@ -81,7 +81,7 @@ Hono arm was measured in that run; where it was not, the ratio cell carries its 
 | 8   | Runtime-branching construction                                       | Each runtime takes its cheapest shape                                                                                                                            | Forbidden by AGENTS.md §4                                                                                                                                                                                                                                                                                                                                                                       | ❌ **rejected**                                                                   |
 | 9   | Fixed-key JSON serializer                                            | `JSON.stringify` is 88 % of the large-response profile                                                                                                           | Byte-identical prototype measured **4.4× slower** (RFC-042)                                                                                                                                                                                                                                                                                                                                     | ❌ **rejected**                                                                   |
 | 10  | POST body read on Bun and Deno                                       | Body reading dominates the POST path (Bun **1.31×** Hono, Deno 1.54× Hono); §10's dispatch win cannot apply because `bodyParser` makes the chain genuinely async | Timeout settle window removed for body-bearing requests: Bun POST **−2.7 % paired CPU (4/5)**, level medians 28.08 → 26.47 µs; ratio **1.31× → 1.23×**. The whole race is now at most ~1.8 µs of a ~26 µs request, so the remainder is parser work                                                                                                                                              | 🔶 **partly landed (§11)** — parser work is the remainder                         |
-| 11  | Context construction (`WebContextBase`)                              | 0.479 µs/req self time in the Deno profile                                                                                                                       | Partly addressed by #3; the rest is method normalisation, target derivation, query parse, body-source selection                                                                                                                                                                                                                                                                                 | ⬜ **open**                                                                       |
+| 11  | Context construction (`WebContextBase`)                              | 0.479 µs/req self time in the Deno profile                                                                                                                       | Partly addressed by #3 and #23 (query parse now deferred to first read); the rest is method normalisation, target derivation, body-source selection                                                                                                                                                                                                                                              | ⬜ **open**                                                                       |
 | 12  | `requestTargetFromUrl` (0.235 µs/req)                                | Manual `charCodeAt` scan of the URL                                                                                                                              | The native alternative has a semantic defect (#6); the scan itself is a correctness-preserving cost                                                                                                                                                                                                                                                                                             | ⬜ **open — needs a different idea**                                              |
 | 13  | Dispatch/timeout micro-task turns                                    | `dispatchWithTimeout` 0.146 µs/req self                                                                                                                          | Partly addressed by RFC-045's bounded timeout dispatch                                                                                                                                                                                                                                                                                                                                          | ⬜ **open**                                                                       |
 | 14  | Text media type `text/plain;charset=UTF-8`                           | Deno's `Response` fast path accepts only that exact literal                                                                                                      | Isolated: 612 ns → 197 ns per text `Response`. End-to-end Deno text workload: median −2.3 % over 7 pairs, mean −4.3 %, 5/7 faster                                                                                                                                                                                                                                                               | ✅ **implemented, verified**                                                      |
@@ -93,6 +93,8 @@ Hono arm was measured in that run; where it was not, the ratio cell carries its 
 | 20  | Node: `ctx.signal` must not abort on normal completion | `res` emits `'close'` after `'finish'` and a completed `req` is still destroyed, so the old wiring aborted *every* completed request and forced the stream teardown path | 1-chunk stream **−21.9 %** (39.55 → 31.17 µs, 7/7); 16-chunk **−14.7 %** (7/7); null control +2.4 %. Half-variants recover only −0.3 % and −1.2 % — both guards are load-bearing | ✅ **implemented, verified** (`d170a145`, §18) — observable: post-completion `ctx.signal.aborted` is now `false` |
 | 21  | Node: hand-rolled byte queue instead of the Web `ReadableStream` hop        | The eager pump has exactly one consumer, so `node:internal/webstreams` may be pure overhead                     | Measured **slower**: +11.41 % stream1 (0/5 pairs) and +3.37 % stream16 (1/5) in a same-process four-arm run whose own null band is 1.53 %; cycles/op moved the same way                                                                                       | ❌ **rejected** — the stream premium is not this layer, so the RFC-gated `packages/stream` rewrite has no evidence behind it |
 | 22  | Node: flush the last chunk through `res.end(chunk)`                        | One fewer outgoing write per streamed response                                                                   | −4.60 % (5/5) on a 1-chunk stream, +0.72 % (2/5) on 16 chunks; 12/12 byte-identical bodies and every abort gate green                                                                                                                                            | ❌ **rejected on contract** — the last chunk waits for a next chunk, so an open stream (SSE/ndjson) lags by one event and a single-event stream never delivers |
+
+| 23  | Lazy query parse (`ctx.query` on first read)                         | The constructor parsed the search before any handler could ask for it; a query-bearing request whose handler never reads `ctx.query` paid for a bag nobody used | Bun full request **−947 ns** (9/9); Node context **−720 ns** (9/9); Deno full request **−748 ns** (10/11). Query-less control arms moved −11 ns (Bun) and +10 ns (Node), inside noise; a 25-target differential corpus is identical on Web and Node | ✅ **implemented, verified** (§20) |
 
 ## 4. Cross-runtime status of the completed cycle
 
@@ -1456,3 +1458,71 @@ by removal — reopening it needs a variant, not another profile.
 variant sources live only in the `/tmp` worktrees named above. The two recorded-not-fixed items from
 §18 (oxlint `adapters/node/src/body-source.ts:187`, and `runtime/src/web-runner.ts:145-146` claiming
 a deadline window Node does not have) are unchanged.
+
+## 20. Update — 2026-10-25: the unread query string (candidate #23)
+
+**The question.** Both context classes parsed the query string in the constructor, before any handler
+could ask for it. The specialists put that parse at 578–584 ns (Bun hot p05), 644 ns (Deno) and 732 ns
+(Node), and the profile frame table in §D attributes 0.465 µs/req to the Web context constructor on
+Bun and 0.283 µs self on Deno. A query string is optional work: many requests carry `?limit=`,
+`?utm=` or nothing the handler reads, and middleware that does read it (logging, validation) is
+enabled per app rather than per request.
+
+**The change.** `WebContextBase` (Bun/Deno/Edge) and `NodeContext` now parse on the first read of
+`ctx.query` and memoize the bag. The URL already carries the search, so the getter locates the `?`
+there instead of retaining a second string. A query-less Web context resolves to the shared frozen
+empty bag on first read; the Node context keeps publishing that shared bag without a parse. The parse
+itself — decoding, limits, denied keys — is unchanged.
+
+**Method.** Same-process A/B: the control bundle was built from HEAD source before the edit, the
+variant bundle from the edited source, both through `dev-check/lib/build.ts` aliases, and both live
+in one process so load and frequency drift cancel within each interleaved round. `process.cpuUsage`
+over 20,000 ops/round, 20,000 warmup ops, 9 order-flipped rounds, medians of per-round values.
+Pinned to core 7 because the independent judge held core 6 for the wire baseline. Negative means the
+variant is faster. An identity clone of a *changed* arm is not a null — it measures the treatment a
+second time; the true null is the query-less arm, which never enters the changed path.
+
+| Runtime | Workload | Control | Variant | Paired Δ | Rounds faster |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Bun | full request, query unread | 2575 | 1646 | **−947 ns** | 9/9 |
+| Bun | context only, query unread | 1457 | 569 | −904 ns | 9/9 |
+| Bun | full request, query read | 2586 | 2520 | −105 ns | 5/9 |
+| Bun | full request, query-less (null) | 1362 | 1345 | −11 ns | 6/9 |
+| Node | context, query unread | 930 | 206 | **−720 ns** | 9/9 |
+| Node | context, query read | 986 | 954 | −24 ns | 6/9 |
+| Node | context, query-less read (null) | 176 | 188 | +10 ns | 2/9 |
+| Deno | full request, query unread | 5538 | 4454 | **−748 ns** | 10/11 |
+| Deno | context, query read | 1866 | 1957 | +58 ns | 5/11 |
+| Deno | full request, query read | 5315 | 5701 | +413 ns | 2/11 |
+| Deno | full request, query-less (null) | 2910 | 2886 | +111 ns | 5/11 |
+
+The unread path is the structural win: it removes a parse that the request never wanted. The read
+path performs the same parse as before, plus an accessor call and an `indexOf` over the URL. Bun and
+Node show that difference inside noise; Deno's full-request read arm is not separable from that
+window — its null arm swings −1487…+1168 ns per round, and the isolated context+read arm (which
+exercises exactly the changed code) reads +58 ns at 5/11. There is no mechanism for a ~400 ns cost in
+a getter plus a 26-character `indexOf`, so it is recorded as unresolved at this resolution rather
+than as a regression.
+
+**Verification.** A 25-target differential corpus (empty search, repeated keys, `+`/`%` decoding,
+malformed escapes, denied keys, 300 parameters, a 2,100-character search, fragments) produces the
+same path and query through control and variant bundles on both context classes. Unit tests now pin
+that construction performs no decode and the first read parses once; full suites pass (runtime 409,
+adapter-node 314), typecheck passes on runtime, Node, Bun, Deno and Edge, and conformance passes 756
+on the shared suite. The committed `inproc.nextrush.vs_hono` gate uses a query-less URL, so it cannot
+show the win, only that the query-less path did not regress: interleaved control/variant runs on this
+shared box spanned 1.22–1.43 and 1.19–1.49 respectively (both under the 1.9 hard maximum, no FAIL);
+the final lower-load pair was control 1.29, variant 1.24.
+
+**Scope and limits.** The shared change covers Bun, Deno and Edge; Node has its own context class and
+its own change. Edge was verified by typecheck and conformance, not measured in-process. Deno's
+absolute levels on this box are unstable enough that only its paired unread result is claimed. The
+`query` property is now a prototype accessor rather than an own data property; it keeps its typed
+read-only contract, returns the same memoized bag, and assigning to it was already outside that
+contract.
+
+**Artifacts.** Harness, entries and bundles: `/tmp/nextrush-performance/c20/Q/` (`web.ts`, `node.ts`,
+`supervisor.ts`, `diff.ts`, `bundles/*`). Raw tables: `logs/bun-web.txt`, `logs/node.txt`,
+`logs/deno-web.txt`, `logs/deno-focused.txt`; gate runs: `logs/gate-control.txt`,
+`logs/gate-variant.txt`, `logs/gate-interleaved.txt`. Specialist decomposition: `c20/A/logs/` and
+`c20/D/logs/frames-us.txt`.
