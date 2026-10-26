@@ -23,12 +23,6 @@ concurrency:
 
 permissions:
   contents: read
-  # wrangler-action@v4 creates a synthetic GitHub "Deployment" record via
-  # POST /repos/{owner}/{repo}/deployments when `gitHubToken` is set. Without
-  # this scope the action fails with `403 Resource not accessible by
-  # integration` even though the Cloudflare upload succeeds. Least privilege:
-  # read + this one deployment scope only.
-  deployments: write
 
 jobs:
   deploy:
@@ -49,11 +43,15 @@ jobs:
         run: pnpm turbo run build --filter=website...
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.152.0"
-          packageManager: pnpm
-          command: pages deploy apps/website/out --project-name=${{ secrets.CLOUDFLARE_PROJECT_NAME }} --branch=main
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+        # `cloudflare/pages-action` was deleted upstream, and `wrangler-action@v4`
+        # installs its CLI with a bare `pnpm add wrangler@X` in the repo root — inside a
+        # pnpm workspace that aborts with ERR_PNPM_ADDING_TO_ROOT (run 40262436433).
+        # Committing wrangler as a website devDependency would drag a deploy-only
+        # dependency tree into every `pnpm install --frozen-lockfile` job, so the pinned
+        # CLI runs from a throwaway store instead. Trade-off: no synthetic GitHub
+        # "Deployment" record — this run is the audit trail.
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PROJECT_NAME: ${{ secrets.CLOUDFLARE_PROJECT_NAME }}
+        run: pnpm dlx wrangler@4.152.0 pages deploy apps/website/out --project-name="$CLOUDFLARE_PROJECT_NAME" --branch=main
