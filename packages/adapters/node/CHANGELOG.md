@@ -1,5 +1,319 @@
 # @nextrush/adapter-node
 
+## 4.1.0
+
+### Minor Changes
+
+- [#63](https://github.com/0xTanzim/nextRush/pull/63) [`6004c48`](https://github.com/0xTanzim/nextRush/commit/6004c482727f50cd760d4ab55d3c6b7f033e018b) Thanks [@0xTanzim](https://github.com/0xTanzim)! - A JSON response's `Content-Type` is now `application/json`, with no `charset` parameter.
+
+  **What changes.** Every framework-generated JSON response — a handler's `ctx.json()`, an object
+  passed to `ctx.send()`, and the framework's own `404`/`500`/`504` envelope — carries
+  `content-type: application/json` on every adapter. It previously carried
+  `application/json; charset=utf-8`.
+
+  ```ts
+  // Before
+  expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+  // After
+  expect(res.headers.get('content-type')).toBe('application/json');
+  ```
+
+  **Why.** RFC 8259 §8.1 registers `application/json` with no parameters — JSON is UTF-8 by
+  definition, so a `charset` parameter is one the specification does not define. Hono 4.13.0 and
+  Express 5.2.1 already send the bare value; only Fastify sends the parameterised form. The earlier
+  conformance rule that pinned the parameterised value existed to stop adapters drifting apart — Edge
+  and Bun's server-level error path emitted a bare `application/json` while the shared helper emitted
+  the parameterised form. Every adapter now goes through the one shared helper that emits the bare
+  value, so the uniformity is preserved and the drift is gone.
+
+  **Migration.** Applications that only _parse_ the media type are unaffected: JSON parsing keys off
+  the `application/json` type, and the `charset` parameter was never required for it. Only an
+  exact-string comparison needs updating. The value is now identical on every adapter, so one
+  assertion update covers all of them.
+
+  **What does not change.** The status, the body bytes, `Content-Length`, the header set, the
+  multi-value `Set-Cookie` behaviour, `text/plain` and `text/html`, and every other response
+  behaviour. Request parsing, routing, middleware ordering, `ctx.next()`, body limits, raw-body bytes,
+  UTF-8 correctness, caching, streaming, and error status mapping are all untouched.
+
+  **Why this is a minor release.** No exported API, status, body, or request behavior changes, and
+  JSON parsing keys off the media type rather than the exact header string. The one observable
+  difference is the `Content-Type` value: an application that compares it to the old parameterised
+  string exactly must update that assertion as shown above. The maintainer classified that
+  wire-visible difference as a minor change for this release line; it is documented here rather
+  than left implicit.
+
+  **Performance.** The change removes a per-request `Headers` allocation from every Web response,
+  and the bare media type lets Deno's `Response` constructor take its static fast path — together
+  **−16.6 % server CPU per request on Deno GET** and −8.1 % on Deno POST, measured against the
+  previous release, with no regression on Bun or Node.
+
+  **The request deadline no longer costs a timer per request.** A request that waits on I/O — a body
+  read, a database call — is still pending when the timeout window opens, so the framework armed a
+  `setTimeout` for it and cleared it when the request settled. That pair costs 2.15 µs on Deno
+  against 0.16 µs on Bun, and it measured **8.28 µs of server CPU per request on Deno POST (+29.8 %)**.
+  The deadline is now served by one shared timer per runner: the deadline value, the `504`, the
+  `ctx.signal` cancellation, and the late-rejection guard are unchanged, and the measured effect is
+  **−13.8 % on Deno POST and −10.4 % on Bun POST**, with no change on the GET fast path.
+
+- [#61](https://github.com/0xTanzim/nextRush/pull/61) [`2d0f0c1`](https://github.com/0xTanzim/nextRush/commit/2d0f0c185165d50960e2c66b4a9c714d1463381b) Thanks [@0xTanzim](https://github.com/0xTanzim)! - A request is now always answered, and a body is serialized before it is committed.
+
+  **Nothing can leave a request unanswered.** When the error path itself fails to produce a response,
+  the framework answers instead of leaving the socket open. This covers a custom error handler that
+  completes without writing (it returned early, or took a path that forgot to respond), an error
+  handler that throws while writing, and a handler that set an error status and wrote no body at all:
+
+  | What happened                                         | Body sent now                                   |
+  | ----------------------------------------------------- | ----------------------------------------------- |
+  | A handler throws and `setErrorHandler` writes nothing | `500` + the default JSON error body             |
+  | `setErrorHandler` throws while writing                | `500` + the default JSON error body             |
+  | A handler sets an error status and writes nothing     | that status + `{ "error": "<status message>" }` |
+  | A handler responds with a success status and no body  | unchanged — the documented empty response       |
+
+  The guarantee holds at three layers — the application error path (`@nextrush/core`), each adapter's
+  response finalizer, and the shared Web response builder (`@nextrush/runtime`) — precisely so no
+  configuration and no handler bug can reach the client as a hanging request. Previously a custom
+  error handler that returned without responding ended the request with whatever status the handler
+  had set and an empty body; a handler could also be answered by an adapter finalizer before its own
+  error path ran.
+
+  **A body is serialized before the response is marked sent.** `ctx.json()` (and the object branch of
+  `ctx.send()`) no longer flips the responded flag before calling `JSON.stringify`. A value JSON has
+  no representation for — a `BigInt`, a circular structure, a function, a `Symbol`, or a top-level
+  `undefined` — now throws a `TypeError` naming the value class with the response still unwritten, so
+  the error path above answers it with a `500`. On Node this was the difference between a `500` and a
+  socket that received no bytes at all; on Bun, Deno, and Edge it was the difference between a `500`
+  and an empty `200` carrying a success status. A value that serializes to `undefined` is rejected
+  the same way instead of producing an empty body.
+
+  Adapters no longer distinguish a body method's failure from a handler's: both are answered. Code
+  that currently swallows a serialization failure and sends its own fallback should keep doing that —
+  the framework guarantee only applies once nothing has written.
+
+  `@nextrush/runtime` additionally exports the pieces both families now share:
+  `serializeJson()`, `prepareBody()`, `PreparedBody`, `measureBodyLength()`,
+  `unansweredErrorBody()`, and `LAST_RESORT_ERROR_STATUS`. `assertHeaderSafe()` and
+  `isBodylessResponse()` moved to a `header-guards` module with no change to their behavior or to
+  their public export path. The response-body classification moved out of the Web response builder,
+  so a body is resolved by a pure function and committed afterwards.
+
+- [#63](https://github.com/0xTanzim/nextRush/pull/63) [`4bdf830`](https://github.com/0xTanzim/nextRush/commit/4bdf8303cbeed3bf4351d035935c44d5110f8738) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Opt-in lazy body parsing: `bodyParser({ lazy: true })` defers the read and the parse until the
+  application calls `await ctx.readBody()`, so a request whose body is never read costs no body work.
+
+  ```ts
+  app.use(bodyParser({ lazy: true }));
+
+  app.post('/hooks', async (ctx) => {
+    const payload = await ctx.readBody<{ action: string }>(); // the only trigger
+    return ctx.json({ received: payload.action });
+  });
+  ```
+
+  Eager parsing remains the default and its behaviour is unchanged: same error codes, statuses,
+  envelopes, `verify` ordering, and `rawBody` timing.
+
+  On a request a lazy parser claimed, `ctx.body` throws `BODY_NOT_READ` until `readBody()` succeeds,
+  so a missing await fails loudly instead of looking like an empty body. `readBody()` exists in both
+  modes, reads the stream once, shares an in-flight read between concurrent callers, and caches a
+  failure for the rest of the request. A write to `ctx.body` (a validation coercion, a terminal
+  framework write) settles the body: a later `readBody()` returns the written value.
+
+  `@nextrush/validation`, `@nextrush/class` guards and `@Body()` parameters, and `@nextrush/csrf`'s
+  default extractor now consume the body through `readBody()`, so they work in both modes.
+
+  **Implementer note (release classification).** `Context.readBody()` is a required member of the
+  public contract. Applications are unaffected, but a custom `Context` implementation — an external
+  adapter or a hand-written test double — must add it or stop compiling. Whether that warrants a
+  major bump of `@nextrush/types` (and, through the fixed group, the whole framework) or a minor
+  with a documented implementer note is a maintainer call; this changeset proposes minor.
+
+  The evidence for the minor reading: every first-party context is either `WebContextBase`-derived (the
+  Web adapters) or `NodeContext`, and both implement `readBody()` now. No package, example, or guide
+  implements `Context` from scratch — the adapter documentation describes adapters as extending the
+  shared base — so the break reaches hand-written test doubles and hypothetical from-scratch adapters,
+  not applications. Adding a required member to `Context` also has precedent here (`ctx.cookies`,
+  RFC-034). A major is still defensible if the project treats the interface as an implementable
+  contract; the difference is a policy decision, not a technical one.
+
+  Measured on Bun 1.4.4 with a 1 KB JSON `POST`: an unread lazy request drops from 9.39 µs to
+  6.45 µs (−31 %); a request that reads pays ~0.4–0.5 µs more than eager. Details in RFC-047 §14.
+
+- [#63](https://github.com/0xTanzim/nextRush/pull/63) [`d170a14`](https://github.com/0xTanzim/nextRush/commit/d170a14551f0259eed0f0ce9eb450432657daaf9) Thanks [@0xTanzim](https://github.com/0xTanzim)! - **`ctx.signal` on Node now stays un-aborted when a request completes normally, and every stream
+  response is ~22 % cheaper.**
+
+  The Node adapter wired the request signal to both `req` and `res` `'close'`. A normal response also
+  emits `'close'` after it finishes, and a fully received request is also destroyed when the connection
+  tears down — so the signal aborted on _every_ completed request, not just abandoned ones. The
+  `'close'` handlers now check premature-close state: `res` counts as a disconnect only without
+  `writableFinished`, `req` only without `complete`.
+
+  - **What changes:** a handler that reads `ctx.signal` after a normal response (or after
+    `await ctx.stream(...)` resolves) observes `aborted === false`. A real client disconnect —
+    mid-stream, mid-body, or before the response — still aborts exactly as before, and the
+    backpressured-pump settle contract is unchanged.
+  - **Why:** the old wiring made the signal lie about client abandonment, and the abort teardown it
+    forced on every completed stream cost ~8.4 µs of server CPU per streamed response (paired,
+    order-flipped, wrk `-t2 -c64`, Node 26: 39.55 → 31.17 µs CPU/req median, −21.9 %, 7/7 pairs;
+    16-chunk streams 52.00 → 45.46 µs, −14.7 %).
+  - **If you relied on it:** clean up in the code after `await ctx.stream(...)` or in a `finally`
+    block instead — that path always ran on normal completion anyway. For disconnect-only work, guard
+    on `ctx.signal.aborted`.
+
+  Also in this change: a request body that arrives as a single chunk — which every body up to ~64 KB
+  does over a normal socket — is returned without a `Buffer.concat` copy, since Node's HTTP parser
+  allocates each `data` chunk in its own exactly-sized backing buffer. Measured −5.2 % CPU/req on
+  16 KB POSTs (53.47 → 50.59 µs, 6/7 pairs); bytes, limits, and error semantics are unchanged.
+
+- [#63](https://github.com/0xTanzim/nextRush/pull/63) [`81211bc`](https://github.com/0xTanzim/nextRush/commit/81211bc61e68fe437cbcd57e313c4e22a0f9d780) Thanks [@0xTanzim](https://github.com/0xTanzim)! - **The framework's default text media type is now written `text/plain;charset=UTF-8`** — no space
+  after the separator, upper-case charset value — instead of `text/plain; charset=utf-8`.
+
+  **What changes.** Exactly one header value, on the responses the framework types for you: `ctx.send()`
+  with a string or primitive, and the `text/plain` body `ctx.redirect()` sends by default. It is the
+  same value on every adapter, including Node's native response path, so cross-adapter output stays
+  byte-identical to itself.
+
+  **Why.** Deno's `Response` constructor has a static fast path for a small set of exact literals.
+  `text/plain;charset=UTF-8` is one of them; the conventional `text/plain; charset=utf-8` spelling is
+  not, and pays for header-list validation plus a native re-map on every response. Priced in isolation
+  on Deno 2.9.7, constructing the response costs **612 ns with the old spelling and 197 ns with this
+  one**. `application/json` is corrected in the pending JSON media-type changeset for the same reason;
+  `text/plain` was the remaining common media type outside the fast path.
+
+  **Migration.** Applications that _parse_ the media type are unaffected. RFC 9110 §5.6.1 makes the
+  whitespace around `;` insignificant, and the charset value was already case-insensitive, so this is
+  the same media type — not a new one. Only an **exact-string** comparison needs updating:
+
+  ```diff
+  - expect(res.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+  + expect(res.headers.get('content-type')).toBe('text/plain;charset=UTF-8');
+  ```
+
+  One assertion update covers every adapter, because they all emit the same value.
+
+  **What does not change.** The status, the body bytes, `Content-Length`, the header set and ordering,
+  multi-value `Set-Cookie`, `application/json`, `text/html`, the redirect status and `Location`, and
+  `ctx.stream()`/SSE/NDJSON defaults (the stream package sets its own media types and is untouched).
+  Request parsing, routing, middleware ordering, `ctx.next()`, body limits, raw-body bytes, UTF-8
+  handling, response commitment, caching, streaming, timeouts, and error mapping are all untouched.
+  `text/html` keeps the conventional spelling deliberately: it has no fast path to enter (measured 622
+  vs 602 ns on Deno — noise), so changing it would be wire churn with nothing behind it.
+
+  **Why the bump is minor, not major.** Semantically the two spellings are the same media type, so no
+  client that parses `Content-Type` can observe a difference. The bump signals a wire-visible byte
+  change in case a consumer asserts the exact string — the same class of change as the pending
+  `application/json` one, which is also classified as a minor: it removes a parameter, but no client
+  that parses the media type can observe that, and only an exact-string assertion needs updating.
+
+  **Measured.** Deno text workload, paired A/B on server CPU per request: median **−2.3 %** over 7
+  pairs (mean −4.3 %, 5/7 pairs faster), consistent with the −415 ns at the `Response` boundary.
+  Bun neutral (median +0.1 %, 2/4) and Node neutral (+0.8 %, 1/2) — neither has a matching fast path,
+  and neither is expected to move. Full numbers, harness, and the rejected alternatives are in
+  `report/performance/campaign-scoreboard.md` §9.
+
+### Patch Changes
+
+- [#61](https://github.com/0xTanzim/nextRush/pull/61) [`23e927a`](https://github.com/0xTanzim/nextRush/commit/23e927ae3d41b655da6e6862272356df7a2d481f) Thanks [@0xTanzim](https://github.com/0xTanzim)! - A handler built before the application booted now boots it, instead of dispatching against an empty stack.
+
+  **A `createHandler`-only entry point routes.** `Bun.serve({ fetch: createHandler(app) })`,
+  `Deno.serve({ handler: createHandler(app) })`, and `http.createServer(createHandler(app))` are the
+  documented forms for a runtime that owns its own server, and none of them has a startup phase to
+  await `app.ready()` in. The handler now boots the application on the first request, so declared
+  routes and extension-registered middleware are present and an unknown path is a `404` rather than
+  an empty `200`.
+
+  The failure this replaces was silent, and that was the worst part of it: the handler composed the
+  middleware stack as it stood at construction, so an application's own router — mounted only by
+  `ready()` — was simply absent. Every declared route fell through to the finalizer's empty `200`,
+  with nothing logged and nothing thrown. `serve()`/`listen()` were unaffected because they boot
+  before building a handler.
+
+  The boot barrier is shared: `@nextrush/runtime` exports `createBootGate(app, { label, markRunning })`
+  returning `{ handler, ensure() }`. `handler` is resolved synchronously for an application that was
+  already booted, so an entry point with an eager startup phase keeps exactly its previous timing, and
+  a request in steady state reads `handler` with no promise hop at all. Concurrent first requests share
+  one boot; a failed boot clears its memo so the next request retries rather than serving every later
+  request from a poisoned barrier.
+
+  `Application.callback()` now fails fast when the application owns a router that boot has not yet
+  mounted, naming the router and listing the ways to boot (`listen`, `serve`, `createHandler`). The
+  check is deliberately narrow: it fires only when the application has a router, so a bare
+  `createApp()` — which has none — is unaffected.
+
+  The boot-reuse warning (a second, different `Application` booting in the same process or isolate)
+  moved into the shared gate, so every adapter emits it with its own label. Edge no longer keeps that
+  bookkeeping in its own module; the diagnostic behaviour and its cross-platform message are unchanged
+  apart from naming the adapter instead of listing each edge factory.
+
+- [#61](https://github.com/0xTanzim/nextRush/pull/61) [`57d4713`](https://github.com/0xTanzim/nextRush/commit/57d4713e607d071112db9250c9e6e7984214fc15) Thanks [@0xTanzim](https://github.com/0xTanzim)! - **A dot segment is rejected in every spelling, and the path a Web adapter publishes is no longer
+  reshaped by a `URL` parser.**
+
+  `GET /files/%2e%2e/admin` was matched literally: `canonicalizePath()` treats `%2e` as three ordinary
+  characters, so that traversal spelling slipped past the rejection the literal `/files/../admin`
+  already received and was routed (or answered `404`) instead of `400`. Every percent-encoded dot
+  spelling — `%2e`, `%2E`, mixed case, either end of a segment — is now a dot segment, decided in one
+  linear scan as the path is canonicalized. A name that merely _contains_ a dot is still not a segment:
+  `..hidden`, `archive.tar.gz`, and `%252e%252e` (a double-encoded dot, which is a literal `%` to every
+  parser in the chain) all route as before.
+
+  The Web context also stops deriving `ctx.path` through `new URL()`. That call parsed, percent-encoded,
+  and **resolved dot segments**, so on Deno — which hands the request target over unparsed — a target of
+  `/files/../admin` became `/admin` and dispatched to a route the client never named, while Node
+  rejected the same target with `400`. The two now agree: the published path is the bytes the platform
+  delivered, with no decoding and no resolution, and a request that names a traversal is rejected on
+  both.
+
+  One consequence is worth stating plainly: a target whose bytes `URL.pathname` would percent-encode (a
+  non-ASCII character, a space, `"`, `<`, `` ` ``, `{`, `}`) is now published **as delivered** rather
+  than re-encoded. Re-encoding would publish a form the client never sent and then match routes and
+  mounts against it — the same class of reshaping as resolving a segment.
+
+  **The platform decides first, and now says so.** Whether a dot segment survives to the application at
+  all belongs to the HTTP front end: `Bun.serve`, the edge isolates, and the serverless event mapping
+  parse the target into a `URL` before any framework code runs, so the original bytes are already gone
+  and the rejection cannot fire there. That fact is now a capability —
+  `RuntimeCapabilities.rawRequestTarget`, `true` on Node and Deno, `false` on the parsing platforms and
+  wherever it cannot be proven — and the adapter conformance suite derives its expectation from it over
+  a real socket instead of asserting one answer for every runtime. Nothing in the request path branches
+  on the flag.
+
+  `RuntimeCapabilities` gained a required property, so code that constructs one must include it; reading
+  it is unchanged. The behavior, the per-platform matrix, and where to enforce a path ACL are documented
+  in the security guide and on each adapter page.
+
+- [#63](https://github.com/0xTanzim/nextRush/pull/63) [`fbb8b93`](https://github.com/0xTanzim/nextRush/commit/fbb8b93fed819bea9ae6bcb3907b54f7b84fa8ee) Thanks [@0xTanzim](https://github.com/0xTanzim)! - **A request whose handler never reads `ctx.query` no longer pays to parse it.**
+
+  `WebContextBase` (Bun/Deno/Edge) and `NodeContext` parsed the query string in the constructor,
+  before any handler could ask for it. Many query-bearing requests never read the bag, and middleware
+  that does read it (logging, validation) is enabled per app rather than per request. The parse is now
+  deferred to the first read of `ctx.query` and memoized: a request that reads the bag performs
+  exactly the parse it performed before, and one that never reads it performs none. A query-less
+  context still returns the shared frozen empty bag on first read.
+
+  Measured same-process, paired and order-flipped, server CPU per request (negative is faster):
+
+  | Workload                                      |      Change | Pairs |
+  | --------------------------------------------- | ----------: | ----: |
+  | Bun full request, `?limit=10&offset=0` unread | **−947 ns** |   9/9 |
+  | Node context, query unread                    | **−720 ns** |   9/9 |
+  | Deno full request, query unread               | **−816 ns** |   9/9 |
+  | Bun request, query read                       |     −105 ns |   5/9 |
+  | Node context, query read                      |      −24 ns |   6/9 |
+
+  The query-less control arm moved −11 ns on Bun (6/9) and +10 ns on Node (2/9), inside each run's
+  noise. Values, decoding, the 256-parameter/2048-character limits, denied keys and the shared frozen
+  empty bag are byte-identical to the eager implementation across a 25-target differential corpus on
+  both context classes.
+
+  `ctx.query` keeps its typed read-only contract, exposes the same memoized bag on every read, and is
+  now a prototype accessor instead of an own data property; assigning to it was outside that contract.
+
+- Updated dependencies [[`23e927a`](https://github.com/0xTanzim/nextRush/commit/23e927ae3d41b655da6e6862272356df7a2d481f), [`57d4713`](https://github.com/0xTanzim/nextRush/commit/57d4713e607d071112db9250c9e6e7984214fc15), [`9e6de5f`](https://github.com/0xTanzim/nextRush/commit/9e6de5f81b93401198138d11f6c2eaf5948502ad), [`6004c48`](https://github.com/0xTanzim/nextRush/commit/6004c482727f50cd760d4ab55d3c6b7f033e018b), [`fbb8b93`](https://github.com/0xTanzim/nextRush/commit/fbb8b93fed819bea9ae6bcb3907b54f7b84fa8ee), [`2d0f0c1`](https://github.com/0xTanzim/nextRush/commit/2d0f0c185165d50960e2c66b4a9c714d1463381b), [`4bdf830`](https://github.com/0xTanzim/nextRush/commit/4bdf8303cbeed3bf4351d035935c44d5110f8738), [`d21a453`](https://github.com/0xTanzim/nextRush/commit/d21a4534d4e352617ad2e9e3ff06907926342c9e), [`836dd6a`](https://github.com/0xTanzim/nextRush/commit/836dd6a55312f20f2a9dbaef480f4e962e37b941), [`a701579`](https://github.com/0xTanzim/nextRush/commit/a701579e7ac52bfeab8a5d8c539e07b40661e885), [`81211bc`](https://github.com/0xTanzim/nextRush/commit/81211bc61e68fe437cbcd57e313c4e22a0f9d780)]:
+  - @nextrush/runtime@4.1.0
+  - @nextrush/core@4.1.0
+  - @nextrush/types@4.1.0
+  - @nextrush/errors@4.1.0
+  - @nextrush/stream@1.0.3
+
 ## 4.0.2
 
 ### Patch Changes

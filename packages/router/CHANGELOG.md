@@ -1,5 +1,164 @@
 # @nextrush/router
 
+## 4.1.0
+
+### Minor Changes
+
+- [#61](https://github.com/0xTanzim/nextRush/pull/61) [`57d4713`](https://github.com/0xTanzim/nextRush/commit/57d4713e607d071112db9250c9e6e7984214fc15) Thanks [@0xTanzim](https://github.com/0xTanzim)! - **A dot segment is rejected in every spelling, and the path a Web adapter publishes is no longer
+  reshaped by a `URL` parser.**
+
+  `GET /files/%2e%2e/admin` was matched literally: `canonicalizePath()` treats `%2e` as three ordinary
+  characters, so that traversal spelling slipped past the rejection the literal `/files/../admin`
+  already received and was routed (or answered `404`) instead of `400`. Every percent-encoded dot
+  spelling — `%2e`, `%2E`, mixed case, either end of a segment — is now a dot segment, decided in one
+  linear scan as the path is canonicalized. A name that merely _contains_ a dot is still not a segment:
+  `..hidden`, `archive.tar.gz`, and `%252e%252e` (a double-encoded dot, which is a literal `%` to every
+  parser in the chain) all route as before.
+
+  The Web context also stops deriving `ctx.path` through `new URL()`. That call parsed, percent-encoded,
+  and **resolved dot segments**, so on Deno — which hands the request target over unparsed — a target of
+  `/files/../admin` became `/admin` and dispatched to a route the client never named, while Node
+  rejected the same target with `400`. The two now agree: the published path is the bytes the platform
+  delivered, with no decoding and no resolution, and a request that names a traversal is rejected on
+  both.
+
+  One consequence is worth stating plainly: a target whose bytes `URL.pathname` would percent-encode (a
+  non-ASCII character, a space, `"`, `<`, `` ` ``, `{`, `}`) is now published **as delivered** rather
+  than re-encoded. Re-encoding would publish a form the client never sent and then match routes and
+  mounts against it — the same class of reshaping as resolving a segment.
+
+  **The platform decides first, and now says so.** Whether a dot segment survives to the application at
+  all belongs to the HTTP front end: `Bun.serve`, the edge isolates, and the serverless event mapping
+  parse the target into a `URL` before any framework code runs, so the original bytes are already gone
+  and the rejection cannot fire there. That fact is now a capability —
+  `RuntimeCapabilities.rawRequestTarget`, `true` on Node and Deno, `false` on the parsing platforms and
+  wherever it cannot be proven — and the adapter conformance suite derives its expectation from it over
+  a real socket instead of asserting one answer for every runtime. Nothing in the request path branches
+  on the flag.
+
+  `RuntimeCapabilities` gained a required property, so code that constructs one must include it; reading
+  it is unchanged. The behavior, the per-platform matrix, and where to enforce a path ACL are documented
+  in the security guide and on each adapter page.
+
+- [#63](https://github.com/0xTanzim/nextRush/pull/63) [`6004c48`](https://github.com/0xTanzim/nextRush/commit/6004c482727f50cd760d4ab55d3c6b7f033e018b) Thanks [@0xTanzim](https://github.com/0xTanzim)! - A JSON response's `Content-Type` is now `application/json`, with no `charset` parameter.
+
+  **What changes.** Every framework-generated JSON response — a handler's `ctx.json()`, an object
+  passed to `ctx.send()`, and the framework's own `404`/`500`/`504` envelope — carries
+  `content-type: application/json` on every adapter. It previously carried
+  `application/json; charset=utf-8`.
+
+  ```ts
+  // Before
+  expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+  // After
+  expect(res.headers.get('content-type')).toBe('application/json');
+  ```
+
+  **Why.** RFC 8259 §8.1 registers `application/json` with no parameters — JSON is UTF-8 by
+  definition, so a `charset` parameter is one the specification does not define. Hono 4.13.0 and
+  Express 5.2.1 already send the bare value; only Fastify sends the parameterised form. The earlier
+  conformance rule that pinned the parameterised value existed to stop adapters drifting apart — Edge
+  and Bun's server-level error path emitted a bare `application/json` while the shared helper emitted
+  the parameterised form. Every adapter now goes through the one shared helper that emits the bare
+  value, so the uniformity is preserved and the drift is gone.
+
+  **Migration.** Applications that only _parse_ the media type are unaffected: JSON parsing keys off
+  the `application/json` type, and the `charset` parameter was never required for it. Only an
+  exact-string comparison needs updating. The value is now identical on every adapter, so one
+  assertion update covers all of them.
+
+  **What does not change.** The status, the body bytes, `Content-Length`, the header set, the
+  multi-value `Set-Cookie` behaviour, `text/plain` and `text/html`, and every other response
+  behaviour. Request parsing, routing, middleware ordering, `ctx.next()`, body limits, raw-body bytes,
+  UTF-8 correctness, caching, streaming, and error status mapping are all untouched.
+
+  **Why this is a minor release.** No exported API, status, body, or request behavior changes, and
+  JSON parsing keys off the media type rather than the exact header string. The one observable
+  difference is the `Content-Type` value: an application that compares it to the old parameterised
+  string exactly must update that assertion as shown above. The maintainer classified that
+  wire-visible difference as a minor change for this release line; it is documented here rather
+  than left implicit.
+
+  **Performance.** The change removes a per-request `Headers` allocation from every Web response,
+  and the bare media type lets Deno's `Response` constructor take its static fast path — together
+  **−16.6 % server CPU per request on Deno GET** and −8.1 % on Deno POST, measured against the
+  previous release, with no regression on Bun or Node.
+
+  **The request deadline no longer costs a timer per request.** A request that waits on I/O — a body
+  read, a database call — is still pending when the timeout window opens, so the framework armed a
+  `setTimeout` for it and cleared it when the request settled. That pair costs 2.15 µs on Deno
+  against 0.16 µs on Bun, and it measured **8.28 µs of server CPU per request on Deno POST (+29.8 %)**.
+  The deadline is now served by one shared timer per runner: the deadline value, the `504`, the
+  `ctx.signal` cancellation, and the late-rejection guard are unchanged, and the measured effect is
+  **−13.8 % on Deno POST and −10.4 % on Bun POST**, with no change on the GET fast path.
+
+- [#61](https://github.com/0xTanzim/nextRush/pull/61) [`ca01a63`](https://github.com/0xTanzim/nextRush/commit/ca01a63205e3bfec5fe4b85f5daad57383d1be8e) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Parameter and wildcard values keep the casing the client sent. Route matching is unchanged — still
+  case-insensitive by default — but a value is no longer read out of the case-folded path the lookup
+  runs on: `GET /users/ABC123` binds `{ id: 'ABC123' }` where dispatch previously bound
+  `{ id: 'abc123' }`. The package README already documented this behavior ("parameter names and
+  values always preserve their original case"), so this closes the gap between the documented
+  contract and dispatch.
+
+  The mechanism is one canonicalization yielding both strings a match needs. `canonicalizePath()`
+  now returns a case-preserved `valuePath` alongside the folded `path`, and the trie walk folds each
+  segment individually for its child lookup rather than folding the whole path first. Because a bound
+  value and its position come from the same string, a fold that changes a character's length no
+  longer risks shifting a later binding. When nothing folded, the two paths are the same string, so
+  an all-lowercase request allocates nothing extra; measured per-request allocation on the match and
+  dispatch paths is unchanged.
+
+  `canonicalizePath()` additionally exports the `CanonicalPaths` type, and
+  `Router.matchesMountPrefix()` now returns the case-preserved remainder, so a mounted router binds
+  the client's casing too. `Router.match(method, path)` is unchanged: still two arguments, still
+  normalizes its own input.
+
+  Consumers that relied on a folded identifier must fold it themselves
+  (`ctx.params.id.toLowerCase()`); everything that treats a parameter as an opaque value is
+  unaffected.
+
+### Patch Changes
+
+- [#63](https://github.com/0xTanzim/nextRush/pull/63) [`b882dc8`](https://github.com/0xTanzim/nextRush/commit/b882dc8677b60c1b0f5f5cf62bdf099cabcd3153) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Widen the optional peer ranges to match the rest of the workspace: `@nextrush/router` now accepts
+  `@nextrush/core` at `^` rather than an exact version, and `nextrush` accepts
+  `@nextrush/adapter-nextjs`, `@nextrush/class`, and `@nextrush/di` the same way. The published
+  ranges now admit compatible minors instead of pinning the version they were developed against, so
+  a dependency's minor release no longer forces a major release of the dependent package. No runtime
+  behavior changes.
+
+- [#63](https://github.com/0xTanzim/nextRush/pull/63) [`a701579`](https://github.com/0xTanzim/nextRush/commit/a701579e7ac52bfeab8a5d8c539e07b40661e885) Thanks [@0xTanzim](https://github.com/0xTanzim)! - **A route that finishes synchronously now answers with a `Response` instead of a promise, so Bun
+  stops paying a microtask hop the runtime never needed.**
+
+  **What changes.** `createWebRunner` returns `Response | Promise<Response>`, and `createHandler` in
+  the Bun, Deno and edge adapters follows that type. When the application's only middleware is the
+  mounted router and the route executor reports that the handler settled without leaving work
+  pending, the runner builds the response and returns it directly. Every other shape — application
+  middleware, per-route middleware, an async handler, a throw — takes the existing promise path
+  unchanged, timeout race included.
+
+  **Why it is safe to answer early.** The new `Application.syncDispatchSafe` getter is true only when
+  the middleware stack is exactly one entry _and_ that entry is a router dispatch mounted at the root.
+  That middleware returns the executor's promise directly and never resumes after the handler, so
+  nothing can mutate the response once the handler returns. A middleware registered ahead of the
+  router can resume after `next()`, which is why a stack with two or more entries never takes the
+  path — even when every middleware in it happens to be synchronous. The executor sets its marker
+  only in the no-per-route-middleware branch, and only when the handler returned without a promise; a
+  throw produces a rejection and no marker.
+
+  **Compatibility.** Runtime behaviour is unchanged: callers that `await` the handler still work,
+  because a `Response` awaits to itself. The type widening is source-visible for code that stores the
+  return value in a `Promise<Response>`-typed variable; annotate it as `Response | Promise<Response>`
+  (the adapters' own `BunFetchHandler` and `FetchHandler` types already do). `Bun.serve`, `Deno.serve`
+  and the edge runtimes all accept either shape.
+
+  **Measured (`wrk -t2 -c64`, server pinned to one core, paired order-flipped, CPU µs/request from
+  `/proc/<pid>/stat`).** Bun GET: 14.86 → 13.20 µs (−11.7 %, 5/5 pairs). Deno GET: 12.75 → 11.44 µs
+  (−6.8 %, 3/3). Deno POST: 36.59 → 34.76 µs (−2.9 %, 3/3). Bun POST and Node GET/POST: unchanged
+  within noise (Bun POST keeps its `bodyParser` middleware, so the chain is genuinely asynchronous and
+  the path does not apply). Node is unaffected because its adapter owns a callback-based runner.
+
+- Updated dependencies [[`57d4713`](https://github.com/0xTanzim/nextRush/commit/57d4713e607d071112db9250c9e6e7984214fc15), [`6004c48`](https://github.com/0xTanzim/nextRush/commit/6004c482727f50cd760d4ab55d3c6b7f033e018b), [`4bdf830`](https://github.com/0xTanzim/nextRush/commit/4bdf8303cbeed3bf4351d035935c44d5110f8738), [`a701579`](https://github.com/0xTanzim/nextRush/commit/a701579e7ac52bfeab8a5d8c539e07b40661e885)]:
+  - @nextrush/types@4.1.0
+
 ## 4.0.2
 
 ### Patch Changes
