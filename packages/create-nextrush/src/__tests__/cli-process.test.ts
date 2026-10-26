@@ -1,9 +1,9 @@
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
 const bin = join(packageRoot, 'bin', 'create-nextrush.js');
@@ -18,10 +18,6 @@ function runCli(args: readonly string[]) {
 }
 
 describe('CLI process input contract', () => {
-  beforeAll(() => {
-    execFileSync('pnpm', ['build'], { cwd: packageRoot, stdio: 'pipe' });
-  });
-
   afterAll(() => {
     rmSync(testRoot, { recursive: true, force: true });
   });

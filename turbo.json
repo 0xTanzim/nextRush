@@ -31,7 +31,9 @@
         "scripts/**/*",
         "**/*.test.ts",
         "**/*.test.js",
-        "**/*.test.mjs"
+        "**/*.test.mjs",
+        "vitest.config.*",
+        "vitest.global-setup.*"
       ]
     },
     "nextrush#test": {
@@ -43,7 +45,9 @@
         "scripts/**/*",
         "**/*.test.ts",
         "**/*.test.js",
-        "**/*.test.mjs"
+        "**/*.test.mjs",
+        "vitest.config.*",
+        "vitest.global-setup.*"
       ]
     },
     "test:watch": {
