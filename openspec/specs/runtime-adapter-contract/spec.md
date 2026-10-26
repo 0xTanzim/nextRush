@@ -320,3 +320,163 @@ response is the sole exception and commits at the point the stream is wired.
 
 - **WHEN** a handler wires a stream through `sendStream`, SSE or NDJSON
 - **THEN** the response commits at that point and is never buffered or re-flushed
+
+### Requirement: Response helpers accept a status code or a response-options object
+
+`ctx.json`, `ctx.html` and `ctx.send` SHALL accept an optional second argument that is either a
+numeric status or a `ResponseOptions` object carrying optional `status` and `headers`. Omitting the
+argument SHALL keep the carried `ctx.status` (default 200). A numeric argument SHALL behave exactly
+as `{ status }`. Every existing single-argument call SHALL remain valid and byte-identical.
+
+#### Scenario: Numeric status shorthand
+
+- **WHEN** a handler calls `ctx.json({ id: 'u_123' }, 201)`
+- **THEN** the client receives status `201` and the JSON body, on every adapter
+
+#### Scenario: Options object sets the status
+
+- **WHEN** a handler calls `ctx.json({ id: 'u_123' }, { status: 201 })`
+- **THEN** the client receives status `201`, identical to the numeric form
+
+#### Scenario: Omitting the argument keeps the carried status
+
+- **WHEN** a handler sets `ctx.status = 201` and calls `ctx.json({ id: 'u_123' })`
+- **THEN** the client receives status `201`, identical to today's behavior
+
+#### Scenario: Every helper accepts both forms
+
+- **WHEN** `ctx.json(data, 201)`, `ctx.html(content, { status: 202 })` and
+  `ctx.send('body', { status: 203 })` are each used
+- **THEN** each response carries the requested status and its unchanged media type
+
+### Requirement: An explicit status becomes the recorded outgoing status
+
+A status supplied as a number or as `ResponseOptions.status` SHALL be reflected in `ctx.status` for
+middleware that runs after the handler, so logging, metrics and response-aware middleware observe
+the status that was actually sent.
+
+#### Scenario: Post-handler middleware reads the numeric status
+
+- **WHEN** a handler calls `ctx.json({ ok: true }, 201)` with no prior assignment, and a middleware
+  reads `ctx.status` after `await next()`
+- **THEN** it observes `201`
+
+#### Scenario: Post-handler middleware reads the options status
+
+- **WHEN** a handler calls `ctx.json({ ok: true }, { status: 202 })` and a middleware reads
+  `ctx.status` after `await next()`
+- **THEN** it observes `202`
+
+#### Scenario: Headers set before the helper still survive
+
+- **WHEN** a middleware calls `ctx.set('X-Trace', 't1')` and the handler then calls
+  `ctx.json(data, { status: 201 })`
+- **THEN** the response carries both `X-Trace: t1` and status `201`
+
+### Requirement: An invalid explicit status is rejected before the response is committed
+
+An explicit status SHALL be validated before any body is serialized or committed. Accepted values
+SHALL be integers from 200 to 599 inclusive — the range every supported adapter can answer. Any
+other value SHALL throw a `RangeError` naming the accepted range, leaving the response uncommitted so
+the application error handler can still answer. The outcome SHALL be identical on every adapter.
+
+#### Scenario: An out-of-range status is rejected and the error handler answers
+
+- **WHEN** a handler calls `ctx.json(data, 99)` or `ctx.json(data, { status: 600 })`
+- **THEN** a `RangeError` naming the accepted range is thrown, no byte is written, and the
+  application error handler produces a completed error response
+
+#### Scenario: A non-integer status is rejected
+
+- **WHEN** a handler calls `ctx.send('body', 201.5)`
+- **THEN** a `RangeError` is thrown and the response is not committed
+
+#### Scenario: Every adapter rejects the same value
+
+- **WHEN** the conformance suite sends the same invalid status through each shipped adapter
+- **THEN** every adapter throws the same error type and produces the same client-visible outcome
+
+### Requirement: Supplied response headers merge with recorded response headers
+
+`ResponseOptions.headers` SHALL merge into the response headers rather than replace them. An ordinary
+field SHALL override a previously recorded value for the same field, case-insensitively, keeping the
+field's position. `Set-Cookie` SHALL accumulate so middleware cookies survive. An array value SHALL
+replace the field and then contribute each element. Every field SHALL pass the existing header-safety
+validation.
+
+#### Scenario: An ordinary header overrides a recorded value
+
+- **WHEN** a middleware sets `X-Cache: old` and the handler calls
+  `ctx.json(data, { headers: { 'X-Cache': 'new' } })`
+- **THEN** the client receives `X-Cache: new`
+
+#### Scenario: Set-Cookie accumulates
+
+- **WHEN** a middleware sets `Set-Cookie: a=1; Path=/` and the handler supplies
+  `headers: { 'Set-Cookie': 'b=2; Path=/' }`
+- **THEN** the response carries both cookies
+
+#### Scenario: An array value replaces and then appends
+
+- **WHEN** a middleware sets `Set-Cookie: a=1; Path=/` and the handler supplies
+  `headers: { 'Set-Cookie': ['b=2; Path=/', 'c=3; Path=/'] }`
+- **THEN** the response carries `b=2` and `c=3` and does not carry `a=1`
+
+#### Scenario: Content-Type overrides the helper media type
+
+- **WHEN** a handler calls `ctx.json(data, { headers: { 'Content-Type': 'application/vnd.api+json' } })`
+- **THEN** the response's `Content-Type` is `application/vnd.api+json`
+
+#### Scenario: Invalid header names are rejected before commit
+
+- **WHEN** a handler supplies a header name containing a space or a control character
+- **THEN** the framework's existing header validation throws and the response is not committed
+
+#### Scenario: Supplied headers survive a bodyless status
+
+- **WHEN** a handler calls `ctx.json(data, { status: 204, headers: { 'Cache-Control': 'no-store' } })`
+- **THEN** the response carries status `204`, the header, and no body
+
+### Requirement: Content-Length is never taken from the options object
+
+A supplied `Content-Length` SHALL be rejected with a `TypeError` before the response is committed,
+because the framework derives the length from the serialized body and a disagreeing value truncates
+or over-reads the response. Every other header field SHALL remain unaffected by this rule.
+
+#### Scenario: Content-Length is rejected
+
+- **WHEN** a handler supplies `headers: { 'Content-Length': '10' }`
+- **THEN** a `TypeError` explaining that the framework derives the length is thrown and the response
+  is not committed
+
+### Requirement: A helper-supplied status obeys body suppression and the commit guard
+
+A status supplied through either form SHALL NOT change any existing response-construction rule:
+HEAD, 204, 304 and 1xx responses SHALL remain bodyless, each helper's media type SHALL be unchanged,
+and a helper call on an already-committed response SHALL NOT alter the response or `ctx.status`.
+
+#### Scenario: 204 suppresses the body
+
+- **WHEN** a handler calls `ctx.json({ hidden: true }, 204)`
+- **THEN** the response carries status `204` and no body
+
+#### Scenario: 304 suppresses the body
+
+- **WHEN** a handler calls `ctx.json({ hidden: true }, { status: 304 })`
+- **THEN** the response carries status `304` and no body
+
+#### Scenario: HEAD stays bodyless with an explicit status
+
+- **WHEN** a HEAD request handler calls `ctx.json({ ok: true }, 201)`
+- **THEN** the response carries status `201` and no body
+
+#### Scenario: A post-commit helper call changes nothing
+
+- **WHEN** a handler has already sent a response and then calls `ctx.json(data, { status: 500 })`
+- **THEN** the committed response and `ctx.status` are both unchanged
+
+#### Scenario: Results are identical on every adapter
+
+- **WHEN** the conformance suite runs the explicit-status and header scenarios on Node, Bun, Deno,
+  Edge and serverless
+- **THEN** status, headers and body bytes are identical across adapters
