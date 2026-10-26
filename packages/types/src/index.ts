@@ -34,6 +34,8 @@ export {
   // Raw HTTP
   type RawHttp,
   type ResponseBody,
+  type ResponseHeaders,
+  type ResponseOptions,
   type WebStreamLike,
 } from './http';
 

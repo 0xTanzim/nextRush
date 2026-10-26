@@ -33,7 +33,9 @@ import type {
   CombinedAbort,
   EdgeRuntimeInfo,
   HeaderLookup,
+  HeaderWriter,
   ProxyTrust,
+  ResolvedResponseArgs,
   Runtime,
   RuntimeCapabilities,
   RuntimeInfo,
@@ -108,6 +110,11 @@ describe('Public API surface (runtime exports)', () => {
       'UNINITIALIZED_COOKIES',
       'UNINITIALIZED_SIGNED_COOKIES',
 
+      // Per-call response arguments (RFC-048)
+      'applyResponseHeaders',
+      'assertResponseStatus',
+      'resolveResponseArgs',
+
       // Web response builder
       'assertHeaderSafe',
       'isBodylessResponse',
@@ -177,7 +184,9 @@ describe('Public API surface (type-only exports)', () => {
       CapabilityProfile,
       ClientIpOptions,
       HeaderLookup,
+      HeaderWriter,
       ProxyTrust,
+      ResolvedResponseArgs,
       CombinedAbort,
       ServerStartErrorCode,
       BootableApp<string>,

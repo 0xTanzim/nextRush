@@ -35,6 +35,7 @@ import type {
   QueryParams,
   RawHttp,
   ResponseBody,
+  ResponseOptions,
   RouteParams,
   Runtime,
   SSEStreamWriter,
@@ -47,6 +48,7 @@ import { UNINITIALIZED_COOKIES } from './capabilities';
 import { createEmptyBodySource } from './body-source';
 import { WebBodySource } from './body-source';
 import { WebResponseBuilder } from './response-builder';
+import { applyResponseHeaders, resolveResponseArgs } from './response-args';
 import { METHODS_WITHOUT_BODY } from './constants';
 import { RequestInputs, type ClientAddress } from './request-inputs';
 import { NULL_PROTO } from './null-proto';
@@ -268,16 +270,36 @@ export abstract class WebContextBase implements FetchContext {
   // Response Methods (delegated to the shared WebResponseBuilder)
   // ===========================================================================
 
-  json(data: unknown): void {
-    this._response.json(data, this.status);
+  json(data: unknown, statusOrOptions?: number | ResponseOptions): void {
+    if (this.responded) return;
+
+    // Resolve and validate before writing anything: a rejected status or header
+    // must leave the response uncommitted so the error handler can still answer.
+    const { status, headers } = resolveResponseArgs(statusOrOptions, this.status, 'json');
+    applyResponseHeaders(this, headers);
+    this.status = status;
+
+    this._response.json(data, status);
   }
 
-  send(data: ResponseBody): void {
-    this._response.send(data, this.status);
+  send(data: ResponseBody, statusOrOptions?: number | ResponseOptions): void {
+    if (this.responded) return;
+
+    const { status, headers } = resolveResponseArgs(statusOrOptions, this.status, 'send');
+    applyResponseHeaders(this, headers);
+    this.status = status;
+
+    this._response.send(data, status);
   }
 
-  html(content: string): void {
-    this._response.html(content, this.status);
+  html(content: string, statusOrOptions?: number | ResponseOptions): void {
+    if (this.responded) return;
+
+    const { status, headers } = resolveResponseArgs(statusOrOptions, this.status, 'html');
+    applyResponseHeaders(this, headers);
+    this.status = status;
+
+    this._response.html(content, status);
   }
 
   redirect(url: string, status = 302): void {

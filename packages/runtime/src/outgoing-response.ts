@@ -160,7 +160,9 @@ export class OutgoingResponse {
     // the new body, truncating or over-reading the response. A caller that knows
     // the new length sets it after the replacement.
     this._headers?.remove('content-length');
-    if (contentType !== undefined) this._contentType = contentType;
+    // A content type supplied by the body method is a fallback: an explicit
+    // `ctx.set("Content-Type", ...)` (or a response option) always wins.
+    if (contentType !== undefined && this._contentType === undefined) this._contentType = contentType;
     this._committed = true;
     return true;
   }

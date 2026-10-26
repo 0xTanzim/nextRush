@@ -9,6 +9,7 @@
 
 import { HttpError } from '@nextrush/errors';
 import {
+  applyResponseHeaders,
   getRuntime,
   isBodylessResponse,
   LAST_RESORT_ERROR_STATUS,
@@ -16,6 +17,7 @@ import {
   NULL_PROTO,
   OutgoingResponse,
   resolveClientIp,
+  resolveResponseArgs,
   serializeJson,
   unansweredErrorBody,
   UNINITIALIZED_COOKIES,
@@ -43,6 +45,7 @@ import type {
     QueryParams,
     RawHttp,
     ResponseBody,
+    ResponseOptions,
     RouteParams,
     Runtime,
     SSEStreamWriter,
@@ -373,8 +376,12 @@ export class NodeContext implements AdapterContext {
     return this._outgoing.committed || this._res.headersSent;
   }
 
-  json(data: unknown): void {
+  json(data: unknown, statusOrOptions?: number | ResponseOptions): void {
     if (this.isCommitted()) return;
+
+    const { status, headers } = resolveResponseArgs(statusOrOptions, this.status, 'json');
+    applyResponseHeaders(this, headers);
+    this.status = status;
 
     // Serialize before committing: a value JSON cannot represent throws here,
     // with the response still unwritten, so the application error handler can
@@ -382,15 +389,19 @@ export class NodeContext implements AdapterContext {
     // serialization failure into a socket that hung.
     const json = serializeJson(data);
 
-    this._outgoing.status = this.status;
+    this._outgoing.status = status;
     this._outgoing.setBody(json, JSON_CONTENT_TYPE);
   }
 
-  send(data: ResponseBody): void {
+  send(data: ResponseBody, statusOrOptions?: number | ResponseOptions): void {
     if (this.isCommitted()) return;
 
+    const { status, headers } = resolveResponseArgs(statusOrOptions, this.status, 'send');
+    applyResponseHeaders(this, headers);
+    this.status = status;
+
     const outgoing = this._outgoing;
-    outgoing.status = this.status;
+    outgoing.status = status;
     const hasContentType =
       outgoing.hasHeader('Content-Type') || this._res.hasHeader('Content-Type');
 
@@ -425,6 +436,13 @@ export class NodeContext implements AdapterContext {
     }
 
     if (typeof (data as NodeStreamLike).pipe === 'function') {
+      if (isBodylessResponse(this.method, outgoing.status)) {
+        // A bodyless status never carries the stream; destroy it so the producer
+        // is not left piping into a response that discards every byte.
+        (data as NodeStreamLike & { destroy?: () => void }).destroy?.();
+        outgoing.setBody(null);
+        return;
+      }
       this.sendNodeStream(data as NodeStreamLike, hasContentType);
       return;
     }
@@ -433,6 +451,13 @@ export class NodeContext implements AdapterContext {
       typeof (data as WebStreamLike).getReader === 'function' &&
       'locked' in (data as WebStreamLike)
     ) {
+      if (isBodylessResponse(this.method, outgoing.status)) {
+        void (data as ReadableStream<Uint8Array>)
+          .cancel()
+          .catch((): undefined => undefined);
+        outgoing.setBody(null);
+        return;
+      }
       this.sendWebStream(data as ReadableStream<Uint8Array>, hasContentType);
       return;
     }
@@ -446,10 +471,14 @@ export class NodeContext implements AdapterContext {
     outgoing.setBody(String(data), hasContentType ? undefined : TEXT_CONTENT_TYPE);
   }
 
-  html(content: string): void {
+  html(content: string, statusOrOptions?: number | ResponseOptions): void {
     if (this.isCommitted()) return;
 
-    this._outgoing.status = this.status;
+    const { status, headers } = resolveResponseArgs(statusOrOptions, this.status, 'html');
+    applyResponseHeaders(this, headers);
+    this.status = status;
+
+    this._outgoing.status = status;
     this._outgoing.setBody(content, HTML_CONTENT_TYPE);
   }
 

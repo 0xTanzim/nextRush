@@ -696,6 +696,223 @@ export function defineResponseConformance(
       expect(json<{ ok: boolean }>(res).ok).toBe(true);
     }
   );
+
+  // ---- RFC-048: per-call response status and headers ---------------------
+
+  registerScenario(driver, '#48 a numeric status applies to the response', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json({ id: 'u_123' }, 201);
+      });
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.header('content-type')).toBe('application/json');
+    expect(json<{ id: string }>(res).id).toBe('u_123');
+  });
+
+  registerScenario(driver, '#48 an options status applies to the response', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json({ id: 'u_123' }, { status: 202 });
+      });
+    });
+
+    expect(res.status).toBe(202);
+    expect(json<{ id: string }>(res).id).toBe('u_123');
+  });
+
+  registerScenario(driver, '#48 an explicit status beats a previously assigned status', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.status = 200;
+        ctx.json({ ok: true }, 201);
+      });
+    });
+
+    expect(res.status).toBe(201);
+  });
+
+  registerScenario(driver, '#48 an omitted status keeps the carried status', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.status = 201;
+        ctx.json({ ok: true });
+      });
+    });
+
+    expect(res.status).toBe(201);
+  });
+
+  registerScenario(driver, '#48 every response helper accepts an explicit status', {}, async () => {
+    const jsonRes = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json({ ok: true }, 201);
+      });
+    });
+    expect(jsonRes.status).toBe(201);
+
+    const htmlRes = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.html('<b>hi</b>', { status: 202 });
+      });
+    });
+    expect(htmlRes.status).toBe(202);
+    expect(htmlRes.header('content-type')).toBe('text/html; charset=utf-8');
+
+    const sendRes = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.send('body', { status: 203 });
+      });
+    });
+    expect(sendRes.status).toBe(203);
+    expect(sendRes.text()).toBe('body');
+  });
+
+  registerScenario(driver, '#48 the effective status is visible to post-handler middleware', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use(async (ctx, next) => {
+        await next();
+        ctx.set('X-Observed-Status', String(ctx.status));
+      });
+      app.use((ctx) => {
+        ctx.json({ ok: true }, { status: 202 });
+      });
+    });
+
+    expect(res.status).toBe(202);
+    expect(res.header('x-observed-status')).toBe('202');
+  });
+
+  registerScenario(driver, '#48 an invalid status is rejected before commit and the error handler answers', {}, async () => {
+    const cases: readonly (number | { status: number })[] = [99, 600, 201.5];
+    for (const invalid of cases) {
+      const res = await driver.dispatch((app) => {
+        app.use((ctx) => {
+          ctx.json({ ok: true }, invalid);
+        });
+      });
+
+      expect(res.status).toBe(500);
+      expect(res.text()).not.toBe('');
+    }
+  });
+
+  registerScenario(driver, '#48 supplied headers merge, override and accumulate', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.set('X-Cache', 'old');
+        ctx.set('Set-Cookie', 'a=1; Path=/');
+        ctx.json(
+          { ok: true },
+          { headers: { 'X-Cache': 'new', 'Set-Cookie': 'b=2; Path=/' } }
+        );
+      });
+    });
+
+    expect(res.header('x-cache')).toBe('new');
+    expect(res.setCookies()).toEqual(['a=1; Path=/', 'b=2; Path=/']);
+  });
+
+  registerScenario(driver, '#48 an array header replaces the field then appends', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.set('Set-Cookie', 'a=1; Path=/');
+        ctx.json(
+          { ok: true },
+          { headers: { 'Set-Cookie': ['b=2; Path=/', 'c=3; Path=/'] } }
+        );
+      });
+    });
+
+    expect(res.setCookies()).toEqual(['b=2; Path=/', 'c=3; Path=/']);
+  });
+
+  registerScenario(driver, '#48 a supplied Content-Type overrides the helper media type', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json({ ok: true }, { headers: { 'Content-Type': 'application/vnd.api+json' } });
+      });
+    });
+
+    expect(res.header('content-type')).toBe('application/vnd.api+json');
+  });
+
+  registerScenario(driver, '#48 a supplied Content-Length is rejected before commit', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json({ ok: true }, { headers: { 'Content-Length': '10' } });
+      });
+    });
+
+    expect(res.status).toBe(500);
+  });
+
+  registerScenario(driver, '#48 an invalid header name is rejected before commit', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json({ ok: true }, { headers: { 'Bad Header': 'x' } });
+      });
+    });
+
+    expect(res.status).toBe(500);
+  });
+
+  registerScenario(driver, '#48 supplied headers survive a bodyless status', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json({ hidden: true }, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+      });
+    });
+
+    expect(res.status).toBe(204);
+    expect(res.header('cache-control')).toBe('no-store');
+    expect(res.text()).toBe('');
+  });
+
+  registerScenario(driver, '#48 204 and 304 supplied as numbers suppress the body', {}, async () => {
+    const noContentRes = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json({ hidden: true }, 204);
+      });
+    });
+    expect(noContentRes.status).toBe(204);
+    expect(noContentRes.text()).toBe('');
+
+    const notModifiedRes = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json({ hidden: true }, { status: 304 });
+      });
+    });
+    expect(notModifiedRes.status).toBe(304);
+    expect(notModifiedRes.text()).toBe('');
+  });
+
+  registerScenario(driver, '#48 HEAD stays bodyless with an explicit status', {}, async () => {
+    const res = await driver.dispatch(
+      (app) => {
+        app.use((ctx) => {
+          ctx.json({ ok: true }, 201);
+        });
+      },
+      { method: 'HEAD' }
+    );
+
+    expect(res.status).toBe(201);
+    expect(res.text()).toBe('');
+  });
+
+  registerScenario(driver, '#48 a helper call after the response was committed changes nothing', {}, async () => {
+    const res = await driver.dispatch((app) => {
+      app.use((ctx) => {
+        ctx.json({ ok: true });
+        ctx.json({ late: true }, { status: 500 });
+      });
+    });
+
+    expect(res.status).toBe(200);
+    expect(json<{ ok: boolean }>(res).ok).toBe(true);
+  });
 }
 
 /** Runtime behaviors with encoded capability differences (rows #13-#15, #19). */

@@ -165,6 +165,33 @@ export type ResponseBody =
   | null
   | undefined;
 
+/**
+ * Response header map accepted by the per-call response options.
+ *
+ * @remarks
+ * Mirrors what `ctx.set()` already accepts — a scalar replaces the field and
+ * `set-cookie` accumulates — so the options path cannot introduce header
+ * semantics the rest of the framework does not already have. A DOM `HeadersInit`
+ * is deliberately not used: it would collapse multi-value fields and normalize
+ * casing, and this package compiles without the DOM lib.
+ */
+export type ResponseHeaders = Record<string, string | number | string[]>;
+
+/**
+ * Per-call response options for `ctx.json()`, `ctx.html()` and `ctx.send()`.
+ *
+ * @remarks
+ * - `status` overrides the carried `ctx.status` for this response and is
+ *   recorded back onto `ctx.status`, so post-handler middleware observes the
+ *   status that was actually sent. Accepted range is 200-599.
+ * - `headers` merges into the recorded response headers. `Content-Length` is
+ *   rejected because the framework derives it from the body.
+ */
+export interface ResponseOptions {
+  status?: number;
+  headers?: ResponseHeaders;
+}
+
 // ============================================================================
 // Cross-Runtime Stream Types
 // ============================================================================

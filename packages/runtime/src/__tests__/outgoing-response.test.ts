@@ -146,12 +146,12 @@ describe('OutgoingResponse header semantics', () => {
     expect(record.contentType).toBe('text/csv; charset=utf-8');
   });
 
-  it('lets a body method replace a content type written before it', () => {
+  it('keeps an explicit content type written before the body method', () => {
     const record = new OutgoingResponse();
     record.set('Content-Type', 'text/csv; charset=utf-8');
     record.setBody('{"ok":true}', 'application/json; charset=utf-8');
 
-    expect(record.contentType).toBe('application/json; charset=utf-8');
+    expect(record.contentType).toBe('text/csv; charset=utf-8');
     expect(record.extraHeaders()).toEqual([]);
   });
 
@@ -196,6 +196,34 @@ describe('OutgoingResponse body', () => {
     record.setBody(new TextEncoder().encode('compressed'));
     expect(record.bodyCopies).toBe(1);
     expect(record.contentLength()).toBe(10);
+  });
+});
+
+describe('OutgoingResponse content type', () => {
+  it('records the content type when none was set explicitly', () => {
+    const record = new OutgoingResponse();
+    record.setBody('{"ok":true}', 'application/json');
+
+    expect(recordFlush(record)[0].contentType).toBe('application/json');
+  });
+
+  it('keeps an explicitly recorded content type over the body method default', () => {
+    const record = new OutgoingResponse();
+    record.set('Content-Type', 'application/vnd.api+json');
+
+    record.setBody('{"ok":true}', 'application/json');
+
+    expect(recordFlush(record)[0].contentType).toBe('application/vnd.api+json');
+  });
+
+  it('keeps an explicit content type across a body replacement', () => {
+    const record = new OutgoingResponse();
+    record.setBody('{"ok":true}', 'application/json');
+
+    record.set('Content-Type', 'text/plain');
+    record.setBody('replaced');
+
+    expect(recordFlush(record)[0].contentType).toBe('text/plain');
   });
 });
 
