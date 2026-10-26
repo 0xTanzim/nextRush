@@ -128,6 +128,15 @@ export const packageRegistryDataPart1: readonly PackageEntry[] = [
     summary: 'Rate limiting middleware with token-bucket and sliding-window algorithms.',
     sinceVersion: '1.0.0',
   },
+  {
+    name: '@nextrush/security',
+    category: 'Security',
+    type: 'Middleware',
+    status: 'Stable',
+    summary:
+      'Secure-by-default composite — helmet, strict cookies, CSRF, and rate limiting in one call.',
+    sinceVersion: '1.0.1',
+  },
 
   // ---- Request Data --------------------------------------------------------
   {
