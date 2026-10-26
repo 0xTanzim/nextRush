@@ -113,7 +113,8 @@ export const requestId: Middleware = async (ctx: Context, next) => {
 **Request/response contracts**
 - **`Context`** — the unified request/response object (`method`, `url`, `path`, `query`, `params`, `body`, `headers`, `ip`, plus `json()`/`send()`/`html()`/`redirect()`, `throw()`/`assert()`, `set()`/`get()`, `next()`, `state`, `raw`, `runtime`, `bodySource`, and `stream()`/`sse()`/`ndjson()`)
 - **`Middleware` / `Next` / `RouteHandler`** — Koa-style middleware supporting both `(ctx)` and `(ctx, next)` signatures
-- **HTTP primitives** — `HttpMethod`, `HttpStatus`, `ContentType`, `IncomingHeaders`, `OutgoingHeaders`, `ParsedBody`, `ResponseBody`, `RawHttp`
+- **`ResponseOptions` / `ResponseHeaders`** — the optional per-call `{ status?, headers? }` accepted by `json()` / `send()` / `html()` (RFC-048). A status here wins over the carried `ctx.status` and is recorded back onto it; headers merge with what is already set.
+- **HTTP primitives** — `HttpMethod`, `HttpStatus`, `ContentType`, `IncomingHeaders`, `OutgoingHeaders`, `ParsedBody`, `ResponseBody`, `ResponseHeaders`, `ResponseOptions`, `RawHttp`
 
 **Framework contracts**
 - **Router** — `Router`, `Route`, `RouteMatch`, `RouterOptions`, `RoutePattern`, `RouteParam`
@@ -255,7 +256,7 @@ Grouped by the module that owns them (all `import type`).
 | Domain | Exports |
 | ------ | ------- |
 | **Context** (`context.ts`) | `Context` · `ContextOptions` · `ContextState` · `RouteParams` · `QueryParams` · `Middleware` · `Next` · `RouteHandler` |
-| **HTTP** (`http.ts`) | `HttpMethod` · `CommonHttpMethod` · `HttpStatusCode` · `ContentTypeValue` · `IncomingHeaders` · `OutgoingHeaders` · `ParsedBody` · `ResponseBody` · `RawHttp` · `NodeStreamLike` · `WebStreamLike` |
+| **HTTP** (`http.ts`) | `HttpMethod` · `CommonHttpMethod` · `HttpStatusCode` · `ContentTypeValue` · `IncomingHeaders` · `OutgoingHeaders` · `ParsedBody` · `ResponseBody` · `ResponseHeaders` · `ResponseOptions` · `RawHttp` · `NodeStreamLike` · `WebStreamLike` |
 | **Router** (`router.ts`) | `Router` · `Route` · `RouteMatch` · `RouterOptions` · `RoutePattern` · `RouteParam` |
 | **Route metadata** (`route-metadata.ts`) | `RouteDefinition` · `RouteMetadata` · `RouteEntry` · `RouteMetaMarker` · `MetadataContribution` |
 | **DI** (`container.ts`) | `Container` · `Provider` · `ClassProvider` · `FactoryProvider` · `ValueProvider` · `Constructor` · `Token` · `Scope` · `ServiceOptions` · `RegisterOptions` |

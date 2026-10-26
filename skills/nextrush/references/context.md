@@ -28,16 +28,41 @@ ctx.raw: { req: Request; res?: unknown }  // lazy; res undefined on web adapters
 ## Response
 
 ```typescript
-ctx.status = 200             // default 200; set BEFORE json/send
+ctx.status = 200             // default 200; an explicit status argument also updates it
 ctx.set(field, value)        // string | number | string[]
-ctx.json(data)               // application/json
-ctx.send(data)               // ResponseBody auto
-ctx.html(content)            // text/html
+ctx.json(data, statusOrOptions?)    // application/json
+ctx.send(data, statusOrOptions?)    // ResponseBody auto
+ctx.html(content, statusOrOptions?) // text/html
 ctx.redirect(url, status?)   // default 302
 ctx.responded: boolean
 ctx.getResponse(): Response  // build final Web Response (adapter)
 ctx.markResponded()
 ```
+
+### Per-call status and headers (RFC-048)
+
+`ctx.json`, `ctx.html` and `ctx.send` accept a second argument: a numeric status, or
+`{ status?, headers? }`.
+
+```typescript
+ctx.json({ users });                                   // carried status (default 200)
+ctx.json({ id: 'u_123' }, 201);                        // numeric shorthand
+ctx.json({ id: 'u_123' }, {
+  status: 201,
+  headers: { Location: '/users/u_123', 'Cache-Control': 'no-store' },
+});
+ctx.status = 201; ctx.json({ id: 'u_123' });           // still supported
+```
+
+- Precedence: explicit status → carried `ctx.status` → `200`. The explicit value is written **back**
+  onto `ctx.status`, so post-handler middleware (logging, metrics) reads the status that was sent.
+- Accepted statuses: integers `200`–`599`. Anything else throws `RangeError` before the response is
+  committed (the error handler can still answer).
+- `headers` merge with recorded headers: an ordinary field overrides its earlier value, `Set-Cookie`
+  accumulates, an array replaces then appends, and a supplied `Content-Type` beats the helper default.
+- `Content-Length` in `headers` throws — the framework derives it from the body.
+- `204`/`304`/HEAD still suppress the body, and a call after the response is committed changes
+  nothing (including `ctx.status`).
 
 ## Streaming
 

@@ -409,6 +409,19 @@ router.get('/users/:id', async (ctx) => {
   `errorHandler()` without it. Remove any remaining calls from existing code.
 </Callout>
 
+Success paths can set their status on the response call itself instead of on `ctx.status` first:
+
+```typescript
+router.post('/users', async (ctx) => {
+  const user = await db.users.create(ctx.body);
+  ctx.json(user, { status: 201, headers: { Location: `/users/${user.id}` } });
+});
+```
+
+An explicit status overrides a previous `ctx.status` assignment and is recorded back onto it, so the
+logging middleware above reports the status the client actually received. Supplied headers merge with
+anything already recorded — see [Context](/docs/concepts/context#quick-example).
+
 ## When nothing writes a response
 
 Your error handler can fail to write one — it returns early, it takes a path that forgets to

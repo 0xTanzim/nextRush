@@ -91,8 +91,9 @@ router.get('/users/:id', (ctx) => {
   ctx.json({ id: ctx.params.id });
 });
 router.post('/users', (ctx) => {
-  ctx.status = 201;
-  ctx.json({ created: true, data: ctx.body });
+  ctx.json({ created: true, data: ctx.body }, 201);
+  // or: ctx.json({ created: true, data: ctx.body }, { status: 201, headers: { Location: '/users/1' } })
+  // or: ctx.status = 201; ctx.json({ created: true, data: ctx.body })
 });
 
 // Routes registered on the app's default router auto-mount — no app.route() needed
@@ -161,9 +162,13 @@ ctx.state      // per-request bag
 ctx.env       // edge bindings (Cloudflare KV/D1/R2 when using createCloudflareHandler)
 
 // Response
-ctx.status = 201
+ctx.status = 201                                        // carried status (default 200)
 ctx.set('X-Custom', 'v')
-ctx.json(data) | ctx.send(data) | ctx.html(html) | ctx.redirect(url, 302)
+ctx.json(data, statusOrOptions?)                        // application/json
+ctx.send(data, statusOrOptions?)                        // ResponseBody, auto content type
+ctx.html(html, statusOrOptions?)                        // text/html
+// statusOrOptions: 201  |  { status: 201, headers: { Location: '/x' } }
+ctx.redirect(url, 302)
 ctx.stream(async (w) => { await w.write('chunk'); })
 ctx.sse(async (w) => { await w.write({ data: token }); })
 ctx.ndjson(async (w) => { await w.write({ event: 'step', data }); })
@@ -177,7 +182,9 @@ ctx.assert(user, 404, 'User not found')
 ctx.waitUntil?.(promise)  // when platform provides execution context
 ```
 
-**Never invent helpers** like `ctx.ok()` / `ctx.created()` — use `ctx.status` + `ctx.json`.
+**Never invent helpers** like `ctx.ok()` / `ctx.created()` — pass the status to the response call
+(`ctx.json(data, 201)`) or set `ctx.status = 201` first. Supplied headers merge with recorded ones,
+and `Content-Length` in the options throws because the framework derives it.
 
 Full detail: `references/context.md`.
 
@@ -264,8 +271,7 @@ app.use(rateLimit({ windowMs: 60_000, max: 100 }));
 
 const CreateUser = z.object({ name: z.string().min(1), email: z.string().email() });
 app.post('/users', validate(CreateUser), (ctx) => {
-  ctx.status = 201;
-  ctx.json(ctx.body);
+  ctx.json(ctx.body, 201);
 });
 
 app.use(openapi({ router: app.router /* or your router */, info: { title: 'API', version: '1.0' } }));

@@ -218,8 +218,7 @@ const router = createRouter();
 router.get('/users/:id', (ctx) => {
   const id = Number(ctx.params.id);
   if (!Number.isInteger(id) || id < 1) {
-    ctx.status = 400;
-    return ctx.json({ error: 'id must be a positive integer' });
+    return ctx.json({ error: 'id must be a positive integer' }, 400);
   }
   ctx.json({ id });
 });

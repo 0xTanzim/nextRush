@@ -116,11 +116,14 @@ app.use(async (ctx, next) => {
     await next();
   } catch (err) {
     if (err instanceof ValidationError) {
-      ctx.status = 400;
-      ctx.json({
-        error: 'Validation failed',
-        issues: err.issues,    // structured ValidationIssue[]
-      });
+      // The status can ride on the response call instead of a prior assignment.
+      ctx.json(
+        {
+          error: 'Validation failed',
+          issues: err.issues,    // structured ValidationIssue[]
+        },
+        400
+      );
       return;
     }
     throw err; // re-throw to global errorHandler
@@ -129,6 +132,9 @@ app.use(async (ctx, next) => {
 
 // Position: after errorHandler, before routes
 ```
+
+An explicit status passed to a response helper is recorded back onto `ctx.status`, so logging
+middleware downstream still reports the status that was actually sent.
 
 ## ValidationError (from @nextrush/validation)
 

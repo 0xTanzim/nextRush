@@ -110,6 +110,7 @@ src/
 ├── outgoing-response.ts # OutgoingResponse — the recorded response: status, serialized body, commit/flush lifecycle
 ├── outgoing-headers.ts  # HeaderList — ordered case-insensitive header map with multi-value support
 ├── response-builder.ts # WebResponseBuilder — records into OutgoingResponse; materialises the Response at flush
+├── response-args.ts    # Per-call response status/headers — one resolver both adapter families call
 ├── headers.ts          # headersToRecord + the single client-IP resolution policy & IP validation
 ├── query.ts            # parseQueryString — single-pass, DoS-limited, proto-pollution-safe
 ├── request-target.ts   # requestTargetFromUrl — path/search split with no URL object and no dot-segment resolution
@@ -129,9 +130,10 @@ src/
 | `detection.ts` | Identify the runtime (cached) and resolve its capability matrix (curated or probed). |
 | `profiles.ts` | The named, documented capability views derived from `capabilitiesFor`. |
 | `body-source.ts` | Read a request body once, within a byte limit, across runtimes. |
-| `outgoing-response.ts` | Own the recorded outgoing response: header semantics, body length, and the commit → flush lifecycle. |
+| `outgoing-response.ts` | Own the recorded outgoing response: header semantics, body length, and the commit → flush lifecycle. A body method's content type is a fallback, so an explicit `Content-Type` wins. |
 | `outgoing-headers.ts` | Own the ordered, case-insensitive, multi-value header map every adapter exposes through `ctx.set()`. |
 | `response-builder.ts` | Record a response for the Fetch-API adapters and materialise exactly one `Response` at flush. |
+| `response-args.ts` | Resolve the second argument `ctx.json`/`html`/`send` accept (numeric status or `ResponseOptions`) and apply supplied headers, once for both adapter families. |
 | `headers.ts` | Convert Web `Headers` to a safe record and resolve the client IP with one shared precedence. |
 | `query.ts` | Parse a query string safely and cheaply. |
 | `request-target.ts` | Derive the published `path`/`search` from a request URL without reshaping it. |
@@ -157,6 +159,7 @@ block-beta
   block:perreq:3
     body["body-source.ts"]
     response["response-builder.ts"]
+    args["response-args.ts"]
     headers["headers.ts (IP + record)"]
     query["query.ts"]
     signal["request-signal.ts"]

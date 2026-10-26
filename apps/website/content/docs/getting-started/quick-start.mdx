@@ -327,8 +327,7 @@ router.post('/tasks', (ctx) => {
   const task: Task = { id: nextId++, title: body.title, done: false };
   tasks.set(task.id, task);
 
-  ctx.status = 201;
-  ctx.json(task);
+  ctx.json(task, 201);
 });
 
 app.route('/', router);
@@ -371,7 +370,7 @@ sequenceDiagram
     JSON->>Router: await ctx.next()
     Router->>Handler: match route, run handler
     Handler->>Handler: read ctx.body, store the task
-    Handler-->>Adapter: ctx.status = 201 + ctx.json(task)
+    Handler-->>Adapter: ctx.json(task, 201)
     Adapter-->>Client: 201 Created
 "
 />
@@ -490,8 +489,7 @@ router.post('/tasks', (ctx) => {
   const task: Task = { id: nextId++, title: body.title, done: false };
   tasks.set(task.id, task);
 
-  ctx.status = 201;
-  ctx.json(task);
+  ctx.json(task, 201);
 });
 
 router.get('/tasks/:id', (ctx) => {
@@ -624,8 +622,7 @@ router.post('/tasks', (ctx) => {
   const task: Task = { id: nextId++, title: body.title, done: false };
   tasks.set(task.id, task);
 
-  ctx.status = 201;
-  ctx.json(task);
+  ctx.json(task, 201);
 });
 
 router.get('/tasks/:id', (ctx) => {
@@ -648,7 +645,7 @@ Run it in the browser, no local setup:
   files={[
     {
       path: 'src/index.ts',
-      content: "import { createApp, createRouter, listen, BadRequestError, NotFoundError } from 'nextrush';\nimport { json } from '@nextrush/body-parser';\n\ntype Task = { id: number; title: string; done: boolean };\n\nconst tasks = new Map<number, Task>();\nlet nextId = 1;\n\nconst app = createApp();\napp.use(json());\n\nconst router = createRouter();\n\nrouter.get('/tasks', (ctx) => {\n  ctx.json([...tasks.values()]);\n});\n\nrouter.post('/tasks', (ctx) => {\n  const body = ctx.body as { title?: string };\n  if (!body?.title) throw new BadRequestError('title is required');\n\n  const task: Task = { id: nextId++, title: body.title, done: false };\n  tasks.set(task.id, task);\n\n  ctx.status = 201;\n  ctx.json(task);\n});\n\nrouter.get('/tasks/:id', (ctx) => {\n  const task = tasks.get(Number(ctx.params.id));\n  if (!task) throw new NotFoundError('Task not found');\n  ctx.json(task);\n});\n\napp.route('/', router);\nawait listen(app, 8080);\n",
+      content: "import { createApp, createRouter, listen, BadRequestError, NotFoundError } from 'nextrush';\nimport { json } from '@nextrush/body-parser';\n\ntype Task = { id: number; title: string; done: boolean };\n\nconst tasks = new Map<number, Task>();\nlet nextId = 1;\n\nconst app = createApp();\napp.use(json());\n\nconst router = createRouter();\n\nrouter.get('/tasks', (ctx) => {\n  ctx.json([...tasks.values()]);\n});\n\nrouter.post('/tasks', (ctx) => {\n  const body = ctx.body as { title?: string };\n  if (!body?.title) throw new BadRequestError('title is required');\n\n  const task: Task = { id: nextId++, title: body.title, done: false };\n  tasks.set(task.id, task);\n\n  ctx.json(task, 201);\n});\n\nrouter.get('/tasks/:id', (ctx) => {\n  const task = tasks.get(Number(ctx.params.id));\n  if (!task) throw new NotFoundError('Task not found');\n  ctx.json(task);\n});\n\napp.route('/', router);\nawait listen(app, 8080);\n",
     },
   ]}
 />
@@ -857,8 +854,7 @@ router.post('/tasks', (ctx) => {
   if (!body?.title) throw new BadRequestError('title is required');
 
   const task = tasks.create(body.title);
-  ctx.status = 201;
-  ctx.json(task);
+  ctx.json(task, 201);
 });
 
 router.get('/tasks/:id', (ctx) => {

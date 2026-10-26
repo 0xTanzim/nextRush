@@ -208,8 +208,7 @@ app.use(json());
 
 app.post('/api/users', (ctx) => {
   const { name, email } = ctx.body as { name: string; email: string };
-  ctx.status = 201;
-  ctx.json({ id: Date.now(), name, email });
+  ctx.json({ id: Date.now(), name, email }, 201);
 });
 
 listen(app, 8080);

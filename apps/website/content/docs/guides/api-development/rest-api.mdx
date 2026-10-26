@@ -167,8 +167,7 @@ src/
 
       const user = userService.create(body);
 
-      ctx.status = 201;
-      ctx.json({ data: user });
+      ctx.json({ data: user }, { status: 201, headers: { Location: `/api/users/${user.id}` } });
     });
 
     // PUT /api/users/:id
@@ -194,8 +193,7 @@ src/
         throw new NotFoundError(`User with ID "${id}" not found`);
       }
 
-      ctx.status = 204;
-      ctx.send('');
+      ctx.send('', 204);
     });
     ```
 

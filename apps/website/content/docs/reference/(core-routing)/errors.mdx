@@ -585,8 +585,7 @@ router.post('/users', async (ctx) => {
   }
 
   const user = await db.users.create({ email, password });
-  ctx.status = 201;
-  ctx.json(user);
+  ctx.json(user, 201);
 });
 
 app.route('/', router);
