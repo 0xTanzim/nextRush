@@ -180,3 +180,4 @@ feedback
 
 # Raw benchmark output is reproducible evidence, kept locally
 report/performance/raw/
+.agents/workflows/

@@ -31,3 +31,11 @@ export const DISPATCH_SETTLED_SYNC: unique symbol = Symbol.for('nextrush.dispatc
 export interface DispatchMarkerCarrier {
   [DISPATCH_SETTLED_SYNC]?: boolean;
 }
+
+/**
+ * Shared resolved promise sentinel used across router, core, and adapters
+ * to signal synchronous completion without per-dispatch promise allocations.
+ * @internal
+ */
+export const RESOLVED_PROMISE: Promise<void> = Promise.resolve();
+

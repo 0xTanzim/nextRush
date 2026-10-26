@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { DISPATCH_SETTLED_SYNC, type Context, type DispatchMarkerCarrier } from '@nextrush/types';
+import { DISPATCH_SETTLED_SYNC, RESOLVED_PROMISE, type Context, type DispatchMarkerCarrier } from '@nextrush/types';
 import { compileExecutor } from '../segment-trie';
 
 function makeContext(): Context & DispatchMarkerCarrier {
@@ -72,5 +72,16 @@ describe('route executor — synchronous settlement marker', () => {
     void executor(ctx);
 
     expect(ctx[DISPATCH_SETTLED_SYNC]).toBeUndefined();
+  });
+
+  it('returns canonical RESOLVED_PROMISE from @nextrush/types on synchronous settlement', () => {
+    const executor = compileExecutor((ctx) => {
+      ctx.status = 200;
+    }, []);
+    const ctx = makeContext();
+
+    const result = executor(ctx);
+
+    expect(result).toBe(RESOLVED_PROMISE);
   });
 });

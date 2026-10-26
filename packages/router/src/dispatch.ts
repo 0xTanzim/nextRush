@@ -18,17 +18,18 @@
  * @internal
  */
 
-import type { Context, HttpMethod, Middleware, RouteMatch } from '@nextrush/types';
+import {
+  DISPATCH_SETTLED_SYNC,
+  RESOLVED_PROMISE as RESOLVED,
+  type Context,
+  type DispatchMarkerCarrier,
+  type HttpMethod,
+  type Middleware,
+  type RouteMatch,
+} from '@nextrush/types';
 import { NOOP_NEXT, type TrieNode } from './segment-trie';
 import { findAllowedMethods } from './find-node';
 import { canonicalizePath, type CanonicalPaths } from './canonicalize';
-
-/**
- * Shared resolved promise for the no-`next` miss path (NF-1). Reused rather than
- * allocating a fresh `Promise.resolve()` per miss, mirroring the router's
- * existing `NOOP_NEXT`/`RESOLVED_PROMISE` sentinels.
- */
-const RESOLVED: Promise<void> = Promise.resolve();
 
 /**
  * Build the router's primary dispatch middleware.
@@ -70,6 +71,7 @@ export function createRoutesMiddleware(
       // target via ctx.path.
       ctx.status = 400;
       (ctx as { originalPath: string }).originalPath = originalPath;
+      (ctx as Context & DispatchMarkerCarrier)[DISPATCH_SETTLED_SYNC] = true;
       return RESOLVED;
     }
 
@@ -82,7 +84,15 @@ export function createRoutesMiddleware(
       // No route matched — set 404 so allowedMethods()/notFoundHandler() can act,
       // then forward to the next middleware (the allowedMethods fall-through).
       ctx.status = 404;
-      return next ? next() : RESOLVED;
+      if (!next) {
+        (ctx as Context & DispatchMarkerCarrier)[DISPATCH_SETTLED_SYNC] = true;
+        return RESOLVED;
+      }
+      const res = next() as unknown;
+      if (res === undefined || res === RESOLVED) {
+        (ctx as Context & DispatchMarkerCarrier)[DISPATCH_SETTLED_SYNC] = true;
+      }
+      return (res === undefined ? RESOLVED : res) as Promise<void>;
     }
 
     ctx.params = routeMatch.params;

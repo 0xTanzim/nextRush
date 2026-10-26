@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-26
+goal: Allow ctx.json/html/send to take an explicit status argument while
+  preserving ctx.status property assignment in 4.x

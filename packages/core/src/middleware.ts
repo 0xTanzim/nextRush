@@ -7,44 +7,27 @@
  * @packageDocumentation
  */
 
-import type { Context, Middleware, Next } from '@nextrush/types';
+import {
+  DISPATCH_SETTLED_SYNC,
+  RESOLVED_PROMISE as RESOLVED,
+  type Context,
+  type DispatchMarkerCarrier,
+  type Middleware,
+  type Next,
+} from '@nextrush/types';
+import {
+  MULTIPLE_NEXT_MESSAGE,
+  createEmptyMiddlewareRunner,
+  createSingleMiddlewareRunner,
+  createTwoMiddlewareRunner,
+  createThreeMiddlewareRunner,
+  emitDoubleResponseWarning,
+} from './middleware-fastpaths';
 
 /**
  * Composed middleware handler - can be called with just context
  */
 export type ComposedMiddleware = (ctx: Context, next?: Next) => Promise<void>;
-
-/**
- * Rejection message shared by BOTH the general path and the single-middleware
- * fast path (design D4). Downstream code/tests assert on this exact string, so
- * it is defined once to prevent the two paths from drifting.
- */
-const MULTIPLE_NEXT_MESSAGE = 'next() called multiple times';
-
-/**
- * Shared already-resolved promise, returned wherever this module would
- * otherwise construct a fresh one. Mirrors the router's existing `RESOLVED` /
- * `NOOP_NEXT` sentinels.
- *
- * @see openspec/changes/elide-resolved-promise-allocation/design.md
- */
-const RESOLVED: Promise<void> = Promise.resolve();
-
-/**
- * Emit the double-response warning for the middleware at `index`.
- *
- * Shared by the general path and the fast path so the text (including the
- * index reference) cannot diverge between them (design D4). Fires only when
- * `warnDoubleResponse` is enabled AND the context has already committed a
- * response — the caller supplies both conditions.
- */
-function emitDoubleResponseWarning(index: number): void {
-  console.warn(
-    `[nextrush] Middleware at index ${String(index)} called next() after the response was already committed. ` +
-      'Downstream middleware may attempt to write to an already-finished response. ' +
-      'Either await next() to delegate downstream, or send a response without calling next().'
-  );
-}
 
 /**
  * Options for middleware composition
@@ -73,28 +56,6 @@ export interface ComposeOptions {
  * @param middleware - Array of middleware functions to compose
  * @param options - Composition options
  * @returns Single composed middleware function
- *
- * @example
- * ```typescript
- * const composed = compose([
- *   async (ctx, next) => {
- *     console.log('1 - before');
- *     await next();
- *     console.log('1 - after');
- *   },
- *   async (ctx, next) => {
- *     console.log('2 - before');
- *     await next();
- *     console.log('2 - after');
- *   },
- * ]);
- *
- * // Output:
- * // 1 - before
- * // 2 - before
- * // 2 - after
- * // 1 - after
- * ```
  */
 export function compose(middleware: Middleware[], options?: ComposeOptions): ComposedMiddleware {
   // Validate middleware array
@@ -114,59 +75,40 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
   const stack = [...middleware];
   const len = stack.length;
 
-  // FAST PATH: No middleware — just call next()
+  // FAST PATH: Zero middleware
   if (len === 0) {
-    return function composedMiddleware(_ctx: Context, next?: Next): Promise<void> {
-      return next ? next() : RESOLVED;
-    };
+    return createEmptyMiddlewareRunner();
   }
 
-  // FAST PATH: Exactly one middleware — the overwhelmingly common application
-  // shape (a single mounted router). Avoids allocating the recursive `dispatch`
-  // closure and the per-call index comparison of the general path while
-  // preserving every observable semantic (design D2/D3/D7):
-  //   - a PER-INVOCATION guard (`called`) declared inside the returned function,
-  //     never hoisted, so concurrent requests cannot corrupt each other;
-  //   - the SAME guarded thunk is passed as the `next` argument AND wired to
-  //     `ctx.setNext`, so a double-call is caught across either surface;
-  //   - a synchronous throw becomes a rejected promise and non-`Error` throws
-  //     are wrapped, identical to the general path.
+  // FAST PATH: Exactly one middleware
   if (len === 1) {
     const only = stack[0];
     if (only) {
-      return function composedSingle(ctx: Context, next?: Next): Promise<void> {
-        let called = false; // PER-INVOCATION — must never be hoisted out of here
-        const nextFn = (): Promise<void> => {
-          if (called) {
-            return Promise.reject(new Error(MULTIPLE_NEXT_MESSAGE));
-          }
-          called = true;
-          if (warnDoubleResponse && ctx.responded) {
-            emitDoubleResponseWarning(0);
-          }
-          return next ? next() : RESOLVED;
-        };
+      return createSingleMiddlewareRunner(only, warnDoubleResponse);
+    }
+  }
 
-        // Wire ctx.next() to the SAME thunk passed as the argument (design D3).
-        if (ctx.setNext) {
-          ctx.setNext(nextFn);
-        }
+  // FAST PATH: Exactly two middleware
+  if (len === 2) {
+    const first = stack[0];
+    const second = stack[1];
+    if (first && second) {
+      return createTwoMiddlewareRunner(first, second, warnDoubleResponse);
+    }
+  }
 
-        try {
-          // Only `undefined` short-circuits to the sentinel. A thenable MUST
-          // stay on the `Promise.resolve` path so its work is adopted, and a
-          // falsy-but-defined value must keep its own resolved value.
-          const result = only(ctx, nextFn);
-          return result === undefined ? RESOLVED : Promise.resolve(result);
-        } catch (err: unknown) {
-          return Promise.reject(err instanceof Error ? err : new Error(String(err)));
-        }
-      };
+  // FAST PATH: Exactly three middleware
+  if (len === 3) {
+    const first = stack[0];
+    const second = stack[1];
+    const third = stack[2];
+    if (first && second && third) {
+      return createThreeMiddlewareRunner(first, second, third, warnDoubleResponse);
     }
   }
 
   /**
-   * Composed middleware function
+   * Composed middleware function for general stacks (len >= 3).
    * Uses index-based dispatch to avoid per-request closure chains
    * while preserving double-next detection per call.
    */
@@ -189,6 +131,9 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
       }
 
       if (!fn) {
+        if (!next) {
+          (ctx as Context & DispatchMarkerCarrier)[DISPATCH_SETTLED_SYNC] = true;
+        }
         return RESOLVED;
       }
 
@@ -205,7 +150,6 @@ export function compose(middleware: Middleware[], options?: ComposeOptions): Com
       }
 
       try {
-        // See the fast path's note: `undefined` only, so thenables are adopted.
         const result = fn(ctx, nextFn);
         return result === undefined ? RESOLVED : Promise.resolve(result);
       } catch (err: unknown) {

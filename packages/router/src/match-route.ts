@@ -121,6 +121,17 @@ export function matchRoute(
   // Only walk tree if we have param/wildcard routes
   if (!hasParamRoutes) return null;
 
+  // Root-segment pre-check: if root has no parameter or wildcard child, every
+  // non-root route begins with one of root's static children. An unmatched
+  // first segment can never match any branch in the trie — exit immediately.
+  if (root.paramChild === undefined && root.wildcardChild === undefined) {
+    const slashIdx = lookupPath.indexOf('/', 1);
+    const firstSeg = slashIdx === -1 ? lookupPath.slice(1) : lookupPath.slice(1, slashIdx);
+    if (firstSeg !== '' && !root.children.has(firstSeg)) {
+      return null;
+    }
+  }
+
   // Deferred param binding (HP-11): the walk records the accepted path's
   // `:param`/`*` bindings onto these parallel stacks (pushed on descent, popped
   // on backtrack) so params are materialized ONCE here on the accepted terminal

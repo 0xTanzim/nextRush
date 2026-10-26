@@ -10,7 +10,7 @@
  */
 
 import type { Context, HttpMethod, Middleware, RouteHandler, RouteMetadata } from '@nextrush/types';
-import { DISPATCH_SETTLED_SYNC, type DispatchMarkerCarrier } from '@nextrush/types';
+import { DISPATCH_SETTLED_SYNC, RESOLVED_PROMISE, type DispatchMarkerCarrier } from '@nextrush/types';
 
 /**
  * Node type enumeration
@@ -80,10 +80,9 @@ export type StaticRouteMap = Map<HttpMethod, Map<string, HandlerEntry>>;
 
 /**
  * No-op next function - reusable, zero allocation
- * Caches the resolved Promise to avoid per-call allocation
+ * Reuses the canonical resolved Promise from @nextrush/types to avoid per-call allocation
  * @internal
  */
-const RESOLVED_PROMISE = Promise.resolve();
 export const NOOP_NEXT = (): Promise<void> => RESOLVED_PROMISE;
 
 /**

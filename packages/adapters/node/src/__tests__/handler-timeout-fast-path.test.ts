@@ -18,6 +18,7 @@
  */
 
 import { createApp, type Application } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -85,6 +86,18 @@ describe('no timer is armed when the handler responds synchronously', () => {
     expect(armedWithBound(spy, 30_000)).toBe(0);
   });
 
+  it('arms zero timers for an unrouted 404 response that settles synchronously', async () => {
+    const app = createApp({ router: createRouter() });
+    app.get('/hello', (ctx) => ctx.json({ ok: true }));
+
+    const spy = vi.spyOn(globalThis, 'setTimeout');
+    const { status, body } = await listenAndGet(app, 30_000, '/unknown');
+
+    expect(status).toBe(404);
+    expect(JSON.parse(body)).toEqual({ error: 'Not Found' });
+    expect(armedWithBound(spy, 30_000)).toBe(0);
+  });
+
   it('still arms a timer for a handler that has not responded synchronously', async () => {
     const app = createApp();
     app.use(async (ctx) => {
@@ -109,6 +122,18 @@ describe('the ADR-0010 timeout contract is unchanged for handlers that have not 
     });
 
     const { status, body } = await listenAndGet(app, 20);
+    expect(status).toBe(504);
+    expect(JSON.parse(body)).toEqual({ error: 'Gateway Timeout' });
+  });
+
+  it('still returns a clean 504 when an unmatched 404 route is wrapped by middleware that exceeds the bound after awaiting next()', async () => {
+    const app = createApp({ router: createRouter() });
+    app.use(async (_ctx, next) => {
+      await next();
+      await new Promise((r) => setTimeout(r, 200));
+    });
+
+    const { status, body } = await listenAndGet(app, 20, '/unmatched');
     expect(status).toBe(504);
     expect(JSON.parse(body)).toEqual({ error: 'Gateway Timeout' });
   });

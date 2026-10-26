@@ -115,6 +115,17 @@ export function findAllowedMethods(
 ): HttpMethod[] {
   const normalized = normalizePathForMatch(path, caseSensitive, strict);
 
+  // Fast exit: if root has no parameter or wildcard child, an unmatched top-level
+  // segment cannot match any route in the trie regardless of HTTP method.
+  if (root.paramChild === undefined && root.wildcardChild === undefined) {
+    const slashIdx = normalized.indexOf('/', 1);
+    const firstSeg = slashIdx === -1 ? normalized.slice(1) : normalized.slice(1, slashIdx);
+    if (firstSeg === '') {
+      return Array.from(root.handlers.keys());
+    }
+    if (!root.children.has(firstSeg)) return [];
+  }
+
   // Walk from position 1 to skip the leading '/', matching `matchNodeIndexed`'s
   // start offset. The iterative `findNode` scans segments off the path in place,
   // so no `split('/')` array is allocated here.
