@@ -16,7 +16,10 @@
  *   2. Per-package git tags remain untouched (they're provenance, not Release-page noise).
  *   3. The release tag is `v<version>`, the title is `NextRush v<version>`, targeted at the
  *      version-merge commit (`HEAD` at publish time — `gh` resolves refs server-side).
- *   4. Idempotent: if the `v<version>` tag already exists, this exits 0 without touching it.
+ *   4. Idempotent with respect to the RELEASE, not the tag: an existing `v<version>` release
+ *      is left alone, and a `v<version>` tag that has no release (a create that failed after
+ *      `gh` pushed the tag ref) is completed by attaching the release to that tag. Existing
+ *      tags are never moved.
  *
  * Environment:
  *   PUBLISHED_PACKAGES  the `changesets/action` output JSON (`[{name, version}]`)
@@ -57,13 +60,41 @@ const log = (message: string): void => console.log(message);
 // eslint-disable-next-line no-console
 const error = (message: string): void => console.error(message);
 
+interface ExecError extends Error {
+  readonly stderr?: string;
+  readonly stdout?: string;
+}
+
+const MAX_ERROR_DETAIL = 4000;
+
+function cap(text: string): string {
+  return text.length > MAX_ERROR_DETAIL ? `${text.slice(0, MAX_ERROR_DETAIL)}…` : text;
+}
+
+/**
+ * `gh` and `git` write the actual reason for a failure to stderr; the `Error.message` from
+ * `execFile` only carries the command line and exit code. Swallowing stderr made the v4.1.0
+ * `gh release create` failure undebuggable from the workflow log.
+ */
+function describeExecFailure(err: unknown, command: readonly string[]): string {
+  const head = `${command[0]} ${command[1] ?? ''} failed`.trim();
+  if (err instanceof Error) {
+    const execErr = err as ExecError;
+    const detail = [execErr.stderr, execErr.stdout]
+      .map((stream) => stream?.trim() ?? '')
+      .filter(Boolean)
+      .join('\n');
+    return `${head}: ${cap(detail || execErr.message)}`;
+  }
+  return `${head}: ${cap(String(err))}`;
+}
+
 async function runGh(args: string[]): Promise<string> {
   try {
     const { stdout } = await execFileAsync('gh', args, { maxBuffer: 16 * 1024 * 1024 });
     return stdout.trim();
   } catch (err) {
-    const detail = err instanceof Error ? err.message.split('\n')[0] : String(err);
-    throw new Error(`gh ${args[0]} failed: ${detail}`);
+    throw new Error(describeExecFailure(err, ['gh', ...args]));
   }
 }
 
@@ -72,8 +103,7 @@ async function runGit(args: string[]): Promise<string> {
     const { stdout } = await execFileAsync('git', args, { maxBuffer: 16 * 1024 * 1024 });
     return stdout.trim();
   } catch (err) {
-    const detail = err instanceof Error ? err.message.split('\n')[0] : String(err);
-    throw new Error(`git ${args[0]} failed: ${detail}`);
+    throw new Error(describeExecFailure(err, ['git', ...args]));
   }
 }
 
@@ -137,6 +167,81 @@ async function tagExists(tag: string): Promise<boolean> {
   }
 }
 
+async function releaseExists(tag: string): Promise<boolean> {
+  try {
+    await runGh(['api', `repos/${REPO}/releases/tags/${encodeURIComponent(tag)}`, '--jq', '.id']);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export interface ReleaseCreationDecision {
+  /** `create` runs `gh release create`; `skip` leaves GitHub untouched. */
+  readonly action: 'create' | 'skip';
+  /** Extra `gh release create` arguments. `--target` is only valid when the tag is being made. */
+  readonly ghArgs: readonly string[];
+  readonly reason: string;
+}
+
+/**
+ * Decides what a run should do, given the current GitHub state.
+ *
+ * The tag, not the release, is the fragile half: `gh release create` writes the tag ref before
+ * the release, so v4.1.0 was left as a tag with no release when the release call failed.
+ * `--target` only picks the commit for a tag being created, so an existing tag has to be used
+ * as-is. Planning on the release makes the step idempotent without ever moving a tag.
+ */
+export function planReleaseCreation(input: {
+  tag: string;
+  title: string;
+  repo: string;
+  notesPath: string;
+  releaseExists: boolean;
+  tagExists: boolean;
+  targetCommit: string;
+}): ReleaseCreationDecision {
+  const {
+    tag,
+    title,
+    repo,
+    notesPath,
+    releaseExists: hasRelease,
+    tagExists: hasTag,
+    targetCommit,
+  } = input;
+
+  if (hasRelease) {
+    return { action: 'skip', ghArgs: [], reason: `Release ${tag} already exists — nothing to do.` };
+  }
+
+  const base = [
+    'release',
+    'create',
+    tag,
+    '--repo',
+    repo,
+    '--title',
+    title,
+    '--notes-file',
+    notesPath,
+  ];
+
+  if (hasTag) {
+    return {
+      action: 'create',
+      ghArgs: base,
+      reason: `Tag ${tag} exists with no release — attaching the release to the existing tag ${targetCommit}.`,
+    };
+  }
+
+  return {
+    action: 'create',
+    ghArgs: [...base, '--target', targetCommit],
+    reason: `Creating ${tag} at ${targetCommit}.`,
+  };
+}
+
 async function main(): Promise<void> {
   const dryRun = process.argv.includes('--dry-run') || process.env.DRY_RUN === 'true';
   const rawPublished = process.env.PUBLISHED_PACKAGES ?? '';
@@ -182,29 +287,23 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (await tagExists(tag)) {
-    log(`Tag ${tag} already exists — release skipped (idempotent re-run).`);
-    return;
-  }
-
   const tmpDir = await mkdtemp(path.join(tmpdir(), 'nr-release-'));
   const notesPath = path.join(tmpDir, 'release-notes.md');
   await writeFile(notesPath, body, 'utf8');
   try {
-    const targetCommit = await resolveTargetCommit();
-    const created = await runGh([
-      'release',
-      'create',
+    const [hadRelease, hadTag] = await Promise.all([releaseExists(tag), tagExists(tag)]);
+    const decision = planReleaseCreation({
       tag,
-      '--repo',
-      REPO,
-      '--title',
       title,
-      '--target',
-      targetCommit,
-      '--notes-file',
+      repo: REPO,
       notesPath,
-    ]);
+      releaseExists: hadRelease,
+      tagExists: hadTag,
+      targetCommit: await resolveTargetCommit(),
+    });
+    log(decision.reason);
+    if (decision.action === 'skip') return;
+    const created = await runGh([...decision.ghArgs]);
     log(created);
     log(`✅ Created ${title}`);
   } finally {
