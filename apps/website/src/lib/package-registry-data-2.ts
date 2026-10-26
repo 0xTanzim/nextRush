@@ -148,6 +148,14 @@ export const packageRegistryDataPart2: readonly PackageEntry[] = [
     summary: 'Serverless adapter for AWS Lambda, API Gateway, GCF, and Azure via a generic event-mapper registry.',
     sinceVersion: '1.0.0',
   },
+  {
+    name: '@nextrush/adapter-nextjs',
+    category: 'Adapters',
+    type: 'Adapter',
+    status: 'Stable',
+    summary: 'Mount a NextRush app inside a Next.js App Router route handler (Next 14/15/16).',
+    sinceVersion: '1.1.0',
+  },
 
   // ---- Tooling ----------------------------------------------------------------
   {

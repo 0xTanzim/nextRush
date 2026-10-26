@@ -27,7 +27,7 @@ interface PackageCatalogProps {
 
 /**
  * Client-side filterable/searchable grid over the full package registry.
- * All filtering happens in-memory against the 35-entry registry passed in
+ * All filtering happens in-memory against the registry entries passed in
  * from the server component — no network round-trip needed at this scale.
  */
 export function PackageCatalog({ packages }: PackageCatalogProps) {
