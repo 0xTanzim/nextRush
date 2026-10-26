@@ -29,6 +29,7 @@ import {
 } from '@nextrush/stream';
 import type {
     AdapterContext,
+    BodyReaderCarrier,
     BodySource,
     ContextState,
     CookieCapability,
@@ -49,7 +50,7 @@ import type {
     TextStreamWriter,
     WebStreamLike,
 } from '@nextrush/types';
-import { OUTGOING_RESPONSE } from '@nextrush/types';
+import { BODY_READER, OUTGOING_RESPONSE } from '@nextrush/types';
 import type { IncomingMessage, OutgoingHttpHeaders, ServerResponse } from 'node:http';
 import { createEmptyBodySource, NodeBodySource } from './body-source';
 import { parseQueryString } from './utils';
@@ -89,9 +90,11 @@ const EMPTY_QUERY: QueryParams = Object.freeze(Object.create(NULL_PROTO)) as Que
 /** Shared resolved promise for `next()` when no dispatch thunk is wired (HP-7). */
 const RESOLVED_NEXT: Promise<void> = Promise.resolve();
 
-/** The content types the Node response methods record. */
-const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
-const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
+/** The content types the Node response methods record. JSON carries no charset:
+ * RFC 8259 defines none, and the Web adapters emit the same bare value. */
+const JSON_CONTENT_TYPE = 'application/json';
+/** Matches the Web adapters' value, which Deno's static-response fast path requires. */
+const TEXT_CONTENT_TYPE = 'text/plain;charset=UTF-8';
 const HTML_CONTENT_TYPE = 'text/html; charset=utf-8';
 const BINARY_CONTENT_TYPE = 'application/octet-stream';
 
@@ -161,7 +164,12 @@ export class NodeContext implements AdapterContext {
    * @see RFC-029
    */
   readonly originalPath: string;
-  readonly query: QueryParams;
+  /**
+   * Backing field for the lazily parsed {@link query}. Assigned in the
+   * constructor so every context keeps one shape: the shared empty bag for a
+   * query-less target, `undefined` ("not parsed yet") otherwise.
+   */
+  declare private _query: QueryParams | undefined;
   readonly headers: IncomingHeaders;
   readonly ip: string;
   readonly runtime: Runtime;
@@ -234,15 +242,34 @@ export class NodeContext implements AdapterContext {
     const questionIndex = this.url.indexOf('?');
     if (questionIndex !== -1) {
       this.path = this.url.slice(0, questionIndex);
-      this.query = parseQueryString(this.url.slice(questionIndex + 1));
+      this._query = undefined;
     } else {
       this.path = this.url;
-      this.query = EMPTY_QUERY;
+      this._query = EMPTY_QUERY;
     }
     this.originalPath = this.path;
 
     this.headers = req.headers;
     this.ip = this.getClientIp(req, options.proxy ?? false);
+  }
+
+  /**
+   * The parsed query bag, materialized on the first read and then memoized.
+   *
+   * @remarks
+   * A query string is optional work: many requests carry one that the handler
+   * never reads. The constructor only locates the search boundary (it already
+   * does for {@link path}); parsing waits for the first read, and a query-less
+   * request keeps returning the shared frozen empty bag without a parse.
+   */
+  get query(): QueryParams {
+    let parsed = this._query;
+    if (parsed === undefined) {
+      const questionIndex = this.url.indexOf('?');
+      parsed = parseQueryString(questionIndex === -1 ? '' : this.url.slice(questionIndex + 1));
+      this._query = parsed;
+    }
+    return parsed;
   }
 
   /**
@@ -638,13 +665,18 @@ export class NodeContext implements AdapterContext {
       const abort = (): void => {
         if (!controller.signal.aborted) controller.abort();
       };
-      this._res.on('close', abort);
-      // F-10: `req 'aborted'` is deprecated (Node 16+) in favor of `req 'close'`
-      // combined with `req.destroyed`/`req.aborted` state — a request stream
-      // that closes without having fully completed is the client-disconnect
-      // signal `'aborted'` used to carry, without relying on the deprecated event.
+      // A normal response also emits 'close' after 'finish'. Only a premature
+      // close means the client is gone; aborting a completed request makes the
+      // signal lie and forces the stream teardown path on every normal stream.
+      this._res.on('close', () => {
+        if (!this._res.writableFinished) abort();
+      });
+      // F-10: `req 'aborted'` is deprecated (Node 16+). A request stream that
+      // closes before completing is the client-disconnect signal it replaced.
+      // `req.destroyed` alone cannot stand in for that: a fully received
+      // request is also destroyed when a normal connection tears down.
       this._req.on('close', () => {
-        if (this._req.destroyed || !this._req.complete) abort();
+        if (!this._req.complete) abort();
       });
     }
     return this._abortController.signal;
@@ -788,6 +820,25 @@ export class NodeContext implements AdapterContext {
       return value[0];
     }
     return value;
+  }
+
+  // ===========================================================================
+  // Request Body
+  // ===========================================================================
+
+  /**
+   * Read the request body, parsing it once and caching the result (RFC-047).
+   *
+   * @remarks
+   * Delegates to the reader a body parser installed in lazy mode; with eager
+   * parsing (the default) the body is already parsed, so this resolves from it
+   * without touching the body source — and without allocating the lazily-built
+   * `NodeBodySource`.
+   */
+  readBody<T = unknown>(): Promise<T> {
+    const reader = (this as BodyReaderCarrier)[BODY_READER];
+    if (reader === undefined) return Promise.resolve(this.body as T);
+    return reader.read<T>();
   }
 
   // ===========================================================================

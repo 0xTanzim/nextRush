@@ -123,7 +123,7 @@ describe('BunContext', () => {
       ctx.json({ message: 'hello' });
 
       const response = ctx.getResponse();
-      expect(response.headers.get('Content-Type')).toBe('application/json; charset=utf-8');
+      expect(response.headers.get('Content-Type')).toBe('application/json');
       expect(response.status).toBe(200);
     });
 
@@ -156,7 +156,7 @@ describe('BunContext', () => {
       ctx.send('Hello World');
 
       const response = ctx.getResponse();
-      expect(response.headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+      expect(response.headers.get('Content-Type')).toBe('text/plain;charset=UTF-8');
 
       const text = await response.text();
       expect(text).toBe('Hello World');

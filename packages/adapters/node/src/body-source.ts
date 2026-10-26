@@ -17,6 +17,25 @@ import { Readable, Transform } from 'node:stream';
  */
 const DEFAULT_BODY_LIMIT = 1024 * 1024;
 
+/**
+ * Collapse collected chunks without copying a single exact-size chunk.
+ *
+ * @remarks
+ * Node's HTTP parser allocates each `data` chunk in its own exactly-sized
+ * backing buffer, so retaining that chunk pins no pool slab. A view into a
+ * larger buffer is still concatenated: returning it would retain the whole
+ * backing allocation for the lifetime of the request.
+ */
+function collectBody(chunks: Buffer[]): Buffer {
+  if (chunks.length === 1) {
+    const only = chunks[0];
+    if (only?.byteOffset === 0 && only.buffer.byteLength === only.byteLength) {
+      return only;
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
 function chunkToBuffer(raw: unknown): Buffer {
   if (Buffer.isBuffer(raw)) {
     return raw;
@@ -160,6 +179,15 @@ export class NodeBodySource implements BodySource {
       return empty;
     }
 
+    // RFC-047: a deferred read can start long after the request arrived, so the
+    // client may already be gone. In that state no `data`/`end`/`close` event can
+    // still arrive, and listeners attached below would never fire. Eager parsing
+    // never sees this (it subscribes while the request is live); without the
+    // check a lazy read would hang until the dispatch deadline.
+    if (req.readableAborted || req.destroyed) {
+      throw new RequestAbortedError();
+    }
+
     // Accumulate via event listeners rather than `for await…of`: this avoids the
     // async-iterator + per-chunk promise allocation of iterating an IncomingMessage,
     // while a single-settle guard (D2) and explicit cleanup preserve every observable
@@ -222,7 +250,7 @@ export class NodeBodySource implements BodySource {
       };
 
       const onEnd = (): void => {
-        settleResolve(Buffer.concat(chunks));
+        settleResolve(collectBody(chunks));
       };
 
       const onError = (err: Error): void => {

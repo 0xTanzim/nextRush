@@ -328,12 +328,22 @@ The primitives on the per-request path are written to avoid allocation and super
 | `getRuntime()` | O(1) after first call | none | Memoized; detection runs once per process. |
 | `capabilitiesFor(known)` | O(1) | one matrix object | Curated switch; no probing. |
 | `parseQueryString(qs)` | O(n) single pass | none on empty/over-limit (shared frozen `EMPTY_QUERY`) | `indexOf`-based scanner, no `split('&')` intermediate array; capped at 256 params / 2048 chars. |
-| `requestTargetFromUrl(url)` | O(n) single pass | none | Two `indexOf` scans over the URL string; no `URL` construction (which would parse, percent-encode, and resolve dot segments) and no intermediate array. |
+| `requestTargetFromUrl(url)` | O(n) single pass | none | Two bounded `charCodeAt` scans over the URL string (one for the authority/path boundary, one for the query/fragment mark); no `URL` construction (which would parse, percent-encode, and resolve dot segments) and no intermediate array. |
 | `combineAbortSignal(base)` | O(1) | one `AbortController` | Created lazily by the Context only on first `signal` access, so the non-timeout/non-stream hot path stays allocation-free. |
 | `resolveClientIp(get, opts)` | O(1) | none | A few header reads + structural validation. |
+| `WebBodySource.buffer(limit)` | O(n) copy | one `Uint8Array` | One native `request.arrayBuffer()` when an honest `Content-Length` proves the body fits the limit; otherwise the incremental reader enforces the limit as it reads. The shared utf-8 `TextDecoder` is reused across reads. |
+| `WebBodySource.readTextIfProvenWithin(limit)` | O(n) decode | none in framework code | Runs only for a UTF-8 source with an honest `Content-Length` at or below the limit, and replaces `arrayBuffer()` + decode with one native `request.text()`; no `Uint8Array` is materialized. |
 | `ctx.headers` (first read) | O(h) over headers | one record | Memoized by `RequestInputs`; a handler that never reads it causes no walk, and `ctx.get(name)` reads the platform `Headers` directly without building it. |
 | `ctx.ip` (first read) | O(1) | none | A string, or the adapter's resolver called exactly once; never read means never resolved (no `requestIP`, no proxy-header walk). |
-| `createWebRunner` dispatch | O(1) added | none when settled | The timeout timer is armed only if the handler is still pending after a bounded microtask turn, so the common request calls no `setTimeout`. |
+| `createWebRunner` dispatch | O(1) added | one settlement promise | The dispatch is observed through `dispatch.then(...)`, which is what the timeout race and the late-rejection guard need; the unconditional `await` of that promise was removed. A timer is armed only if the dispatch is still pending after a bounded microtask turn, so the common request calls no `setTimeout`. |
+
+### The limited text read
+
+`WebBodySource.readTextIfProvenWithin(limit)` is the one body read that avoids materializing bytes. It runs only when three facts hold: the source is configured for UTF-8, a `Content-Length` is present, and that length is at or below the limit. Then a single native `request.text()` replaces `arrayBuffer()` plus decode. Anything else — absent or chunked length, a length above the limit, another encoding — declines **without consuming the body**, so the incremental byte reader still owns it and enforces the limit as it reads.
+
+The declared length is not the final word. After the read, the text is checked against the limit in UTF-8 bytes: `text.length` is a lower bound on the encoded size and `text.length * 3` an upper bound, so an exact encode runs only in the band where the two disagree. A body rejected by that check is marked consumed and stays unreadable, exactly like a rejected buffer read — it is never cached.
+
+A text read caches the string; a later `buffer()` re-encodes it once and caches the bytes, so `text()` then `buffer()` still observes a single platform read. That is a deliberate caveat: the bytes are the canonical UTF-8 encoding of the decoded text, not the original octets. Callers that need the original octets (`rawBody`, `verify`) never take the text path.
 
 **Memory model:**
 - **Shared (one copy):** the detection cache, the frozen `EMPTY_QUERY`, and the constant tables.

@@ -48,12 +48,20 @@ export function prepare(app: Application, shape: Shape, prebuild = 0): (i: numbe
   const info = onDeno
     ? { remoteAddr: { hostname: '1.1.1.1', port: 1 } }
     : SERVER;
-  const make = (): Request =>
-    new Request(`http://localhost:3000${shape.path}`, {
+  const make = (): Request => {
+    // A real HTTP/1.1 request with a body always carries Content-Length unless
+    // it is chunked; the in-proc arm must model that or it measures a request
+    // shape no server produces (and never reaches length-provable fast paths).
+    const headers =
+      typeof shape.body === 'string'
+        ? { ...shape.headers, 'content-length': String(new TextEncoder().encode(shape.body).byteLength) }
+        : shape.headers;
+    return new Request(`http://localhost:3000${shape.path}`, {
       method: shape.body === undefined ? 'GET' : 'POST',
-      headers: shape.headers,
+      headers,
       ...(shape.body === undefined ? {} : { body: shape.body }),
     });
+  };
 
   if (prebuild > 0) {
     const requests = Array.from({ length: prebuild }, make);

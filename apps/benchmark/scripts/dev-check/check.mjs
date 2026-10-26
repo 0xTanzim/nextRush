@@ -11,7 +11,8 @@
 // `--built` resolves package `dist/` output and prefixes its rows with `built.`. Source
 // remains the gate; a stale output prints `WARN built.stale` and says to run `pnpm build`.//
 // `bundle cold inproc probe` measures ~16 s on Bun and ~25 s on Node; `wire` adds
-// ~37 s. `profile` is minutes and is excluded from the default stage set.
+// ~65 s on Bun and ~56 s on Node. `profile` is minutes and is excluded from the
+// default stage set.
 //
 // Stages: bundle | cold | inproc | wire | probe | bookkeeping | hygiene | edge | profile
 // Flags:  --rt bun|node|deno (default bun), --built (adds INFO `built.*` rows), --entry <name> (profile only)

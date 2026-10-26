@@ -306,11 +306,11 @@ diagram above.
   the repo root: `node apps/website/scripts/internals/generate-dependency-graph.mjs`.
 </Callout>
 
-The script scanned **36 `package.json` files** under `packages/` (35 publishable packages plus
-the private, never-published `@nextrush/adapter-conformance` test suite — see [Versioning &
-Compatibility](/docs/architecture/versioning)) and found **67 internal `@nextrush/*` edges**
-(external dependencies like `tsyringe` and `reflect-metadata` are listed per-package below the
-graph, not as graph nodes — the graph's job is the internal hierarchy).
+The script scanned **46 `package.json` files** under `packages/` (38 public packages, the
+private `@nextrush/adapter-conformance` harness, and seven private verification/test apps — see
+[Versioning & Compatibility](/docs/architecture/versioning)) and found **92 internal
+`@nextrush/*` edges** (external dependencies like `tsyringe` and `reflect-metadata` are listed
+per-package below the graph, not as graph nodes — the graph's job is the internal hierarchy).
 
 <Mermaid chart={`
 graph LR
@@ -318,28 +318,31 @@ graph LR
     adapter_conformance["adapter-conformance"]
     adapter_deno["adapter-deno"]
     adapter_edge["adapter-edge"]
+    adapter_nextjs["adapter-nextjs"]
     adapter_node["adapter-node"]
+    adapter_serverless["adapter-serverless"]
     body_parser["body-parser"]
-    class_pkg["class"]
+    class["class"]
     compression["compression"]
-    controllers["controllers"]
     cookies["cookies"]
     core["core"]
     cors["cors"]
     csrf["csrf"]
-    decorators["decorators"]
     dev["dev"]
     di["di"]
     errors["errors"]
     events["events"]
+    express_bridge["express-bridge"]
+    form_data["form-data"]
+    health["health"]
     helmet["helmet"]
     logger["logger"]
-    multipart["multipart"]
     openapi["openapi"]
     rate_limit["rate-limit"]
     request_id["request-id"]
     router["router"]
     runtime["runtime"]
+    security["security"]
     static["static"]
     stream["stream"]
     template["template"]
@@ -349,7 +352,14 @@ graph LR
     validation["validation"]
     websocket["websocket"]
     create_nextrush["create-nextrush"]
+    nextjs_app_14["nextjs-app-14"]
+    nextjs_app_15["nextjs-app-15"]
+    nextjs_app_16["nextjs-app-16"]
     nextrush["nextrush"]
+    nextrush_deploy_verification_azure["nextrush-deploy-verification-azure"]
+    nextrush_deploy_verification_gcf["nextrush-deploy-verification-gcf"]
+    nextrush_deploy_verification_lambda["nextrush-deploy-verification-lambda"]
+    nextrush_deploy_verification_vercel["nextrush-deploy-verification-vercel"]
 
     adapter_bun --> core
     adapter_bun --> errors
@@ -366,43 +376,59 @@ graph LR
     adapter_edge --> runtime
     adapter_edge --> stream
     adapter_edge --> types
+    adapter_nextjs --> adapter_edge
+    adapter_nextjs --> core
+    adapter_nextjs --> types
     adapter_node --> core
     adapter_node --> errors
     adapter_node --> runtime
     adapter_node --> stream
     adapter_node --> types
+    adapter_serverless --> adapter_edge
+    adapter_serverless --> core
+    adapter_serverless --> errors
+    adapter_serverless --> runtime
+    adapter_serverless --> stream
+    adapter_serverless --> types
     body_parser --> types
-    class_pkg --> core
-    class_pkg --> di
-    class_pkg --> errors
-    class_pkg --> router
-    class_pkg --> types
+    class --> core
+    class --> di
+    class --> errors
+    class --> router
+    class --> types
     compression --> types
-    controllers --> class_pkg
-    controllers --> di
-    cookies --> types
-    cookies --> runtime
     cookies --> errors
+    cookies --> runtime
+    cookies --> types
     core --> errors
     core --> types
     cors --> types
     csrf --> types
-    decorators --> class_pkg
     di --> types
     errors --> types
+    express_bridge --> errors
+    express_bridge --> runtime
+    express_bridge --> types
+    form_data --> types
+    health --> types
     helmet --> types
     logger --> types
-    multipart --> types
     openapi --> types
     rate_limit --> types
     request_id --> types
     router --> types
     runtime --> errors
     runtime --> types
+    security --> cookies
+    security --> core
+    security --> csrf
+    security --> helmet
+    security --> rate_limit
+    security --> types
     static --> types
     stream --> types
     template --> types
-    testing --> class_pkg
+    testing --> class
     testing --> core
     testing --> di
     testing --> router
@@ -411,15 +437,22 @@ graph LR
     validation --> errors
     validation --> types
     websocket --> types
+    nextjs_app_14 --> adapter_nextjs
+    nextjs_app_15 --> adapter_nextjs
+    nextjs_app_16 --> adapter_nextjs
     nextrush --> adapter_node
-    nextrush --> class_pkg
-    nextrush --> controllers
     nextrush --> core
-    nextrush --> decorators
-    nextrush --> di
     nextrush --> errors
     nextrush --> router
     nextrush --> types
+    nextrush_deploy_verification_azure --> adapter_serverless
+    nextrush_deploy_verification_azure --> core
+    nextrush_deploy_verification_gcf --> adapter_serverless
+    nextrush_deploy_verification_gcf --> core
+    nextrush_deploy_verification_lambda --> adapter_serverless
+    nextrush_deploy_verification_lambda --> core
+    nextrush_deploy_verification_vercel --> adapter_edge
+    nextrush_deploy_verification_vercel --> core
 `} />
 
 ### Findings from the generated scan (not visible in the curated diagram above)
@@ -427,7 +460,7 @@ graph LR
 Running the script surfaced two facts worth stating plainly rather than folding into the curated
 diagram, since a hand-arranged diagram can hide exactly this kind of detail:
 
-- **`@nextrush/logger` depends on `@nextrush/log` (`^0.2.1`) — a separately published external
+- **`@nextrush/logger` depends on `@nextrush/log` (`^0.3.0`) — a separately published external
   package, not a workspace member.** It is the one genuine external-runtime-dependency case
   outside the three named exceptions in [Design Principles](/docs/architecture/design-principles)
   (`reflect-metadata`, `tsyringe`, `@clack/prompts`). Verified directly against
@@ -435,46 +468,63 @@ diagram, since a hand-arranged diagram can hide exactly this kind of detail:
   really is declared as a runtime dependency there.
 - **`nextrush` (the meta package) no longer depends on `@nextrush/decorators` or
   `@nextrush/controllers`** — both were removed from its `dependencies` when the two shim
-  packages were deleted from the workspace (see [Deprecations](/docs/migrate/deprecations)). It
-  depends only on `@nextrush/class` for the class-based API surface now.
+  packages were deleted from the workspace (see [Deprecations](/docs/migrate/deprecations)). Its
+  runtime dependencies are `@nextrush/adapter-node`, `@nextrush/core`, `@nextrush/errors`,
+  `@nextrush/router`, and `@nextrush/types`; `@nextrush/class`, `@nextrush/di`, and
+  `@nextrush/adapter-nextjs` are declared as optional peers for the `nextrush/class` and
+  `nextrush/nextjs` subpath exports.
 
 <details>
-<summary>Full generated edge list (34 packages, exact `dependencies` field)</summary>
+<summary>Full generated edge list (46 packages, exact `dependencies` field)</summary>
 
-- **@nextrush/adapter-bun** `1.0.0` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
-- **@nextrush/adapter-conformance** `1.0.0` → (none)
-- **@nextrush/adapter-deno** `1.0.0` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
-- **@nextrush/adapter-edge** `1.0.0` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
-- **@nextrush/adapter-node** `3.1.0` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
-- **@nextrush/body-parser** `3.1.0` → @nextrush/types
-- **@nextrush/class** `3.1.0` → @nextrush/core, @nextrush/di, @nextrush/errors, @nextrush/router, @nextrush/types [external: reflect-metadata]
-- **@nextrush/compression** `3.1.0` → @nextrush/types
-- **@nextrush/cookies** `1.0.0` → @nextrush/errors, @nextrush/runtime, @nextrush/types
-- **@nextrush/core** `3.1.0` → @nextrush/errors, @nextrush/types
-- **@nextrush/cors** `3.1.0` → @nextrush/types
-- **@nextrush/csrf** `1.0.0` → @nextrush/types
-- **@nextrush/dev** `1.0.0` → (none) [external: @swc-node/register, @swc/core, tsx]
-- **@nextrush/di** `3.1.0` → @nextrush/types [external: reflect-metadata, tsyringe]
-- **@nextrush/errors** `3.1.0` → @nextrush/types
-- **@nextrush/events** `1.0.0` → (none)
-- **@nextrush/helmet** `3.1.0` → @nextrush/types
-- **@nextrush/logger** `1.0.0` → @nextrush/log, @nextrush/types
-- **@nextrush/form-data** `1.0.0` → @nextrush/types
-- **@nextrush/openapi** `1.0.0` → @nextrush/types
-- **@nextrush/rate-limit** `1.0.0` → @nextrush/types
-- **@nextrush/request-id** `1.0.0` → @nextrush/types
-- **@nextrush/router** `3.1.0` → @nextrush/types
-- **@nextrush/runtime** `3.1.0` → @nextrush/errors, @nextrush/types
-- **@nextrush/static** `1.0.0` → @nextrush/types
-- **@nextrush/stream** `3.1.0` → @nextrush/types
-- **@nextrush/template** `1.0.0` → @nextrush/types
-- **@nextrush/testing** `1.0.0` → @nextrush/class, @nextrush/core, @nextrush/di, @nextrush/router, @nextrush/types [external: reflect-metadata]
-- **@nextrush/timer** `1.0.0` → @nextrush/types
-- **@nextrush/types** `3.1.0` → (none)
-- **@nextrush/validation** `1.0.0` → @nextrush/errors, @nextrush/types
-- **@nextrush/websocket** `1.0.0` → @nextrush/types
-- **create-nextrush** `1.0.0` → (none) [external: @clack/prompts]
-- **nextrush** `3.1.0` → @nextrush/adapter-node, @nextrush/class, @nextrush/core, @nextrush/di, @nextrush/errors, @nextrush/router, @nextrush/types [external: reflect-metadata]
+- **@nextrush/adapter-bun** `1.0.1` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
+- **@nextrush/adapter-conformance** `1.0.1` → (none)
+- **@nextrush/adapter-deno** `1.0.1` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
+- **@nextrush/adapter-edge** `1.0.1` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
+- **@nextrush/adapter-nextjs** `1.0.1` → @nextrush/adapter-edge, @nextrush/core, @nextrush/types
+- **@nextrush/adapter-node** `4.0.2` → @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
+- **@nextrush/adapter-serverless** `1.0.1` → @nextrush/adapter-edge, @nextrush/core, @nextrush/errors, @nextrush/runtime, @nextrush/stream, @nextrush/types
+- **@nextrush/body-parser** `4.0.1` → @nextrush/types
+- **@nextrush/class** `1.0.2` → @nextrush/core, @nextrush/di, @nextrush/errors, @nextrush/router, @nextrush/types [external: reflect-metadata]
+- **@nextrush/compression** `3.0.7` → @nextrush/types
+- **@nextrush/cookies** `1.0.1` → @nextrush/errors, @nextrush/runtime, @nextrush/types
+- **@nextrush/core** `4.0.2` → @nextrush/errors, @nextrush/types
+- **@nextrush/cors** `4.0.1` → @nextrush/types
+- **@nextrush/csrf** `1.0.1` → @nextrush/types
+- **@nextrush/dev** `1.1.3` → (none) [external: @swc/core]
+- **@nextrush/di** `4.0.2` → @nextrush/types [external: reflect-metadata, tsyringe]
+- **@nextrush/errors** `4.0.2` → @nextrush/types
+- **@nextrush/events** `1.0.1` → (none)
+- **@nextrush/express-bridge** `0.1.1` → @nextrush/errors, @nextrush/runtime, @nextrush/types
+- **@nextrush/form-data** `1.0.1` → @nextrush/types
+- **@nextrush/health** `1.0.1` → @nextrush/types
+- **@nextrush/helmet** `4.0.1` → @nextrush/types
+- **@nextrush/logger** `2.0.0` → @nextrush/log, @nextrush/types
+- **@nextrush/openapi** `1.0.3` → @nextrush/types
+- **@nextrush/rate-limit** `1.0.1` → @nextrush/types
+- **@nextrush/request-id** `1.0.1` → @nextrush/types
+- **@nextrush/router** `4.0.2` → @nextrush/types
+- **@nextrush/runtime** `4.0.2` → @nextrush/errors, @nextrush/types
+- **@nextrush/security** `1.0.1` → @nextrush/cookies, @nextrush/core, @nextrush/csrf, @nextrush/helmet, @nextrush/rate-limit, @nextrush/types
+- **@nextrush/static** `1.0.1` → @nextrush/types
+- **@nextrush/stream** `1.0.2` → @nextrush/types
+- **@nextrush/template** `1.0.1` → @nextrush/types
+- **@nextrush/testing** `1.0.2` → @nextrush/class, @nextrush/core, @nextrush/di, @nextrush/router, @nextrush/types [external: reflect-metadata]
+- **@nextrush/timer** `1.0.1` → @nextrush/types
+- **@nextrush/types** `4.0.2` → (none)
+- **@nextrush/validation** `1.0.2` → @nextrush/errors, @nextrush/types
+- **@nextrush/websocket** `1.0.1` → @nextrush/types
+- **create-nextrush** `1.3.1` → (none) [external: @clack/prompts]
+- **nextjs-app-14** `0.0.1` → @nextrush/adapter-nextjs [external: next, nextrush, react, react-dom]
+- **nextjs-app-15** `0.0.1` → @nextrush/adapter-nextjs [external: next, nextrush, react, react-dom]
+- **nextjs-app-16** `0.0.1` → @nextrush/adapter-nextjs [external: next, nextrush, react, react-dom]
+- **nextrush** `4.0.2` → @nextrush/adapter-node, @nextrush/core, @nextrush/errors, @nextrush/router, @nextrush/types
+- **nextrush-deploy-verification-azure** `0.0.1` → @nextrush/adapter-serverless, @nextrush/core [external: @azure/functions]
+- **nextrush-deploy-verification-gcf** `0.0.1` → @nextrush/adapter-serverless, @nextrush/core [external: @google-cloud/functions-framework]
+- **nextrush-deploy-verification-lambda** `0.0.1` → @nextrush/adapter-serverless, @nextrush/core
+- **nextrush-deploy-verification-vercel** `0.0.1` → @nextrush/adapter-edge, @nextrush/core
+
+## Mermaid (generated)
 
 </details>
 

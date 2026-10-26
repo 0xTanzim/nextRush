@@ -20,7 +20,9 @@
  */
 
 import { createApp, type Application } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 import { createHandler, serve, type ServerInstance } from '@nextrush/adapter-deno';
+import { bodyParser } from '@nextrush/body-parser';
 import { detectRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
 import {
   buildConformanceApp,
@@ -310,4 +312,57 @@ defineConformanceSuite(realDenoDriver);
 Deno.test('proof levels', () => {
   console.log(scenarioReport());
   expect(scenarioRecords().length).toBeGreaterThan(0);
+});
+
+/**
+ * RFC-047 on real Deno: the lazy body path must behave the same here as it does
+ * under the simulated drivers — an unread body is never parsed (so a malformed
+ * one cannot fail the request) and an explicit `readBody()` produces the eager
+ * envelope.
+ */
+Deno.test('lazy body parsing on real Deno: an unread malformed body answers 200', async () => {
+  const app = createApp({ router: createRouter() });
+  app.use(bodyParser({ lazy: true }));
+  app.post('/unread', (ctx) => {
+    ctx.json({ read: false });
+  });
+
+  await withServer(app, { timeout: 10 }, async (server) => {
+    const res = await rawFetch(server.port, {
+      method: 'POST',
+      path: '/unread',
+      headers: { 'content-type': 'application/json' },
+      body: '{"broken": ',
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ read: false });
+  });
+});
+
+Deno.test('lazy body parsing on real Deno: readBody() parses and maps errors', async () => {
+  const app = createApp({ router: createRouter() });
+  app.use(bodyParser({ lazy: true }));
+  app.post('/read', async (ctx) => {
+    ctx.json({ body: await ctx.readBody() });
+  });
+
+  await withServer(app, { timeout: 10 }, async (server) => {
+    const ok = await rawFetch(server.port, {
+      method: 'POST',
+      path: '/read',
+      headers: { 'content-type': 'application/json' },
+      body: '{"a":1}',
+    });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ body: { a: 1 } });
+
+    const bad = await rawFetch(server.port, {
+      method: 'POST',
+      path: '/read',
+      headers: { 'content-type': 'application/json' },
+      body: '{"broken": ',
+    });
+    expect(bad.status).toBe(400);
+    expect(await bad.json()).toMatchObject({ code: 'INVALID_JSON', status: 400 });
+  });
 });

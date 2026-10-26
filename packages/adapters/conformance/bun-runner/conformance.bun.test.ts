@@ -22,7 +22,9 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { request as httpRequest, type IncomingMessage } from 'node:http';
 import { createApp } from '@nextrush/core';
+import { createRouter } from '@nextrush/router';
 import { createHandler, serve } from '@nextrush/adapter-bun';
+import { bodyParser } from '@nextrush/body-parser';
 import type { ServerInstance } from '@nextrush/adapter-bun';
 import { detectRuntime, getRuntimeCapabilities } from '@nextrush/runtime';
 import {
@@ -231,5 +233,66 @@ describe('bun adapter — full cross-adapter conformance suite on real Bun', () 
     // eslint-disable-next-line no-console -- this runner's report IS the output
     console.log(scenarioReport());
     expect(scenarioRecords().length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * RFC-047 on real Bun: the lazy body path must behave the same here as it does
+ * under the simulated drivers — an unread body is never parsed (so a malformed
+ * one cannot fail the request) and an explicit `readBody()` produces the eager
+ * envelope.
+ */
+describe('bun adapter — lazy body parsing on real Bun (RFC-047)', () => {
+  test('an unread body is never parsed, so malformed JSON answers 200', async () => {
+    const app = createApp({ router: createRouter() });
+    app.use(bodyParser({ lazy: true }));
+    app.post('/unread', (ctx) => {
+      ctx.json({ read: false });
+    });
+
+    const server = await serve(app, { port: 0, timeout: 10 });
+    try {
+      const res = await rawFetch(server.port, {
+        method: 'POST',
+        path: '/unread',
+        headers: { 'content-type': 'application/json' },
+        body: '{"broken": ',
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ read: false });
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('readBody() parses a valid body and keeps the eager error envelope', async () => {
+    const app = createApp({ router: createRouter() });
+    app.use(bodyParser({ lazy: true }));
+    app.post('/read', async (ctx) => {
+      ctx.json({ body: await ctx.readBody() });
+    });
+
+    const server = await serve(app, { port: 0, timeout: 10 });
+    try {
+      const ok = await rawFetch(server.port, {
+        method: 'POST',
+        path: '/read',
+        headers: { 'content-type': 'application/json' },
+        body: '{"a":1}',
+      });
+      expect(ok.status).toBe(200);
+      expect(await ok.json()).toEqual({ body: { a: 1 } });
+
+      const bad = await rawFetch(server.port, {
+        method: 'POST',
+        path: '/read',
+        headers: { 'content-type': 'application/json' },
+        body: '{"broken": ',
+      });
+      expect(bad.status).toBe(400);
+      expect(await bad.json()).toMatchObject({ code: 'INVALID_JSON', status: 400 });
+    } finally {
+      await server.close();
+    }
   });
 });

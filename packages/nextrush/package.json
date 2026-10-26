@@ -81,9 +81,9 @@
     "@nextrush/types": "workspace:*"
   },
   "peerDependencies": {
-    "@nextrush/adapter-nextjs": "workspace:*",
-    "@nextrush/class": "workspace:*",
-    "@nextrush/di": "workspace:*",
+    "@nextrush/adapter-nextjs": "workspace:^",
+    "@nextrush/class": "workspace:^",
+    "@nextrush/di": "workspace:^",
     "reflect-metadata": "catalog:runtime"
   },
   "peerDependenciesMeta": {

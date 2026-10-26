@@ -23,7 +23,7 @@
  */
 
 import type { Application } from '@nextrush/core';
-import { bodyParser } from '@nextrush/body-parser';
+import { bodyParser, type BodyParserOptions } from '@nextrush/body-parser';
 import { cookies } from '@nextrush/cookies';
 import { createRouter } from '@nextrush/router';
 import { registerScenario } from './scenario';
@@ -31,6 +31,21 @@ import { expect } from '@nextrush/adapter-conformance/test-primitives';
 import { OUTGOING_RESPONSE } from '@nextrush/types';
 import type { ConformanceDriver } from './drivers/types';
 import { json } from './support';
+
+/**
+ * Per-run adjustments for the reusable suite.
+ *
+ * @remarks
+ * The suite exercises one body-parser configuration: with no options the
+ * middleware runs its documented default (eager parsing). A caller can pass
+ * `{ bodyParser: { lazy: true } }` to run the same scenarios through deferred
+ * parsing, which proves the two modes are observationally identical instead of
+ * trusting the lazy unit tests alone.
+ */
+export interface ConformanceSuiteOptions {
+  /** Options applied to every `bodyParser()` the suite installs. */
+  readonly bodyParser?: BodyParserOptions;
+}
 
 /** Request-side behaviors (audit F-01, spec rows #1-#4, #11, #16-#18). */
 export function defineRequestConformance(driver: ConformanceDriver): void {
@@ -303,7 +318,10 @@ export function defineRequestConformance(driver: ConformanceDriver): void {
 }
 
 /** Response-side behaviors (audit F-01, spec rows #5-#10, #12). */
-export function defineResponseConformance(driver: ConformanceDriver): void {
+export function defineResponseConformance(
+  driver: ConformanceDriver,
+  options?: ConformanceSuiteOptions
+): void {
   registerScenario(driver, '#5/#9 (F-02): ctx.set() headers survive an implicit empty response', {}, async () => {
     const res = await driver.dispatch((app) => {
       app.use((ctx) => {
@@ -348,16 +366,16 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     expect(res.setCookies()).toEqual(['b=2']);
   });
 
-  registerScenario(driver, '#7 content-type parity: json/send/html carry identical charset (F-16)', {}, async () => {
+  registerScenario(driver, '#7 content-type parity: json/send/html carry the shared media types (F-16)', {}, async () => {
     const jsonRes = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.json({ ok: true }); });
     });
-    expect(jsonRes.header('content-type')).toBe('application/json; charset=utf-8');
+    expect(jsonRes.header('content-type')).toBe('application/json');
 
     const textRes = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.send('plain'); });
     });
-    expect(textRes.header('content-type')).toBe('text/plain; charset=utf-8');
+    expect(textRes.header('content-type')).toBe('text/plain;charset=UTF-8');
 
     const htmlRes = await driver.dispatch((app) => {
       app.use((ctx) => { ctx.html('<b>hi</b>'); });
@@ -371,7 +389,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     });
     expect(res.status).toBe(302);
     expect(res.header('location')).toBe('/dest');
-    expect(res.header('content-type')).toBe('text/plain; charset=utf-8');
+    expect(res.header('content-type')).toBe('text/plain;charset=UTF-8');
     expect(res.text()).toBe('Redirecting to /dest');
   });
 
@@ -442,9 +460,10 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     const body = json<{ error: string; message: string }>(unknown);
     expect(body.message).toBe('Internal Server Error');
     expect(unknown.text()).not.toContain('secret-leak-123');
-    // F-05: framework-generated error responses carry a uniform Content-Type
-    // (application/json; charset=utf-8) on every adapter — no bare application/json.
-    expect(unknown.header('content-type')).toBe('application/json; charset=utf-8');
+    // F-05: framework-generated error responses carry one media type on every
+    // adapter. JSON has no `charset` parameter (RFC 8259 §8.1), and the bare
+    // value is what Deno's static-response fast path accepts.
+    expect(unknown.header('content-type')).toBe('application/json');
   });
 
   registerScenario(driver, '#5/#12 serialization failure: a body JSON cannot represent is answered, never left empty', {}, async () => {
@@ -463,7 +482,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
       });
 
       expect(res.status, label).toBe(500);
-      expect(res.header('content-type'), label).toBe('application/json; charset=utf-8');
+      expect(res.header('content-type'), label).toBe('application/json');
       expect(res.text(), label).not.toBe('');
     }
     cyclic = {};
@@ -489,7 +508,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     });
 
     expect(res.status).toBe(500);
-    expect(res.header('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.header('content-type')).toBe('application/json');
     expect(json<{ status: number }>(res).status).toBe(500);
     expect(res.text()).not.toBe('');
   });
@@ -516,7 +535,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     });
 
     expect(res.status).toBe(503);
-    expect(res.header('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.header('content-type')).toBe('application/json');
     expect(json<{ error: string }>(res).error).toBe('Service Unavailable');
   });
 
@@ -574,9 +593,9 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     async () => {
       const res = await driver.dispatch(
         (app) => {
-          app.use(bodyParser());
-          app.use((ctx) => {
-            ctx.json({ parsed: ctx.body });
+          app.use(bodyParser(options?.bodyParser));
+          app.use(async (ctx) => {
+            ctx.json({ parsed: await ctx.readBody() });
           });
         },
         {
@@ -590,7 +609,7 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
       // framework constant, not the engine's own parse text, and the 4xx reports
       // its own code rather than reading to a client like a server fault.
       expect(res.status).toBe(400);
-      expect(res.header('content-type')).toBe('application/json; charset=utf-8');
+      expect(res.header('content-type')).toBe('application/json');
       expect(res.text()).toBe(
         '{"error":"BodyParserError","message":"Invalid JSON","code":"INVALID_JSON","status":400}'
       );
@@ -606,10 +625,10 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
 
       const res = await driver.dispatch(
         (app) => {
-          app.use(bodyParser({ onUnsupportedContentType: 'reject' }));
-          app.use((ctx) => {
+          app.use(bodyParser({ ...options?.bodyParser, onUnsupportedContentType: 'reject' }));
+          app.use(async (ctx) => {
             handlerRan = true;
-            ctx.json({ parsed: ctx.body });
+            ctx.json({ parsed: await ctx.readBody() });
           });
         },
         {
@@ -632,9 +651,9 @@ export function defineResponseConformance(driver: ConformanceDriver): void {
     async () => {
       const res = await driver.dispatch(
         (app) => {
-          app.use(bodyParser());
-          app.use((ctx) => {
-            ctx.json({ body: ctx.body ?? null });
+          app.use(bodyParser(options?.bodyParser));
+          app.use(async (ctx) => {
+            ctx.json({ body: (await ctx.readBody()) ?? null });
           });
         },
         {
@@ -882,10 +901,6 @@ export function defineRuntimeConformance(driver: ConformanceDriver): void {
 }
 
 /**
- * The full cross-adapter conformance suite for one driver — request + response
- * + runtime behaviors. External adapter authors wrap this in a `describe`.
- */
-/**
  * Cookie capability behaviors (RFC-034): the uninitialized diagnostic and the
  * activated store must be observable-identical on every adapter.
  */
@@ -957,9 +972,20 @@ export function defineCookieConformance(driver: ConformanceDriver): void {
   });
 }
 
-export function defineConformanceSuite(driver: ConformanceDriver): void {
+/**
+ * The full cross-adapter conformance suite for one driver — request + response
+ * + runtime behaviors. External adapter authors wrap this in a `describe`.
+ *
+ * Pass `options` to run the same scenarios against a different body-parser
+ * configuration (e.g. `{ bodyParser: { lazy: true } }`); omitting it keeps the
+ * suite on the default eager parser.
+ */
+export function defineConformanceSuite(
+  driver: ConformanceDriver,
+  options?: ConformanceSuiteOptions
+): void {
   defineRequestConformance(driver);
-  defineResponseConformance(driver);
+  defineResponseConformance(driver, options);
   defineRuntimeConformance(driver);
   defineCookieConformance(driver);
 }

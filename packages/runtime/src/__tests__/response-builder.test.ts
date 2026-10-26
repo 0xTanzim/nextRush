@@ -147,13 +147,13 @@ describe('WebResponseBuilder', () => {
     redirect.redirect('/dest', 302);
 
     expect(json.getResponse(200).headers.get('Content-Type')).toBe(
-      'application/json; charset=utf-8'
+      'application/json'
     );
-    expect(text.getResponse(200).headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+    expect(text.getResponse(200).headers.get('Content-Type')).toBe('text/plain;charset=UTF-8');
     expect(binary.getResponse(200).headers.get('Content-Type')).toBe('application/octet-stream');
     expect(html.getResponse(200).headers.get('Content-Type')).toBe('text/html; charset=utf-8');
     expect(redirect.getResponse(200).headers.get('Content-Type')).toBe(
-      'text/plain; charset=utf-8'
+      'text/plain;charset=UTF-8'
     );
   });
 
@@ -163,7 +163,7 @@ describe('WebResponseBuilder', () => {
     expect(rb.responded).toBe(true);
     const res = rb.getResponse(200);
     expect(res.status).toBe(201);
-    expect(res.headers.get('Content-Type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('Content-Type')).toBe('application/json');
     expect(await res.json()).toEqual({ ok: true });
   });
 
@@ -171,7 +171,7 @@ describe('WebResponseBuilder', () => {
     const str = new WebResponseBuilder('GET');
     str.send('hello', 200);
     expect(await str.getResponse(200).text()).toBe('hello');
-    expect(str.getResponse(200).headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+    expect(str.getResponse(200).headers.get('Content-Type')).toBe('text/plain;charset=UTF-8');
 
     const obj = new WebResponseBuilder('GET');
     obj.send({ a: 1 }, 200);
@@ -198,7 +198,7 @@ describe('WebResponseBuilder', () => {
     const res = rb.getResponse(200);
     expect(res.status).toBe(302);
     expect(res.headers.get('Location')).toBe('/login');
-    expect(res.headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+    expect(res.headers.get('Content-Type')).toBe('text/plain;charset=UTF-8');
   });
 
   it('set() accumulates Set-Cookie and replaces on array', () => {
@@ -245,6 +245,35 @@ describe('WebResponseBuilder', () => {
     const res = rb.getResponse(418);
     expect(res.status).toBe(418);
     expect(res.headers.get('X-Keep')).toBe('yes');
+  });
+
+  it('answers a content-type-only response with exactly that header', () => {
+    const rb = new WebResponseBuilder('GET');
+    rb.json({ hello: 'world' }, 200);
+
+    const res = rb.getResponse(200);
+
+    expect(res.headers.get('content-type')).toBe('application/json');
+    expect([...res.headers.keys()]).toEqual(['content-type']);
+  });
+
+  it('keeps every entry of a multi-value header', () => {
+    const rb = new WebResponseBuilder('GET');
+    rb.record.set('Set-Cookie', ['a=1; Path=/', 'b=2; Path=/']);
+    rb.json({ ok: true }, 200);
+
+    const res = rb.getResponse(200);
+
+    expect(res.headers.getSetCookie()).toEqual(['a=1; Path=/', 'b=2; Path=/']);
+    expect(res.headers.get('content-type')).toBe('application/json');
+  });
+
+  it('keeps an explicit content type over the body method default', () => {
+    const rb = new WebResponseBuilder('GET');
+    rb.json({ ok: true }, 200);
+    rb.set('Content-Type', 'application/vnd.api+json');
+
+    expect(rb.getResponse(200).headers.get('content-type')).toBe('application/vnd.api+json');
   });
 
   it('sendStream() wires a byte stream as the body', async () => {
@@ -465,10 +494,10 @@ describe('F-03: HEAD Content-Length by body type', () => {  it('a string body (v
 });
 
 describe('F-05: jsonErrorResponse', () => {
-  it('builds a JSON error response with a uniform charset and the expected body shape', async () => {
+  it('builds a JSON error response with the shared media type and the expected body shape', async () => {
     const res = jsonErrorResponse(500, 'Internal Server Error');
     expect(res.status).toBe(500);
-    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('application/json');
     expect(await res.json()).toEqual({ error: 'Internal Server Error' });
   });
 

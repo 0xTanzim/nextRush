@@ -51,7 +51,7 @@ const UTF8_ENCODER = new TextEncoder();
  * @example
  * ```typescript
  * const record = new OutgoingResponse();
- * record.setBody(serializeJson(data), 'application/json; charset=utf-8');
+ * record.setBody(serializeJson(data), 'application/json');
  * record.set('X-Trace-Id', traceId);
  * // The adapter flushes once, after the middleware chain settles:
  * record.flush((flushed) => writeToTransport(flushed));

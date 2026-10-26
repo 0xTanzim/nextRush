@@ -10,24 +10,14 @@ import type { Middleware } from '@nextrush/types';
 
 import { BODYLESS_METHODS, DEFAULT_CONTENT_TYPES } from '../constants.js';
 import { Errors } from '../errors.js';
+import { hasResolvedBody, installLazyReader } from '../lazy.js';
 import type { BodyParserContext, BodyParserOptions } from '../types.js';
 import { matchContentType } from '../utils/content-type.js';
 import { readHeader } from '../utils/header-value.js';
-import { json } from './json.js';
-import { raw } from './raw.js';
-import { text } from './text.js';
-import { urlencoded } from './urlencoded.js';
-
-/**
- * Internal signature shared by the individual parser middlewares
- * (json/urlencoded/text/raw), used only to type the pre-created parser
- * instances this function composes. Not part of the public API.
- */
-type ParserFn = (
-  ctx: BodyParserContext,
-  next?: () => Promise<void>,
-  prechecked?: boolean
-) => void | Promise<void>;
+import { createJsonParser, type JsonParserParts } from './json.js';
+import { createRawParser, type RawParserParts } from './raw.js';
+import { createTextParser, type TextParserParts } from './text.js';
+import { createUrlEncodedParser, type UrlEncodedParserParts } from './urlencoded.js';
 
 /**
  * Create combined body parser middleware.
@@ -71,6 +61,7 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
     text: textOptions,
     raw: rawOptions,
     onUnsupportedContentType = 'ignore',
+    lazy = false,
   } = options;
 
   // Helper to normalize type option to string array
@@ -111,20 +102,35 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
       )
     : [];
 
-  // Pre-create individual parsers with correct options
-  // Cast to ParserFn for internal use (optional next parameter)
-  const jsonParser = jsonOptions !== false ? (json(jsonOptions) as unknown as ParserFn) : null;
-  const urlencodedParser =
-    urlencodedOptions !== false
-      ? (urlencoded(urlencodedOptions) as unknown as ParserFn)
-      : null;
+  // Pre-create individual parsers. Only their read functions are used: the
+  // combined parser already performed detection, so re-entering the middleware
+  // would repeat it (BP-E).
+  const jsonParser: JsonParserParts | null =
+    jsonOptions !== false ? createJsonParser(jsonOptions) : null;
+  const urlencodedParser: UrlEncodedParserParts | null =
+    urlencodedOptions !== false ? createUrlEncodedParser(urlencodedOptions) : null;
   // Text and raw parsers only created when explicitly enabled
-  const textParser = hasTextOptions
-    ? (text(textOptions as Exclude<typeof textOptions, false | undefined>) as unknown as ParserFn)
+  const textParser: TextParserParts | null = hasTextOptions
+    ? createTextParser(textOptions as Exclude<typeof textOptions, false | undefined>)
     : null;
-  const rawParser = hasRawOptions
-    ? (raw(rawOptions as Exclude<typeof rawOptions, false | undefined>) as unknown as ParserFn)
+  const rawParser: RawParserParts | null = hasRawOptions
+    ? createRawParser(rawOptions as Exclude<typeof rawOptions, false | undefined>)
     : null;
+
+  /**
+   * Deliver one parser's result: eagerly assign it, or install the deferred
+   * reader that assigns it the first time the application asks (RFC-047).
+   */
+  const deliver = async (
+    ctx: BodyParserContext,
+    read: () => Promise<unknown>
+  ): Promise<void> => {
+    if (lazy) {
+      installLazyReader(ctx, read);
+      return;
+    }
+    ctx.body = await read();
+  };
 
   return (async (ctx: BodyParserContext, next?: () => Promise<void>): Promise<void> => {
     // Skip methods that don't have bodies
@@ -133,9 +139,10 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
       return;
     }
 
-    // Skip if the body was already parsed upstream — the combined parser owns the
-    // "already parsed" short-circuit so the prechecked sub-parsers below never re-read.
-    if (ctx.body !== undefined) {
+    // Skip if the body was already parsed upstream. In lazy mode this asks the
+    // installed reader slot, not `ctx.body`, which throws until the body has
+    // actually been read.
+    if (hasResolvedBody(ctx)) {
       if (next) await next();
       return;
     }
@@ -148,33 +155,35 @@ export function bodyParser(options: BodyParserOptions = {}): Middleware {
 
     // JSON
     if (jsonParser && matchContentType(contentType, jsonTypes)) {
-      await jsonParser(ctx, undefined, true);
+      await deliver(ctx, () => jsonParser.read(ctx));
       if (next) await next();
       return;
     }
 
     // URL-encoded
     if (urlencodedParser && matchContentType(contentType, urlencodedTypes)) {
-      await urlencodedParser(ctx, undefined, true);
+      await deliver(ctx, () => urlencodedParser.read(ctx));
       if (next) await next();
       return;
     }
 
     // Text
     if (textParser && matchContentType(contentType, textTypes)) {
-      await textParser(ctx, undefined, true);
+      await deliver(ctx, () => textParser.read(ctx, contentType));
       if (next) await next();
       return;
     }
 
     // Raw (fallback for binary)
     if (rawParser && matchContentType(contentType, rawTypes)) {
-      await rawParser(ctx, undefined, true);
+      await deliver(ctx, () => rawParser.read(ctx));
       if (next) await next();
       return;
     }
 
-    // Multipart stub: provide a clear error instead of silent pass-through
+    // Multipart stub: provide a clear error instead of silent pass-through.
+    // A media-type decision, not a body decision — it needs no bytes, so lazy
+    // mode still rejects before the handler.
     if (contentType && contentType.startsWith('multipart/')) {
       throw Errors.unsupportedContentType(
         'multipart/form-data',

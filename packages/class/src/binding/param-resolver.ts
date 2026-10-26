@@ -28,6 +28,13 @@ export async function resolveParametersFromPlan(
     sortedMetadata.length > 0 ? sortedMetadata[sortedMetadata.length - 1]!.index : -1;
   const args: unknown[] = new Array(maxIndex + 1).fill(undefined);
 
+  // A `@Body()` parameter may be resolved from a lazily parsed body (RFC-047).
+  // Reading it once up front keeps `extractParameterValue` synchronous, and in
+  // eager mode this resolves from the already-parsed value at no cost.
+  if (sortedMetadata.some((param) => param.source === 'body')) {
+    await ctx.readBody();
+  }
+
   for (const param of sortedMetadata) {
     try {
       // Await supports async custom extractors (createCustomParamDecorator)

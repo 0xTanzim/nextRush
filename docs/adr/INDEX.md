@@ -43,6 +43,12 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0028](ADR-0028-precompile-tiers-measured-evidence.md) | Precompile tiers ship only on measured evidence | Accepted | `docs/RFC/runtime-adapters/039-precompile-per-request-tax.md` |
 | [ADR-0029](ADR-0029-runtime-scoped-budgets-deferred-aot.md) | Runtime-scoped budgets and deferred AOT | Accepted | `docs/RFC/runtime-adapters/040-resource-budgets-and-request-path-footprint.md` |
 | [ADR-0030](ADR-0030-recorded-outgoing-response.md) | Recorded outgoing response model | Accepted · Shipped | `docs/RFC/runtime-adapters/041-recorded-response-model.md` |
+| [ADR-0031](ADR-0031-web-native-body-read.md) | Native body reads for provable-length Web requests | Accepted | `docs/RFC/runtime-adapters/043-web-native-body-read.md` |
+| [ADR-0032](ADR-0032-bun-request-path-trims.md) | Bun request-path trims — native drain accounting and thunk-free address resolution | Accepted | `docs/RFC/runtime-adapters/044-bun-request-path-trims.md` |
+| [ADR-0033](ADR-0033-bun-request-hotpath-phase-1.md) | Bun request hot path — internal limited text reads, bounded timeout dispatch, one shared JSON read/parse tail | Accepted · Shipped | `docs/RFC/runtime-adapters/045-bun-request-hotpath-phase-1.md` |
+| [ADR-0034](ADR-0034-json-media-type-and-response-construction.md) | One JSON media type, and a plain init record for the Web response | Accepted · Shipped | `docs/RFC/runtime-adapters/046-json-media-type-and-response-construction.md` |
+| [ADR-0035](ADR-0035-shared-request-deadline.md) | One shared timer serves the request deadline | Accepted · Shipped | `docs/RFC/runtime-adapters/046-json-media-type-and-response-construction.md` |
+| [ADR-0036](ADR-0036-opt-in-lazy-body-parsing.md) | Opt-in lazy body parsing via a per-request deferred reader | Accepted | `docs/RFC/request-data/047-lazy-body-parsing.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

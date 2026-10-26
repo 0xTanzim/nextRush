@@ -360,7 +360,7 @@ stateDiagram-v2
 | `serveStatic()`'s closure (`opts`) | The normalized, immutable `NormalizedStaticOptions` | app — computed once when `serveStatic()` is called |
 | `createSendFile()`'s closure (`opts`) | Same normalized options, for the single-file helper | app — computed once when `createSendFile()` is called |
 | `streamToResponse()`'s local `settled`/`timeoutId` | Whether this specific stream's `Promise` has already resolved/rejected | per request — created fresh for each streamed response |
-| `Context` (owned by `core`/the adapter) | `ctx.status`, response headers, and the response body written via `ctx.raw.res` | per request |
+| `Context` (owned by `core`/the adapter) | `ctx.status`, the response headers this middleware records, and — for a buffered small-file response or a `304` — the body/status it commits to the adapter's flush | per request |
 
 There is no module-level mutable state in `index.ts`, `utils.ts`, or `send-file.ts` — every
 value that varies per request is either a function parameter or a `let` local scoped to that
@@ -496,6 +496,13 @@ unless the path equals `root` exactly.
 - **Direct `ctx.raw.res` writes from outside `send-file.ts`** — every response write for a served
   file is centralized in `sendFile()`/`streamToResponse()` so a new code path can't bypass the
   conditional/range/TOCTOU handling already in place.
+- **Buffered responses commit through the context** — the headers this middleware records reach the
+  socket only on the adapter's single flush, so the small-file body and the `304` are committed with
+  `ctx.send()`. Writing them straight to `ctx.raw.res` delivered the bytes and dropped every header
+  (no `Content-Type`, `ETag`, `Last-Modified`, `Cache-Control`, or `X-Content-Type-Options`).
+  *Streamed* responses (range, large file) still write through `ctx.raw.res` and therefore still land
+  without those recorded headers; carrying them needs an adapter-level "flush head, then stream"
+  hook, which does not exist yet.
 
 ---
 

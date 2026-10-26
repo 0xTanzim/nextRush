@@ -1,6 +1,6 @@
 ---
 title: Release Handbook
-description: How NextRush versions and ships ~35 packages — the full lifecycle, CLI vs CI, and every real mistake we've already made so you don't repeat them.
+description: How NextRush versions and ships 38 packages — the full lifecycle, CLI vs CI, and every real mistake we've already made so you don't repeat them.
 keywords: [architecture, handbook, nextrush, release]
 ---
 
@@ -129,31 +129,34 @@ flowchart TD
     A[Starting a release] --> B{What kind?}
     B -->|Beta / prerelease| C[CLI, from your terminal]
     B -->|Stable, merging to main| D{Is main already correct?}
-    D -->|Yes, only need to publish| E[GitHub Action — push to main]
+    D -->|Yes, only need to publish| E[GitHub Action — manual dispatch]
     D -->|No, need to review versions first| F[CLI to compute + verify, then push]
     C --> G[Dedicated branch, never main]
-    E --> H[changesets/action opens a Version PR automatically]
+    E --> H[changesets/action opens a Version PR, or publishes once it is merged]
     F --> H
 ```
 
 Here's why the split exists, not only what it is:
 
-**The GitHub Action (`release.yml`) only triggers on `push` to `main`.** That's in the workflow
-file, plain as day — `on.push.branches: [main]`. A beta release is supposed to run from a
-dedicated branch (`release/4.0.0-beta`, say), specifically so entering prerelease mode doesn't
-block every other unrelated PR from shipping until you exit it. Push to that branch, and the
-Action stays silent. No trigger, no automation, nothing happens. So for the entire beta window,
-CLI isn't the recommended path — it's the only one that does anything at all.
+**The GitHub Action (`release.yml`) only triggers on `workflow_dispatch`.** That's in the workflow
+file, plain as day — `on.workflow_dispatch`, with a comment that publishing is intentionally an
+explicit operator action and must never be a side effect of pushing to `main`. A beta release is
+supposed to run from a dedicated branch (`release/4.0.0-beta`, say), specifically so entering
+prerelease mode doesn't block every other unrelated PR from shipping until you exit it. Pushing
+that branch, or `main`, does not start the Action. No dispatch, no automation, nothing happens.
+So for the entire beta window, CLI isn't the recommended path — it's the only one that does
+anything at all.
 
-**Once you merge back to `main` for the stable cut, the Action becomes the right tool.** It opens
-a "Version Packages" pull request automatically, keeps it updated as more changesets land, and
-publishes to npm the moment that PR merges. That's real automation worth using — no reason to
-hand-run commands for a release the Action is built to handle.
+**Once versions are committed to `main` for the stable cut, the Action becomes the right tool.**
+Dispatch it and it opens or updates a "Version Packages" pull request when changesets are
+pending. Merge that PR, dispatch it again, and it publishes to npm. The second dispatch is
+required precisely because there is no `push` trigger. That's real automation worth using — no
+reason to hand-run commands for a release the Action is built to handle.
 
 So: beta from your terminal, stable through the Action once you're back on `main`. If you ever
-want the Action to also cover beta branches, that's a config change (`on.push.branches: [main,
-'release/**']`), not a CLI-vs-Action philosophy shift — worth doing eventually, not required to
-ship this release.
+want the Action to also cover pushes or beta branches, that's a workflow-trigger change
+(`on.push.branches: [main, 'release/**']`), not a CLI-vs-Action philosophy shift — worth doing
+eventually, not required to ship this release.
 
 ## Part 3 — The full release lifecycle, start to finish
 
@@ -304,7 +307,7 @@ baseline instead of your correction.
 The fix is never to re-run `pre enter` on top of an existing `pre.json`. Exit first, then re-enter:
 
 ```bash
-pnpm changeset pre exit      # deletes pre.json outright, no version side effects
+pnpm changeset pre exit      # records the exit intent; `.changeset/pre.json` stays until `version`
 pnpm changeset pre enter beta   # re-snapshots from your CURRENT, corrected package.json
 ```
 

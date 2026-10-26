@@ -136,6 +136,7 @@ function createMockContext(method: string, path: string): Context {
     headers: {},
     ip: '127.0.0.1',
     body: undefined,
+    readBody: async <T = unknown>() => undefined as T,
     params: {},
     status: 200,
     state: {},

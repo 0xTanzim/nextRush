@@ -1,7 +1,7 @@
 {
   "name": "nextrush-benchmark",
   "version": "3.0.3",
-  "description": "Professional HTTP framework benchmarks for NextRush v3 — wrk + autocannon, GC tracking, memory profiling, concurrency scaling",
+  "description": "Professional HTTP framework benchmarks for NextRush v4 — wrk + autocannon, GC tracking, memory profiling, concurrency scaling",
   "private": true,
   "type": "module",
   "scripts": {
@@ -28,6 +28,7 @@
     "bench:express-bridge": "node scripts/express-bridge-ab.js",
     "bench:express-bridge:ladder": "node scripts/express-bridge-ladder.js",
     "bench:alloc:web": "node scripts/alloc/web-context-alloc.js",
+    "bench:alloc:bun-request-path": "node scripts/alloc/bun-request-path-alloc.js",
     "bench:alloc:response-construction": "node scripts/alloc/response-construction-alloc.js",
     "bench:validate": "node scripts/validate-parity.js",
     "bench:verify": "node scripts/run.js --profile verify --rotate --compare --scenario hello-world",

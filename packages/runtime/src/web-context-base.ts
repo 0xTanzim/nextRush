@@ -20,8 +20,9 @@
  */
 
 import { HttpError } from '@nextrush/errors';
-import { OUTGOING_RESPONSE } from '@nextrush/types';
+import { BODY_READER, OUTGOING_RESPONSE } from '@nextrush/types';
 import type {
+  BodyReaderCarrier,
   BodySource,
   ContextState,
   CookieCapability,
@@ -89,9 +90,14 @@ export interface WebStreamRunners {
  * the streaming methods, and `get`/`next`/`throw`/`assert` live here, once.
  */
 export abstract class WebContextBase implements FetchContext {
-  readonly method: HttpMethod;
-  readonly url: string;
-  readonly path: string;
+  // `declare` on every field the constructor assigns: with
+  // `useDefineForClassFields` (ES2022) a plain `field;` declaration emits a
+  // per-instance define for `undefined` that the constructor immediately
+  // overwrites. A context is built once per request, so those defines are pure
+  // hot-path cost. Initialized fields below keep their initializer.
+  declare readonly method: HttpMethod;
+  declare readonly url: string;
+  declare readonly path: string;
   /**
    * Declared here, not added by the router, so dispatch's assignment is a value
    * write to an existing slot rather than a property addition that transitions
@@ -100,12 +106,26 @@ export abstract class WebContextBase implements FetchContext {
    *
    * @see RFC-029
    */
-  readonly originalPath: string;
-  readonly query: QueryParams;
-  readonly runtime: Runtime;
-  readonly bodySource: BodySource;
-
-
+  declare readonly originalPath: string;
+  /**
+   * Backing field for the lazily parsed {@link query}. Declared (not a plain
+   * field) and assigned in the constructor so every context keeps one shape;
+   * `undefined` is the "not parsed yet" sentinel.
+   */
+  declare private _query: QueryParams | undefined;
+  declare readonly runtime: Runtime;
+  declare readonly bodySource: BodySource;
+  /**
+   * The request's declared body length, read from the body source's parsed
+   * `content-length`; `undefined` when the length is unknown (chunked).
+   *
+   * @remarks
+   * Exposed for the runner's settle-window decision: a non-empty declared body
+   * means the dispatch waits on a body read (a macrotask), so the deadline can
+   * be armed immediately. Reading `request.body` for the same answer would
+   * initialise the body stream and cost ~0.8 µs on Bun before the read.
+   */
+  declare readonly bodyLength: number | undefined;
 
   /**
    * The lazily resolved request inputs (headers and client address).
@@ -115,7 +135,7 @@ export abstract class WebContextBase implements FetchContext {
    * every header and resolving the address may call the platform, so both are
    * resolved on first read (see {@link RequestInputs}).
    */
-  protected readonly _inputs: RequestInputs;
+  declare protected readonly _inputs: RequestInputs;
 
   /**
    * Named deployment platform, when known (RFC-026).
@@ -127,7 +147,7 @@ export abstract class WebContextBase implements FetchContext {
    * Tier-1 handler); the field lives here, not duplicated per subclass, since
    * every Web adapter must satisfy the same {@link Context.platform} contract.
    */
-  readonly platform: PlatformId | undefined;
+  declare readonly platform: PlatformId | undefined;
 
   body: unknown = undefined;
   params: RouteParams = EMPTY_PARAMS;
@@ -143,14 +163,14 @@ export abstract class WebContextBase implements FetchContext {
   cookies: CookieCapability = UNINITIALIZED_COOKIES;
 
   private _next: (() => Promise<void>) | null = null;
-  private readonly _response: WebResponseBuilder;
+  declare private readonly _response: WebResponseBuilder;
   /** Lazily-created combiner of the request signal and the timeout signal (F-08). */
-  private _abort?: CombinedAbort;
+  declare private _abort?: CombinedAbort;
   /** The platform request, held privately so `raw` is built lazily (HP-5-web). */
-  protected readonly _req: Request;
+  declare protected readonly _req: Request;
   /** Memoized `{ req, res }` wrapper — built only when `ctx.raw` is read (HP-5-web). */
-  private _raw?: WebRawHttp;
-  private readonly _streamRunners: WebStreamRunners;
+  declare private _raw?: WebRawHttp;
+  declare private readonly _streamRunners: WebStreamRunners;
 
   /**
    * @param request - The platform Web `Request`.
@@ -185,14 +205,38 @@ export abstract class WebContextBase implements FetchContext {
     this.path = target.path;
     this.originalPath = target.path;
     this.url = target.search === '' ? target.path : target.path + target.search;
-    this.query = parseQueryString(target.search.slice(1));
+    this._query = undefined;
 
     // Create body source
-    this.bodySource = METHODS_WITHOUT_BODY.has(this.method)
+    const bodySource = METHODS_WITHOUT_BODY.has(this.method)
       ? createEmptyBodySource()
       : new WebBodySource(request);
+    this.bodySource = bodySource;
+    this.bodyLength = bodySource.contentLength;
 
     this._response = new WebResponseBuilder(this.method);
+  }
+
+  /**
+   * The parsed query bag, materialized on the first read and then memoized.
+   *
+   * @remarks
+   * A query string is optional work: many requests carry one (`?utm=…`,
+   * `?limit=…`) that the handler never reads, and middleware that does read it
+   * (logging, validation) is enabled per app rather than per request. Parsing in
+   * the constructor charged every query-bearing request for a bag it discarded.
+   * The search is located in {@link url} — which already joins path and search —
+   * instead of retaining a second string. A query-less context still resolves to
+   * the shared frozen empty bag on its first read.
+   */
+  get query(): QueryParams {
+    let parsed = this._query;
+    if (parsed === undefined) {
+      const queryMark = this.url.indexOf('?');
+      parsed = parseQueryString(queryMark === -1 ? '' : this.url.slice(queryMark + 1));
+      this._query = parsed;
+    }
+    return parsed;
   }
 
   /**
@@ -309,6 +353,27 @@ export abstract class WebContextBase implements FetchContext {
   /** Read one incoming header; never builds the record (see {@link RequestInputs}). */
   get(field: string): string | undefined {
     return this._inputs.get(field);
+  }
+
+  // ===========================================================================
+  // Request Body
+  // ===========================================================================
+
+  /**
+   * Read the request body, parsing it once and caching the result (RFC-047).
+   *
+   * @remarks
+   * Delegates to the reader a body parser installed in lazy mode; with eager
+   * parsing (the default) the body is already parsed, so this resolves from it
+   * without touching the body source.
+   *
+   * The slot is only present on contexts a lazy parser claimed, so an eager
+   * request allocates nothing and keeps the context's existing shape.
+   */
+  readBody<T = unknown>(): Promise<T> {
+    const reader = (this as BodyReaderCarrier)[BODY_READER];
+    if (reader === undefined) return Promise.resolve(this.body as T);
+    return reader.read<T>();
   }
 
   // ===========================================================================

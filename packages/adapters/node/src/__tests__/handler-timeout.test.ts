@@ -49,7 +49,7 @@ describe('F-04: Node handler-level timeout races the handler and returns 504', (
 
     const res = await get(instance.port);
     expect(res.status).toBe(504);
-    expect(res.contentType).toBe('application/json; charset=utf-8');
+    expect(res.contentType).toBe('application/json');
     expect(JSON.parse(res.body)).toEqual({ error: 'Gateway Timeout' });
   });
 
@@ -161,7 +161,7 @@ describe('F-04: createHandler finalize paths (implicit 404 / handler error) stay
 
     const res = await get(instance.port);
     expect(res.status).toBe(404);
-    expect(res.contentType).toBe('application/json; charset=utf-8');
+    expect(res.contentType).toBe('application/json');
     expect(JSON.parse(res.body)).toEqual({ error: 'Not Found' });
   });
 
@@ -201,7 +201,7 @@ describe('F-04: createHandler finalize paths (implicit 404 / handler error) stay
 
     const res = await get(instance.port);
     expect(res.status).toBe(500);
-    expect(res.contentType).toBe('application/json; charset=utf-8');
+    expect(res.contentType).toBe('application/json');
     expect(res.body).not.toContain('secret-leak-xyz');
   });
 

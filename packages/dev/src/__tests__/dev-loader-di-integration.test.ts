@@ -14,20 +14,64 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../../..');
 const DEV_BIN = resolve(REPO_ROOT, 'packages/dev/bin/nextrush.js');
+// `examples/` is gitignored, so this fixture is generated here rather than committed.
+// The dependencies come from the tracked dev-cli-fixture's installed workspace links.
 const FIXTURE_DIR = resolve(REPO_ROOT, 'examples/dev-di-fixture');
+const FIXTURE_NODE_MODULES = resolve(REPO_ROOT, 'examples/dev-cli-fixture/node_modules');
 
 const STARTUP_TIMEOUT_MS = 20_000;
 const FIXTURE_PORT = '58081';
 
+const FIXTURE_SOURCE = `import { createApp, createRouter, listen } from 'nextrush';
+import { Controller, Get, Service, registerControllers } from 'nextrush/class';
+
+@Service()
+class GreeterService {
+  greet(): string {
+    return 'injected-greeter-marker';
+  }
+}
+
+@Controller('/di')
+class DiController {
+  constructor(private readonly greeter: GreeterService) {}
+
+  @Get()
+  get(): string {
+    return this.greeter.greet();
+  }
+}
+
+const router = createRouter();
+const app = createApp({ router });
+await registerControllers(app, { controllers: [DiController] });
+listen(app, Number(process.env.PORT ?? 8080));
+`;
+
+function writeFixture(): void {
+  rmSync(FIXTURE_DIR, { recursive: true, force: true });
+  mkdirSync(resolve(FIXTURE_DIR, 'src'), { recursive: true });
+  symlinkSync(FIXTURE_NODE_MODULES, resolve(FIXTURE_DIR, 'node_modules'), 'dir');
+  writeFileSync(
+    resolve(FIXTURE_DIR, 'package.json'),
+    JSON.stringify({ name: 'dev-di-fixture', version: '1.0.0', private: true, type: 'module' })
+  );
+  writeFileSync(resolve(FIXTURE_DIR, 'src/index.ts'), FIXTURE_SOURCE);
+}
+
 let child: ChildProcess | undefined;
+
+afterAll(() => {
+  rmSync(FIXTURE_DIR, { recursive: true, force: true });
+});
 
 afterEach(() => {
   if (child && !child.killed) {
@@ -63,26 +107,31 @@ describe('nextrush dev — loader independent of @swc-node/register, DI resolves
     expect(existsSync(hooksFile)).toBe(true);
   });
 
-  it('serves a type-injected controller over HTTP', async () => {
-    expect(existsSync(DEV_BIN)).toBe(true);
-    expect(existsSync(resolve(FIXTURE_DIR, 'src/index.ts'))).toBe(true);
+  it(
+    'serves a type-injected controller over HTTP',
+    async () => {
+      writeFixture();
+      expect(existsSync(DEV_BIN)).toBe(true);
+      expect(existsSync(resolve(FIXTURE_DIR, 'src/index.ts'))).toBe(true);
 
-    child = spawn(
-      process.execPath,
-      [DEV_BIN, 'dev', '--port', FIXTURE_PORT],
-      { cwd: FIXTURE_DIR, env: { ...process.env, PORT: FIXTURE_PORT, NODE_ENV: 'development' }, stdio: ['ignore', 'pipe', 'pipe'] }
-    );
+      child = spawn(process.execPath, [DEV_BIN, 'dev', '--port', FIXTURE_PORT], {
+        cwd: FIXTURE_DIR,
+        env: { ...process.env, PORT: FIXTURE_PORT, NODE_ENV: 'development' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
 
-    let output = '';
-    child.stdout?.on('data', (d) => {
-      output += String(d);
-    });
-    child.stderr?.on('data', (d) => {
-      output += String(d);
-    });
+      let output = '';
+      child.stdout?.on('data', (d) => {
+        output += String(d);
+      });
+      child.stderr?.on('data', (d) => {
+        output += String(d);
+      });
 
-    const body = await waitForHttp(`http://127.0.0.1:${FIXTURE_PORT}/di`, STARTUP_TIMEOUT_MS);
-    expect(body).toContain('injected-greeter-marker');
-    expect(output).not.toMatch(/Cannot find package|ERR_MODULE_NOT_FOUND/);
-  }, STARTUP_TIMEOUT_MS + 10_000);
+      const body = await waitForHttp(`http://127.0.0.1:${FIXTURE_PORT}/di`, STARTUP_TIMEOUT_MS);
+      expect(body).toContain('injected-greeter-marker');
+      expect(output).not.toMatch(/Cannot find package|ERR_MODULE_NOT_FOUND/);
+    },
+    STARTUP_TIMEOUT_MS + 10_000
+  );
 });

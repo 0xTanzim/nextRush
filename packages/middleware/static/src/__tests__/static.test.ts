@@ -111,6 +111,7 @@ function createMockContext(opts: MockContextOptions = {}): TestContext {
   let statusCode = 200;
   let ended = false;
   let body: unknown = null;
+  let viaSend = false;
   const chunks: Buffer[] = [];
 
   // Create a PassThrough stream to handle piping
@@ -185,6 +186,7 @@ function createMockContext(opts: MockContextOptions = {}): TestContext {
       raw.res.end(JSON.stringify(data));
     },
     send(data: unknown) {
+      viaSend = true;
       body = data;
       raw.res.end(data);
     },
@@ -210,6 +212,7 @@ function createMockContext(opts: MockContextOptions = {}): TestContext {
       get responseHeaders() { return responseHeaders; },
       get statusCode() { return statusCode; },
       get ended() { return ended; },
+      get viaSend() { return viaSend; },
       get body() { return body; },
       get chunks() { return chunks; },
     },
@@ -463,6 +466,18 @@ describe('serveStatic Middleware', () => {
       expect(ctx._test.responseHeaders['Content-Length']).toBe(11);
       expect(ctx._test.ended).toBe(true);
       expect(next).not.toHaveBeenCalled();
+    });
+
+    // The headers this middleware records only reach the socket on the adapter's
+    // single flush. Writing the body straight to `raw.res` delivers the bytes and
+    // silently drops every header set above — no Content-Type, ETag, or
+    // Cache-Control on the wire.
+    it('writes the body through the context so the recorded headers reach the wire', async () => {
+      const ctx = createMockContext({ path: '/test.txt' }) as TestContext;
+
+      await middleware(ctx, vi.fn());
+
+      expect(ctx._test.viaSend).toBe(true);
     });
 
     it('should serve HTML file with correct content type', async () => {
@@ -782,6 +797,9 @@ describe('serveStatic Middleware', () => {
       await middleware(ctx2, vi.fn());
 
       expect(ctx2.status).toBe(304);
+      // The status only reaches the socket when the response goes through the
+      // adapter's flush; a direct `raw.res.end()` would send 200.
+      expect(ctx2._test.viaSend).toBe(true);
     });
 
     it('should disable ETag when etag=false', async () => {

@@ -60,7 +60,7 @@ floor NextRush requires.
 Dual-publishing would also reintroduce the ESM/CJS dual-package hazard on the `@nextrush/di`
 path (`reflect-metadata`'s global patch + a `tsyringe` singleton can silently split into two
 instances if both a CJS and an ESM copy load), at the cost of a doubled build/test/publish matrix
-across ~35 packages.
+across ~38 packages.
 
 Full rationale:
 [Module Format & Compatibility](https://github.com/0xTanzim/nextRush/blob/main/apps/website/content/docs/internals/versioning.mdx).
@@ -133,7 +133,7 @@ last = 1. Ties inside measurement noise split points.
 | ---- | --------- | ----- | ------------- |
 | 🥇 | **Raw Node.js** *(baseline)* | **105.5** / 108 | 18 |
 | 🥈 | **Fastify** | **90.5** / 108 | 5 |
-| 🥉 | **NextRush v3** | **68.1** / 108 | 0 |
+| 🥉 | **NextRush v4** | **68.1** / 108 | 0 |
 | 4 | Hono | 60.1 / 108 | 0 |
 | 5 | Koa | 34.0 / 108 | 0 |
 | 6 | Express | 20.0 / 108 | 0 |
@@ -171,7 +171,7 @@ Send Object 90% · POST 75% (body-parser safety work differs per framework).
 | **Node** | v26.5.1 |
 | **CPU** | Intel Core i5-8300H · 8 logical cores · pin server 2–7 · client 0–1 |
 | **Timed cells** | 1,404 × 30s |
-| **Frameworks** | Raw Node · NextRush v3 (`4.0.0-beta.0`) · Fastify 5.10 · Hono 4.12 · Koa 3.2 · Express 5.2 |
+| **Frameworks** | Raw Node · NextRush v4 (`4.0.0-beta.0`) · Fastify 5.10 · Hono 4.12 · Koa 3.2 · Express 5.2 |
 
 Absolute RPS is machine-specific (loopback, shared host). Use **relative rankings on identical
 hardware** — re-run the suite on your box before capacity planning.

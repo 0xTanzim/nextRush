@@ -6,6 +6,7 @@ export default defineConfig({
     pool: 'threads',
     minWorkers: 1,
     maxWorkers: 2,
+    globalSetup: ['./vitest.global-setup.ts'],
     include: ['src/**/__tests__/**/*.test.ts'],
   },
 });

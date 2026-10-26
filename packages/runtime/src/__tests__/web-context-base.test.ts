@@ -127,6 +127,19 @@ describe('WebContextBase — construction', () => {
     await expect(ctx.bodySource.text()).resolves.toBe('hello');
   });
 
+  it('reports the declared body length for a body-bearing request', () => {
+    // A runtime delivers the header; a client-side `Request` does not synthesize it.
+    const ctx = makeContext({ method: 'POST', headers: { 'content-length': '5' }, body: 'hello' });
+    expect(ctx.bodyLength).toBe(5);
+  });
+
+  it('reports no body length for a bodyless method or an undeclared body', () => {
+    expect(makeContext({ method: 'GET' }).bodyLength).toBe(0);
+
+    const undeclared = new TestContext(new Request('http://localhost/', { method: 'POST' }));
+    expect(undeclared.bodyLength).toBeUndefined();
+  });
+
   it('defaults params to the shared frozen empty object and status to 200', () => {
     const ctx = makeContext();
     expect(ctx.params).toEqual({});
@@ -142,14 +155,14 @@ describe('WebContextBase — response methods', () => {
     ctx.json({ ok: true });
     const res = ctx.getResponse();
     expect(res.status).toBe(201);
-    expect(res.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('application/json');
   });
 
   it('send() writes a text body', () => {
     const ctx = makeContext();
     ctx.send('plain text');
     const res = ctx.getResponse();
-    expect(res.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(res.headers.get('content-type')).toBe('text/plain;charset=UTF-8');
   });
 
   it('html() writes an HTML body', () => {
@@ -203,6 +216,27 @@ describe('WebContextBase — raw, signal, and streaming', () => {
     const signal = ctx.signal;
     ctx.triggerTimeout();
     expect(signal.aborted).toBe(true);
+  });
+
+  it('triggerTimeout() uses Error("Request timeout") as the abort reason', () => {
+    const ctx = makeContext();
+    const signal = ctx.signal;
+    ctx.triggerTimeout();
+    expect(signal.reason).toBeInstanceOf(Error);
+    expect((signal.reason as Error).message).toBe('Request timeout');
+  });
+
+  it('aborts ctx.signal with the request reason when the client disconnects', () => {
+    const client = new AbortController();
+    const ctx = makeContext({ signal: client.signal });
+    const signal = ctx.signal;
+    expect(signal.aborted).toBe(false);
+
+    const reason = new Error('client disconnected');
+    client.abort(reason);
+
+    expect(signal.aborted).toBe(true);
+    expect(signal.reason).toBe(reason);
   });
 
   it('sendStream() marks the response committed and resolves', async () => {

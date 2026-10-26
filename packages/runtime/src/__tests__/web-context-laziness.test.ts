@@ -12,7 +12,7 @@
  * which is the same number either way once the collector runs.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { WebContextBase } from '../web-context-base';
 import type { WebStreamRunners } from '../web-context-base';
 
@@ -103,6 +103,24 @@ describe('constructing a Web context does no work the handler did not ask for', 
     }
 
     expect(constructed).toBe(0);
+  });
+
+  it('parses the query on the first read only, then reuses that bag', () => {
+    const counting = countingRequest('/search?q=%41&n=1');
+    const decode = vi.spyOn(globalThis, 'decodeURIComponent');
+    try {
+      const ctx = new TestContext(counting.request);
+      expect(decode).not.toHaveBeenCalled();
+
+      const first = ctx.query;
+      expect(first).toEqual({ q: 'A', n: '1' });
+      expect(decode).toHaveBeenCalledTimes(1);
+
+      expect(ctx.query).toBe(first);
+      expect(decode).toHaveBeenCalledTimes(1);
+    } finally {
+      decode.mockRestore();
+    }
   });
 });
 

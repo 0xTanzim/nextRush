@@ -1,6 +1,6 @@
 ---
 title: Benchmarks
-description: NextRush v3 performance dashboard — head-to-head HTTP throughput vs Fastify, Hono, Koa, Express, and a raw Node.js baseline. Interactive charts, heatmap, scenario explorer, and reproducible methodology.
+description: NextRush v4 performance dashboard — head-to-head HTTP throughput vs Fastify, Hono, Koa, Express, and a raw Node.js baseline. Interactive charts, heatmap, scenario explorer, and reproducible methodology.
 keywords: [benchmarking, nextrush, performance, rps, throughput, fastify, express, koa, hono, charts, dashboard]
 ---
 
@@ -26,7 +26,7 @@ Raw Node.js is the **zero-framework baseline**. It winning most cells is expecte
 | ---- | --------- | ----- | ------------- | ---- |
 | 🥇 | **Raw Node.js** | **105.5** / 108 | 18 | baseline |
 | 🥈 | **Fastify** | **90.5** / 108 | 5 | comparison |
-| 🥉 | **NextRush v3** | **68.1** / 108 | 0 | target |
+| 🥉 | **NextRush v4** | **68.1** / 108 | 0 | target |
 | 4 | Hono | 60.1 / 108 | 0 | comparison |
 | 5 | Koa | 34.0 / 108 | 0 | comparison |
 | 6 | Express | 20.0 / 108 | 0 | comparison |
@@ -39,7 +39,7 @@ NextRush sits **consistently mid-pack of modern frameworks**: above Hono/Koa/Exp
 
 Requests per second (mean of 6 runs). **Bold** = fastest in row. `†` = idiomatic (not in headline score).
 
-| Scenario | Raw Node | NextRush v3 | Fastify | Hono | Koa | Express |
+| Scenario | Raw Node | NextRush v4 | Fastify | Hono | Koa | Express |
 | -------- | -------- | ----------- | ------- | ---- | --- | ------- |
 | Hello World | **35,503** | 31,343 | 32,703 | 31,073 | 24,779 | 22,508 |
 | JSON Serialization | **34,466** | 31,242 | 33,570 | 29,515 | 24,224 | 22,567 |
@@ -78,7 +78,7 @@ NextRush **vs baseline** (like-for-like only): Hello 88% · JSON 91% · Params 8
 | Server | Version | Role |
 | ------ | ------- | ---- |
 | Raw Node.js | Node v26.5.1 | baseline |
-| NextRush v3 | 4.0.0-beta.0 (workspace) | target |
+| NextRush v4 | 4.0.0-beta.0 (workspace) | target |
 | Fastify | 5.10.0 | comparison |
 | Hono | 4.12.30 | comparison |
 | Koa | 3.2.1 | comparison |

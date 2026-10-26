@@ -114,7 +114,7 @@ describe('NodeContext', () => {
       // HP-14: Content-Type + Content-Length + status go through a single
       // writeHead (not two setHeader calls); the body is sent from the flush.
       expect(res.writeHead).toHaveBeenCalledWith(200, {
-        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Type': 'application/json',
         'Content-Length': String(Buffer.byteLength('{"message":"hello"}')),
       });
       expect(res.end).toHaveBeenCalledWith('{"message":"hello"}');
@@ -144,7 +144,7 @@ describe('NodeContext', () => {
       ctx.flushResponse();
 
       expect(writtenHeaders(res)).toMatchObject({
-        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Type': 'text/plain;charset=UTF-8',
         'Content-Length': String(Buffer.byteLength('Hello World')),
       });
       expect(res.end).toHaveBeenCalledWith('Hello World');
@@ -205,7 +205,7 @@ describe('NodeContext', () => {
       expect(res.statusCode).toBe(302);
       expect(writtenHeaders(res)).toMatchObject({
         Location: '/login',
-        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Type': 'text/plain;charset=UTF-8',
       });
       expect(res.end).toHaveBeenCalled();
     });

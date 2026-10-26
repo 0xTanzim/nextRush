@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { resolveScaffoldPlan } from '../plan.js';
 import { isDirectoryEmpty } from '../utils.js';
@@ -46,19 +46,10 @@ function runCli(args: readonly string[], cwd: string = testRoot) {
 const BASE_FLAGS = ['--style', 'functional', '--runtime', 'node', '--middleware', 'minimal', '--pm', 'npm', '--no-install', '--no-git'];
 
 describe('target-conflict policy (task 2.1)', () => {
-  beforeAll(() => {
-    // NOTE: this suite runs against the built bundle at bin/create-nextrush.js.
-    // If the build is stale, the process-level cells will FAIL — rebuild via
-    // `pnpm --filter create-nextrush build` before investigating assertions.
-
-    // The CLI-process cells invoke the built bundle; the unit-level cell imports
-    // source directly. Build once up front so every cell sees the same code.
-    const build = spawnSync('pnpm', ['build'], { cwd: packageRoot, stdio: 'pipe' });
-    if (build.status !== 0) {
-      throw new Error(`create-nextrush build failed:\n${build.stderr}`);
-    }
-  }, 120000);
-
+  // NOTE: this suite runs against the built bundle at bin/create-nextrush.js,
+  // built once by vitest.global-setup.ts before any worker starts. If the
+  // bundle is stale, the process-level cells fail — rebuild via
+  // `pnpm --filter create-nextrush build` before investigating assertions.
   afterAll(() => {
     rmSync(testRoot, { recursive: true, force: true });
   });

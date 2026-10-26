@@ -60,7 +60,7 @@ Both can share one `Application` and one router (playground does).
 
 `WebContextBase` implements the Fetch-shaped context:
 
-- Parses URL/query/headers once
+- Parses URL/headers once; parses the query string on first `ctx.query` read and memoizes it
 - Lazy `raw` handles
 - Combined abort signal (client + timeout)
 - Stream runners injected (core does not import stream package)

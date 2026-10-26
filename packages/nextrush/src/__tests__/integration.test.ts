@@ -138,6 +138,7 @@ function createMockContext(options: MockContextOptions = {}): Context {
 
     // Request body
     body,
+    readBody: async <T = unknown>() => body as T,
     params,
 
     // Response

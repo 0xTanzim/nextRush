@@ -1,20 +1,20 @@
 ---
 title: Upgrade Guide
-description: What a version bump actually means today — NextRush is pre-1.0 for some packages and mostly at 3.1.0 for the core line.
+description: What a version bump actually means today — NextRush runs a mixed-version monorepo, with the fixed core group at 4.0.2 and the other packages on their own semver lines.
 keywords: [guide, migrate, nextrush, upgrade]
 ---
 
-NextRush's packages do not share one version number. Core packages (`@nextrush/core`,
-`@nextrush/router`, `@nextrush/class`, `@nextrush/di`, and the older middleware like `cors`,
-`helmet`, `body-parser`, `compression`) are at **`3.1.0`**. Newer packages — the adapters for
-Bun/Deno/Edge, and most of the newer middleware (`csrf`, `rate-limit`, `multipart`, `cookies`,
-`validation`, `request-id`, `timer`, `static`, `template`, `logger`, `openapi`), the extensions
-(`events`, `websocket`), and the tooling (`dev`, `create-nextrush`, `testing`) — are at
-**`1.0.0`**. Both facts are read directly from each package's `package.json`, not assumed.
+NextRush's packages do not share one version number. The fixed core group — `nextrush`,
+`@nextrush/core`, `@nextrush/router`, `@nextrush/runtime`, `@nextrush/types`, `@nextrush/errors`,
+`@nextrush/di`, and `@nextrush/adapter-node` — releases together and is at **`4.0.2`**.
+`@nextrush/body-parser`, `@nextrush/cors`, and `@nextrush/helmet` are at **`4.0.1`**, and every
+other package versions independently on its own `0.x`–`3.x` line (`@nextrush/compression` is at
+`3.0.7`, `@nextrush/dev` at `1.1.3`, `create-nextrush` at `1.3.1`). These facts are read directly
+from each package's `package.json`, not assumed.
 
 <Callout type="info" title="Check the compatibility matrix before mixing versions">
   See the [compatibility matrix](/docs/help/compatibility-matrix) for the full current
-  version table across all 35 packages before upgrading a subset of them.
+  version table across all 38 public packages before upgrading a subset of them.
 </Callout>
 
 ## Cookie API migration: `ctx.state.cookies` → `ctx.cookies`
@@ -73,8 +73,8 @@ packages were reclassified as a result. A Changesets-generated entry like this i
 migration guide for that release — this page's job is to point you at it, not duplicate it.
 
 <Callout type="warn" title="This example is historical, not upcoming">
-  The Extension Model change already shipped in the `3.1.0` releases you'd be installing today.
-  It's shown here as a template for reading a changelog entry, not as a pending migration.
+  The Extension Model change shipped in the `3.1.0` line, before the v4 rewrite. It's shown here
+  as a template for reading a changelog entry, not as a pending migration.
 </Callout>
 
 ## Checking dependent packages after a bump

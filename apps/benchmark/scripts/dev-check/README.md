@@ -55,7 +55,7 @@ arguments) means every stage except `profile` and `edge`.
 | `bundle` | How many bytes does an app ship? | 0.4 s |
 | `cold` | How long before the first request is served, at 25 and 1,000 routes? | 0.7 s |
 | `inproc` | What does one request cost with no socket involved? | 16 s |
-| `wire` | How many requests/second over a real socket? | 47 s (needs `wrk`) |
+| `wire` | How many requests/second over a real socket? | 65 s (needs `wrk`) |
 | `edge` | Do the correctness probes pass on the real `workerd` runtime? | 3 s, opt-in (needs `workerd`) |
 | `probe` | Does the request path still *behave* — errors answered, headers present, params faithful? | 0.6 s |
 | `bookkeeping` | Is every known-failure exemption still backed by a probe? | 0.03 s |
@@ -141,7 +141,7 @@ instead of accumulating across two separate benchmark sessions. **Below 1.0 is f
 | `cold.n1000.vs_hono` | Startup ms ÷ Hono's, at 1,000 routes — where registration work shows up | `max` 1.2 |
 | `inproc.nextrush.vs_hono` | Per-request µs ÷ Hono's, in-process (**Bun only** — see below) | `max` 1.9, `target` 1.3 |
 | `inproc.nextrush.vs_hono.h12` | The same ratio with 12 request headers instead of 4 | `max` 2.0, `target` 1.3 |
-| `inproc.post.nextrush.vs_hono` | Parsed-JSON POST µs ÷ Hono's | `max` 9.0, `target` 1.3 |
+| `inproc.post.nextrush.vs_hono` | Parsed-JSON POST µs ÷ Hono's | `max` 3.5, `target` 3.0 |
 
 The POST and 12-header rows are baselines, not endorsements: they make a regression
 visible, and their `target` records the number the phase is trying to reach. The POST row
@@ -152,6 +152,12 @@ report's finding F-1).
 the observed min–max range as `INFO`, because a slow socket result on a shared machine is
 not evidence of a code regression. Use the in-process ratio for a gate and `wire` for
 context.
+
+The stage also drives a parsed 1 KB JSON POST for NextRush and Hono (`wire.post.*`) with the
+same `wrk` settings. Each POST case first sends one request through a raw socket and requires
+`200 {"ok":true}`; without that check an entry that 404s or throws would still produce a fast,
+plausible request rate. The POST rows are `INFO` for the same reason as the GET rows. On Bun,
+Elysia's POST rate is added as a reference point (`wire.post.elysia.rps`).
 
 `inproc` takes the best of three runs per entry. Two samples left a ~40% spread on a loaded
 machine, and this ratio is a gate — three halves it for a few seconds of runtime. The committed

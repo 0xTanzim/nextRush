@@ -10,6 +10,7 @@
  */
 
 import type { Context, HttpMethod, Middleware, RouteHandler, RouteMetadata } from '@nextrush/types';
+import { DISPATCH_SETTLED_SYNC, type DispatchMarkerCarrier } from '@nextrush/types';
 
 /**
  * Node type enumeration
@@ -106,12 +107,23 @@ export function compileExecutor(
       // to advance into that middleware before running the router).
       if (ctx.setNext) ctx.setNext(NOOP_NEXT);
       try {
+        const result = handler(ctx, NOOP_NEXT);
+        if (result === undefined) {
+          // The route settled synchronously: no middleware exists (this is the
+          // len === 0 branch) and the handler left nothing pending. Record it so
+          // a Web adapter that accepts a bare `Response` can answer without a
+          // promise hop — it still only acts on this when the application
+          // guarantees no outer middleware can resume after `next()`
+          // (`Application.syncDispatchSafe`).
+          (ctx as Context & DispatchMarkerCarrier)[DISPATCH_SETTLED_SYNC] = true;
+          return RESOLVED_PROMISE;
+        }
         // `Promise.resolve(...)` — NOT `x instanceof Promise ? x : RESOLVED` — so
         // a non-Promise THENABLE return is adopted (its async work awaited), not
         // dropped: byte-identical to the former `await handler(...)`, minus the
         // async form's internal microtask hop. A native promise is returned as-is
-        // (`Promise.resolve(p) === p`); a void return yields a resolved promise.
-        return Promise.resolve(handler(ctx, NOOP_NEXT));
+        // (`Promise.resolve(p) === p`).
+        return Promise.resolve(result);
       } catch (err) {
         // Self-contained "never throw synchronously" contract, identical to the
         // len >= 1 branch: a sync throw becomes a rejection; a non-Error is wrapped.

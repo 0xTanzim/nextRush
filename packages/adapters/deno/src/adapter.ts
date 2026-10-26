@@ -201,7 +201,7 @@ export interface ServerInstance {
 export function createHandler(
   app: Application,
   options: HandlerOptions = {}
-): (request: Request, info: DenoServeHandlerInfo) => Promise<Response> {
+): (request: Request, info: DenoServeHandlerInfo) => Response | Promise<Response> {
   const proxy = app.options.proxy ?? false;
 
   // Boot barrier, dispatch, timeout race, not-found finalize, and error handling

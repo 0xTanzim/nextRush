@@ -193,3 +193,52 @@ request SHALL fail with the framework's unsupported-content-type error before an
 - **WHEN** a `multipart/*` request is handled under the default policy
 - **THEN** the existing dedicated unsupported-content-type error pointing at the multipart package is
   still raised
+
+### Requirement: Lazy parsing defers the read until the application asks for it
+
+`bodyParser()` and the individual parsers accept `lazy: true`. In that mode a parser must finish
+detection and call `next()` without acquiring the bytes, enforcing the size limit, running `verify`,
+parsing, or walking the JSON depth guard. Bytes are consumed only by `await ctx.readBody()`, which must
+be idempotent, share one in-flight read between concurrent callers, and cache a failure for the rest of
+the request. Eager parsing remains the default and its behaviour must not change. The reader goes
+through the context's `BodySource`, so it adds no runtime-specific code.
+
+#### Scenario: An unread body performs no body work
+
+- **WHEN** `bodyParser({ lazy: true })` handles a request whose handler never reads the body
+- **THEN** the body source is not read and the handler runs normally, even if the body is malformed JSON
+
+#### Scenario: `ctx.body` fails loudly before the first read
+
+- **WHEN** a handler reads `ctx.body` on a request a lazy parser claimed, before a successful `readBody()`
+- **THEN** it throws the framework's `BODY_NOT_READ` error naming `readBody()`, rather than returning `undefined`
+
+#### Scenario: An unclaimed request keeps `ctx.body` undefined
+
+- **WHEN** a request is not claimed (a bodyless method, or an unmatched `Content-Type` under the default policy)
+- **THEN** `ctx.body` is `undefined` and no reader is installed, exactly as in eager mode
+
+#### Scenario: Read once, share the result
+
+- **WHEN** `readBody()` is called repeatedly or concurrently
+- **THEN** the body source is read exactly once and every caller receives the same value, with the same identity
+
+#### Scenario: Failures are cached, not retried
+
+- **WHEN** a read rejects (malformed JSON, depth exceeded, over the limit)
+- **THEN** the rejection carries the same error code and status eager parsing produces, and a second `readBody()` rejects with the same error without reading the stream again
+
+#### Scenario: The size limit is enforced at read time, not widened
+
+- **WHEN** a request declares a body larger than the configured limit under lazy parsing
+- **THEN** `readBody()` rejects with the entity-too-large error without reading those bytes, and the adapter's own transport cap still applies unconditionally
+
+#### Scenario: Media-type decisions stay eager
+
+- **WHEN** a request carries `multipart/*` or an unmatched `Content-Type` under `onUnsupportedContentType: 'reject'` with lazy parsing
+- **THEN** the request still fails with `415` before any route handler runs, because the decision needs no bytes
+
+#### Scenario: Eager mode is unchanged
+
+- **WHEN** `lazy` is omitted
+- **THEN** `ctx.body` is populated before `next()` and every parse, limit, `verify`, and error behaviour — status, code, and envelope — is identical to the previous release

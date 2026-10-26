@@ -8,11 +8,18 @@
 
 import { BadRequestError, PayloadTooLargeError } from '@nextrush/errors';
 import type { BodySource, BodySourceOptions, NodeStreamLike, WebStreamLike } from '@nextrush/types';
+import { exceedsUtf8Limit, utf8ByteLength } from './body-size-guard';
 
 /**
  * Default body size limit (1MB)
  */
 export const DEFAULT_BODY_LIMIT = 1024 * 1024;
+
+/**
+ * Shared utf-8 decoder: `decode()` without `{ stream: true }` is stateless, and
+ * constructing a decoder per body read costs ~0.16 µs of pure overhead.
+ */
+const UTF8_DECODER = new TextDecoder('utf-8');
 
 /**
  * Error thrown when body has already been consumed
@@ -95,6 +102,11 @@ export class RequestAbortedError extends BadRequestError {
 export abstract class AbstractBodySource implements BodySource {
   protected _consumed = false;
   protected _cachedBuffer: Uint8Array | undefined;
+  /**
+   * Body decoded as text by a text-first read. `buffer()` encodes it on demand
+   * so a later byte read still observes the same body.
+   */
+  protected _cachedText: string | undefined;
 
   readonly contentLength: number | undefined;
   readonly contentType: string | undefined;
@@ -145,6 +157,10 @@ export abstract class AbstractBodySource implements BodySource {
     }
 
     if (this._consumed) {
+      if (this._cachedText !== undefined) {
+        this._cachedBuffer = new TextEncoder().encode(this._cachedText);
+        return this._cachedBuffer;
+      }
       throw new BodyConsumedError();
     }
 
@@ -170,8 +186,13 @@ export abstract class AbstractBodySource implements BodySource {
   }
 
   async text(): Promise<string> {
+    if (this._cachedText !== undefined) return this._cachedText;
     const buffer = await this.buffer();
-    return new TextDecoder(this.options.encoding).decode(buffer);
+    const decoder =
+      this.options.encoding === 'utf-8'
+        ? UTF8_DECODER
+        : new TextDecoder(this.options.encoding);
+    return decoder.decode(buffer);
   }
 
   async json<T = unknown>(): Promise<T> {
@@ -273,7 +294,53 @@ export class WebBodySource extends AbstractBodySource {
     this.request = request;
   }
 
+  /**
+   * Read the body as text when the transport proves it fits the limit.
+   *
+   * @param limit - Byte limit to enforce.
+   * @returns The decoded body, or `undefined` when the read is not provably
+   * bounded and the caller must fall back to the incremental byte reader.
+   *
+   * @remarks
+   * A declared `Content-Length` at or below the limit bounds the body: HTTP
+   * framing truncates the body to that length, so the read cannot exceed the
+   * limit on any runtime (verified on Bun 1.4.3 — an understated length yields
+   * exactly the declared bytes). A chunked or absent length carries no such
+   * proof, and Deno and edge runtimes do not cap the body server-side, so those
+   * bodies must not take this path.
+   *
+   * @internal
+   */
+  async readTextIfProvenWithin(limit: number): Promise<string | undefined> {
+    if (this._consumed) throw new BodyConsumedError();
+    // `request.text()` always decodes UTF-8, so a source configured for another
+    // encoding cannot be served from it.
+    if (this.options.encoding !== 'utf-8') return undefined;
+    if (this.contentLength === undefined || this.contentLength > limit) return undefined;
+
+    this._consumed = true;
+    const text = await this.request.text();
+
+    // Cache only after the limit check: a rejected body must not become
+    // retrievable through the text cache that `buffer()` falls back to.
+    if (exceedsUtf8Limit(text, limit)) {
+      throw new BodyTooLargeError(limit, utf8ByteLength(text));
+    }
+    this._cachedText = text;
+    return text;
+  }
+
   protected async _buffer(limit: number): Promise<Uint8Array> {
+    // RFC-043: an honest Content-Length at or below the effective limit proves
+    // the whole body fits, so one native read cannot violate the configured
+    // memory bound. Every unprovable body (chunked, absent, understated, or
+    // over-limit — the last already rejected by `buffer()`) keeps the
+    // incremental reader below, which cancels as soon as the total exceeds it.
+    if (this.contentLength !== undefined && this.contentLength <= limit) {
+      const arrayBuffer = await this.request.arrayBuffer();
+      return new Uint8Array(arrayBuffer);
+    }
+
     // If no body stream, use arrayBuffer() fast path
     if (!this.request.body) {
       const arrayBuffer = await this.request.arrayBuffer();

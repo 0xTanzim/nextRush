@@ -8,7 +8,9 @@ Implemented primarily by `WebContextBase` (`@nextrush/runtime`). Adapters subcla
 ctx.method: HttpMethod
 ctx.url: string              // pathname + search
 ctx.path: string             // pathname only
-ctx.query: QueryParams       // parsed search params
+ctx.query: QueryParams       // lazily parsed on first read, memoized
+ctx.bodyLength?: number      // declared content-length when known (Web context)
+ctx.readBody<T>(): Promise<T> // read + parse once; shares an in-flight read
 ctx.params: RouteParams      // route params (set by router)
 ctx.headers: IncomingHeaders // lowercased record
 ctx.get(field: string): string | undefined

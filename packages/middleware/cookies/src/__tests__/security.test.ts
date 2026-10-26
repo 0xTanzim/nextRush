@@ -64,13 +64,18 @@ describe('Cookie Tampering Prevention', () => {
     const secret = 'super-secret-key-123';
     const signed = await signCookie('session', 'user:admin', secret);
 
-    // Tamper with the signature. The replacement must DIFFER from the current
-    // final character — the signature is deterministic (value.issuedAt.HMAC),
-    // so a blind 'X' would be a no-op whenever the signature happens to end
-    // in 'X', making verification legitimately succeed (observed flake).
-    const lastChar = signed.slice(-1);
-    const replacement = lastChar === 'X' ? 'Y' : 'X';
-    const tampered = signed.slice(0, -1) + replacement;
+    // Tamper with a mid-signature character. Only the final base64url char
+    // carries unused low bits (32-byte HMAC → 43 chars, last char has 4
+    // ignorable bits), so swapping it can decode to identical bytes and
+    // legitimately verify (X/Y/Q-Z all share top bits 01). Any char at
+    // index <= 41 spans only significant bits, so the decoded HMAC always
+    // differs.
+    const parts = signed.split('.');
+    const signature = parts[2];
+    const original = signature[10];
+    const replacement = original === 'A' ? 'B' : 'A';
+    parts[2] = signature.slice(0, 10) + replacement + signature.slice(11);
+    const tampered = parts.join('.');
     expect(tampered).not.toBe(signed);
 
     const result = await unsignCookie('session', tampered, secret);

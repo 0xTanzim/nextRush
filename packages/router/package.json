@@ -35,7 +35,7 @@
     "typescript": "catalog:tooling"
   },
   "peerDependencies": {
-    "@nextrush/core": "workspace:*"
+    "@nextrush/core": "workspace:^"
   },
   "peerDependenciesMeta": {
     "@nextrush/core": {

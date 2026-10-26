@@ -290,6 +290,7 @@ Every default below is read directly from each parser's destructuring defaults i
 | `reviver` | `JsonReviver` | No | `undefined` | No | Passed through to `JSON.parse`. |
 | `maxDepth` | `number` | No | `64` | Yes | Maximum JSON nesting depth (set `Infinity` to disable). |
 | `verify` | `VerifyCallback` | No | `undefined` | Yes | Called with the raw buffer before parsing; throw to reject. |
+| `lazy` | `boolean` | No | `false` | No | Defer the read and the parse until `await ctx.readBody()`. See [Lazy parsing](#lazy-parsing-opt-in). |
 
 **`urlencoded(options?)`**
 
@@ -302,6 +303,7 @@ Every default below is read directly from each parser's destructuring defaults i
 | `type` | `string \| string[]` | No | `['application/x-www-form-urlencoded']` | No | Content-Types to match. |
 | `rawBody` | `boolean` | No | `false` | No | Store the raw bytes on `ctx.rawBody`. |
 | `verify` | `VerifyCallback` | No | `undefined` | Yes | Called with the raw buffer before parsing; throw to reject. |
+| `lazy` | `boolean` | No | `false` | No | Defer the read and the parse until `await ctx.readBody()`. See [Lazy parsing](#lazy-parsing-opt-in). |
 
 **`text(options?)`**
 
@@ -312,6 +314,7 @@ Every default below is read directly from each parser's destructuring defaults i
 | `type` | `string \| string[]` | No | `['text/plain']` | No | Content-Types to match. |
 | `rawBody` | `boolean` | No | `false` | No | Store the raw bytes on `ctx.rawBody`. |
 | `verify` | `VerifyCallback` | No | `undefined` | Yes | Called with the raw buffer before parsing; throw to reject. |
+| `lazy` | `boolean` | No | `false` | No | Defer the read and the parse until `await ctx.readBody()`. See [Lazy parsing](#lazy-parsing-opt-in). |
 
 **`raw(options?)`**
 
@@ -320,6 +323,7 @@ Every default below is read directly from each parser's destructuring defaults i
 | `limit` | `string \| number` | No | `'100kb'` (102,400 bytes) | Yes | Maximum body size. |
 | `type` | `string \| string[]` | No | `['application/octet-stream']` | No | Content-Types to match. |
 | `verify` | `VerifyCallback` | No | `undefined` | Yes | Called with the raw buffer before setting `ctx.body`; throw to reject. |
+| `lazy` | `boolean` | No | `false` | No | Defer the read and the parse until `await ctx.readBody()`. See [Lazy parsing](#lazy-parsing-opt-in). |
 
 **`bodyParser(options?)`**
 
@@ -330,6 +334,54 @@ Every default below is read directly from each parser's destructuring defaults i
 | `text` | `TextOptions \| false` | No | `undefined` (disabled) | No | Pass any object (even `{}`) to enable. |
 | `raw` | `RawOptions \| false` | No | `undefined` (disabled) | No | Pass any object (even `{}`) to enable. |
 | `onUnsupportedContentType` | `'ignore' \| 'reject'` | No | `'ignore'` | No | What to do when the request's `Content-Type` matches no configured parser. |
+| `lazy` | `boolean` | No | `false` | No | Defer every configured parser until `await ctx.readBody()`. One flag for the whole parser; a per-parser `lazy` is ignored here. |
+
+### Lazy parsing (opt-in)
+
+By default the parser reads and parses the body **before** `next()` runs, so a malformed or
+oversized body is rejected before any handler or middleware side effect. `lazy: true` moves both
+steps behind an explicit call:
+
+```ts
+app.use(bodyParser({ lazy: true }));
+
+app.post('/webhooks/github', async (ctx) => {
+  // Nothing has been read yet. A request that never reaches this line costs no body work.
+  const payload = await ctx.readBody<{ action: string }>();
+  return ctx.json({ received: payload.action });
+});
+```
+
+Detection still runs eagerly: the method, an already-parsed body, and the request's media type
+decide who owns the request. Bytes, the size limit, `verify`, decoding, parsing, and the JSON depth
+guard all run inside `readBody()`.
+
+`ctx.readBody()` exists in both modes and is idempotent. Concurrent callers share one read, and a
+failure is cached for the rest of the request, so a retry cannot drain a consumed stream or return
+a different outcome. Handler code written against `readBody()` does not change when the flag does.
+
+**What changes when you opt in**
+
+| #   | Eager (default)                                    | `lazy: true`                                                                    |
+| --- | -------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 1   | `ctx.body` is the parsed value, or `undefined`     | On a claimed request, `ctx.body` **throws** `BODY_NOT_READ` until `readBody()` succeeds |
+| 2   | A malformed body rejects before `next()`           | It rejects at the `readBody()` call site, so the handler can catch it           |
+| 3   | An oversized body answers `413` before `next()`    | `413` only if the body is read -- the transport's own cap still applies          |
+| 4   | `ctx.rawBody` is populated before `next()`         | Populated at the same moment as `ctx.body`, by `readBody()`                     |
+| 5   | A body error preempts an early `401`/`404`         | The early response wins, because nothing parsed the body                        |
+
+**When not to use it**
+
+- `@nextrush/express-bridge` reads `ctx.body` from a synchronous proxy getter -- keep eager parsing there.
+- `@nextrush/csrf` accepts a custom synchronous `TokenExtractor`; a body-derived token must come from eager parsing.
+- Class-based controllers resolve guards and `@Body()` parameters through `readBody()`, so a guarded class route reads the body regardless. Laziness pays off on routes without guards.
+- A handler that must reject malformed input before doing any work should stay eager; rule 5 is exactly that ordering.
+
+**Measured cost.** On Bun 1.4.4, a 1 KB JSON `POST` whose handler never reads the body drops from
+9.39 µs to 6.45 µs per request (-31 %, in-process, 9 interleaved rounds of 100k requests). Above the
+bare request-construction floor, the parser stage falls by ~46 %. A request that *does* call
+`readBody()` pays ~0.4-0.5 µs more than eager parsing -- the deferred reader's install plus one
+promise hop. Opt in when most requests do not read their body; stay eager when most do.
 
 ### Unparsed content types
 
@@ -414,6 +466,8 @@ Body parsing sits on the request hot path, so every parser does the minimum work
 | ------ | ------ |
 | A parse failure's message is now a framework constant (`'Invalid JSON'`, `'Invalid URL-encoded body'`, `'Error reading request body'`) with the engine's own text moved to a non-enumerable `error.cause`. | Responses no longer vary by runtime for the same request. If you matched on the message text, read `error.code` (`'INVALID_JSON'`, `'INVALID_URLENCODED'`, `'BODY_READ_ERROR'`) or `error.cause` instead. |
 | `onUnsupportedContentType` added, defaulting to today's behaviour (`'ignore'`). | Additive; nothing changes unless you opt in. |
+| `lazy` added to every parser, defaulting to `false`. | Additive; parse timing, error statuses, and `ctx.body` are unchanged unless you opt in. |
+| `Context.readBody()` added as a **required** contract member. | Applications are unaffected. A custom `Context` implementation (an external adapter, a hand-written test double) must add it or stop compiling; delegate to the installed reader or resolve `ctx.body`. |
 | A 4xx from the framework's default error response reports the error's own `code` (e.g. `'INVALID_JSON'`) instead of `'INTERNAL_ERROR'`. | A client branching on `code` now sees a 4xx named as a client error. `'INTERNAL_ERROR'` is unchanged for every 5xx. |
 
 > [!NOTE]
@@ -461,6 +515,18 @@ If you would rather find out at the boundary than from a handler that receives n
 `bodyParser({ onUnsupportedContentType: 'reject' })` -- it answers `415` for an unmatched
 `Content-Type` instead of continuing with `ctx.body === undefined` (see
 [Unparsed content types](#unparsed-content-types)).
+
+</details>
+
+<details>
+<summary><strong>Request fails with "Request body has not been read"</strong></summary>
+
+**Cause:** `bodyParser({ lazy: true })` is active and something read `ctx.body` before `await ctx.readBody()`. **Fix:** await the read first, or drop `lazy: true`. The same rule applies to a custom middleware of your own: `readBody()` is the only trigger.
+
+```ts
+const payload = await ctx.readBody();
+ctx.body; // safe after this point
+```
 
 </details>
 

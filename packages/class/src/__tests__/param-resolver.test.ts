@@ -29,6 +29,9 @@ function createContext(overrides: Partial<Context> = {}): Context {
     get: () => undefined,
     raw: { req: {}, res: {} },
     ...overrides,
+    // RFC-047: @Body() resolution pre-reads through `readBody()`; the stub
+    // resolves whatever the test put on `body`.
+    readBody: async <T = unknown>() => overrides.body as T,
   } as unknown as Context;
 }
 

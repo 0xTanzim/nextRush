@@ -134,6 +134,7 @@ function createMockContext(options: MockContextOptions = {}): Context & {
     set body(value: unknown) {
       ctxBody = value;
     },
+    readBody: async <T = unknown>() => ctxBody as T,
 
     params,
 

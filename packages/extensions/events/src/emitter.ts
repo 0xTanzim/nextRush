@@ -1,7 +1,7 @@
 /**
  * @nextrush/events - Event Emitter Implementation
  *
- * A simple, type-safe, async-ready event emitter for NextRush v3.
+ * A simple, type-safe, async-ready event emitter for NextRush v4.
  * Focuses on developer experience over complexity.
  */
 

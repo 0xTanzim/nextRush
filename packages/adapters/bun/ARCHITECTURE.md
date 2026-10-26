@@ -146,24 +146,22 @@ block-beta
 ```mermaid
 sequenceDiagram
     participant Bun as Bun.serve()
-    participant Runner as trackedHandler
+    participant Handler as createHandler(app)
     participant Ctx as BunContext
     participant App as Application middleware
 
-    Bun->>Runner: fetch(request, server)
-    Runner->>Runner: activeRequests++
-    Runner->>Ctx: createBunContext(request, clientIp, trustProxy)
-    Runner->>App: handler(ctx) raced against timeout
+    Bun->>Handler: fetch(request, server)
+    Handler->>Ctx: createBunContext(request, proxy, server)
+    Handler->>App: handler(ctx) raced against timeout
     alt handler settles first
-        App-->>Runner: middleware chain complete
-        Runner->>Ctx: getResponse()
-        Ctx-->>Runner: Response
+        App-->>Handler: middleware chain complete
+        Handler->>Ctx: getResponse()
+        Ctx-->>Handler: Response
     else timeout fires first
-        Runner->>Ctx: triggerTimeout()
-        Runner-->>Bun: 504 Gateway Timeout
+        Handler->>Ctx: triggerTimeout()
+        Handler-->>Bun: 504 Gateway Timeout
     end
-    Runner->>Runner: activeRequests--
-    Runner-->>Bun: Response
+    Handler-->>Bun: Response
 ```
 
 ```mermaid
@@ -172,7 +170,7 @@ stateDiagram-v2
     Starting --> Listening: Bun.serve() succeeds
     Starting --> Failed: bind error (normalized startup error)
     Listening --> Draining: close() called (manual or signal)
-    Draining --> Closed: activeRequests reaches 0, or shutdownTimeout elapses
+    Draining --> Closed: server.stop() resolves, or shutdownTimeout elapses (force-close)
     Closed --> [*]
 ```
 
@@ -185,7 +183,8 @@ drain state -- it only decides *whether* `close()` gets called automatically on 
 | Owner | State it owns | Scope |
 | ----- | ------------- | ----- |
 | `Application` (`@nextrush/core`) | Extension lifecycle, middleware chain | app |
-| `serve()`'s closure | `activeRequests` counter, `drainResolve` callback | app (one per `serve()` call) |
+| `serve()`'s closure | The `close()` memoization and signal wiring only | app (one per `serve()` call) |
+| Bun's `Server` (`Bun.serve()`) | In-flight requests — drained by the `stop()` promise, also visible as `pendingRequests` | app |
 | `createBootGate` (`@nextrush/runtime`) | The memoized boot promise and the resolved handler `createHandler` dispatches through | one `createHandler()`/`serve()` call |
 | `BunContext` | Request/response state, params, `raw` Bun `Request` access | per-request |
 
@@ -214,11 +213,11 @@ const TIMEOUT_SENTINEL = Symbol('timeout');
 - **Per-request, never shared:** `BunContext` and its underlying `Request`/response builder
 - **Abort / disconnect / timeout:** a per-request timeout races the middleware chain; on expiry, `ctx.triggerTimeout()` cooperatively cancels the still-running handler and the runner returns `504` directly, bypassing the app's own response
 
-> [!WARNING]
-> `activeRequests` is a plain closure variable incremented/decremented around each request, not
-> an atomic counter -- correct because Bun's `fetch` callback runs on a single JS thread per
-> worker, not because of any explicit locking. Do not move this counter to a shared/global scope
-> without re-deriving that guarantee.
+> [!NOTE]
+> Drain completion is the platform's: `server.stop()` returns a promise that resolves once
+> in-flight requests finish (verified on Bun 1.4.3), so the adapter holds no JavaScript
+> in-flight counter. The configured `shutdownTimeout` still bounds the wait and force-closes
+> with `server.stop(true)` when the platform has not drained in time.
 
 ## Trust boundaries
 

@@ -71,6 +71,6 @@
     "nextrush": "workspace:*",
     "tsdown": "catalog:tooling",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "catalog:testing"
   }
 }

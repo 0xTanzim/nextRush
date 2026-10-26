@@ -44,10 +44,9 @@ CMD ["node", "src/index.js"]
 ```
 
 <Callout type="info" title="Why `vendor/*.tgz` instead of `npm install nextrush`">
-  This Dockerfile was verified against the framework's current, unreleased source (`3.1.0`) —
-  the public npm registry only has `nextrush@3.0.7` at time of writing. `vendor/` holds local
-  tarballs (`npm pack` output) of `nextrush` and its runtime dependencies so the build uses the
-  exact source this documentation describes. In your own project, delete the `COPY vendor/` /
+  This Dockerfile tracks the framework's current `4.0.2` core line. `vendor/` holds local tarballs
+  (`npm pack` output) of `nextrush` and its runtime dependencies so the build uses the exact
+  source this documentation describes. In your own project, delete the `COPY vendor/` /
   `RUN npm install ./vendor/*.tgz` lines and replace them with a normal `COPY package.json
   package-lock.json ./` + `RUN npm ci --omit=dev` against the published `nextrush` package —
   see [Best practices](#best-practices) below for why `npm ci` over `npm install` in that case.
@@ -85,7 +84,7 @@ await listen(app, port);
   "type": "module",
   "main": "src/index.js",
   "scripts": { "start": "node src/index.js" },
-  "dependencies": { "nextrush": "3.1.0" },
+  "dependencies": { "nextrush": "4.0.2" },
   "engines": { "node": ">=22.0.0" }
 }
 ```
@@ -178,14 +177,14 @@ CONTAINER ID   IMAGE                                 STATUS                     
 ```
 $ curl -sS -i http://localhost:18181/health
 HTTP/1.1 200 OK
-Content-Type: application/json; charset=utf-8
+Content-Type: application/json
 Content-Length: 15
 
 {"status":"ok"}
 
 $ curl -sS -i http://localhost:18181/
 HTTP/1.1 200 OK
-Content-Type: application/json; charset=utf-8
+Content-Type: application/json
 Content-Length: 44
 
 {"message":"Hello from NextRush in Docker!"}

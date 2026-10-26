@@ -267,7 +267,7 @@ export function createHandler(
 
     if (!res.headersSent) {
       res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: 'Internal Server Error' }));
     }
   };
@@ -674,7 +674,7 @@ export async function serve(app: Application, options: ServeOptions = {}): Promi
   // D4: when `tls` is present, use `node:http2.createSecureServer` with
   // `allowHTTP1: true` so clients that don't negotiate h2 via ALPN fall
   // back to HTTP/1.1 over TLS transparently.
-  const server = createNodeServer(wrappedHandler, tls);
+  const server = await createNodeServer(wrappedHandler, tls);
 
   // Configure timeouts. F-04/ADR-0010: server.timeout is the independent
   // socket-level slow-client/slow-loris guard; createHandler's own handler-race

@@ -31,7 +31,23 @@
         "scripts/**/*",
         "**/*.test.ts",
         "**/*.test.js",
-        "**/*.test.mjs"
+        "**/*.test.mjs",
+        "vitest.config.*",
+        "vitest.global-setup.*"
+      ]
+    },
+    "nextrush#test": {
+      "dependsOn": ["build", "@nextrush/dev#build"],
+      "outputs": [],
+      "inputs": [
+        "src/**/*",
+        "tests/**/*",
+        "scripts/**/*",
+        "**/*.test.ts",
+        "**/*.test.js",
+        "**/*.test.mjs",
+        "vitest.config.*",
+        "vitest.global-setup.*"
       ]
     },
     "test:watch": {
