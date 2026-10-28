@@ -32,6 +32,7 @@ export type {
   NextHandlerOptions,
   NextRouteContext,
   NextRouteHandler,
+  NextRouteHandlerSet,
   NextRouteHandlers,
   NextRouteParams,
 } from '@nextrush/adapter-nextjs';

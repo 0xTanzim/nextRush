@@ -15,8 +15,8 @@
 
 ## 3. Public surface
 
-- [ ] 3.1 Add `packages/adapters/nextjs/src/__tests__/public-surface.test.ts` (value exports via sorted `Object.keys()` + a compile-time type tuple including `NextRouteHandlerSet`) per the `public-surface-lock` capability; verify `pnpm --filter @nextrush/adapter-nextjs test` runs it green.
-- [ ] 3.2 Re-export `NextRouteHandlerSet` (and keep the existing type exports) from `packages/nextrush/src/nextjs.ts`; verify `pnpm --filter nextrush typecheck` passes.
+- [x] 3.1 Add `packages/adapters/nextjs/src/__tests__/public-surface.test.ts` (value exports via sorted `Object.keys()` + a compile-time type tuple including `NextRouteHandlerSet`) per the `public-surface-lock` capability; verify `pnpm --filter @nextrush/adapter-nextjs test` runs it green.
+- [x] 3.2 Re-export `NextRouteHandlerSet` (and keep the existing type exports) from `packages/nextrush/src/nextjs.ts`; verify `pnpm --filter nextrush typecheck` passes.
 
 ## 4. Real Next.js build matrix
 
