@@ -427,10 +427,12 @@ Direct assignment stays a build/runtime error and the seven-engine defect stays 
 - **Cross-runtime:** the conformance suite runs the `nextjs` driver in-process under Node/vitest;
   the bun/deno/workerd runners prove the underlying execution engines on their real runtimes.
 - **Docs validation:** `pnpm docs:validate` delegates to `pnpm --filter website docs:verify`
-  (the retired `scripts/docs/build-docs.ts` is not reintroduced). The harness currently exits 1
-  with 102 pre-existing website findings — 9 broken links, 80 MDX compile/type errors, and 13
-  forbidden words. No commit in this change (`cd051a36..HEAD`) touches `apps/website/`, so none
-  of the findings are introduced here.
+  (the retired `scripts/docs/build-docs.ts` is not reintroduced). Both `docs:validate` and
+  `docs:validate:strict` use that one harness because it has no warning-only mode: every finding
+  — including the `⚠` lint class — makes it exit 1, so the strict alias does not weaken the gate.
+  The harness currently exits 1 with 102 pre-existing website findings — 9 broken links, 80 MDX
+  compile/type errors, and 13 forbidden words. No commit in this change (`cd051a36..HEAD`)
+  touches `apps/website/`, so none of the findings are introduced here.
 - **Coverage:** ≥ 90% lines/functions for the package — measured 97.18% lines / 96% functions.
 
 ---
