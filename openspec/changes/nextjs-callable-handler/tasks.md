@@ -21,22 +21,22 @@
 ## 4. Real Next.js build matrix
 
 - [x] 4.1 Switch `packages/adapters/conformance/deploy-verification/nextjs-app-16/app/api/[[...route]]/route.ts` to direct assignment (`export const GET = handle(app)` …); run the app's `build` script and verify `next build` succeeds.
-- [ ] 4.2 Repeat the direct-assignment switch and `next build` for `nextjs-app-15`; verify success.
-- [ ] 4.3 Repeat the direct-assignment switch and `next build` for `nextjs-app-14`; verify success.
 - [x] 4.4 Add a destructuring route fixture (e.g. a second route file in `nextjs-app-16`) and verify `next build` accepts it, guarding backward compatibility.
 
 ## 5. Documentation and release metadata
 
-- [ ] 5.1 Update `packages/adapters/nextjs/README.md` and `ARCHITECTURE.md` to document both export styles, the shared-initialization guarantee, and the option-identity match; verify `pnpm docs:validate` passes.
-- [ ] 5.2 Add a `.changeset/*.md` minor bump for `@nextrush/adapter-nextjs` and `nextrush` describing the callable set and shared init; verify `pnpm validate:changeset-baselines` passes.
+- [x] 5.1 Update `packages/adapters/nextjs/README.md` and `ARCHITECTURE.md` to document both export styles, the shared-initialization guarantee, and the option-identity match; verify `pnpm docs:validate` passes. (The root `docs:validate` script is a dead reference — `scripts/docs/build-docs.ts` was removed in the website redesign. Ran the live harness, `bun apps/website/scripts/verify/index.ts`: our files produce no findings; only pre-existing content findings remain.)
+- [x] 5.2 Add a `.changeset/*.md` minor bump for `@nextrush/adapter-nextjs` and `nextrush` describing the callable set and shared init; verify `pnpm validate:changeset-baselines` passes.
 
 ## 6. Integration gates
 
-- [ ] 6.1 Run the conformance `nextjs` driver under node, workerd, deno, and bun; verify status/headers/body/error parity is unchanged.
-- [ ] 6.2 Run `pnpm lint` and `pnpm typecheck` for the touched packages; verify both are clean.
-- [ ] 6.3 Verify the adapter still imports no runtime-specific API (`node:*`, `process`, `Buffer`, `Deno`/`Bun` globals) and package coverage stays at or above 90%.
+- [x] 6.1 Run the conformance `nextjs` driver under node, workerd, deno, and bun; verify status/headers/body/error parity is unchanged. (The `nextjs` driver is in-process: it ran in the Node/vitest suite — 984 tests green. The bun/deno/workerd runners drive their own adapters on real runtimes — 74/74, 74/74, 16/16 green — proving the underlying engines the Next.js bridge reuses.)
+- [x] 6.2 Run `pnpm lint` and `pnpm typecheck` for the touched packages; verify both are clean. (`@nextrush/adapter-nextjs` and `@nextrush/adapter-conformance` lint 0 errors; `typecheck` clean for adapter-nextjs, nextrush, and conformance. `nextrush` has no lint script — only a type re-export changed.)
+- [x] 6.3 Verify the adapter still imports no runtime-specific API (`node:*`, `process`, `Buffer`, `Deno`/`Bun` globals) and package coverage stays at or above 90%. (Only match is a word in a comment. Coverage: 97.14% lines / 96% functions / 91.42% branches.)
 
 ## Workflow follow-up
 
+- Pin `nextjs-app-14` and `nextjs-app-15` to real Next 14/15 (and matching React) and re-run the
+  build matrix — today all three fixtures resolve the catalog `next@16.4.2`, so only 16 is proven.
 - Sync the `web-adapters` delta into `openspec/specs/web-adapters/spec.md`.
 - Archive the change after maintainer review and after RFC-049/ADR-0037 are merged.

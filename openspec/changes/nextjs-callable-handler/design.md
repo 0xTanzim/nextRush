@@ -104,5 +104,6 @@ value; the shared cache is internal and removable without API change.
 
 ## Open Questions
 
-- Whether to wire the three `next build` fixtures into CI (currently manual). Deferrable; does not
-  change specs or the approach.
+- Whether to wire the three `next build` fixtures into CI (currently manual), and pin
+  `nextjs-app-14`/`nextjs-app-15` to real Next 14/15 — they currently install the catalog
+  `next@16.4.2`, so only 16 is proven. Deferrable; does not change specs or the approach.

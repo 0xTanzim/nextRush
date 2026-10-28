@@ -1,30 +1,30 @@
 # RFC-049: `@nextrush/adapter-nextjs` — callable-and-destructurable route-handler set
 
-| Field                | Value                                                                 |
-| -------------------- | --------------------------------------------------------------------- |
-| **Status**           | `Approved`                                                            |
-| **RFC number**       | `049`                                                                 |
-| **Date**             | `2026-10-28`                                                          |
-| **Author(s)**        | Tanzim Hossain                                                        |
-| **Group**            | `runtime-adapters`                                                    |
-| **Packages touched** | `@nextrush/adapter-nextjs`, `nextrush` (`./nextjs` subpath)           |
-| **Framework impact** | Additive, non-breaking                                                |
-| **Supersedes**       | `—`                                                                   |
-| **Superseded by**    | `—`                                                                   |
-| **Related**          | `RFC-024`, `ADR-0014`, issue #60                                      |
+| Field                | Value                                                       |
+| -------------------- | ----------------------------------------------------------- |
+| **Status**           | `Approved`                                                  |
+| **RFC number**       | `049`                                                       |
+| **Date**             | `2026-10-28`                                                |
+| **Author(s)**        | Tanzim Hossain                                              |
+| **Group**            | `runtime-adapters`                                          |
+| **Packages touched** | `@nextrush/adapter-nextjs`, `nextrush` (`./nextjs` subpath) |
+| **Framework impact** | Additive, non-breaking                                      |
+| **Supersedes**       | `—`                                                         |
+| **Superseded by**    | `—`                                                         |
+| **Related**          | `RFC-024`, `ADR-0014`, issue #60                            |
 
 ---
 
 ## Progress Tracker
 
-**Overall:** `[░░░░░░░░░░░░░░░░░░░░]` 0% — 0 / 4 phases complete · Doc status: `Approved`
+**Overall:** `[▓▓▓▓▓▓▓▓░░]` 85% — P0/P1/P3 complete, P2 partial (Next 16 proven; 14/15 deferred to §17) · Doc status: `Implemented`
 
-| Phase | Part / deliverable                                   | Status        |
-| ----- | ---------------------------------------------------- | ------------- |
-| P0    | Callable handler set + shared-init cache             | ⬜ Not started |
-| P1    | Public type + surface lock                           | ⬜ Not started |
-| P2    | Next.js 14/15/16 `next build` matrix                 | ⬜ Not started |
-| P3    | Docs, changeset, conformance parity                  | ⬜ Not started |
+| Phase | Part / deliverable                       | Status                                     |
+| ----- | ---------------------------------------- | ------------------------------------------ |
+| P0    | Callable handler set + shared-init cache | ✅ Done                                    |
+| P1    | Public type + surface lock               | ✅ Done                                    |
+| P2    | Next.js 14/15/16 `next build` matrix     | ⚠️ Partial — 16 only; 14/15 deferred (§17) |
+| P3    | Docs, changeset, conformance parity      | ✅ Done                                    |
 
 ---
 
@@ -32,6 +32,12 @@
 
 - **v1 (`2026-10-28`)** — Initial draft. Verified against `packages/adapters/nextjs/src/index.ts`
   on `feat/response-args-and-middleware-fastpath`; issue #60 and its `draft-proposal.md`.
+- **v2 (`2026-10-28`)** — Implementation note: `next build` proven on Next 16.4.2 only. The
+  `nextjs-app-14/15/16` fixtures all resolve the workspace catalog `next: ^16.3.0`, so the 14/15
+  cells are not real; pinning them is deferred (§17).
+- **v3 (`2026-10-28`)** — Implementation shipped (P0/P1/P3, P2 Next 16 only): callable handler
+  set, `WeakMap` shared cache, public surface lock, docs, changeset, conformance parity, and
+  coverage (97.14% lines / 96% functions).
 
 ---
 
@@ -51,15 +57,15 @@ change is additive; destructuring continues to work unchanged.
 
 `Handler set`
 : The value returned by `handle()`: one callable Next.js route handler that also exposes `GET`,
-  `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, and `OPTIONS` as properties.
+`POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, and `OPTIONS` as properties.
 
 `Dispatcher`
 : The adapter's method-agnostic function that resolves the engine and forwards the request; the
-  NextRush engine, not the adapter, selects the route by `request.method`.
+NextRush engine, not the adapter, selects the route by `request.method`.
 
 `Engine`
 : The fetch handler produced by `@nextrush/adapter-edge`'s `createFetchHandler`, created once per
-  resolved app and option set.
+resolved app and option set.
 
 ---
 
@@ -99,8 +105,7 @@ Priority (highest → lowest):
 ```ts
 const handlers = {} as NextRouteHandlers;
 for (const method of METHODS) {
-  handlers[method] = (request: Request, context?: NextRouteContext) =>
-    dispatch(request, context);
+  handlers[method] = (request: Request, context?: NextRouteContext) => dispatch(request, context);
 }
 return handlers;
 ```
@@ -159,11 +164,11 @@ concrete. Fixing (1) without (2) is a regression, so both must land together.
 
 ## 6. Proposed Solution (overview)
 
-| # | Problem (from §3.2)              | Solution (this RFC)                                             |
-| - | -------------------------------- | --------------------------------------------------------------- |
-| 1 | Direct assignment exports object | Return a callable function with the seven handlers as properties |
-| 2 | Repeated calls multiply engines  | `WeakMap<AppSource, entries[]>` shares one set per app + options |
-| 3 | Seven identical closures         | One dispatcher reference; each property is the same function     |
+| #   | Problem (from §3.2)              | Solution (this RFC)                                              |
+| --- | -------------------------------- | ---------------------------------------------------------------- |
+| 1   | Direct assignment exports object | Return a callable function with the seven handlers as properties |
+| 2   | Repeated calls multiply engines  | `WeakMap<AppSource, entries[]>` shares one set per app + options |
+| 3   | Seven identical closures         | One dispatcher reference; each property is the same function     |
 
 The key idea: dispatch is already method-agnostic, so "the callable" and "the named handler" are
 the same function. That makes the callable form truthful rather than a compatibility shim. Sharing
@@ -242,8 +247,12 @@ keyed on the app source gives HMR- and serverless-safe semantics without a globa
 export type NextRouteHandler = (request: Request, context: NextRouteContext) => Promise<Response>;
 
 export interface NextRouteHandlers {
-  GET: NextRouteHandler; POST: NextRouteHandler; PUT: NextRouteHandler;
-  PATCH: NextRouteHandler; DELETE: NextRouteHandler; HEAD: NextRouteHandler;
+  GET: NextRouteHandler;
+  POST: NextRouteHandler;
+  PUT: NextRouteHandler;
+  PATCH: NextRouteHandler;
+  DELETE: NextRouteHandler;
+  HEAD: NextRouteHandler;
   OPTIONS: NextRouteHandler;
 }
 
@@ -288,14 +297,14 @@ is retried on the next request and never cached as failure.
 
 ### 8.6 Edge cases
 
-| Scenario                              | Behaviour                                        |
-| ------------------------------------- | ------------------------------------------------ |
-| Factory rejects, later succeeds       | Next request retries; no poisoned cache          |
-| Same app, `{}` and default options    | Share one set                                    |
-| Same app, different `timeout`/`onError` | Distinct sets                                  |
-| HMR replaces the app module           | New app identity → new set; old entry collectable |
-| Direct assignment and destructuring   | Identical status/headers/body                    |
-| HEAD request                          | Existing engine semantics, pinned by test        |
+| Scenario                                | Behaviour                                         |
+| --------------------------------------- | ------------------------------------------------- |
+| Factory rejects, later succeeds         | Next request retries; no poisoned cache           |
+| Same app, `{}` and default options      | Share one set                                     |
+| Same app, different `timeout`/`onError` | Distinct sets                                     |
+| HMR replaces the app module             | New app identity → new set; old entry collectable |
+| Direct assignment and destructuring     | Identical status/headers/body                     |
+| HEAD request                            | Existing engine semantics, pinned by test         |
 
 ### 8.7 Examples
 
@@ -315,18 +324,22 @@ export const POST = handlers;
 ## 9. Alternatives Considered
 
 ### 9.1 A separate `createHandler(app)` factory
+
 Adds a second public entry point for the same dispatcher and does not make `handle(app)` work.
 Rejected: larger surface, no DX gain beyond documentation.
 
 ### 9.2 Keep the object and document `handle(app).GET`
+
 Zero code change, but leaves `export const GET = handle(app)` failing, which is the reported
 problem. Rejected.
 
 ### 9.3 A global cache keyed only by the application object
+
 Would merge incompatible option sets and does not handle factories. Rejected in favor of
 `(app, timeout, onError)` matching.
 
 ### 9.4 Do nothing
+
 Direct assignment stays a build/runtime error and the seven-engine defect stays latent. Rejected.
 
 ---
@@ -343,12 +356,13 @@ Direct assignment stays a build/runtime error and the seven-engine defect stays 
 
 ## 11. Risks & Mitigations
 
-| Risk                                        | Mitigation                                            | Likelihood | Impact |
-| ------------------------------------------- | ----------------------------------------------------- | ---------- | ------ |
-| Next validator rejects extra properties      | Prove with real `next build` on 14/15/16              | Low        | High   |
-| Shared identity surprises a caller           | Document; additive and intended                       | Low        | Low    |
-| Inline `onError` prevents sharing            | Document identity matching                            | Med        | Low    |
-| Module-level state grows unbounded           | `WeakMap` + tiny per-app arrays; no strong retention   | Low        | Low    |
+| Risk                                    | Mitigation                                                                                     | Likelihood | Impact |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------- | ------ |
+| Next validator rejects extra properties | Prove with real `next build` on 14/15/16                                                       | Low        | High   |
+| Next 14/15 validators unverified        | Fixtures currently resolve catalog `next@16.4.2`; pin real 14/15 (§17) before claiming support | High       | Med    |
+| Shared identity surprises a caller      | Document; additive and intended                                                                | Low        | Low    |
+| Inline `onError` prevents sharing       | Document identity matching                                                                     | Med        | Low    |
+| Module-level state grows unbounded      | `WeakMap` + tiny per-app arrays; no strong retention                                           | Low        | Low    |
 
 ---
 
@@ -375,31 +389,33 @@ Direct assignment stays a build/runtime error and the seven-engine defect stays 
 
 ## 14. Success Metrics
 
-| Metric                         | Baseline (today)                              | Target / threshold              |
-| ------------------------------ | --------------------------------------------- | ------------------------------- |
-| Engines per seven-method module | 7 with direct assignment (errors before reaching this) | 1                    |
-| `typeof handle(app)`            | `"object"`                                    | `"function"`                    |
-| Destructured request behavior   | parity                                        | byte-identical                  |
-| `next build` (14/15/16)         | direct assignment fails type check            | all pass                        |
-| Test coverage                   | —                                             | ≥ 90% lines/functions           |
+| Metric                          | Baseline (today)                                       | Target / threshold                                                           |
+| ------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Engines per seven-method module | 7 with direct assignment (errors before reaching this) | 1                                                                            |
+| `typeof handle(app)`            | `"object"`                                             | `"function"`                                                                 |
+| Destructured request behavior   | parity                                                 | byte-identical                                                               |
+| `next build` (Next 16.4.2)      | direct assignment fails type check                     | passes (direct + destructured); 14/15 deferred — fixtures resolve catalog 16 |
+| Test coverage                   | —                                                      | ≥ 90% lines/functions                                                        |
 
 ---
 
 ## 15. Phased Implementation Plan
 
-| Phase | Goal (what ships)                         | Depends on | Exit condition (checkable)                              | Status        |
-| ----- | ----------------------------------------- | ---------- | ------------------------------------------------------- | ------------- |
-| **P0** | Callable set + shared-init cache          | —          | Adapter unit tests green; parity test green             | ⬜ Not started |
-| **P1** | Public type + surface lock                | P0         | `typecheck` clean; surface test green                   | ⬜ Not started |
-| **P2** | Next.js 14/15/16 build matrix             | P1         | All three `next build` runs pass (direct + destructured) | ⬜ Not started |
-| **P3** | Docs, changeset, conformance              | P2         | `docs:validate` passes; conformance `nextjs` parity green | ⬜ Not started |
+| Phase  | Goal (what ships)                | Depends on | Exit condition (checkable)                                              | Status     |
+| ------ | -------------------------------- | ---------- | ----------------------------------------------------------------------- | ---------- |
+| **P0** | Callable set + shared-init cache | —          | Adapter unit tests green; parity test green                             | ✅ Done    |
+| **P1** | Public type + surface lock       | P0         | `typecheck` clean; surface test green                                   | ✅ Done    |
+| **P2** | Next.js 14/15/16 build matrix    | P1         | Next 16 `next build` passes (both styles); real 14/15 deferred to §17   | ⚠️ Partial |
+| **P3** | Docs, changeset, conformance     | P2         | Docs updated and validated; changeset baseline green; conformance green | ✅ Done    |
 
 ### 15.1 Testing strategy
 
 - **Unit:** callable shape, shared identity, option matching, retry, parity, HEAD.
-- **Integration:** real `next build` on the three deploy-verification fixtures.
-- **Cross-runtime:** conformance `nextjs` driver under node/workerd/deno/bun.
-- **Coverage:** ≥ 90% lines/functions for the package.
+- **Integration:** real `next build` on the deploy-verification fixtures. Today all three
+  (14/15/16) resolve the workspace catalog `next@16.4.2`, so only Next 16 is build-verified.
+- **Cross-runtime:** the conformance suite runs the `nextjs` driver in-process under Node/vitest;
+  the bun/deno/workerd runners prove the underlying execution engines on their real runtimes.
+- **Coverage:** ≥ 90% lines/functions for the package — measured 97.14% lines / 96% functions.
 
 ---
 
@@ -416,25 +432,28 @@ Direct assignment stays a build/runtime error and the seven-engine defect stays 
 ## 17. Future Work
 
 - Wire the three `next build` fixtures into CI (currently manual).
+- Pin `nextjs-app-14`/`nextjs-app-15` to real Next 14/15 (and matching React) — they currently
+  install the catalog `next@16.4.2`, so 14/15 are unproven.
 - Consider a shared engine cache for other adapters if the same pattern appears.
 
 ---
 
 ## 18. Open Questions
 
-- [ ] Whether to recommend direct assignment as the primary style in docs, or keep destructuring
-  primary. Deferrable; both are supported and equally cheap after P0.
+- [x] Whether to recommend direct assignment as the primary style in docs, or keep destructuring
+      primary. Resolved: destructuring stays the recommended single-call form; direct assignment is
+      documented as equally supported and now shares one engine.
 
 ---
 
 ## 19. Decisions Log
 
-| Question                                   | Decision                              | Rationale                                    |
-| ------------------------------------------ | ------------------------------------- | -------------------------------------------- |
-| Callable object vs second factory?         | Callable object                       | Keeps one entry point; makes the reported form work |
-| Share engines across `handle()` calls?     | Yes, `WeakMap` by app + options       | Prevents silent 7× initialization            |
-| Match options how?                         | `timeout` value, `onError` identity   | Functions cannot be serialized               |
-| One dispatcher or per-method wrappers?     | One dispatcher                        | Dispatch is already method-agnostic          |
+| Question                               | Decision                            | Rationale                                           |
+| -------------------------------------- | ----------------------------------- | --------------------------------------------------- |
+| Callable object vs second factory?     | Callable object                     | Keeps one entry point; makes the reported form work |
+| Share engines across `handle()` calls? | Yes, `WeakMap` by app + options     | Prevents silent 7× initialization                   |
+| Match options how?                     | `timeout` value, `onError` identity | Functions cannot be serialized                      |
+| One dispatcher or per-method wrappers? | One dispatcher                      | Dispatch is already method-agnostic                 |
 
 ---
 

@@ -12,7 +12,7 @@
 
 ## Lifecycle progress
 
-`Proposed ▶ Accepted ▶ Shipped`  ·  `[█████████████░░░░░░░]` **Accepted** — 2 / 3
+`Proposed ▶ Accepted ▶ Shipped` · `[█████████████░░░░░░░]` **Accepted** — 2 / 3
 
 ---
 
@@ -56,7 +56,8 @@ incompatible option sets isolated.
 - **Negative / cost:** a function-with-properties is less conventional; shared identity and
   option-identity matching need documentation.
 - **Neutral:** factory apps resolve once across calls instead of once per call.
-- **Follow-up:** wire the Next 14/15/16 `next build` fixtures into CI.
+- **Follow-up:** wire the `next build` fixtures into CI, and pin the 14/15 fixtures to real Next
+  14/15 — they currently resolve the catalog `next@16.4.2`, so only 16 is proven.
 
 ---
 
