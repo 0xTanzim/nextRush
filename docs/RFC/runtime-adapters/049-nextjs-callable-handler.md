@@ -43,6 +43,10 @@
   `next build` in both export styles. Root `docs:validate` repaired to delegate to the live
   website harness (`pnpm --filter website docs:verify`); the dead `scripts/docs/build-docs.ts`
   reference is gone.
+- **v5 (`2026-10-28`)** — Review corrections: coverage re-measured at 97.18% lines / 96%
+  functions after the cache regression tests, and the docs validator result recorded precisely
+  (102 pre-existing website findings — 9 broken links, 80 MDX compile/type, 13 forbidden words —
+  none in files touched by this change).
 
 ---
 
@@ -422,7 +426,12 @@ Direct assignment stays a build/runtime error and the seven-engine defect stays 
   fixture keeps a destructured route as the backward-compatibility guard.
 - **Cross-runtime:** the conformance suite runs the `nextjs` driver in-process under Node/vitest;
   the bun/deno/workerd runners prove the underlying execution engines on their real runtimes.
-- **Coverage:** ≥ 90% lines/functions for the package — measured 97.14% lines / 96% functions.
+- **Docs validation:** `pnpm docs:validate` delegates to `pnpm --filter website docs:verify`
+  (the retired `scripts/docs/build-docs.ts` is not reintroduced). The harness currently exits 1
+  with 102 pre-existing website findings — 9 broken links, 80 MDX compile/type errors, and 13
+  forbidden words. None are in files touched by this change, and no branch commit changes
+  `apps/website/`.
+- **Coverage:** ≥ 90% lines/functions for the package — measured 97.18% lines / 96% functions.
 
 ---
 

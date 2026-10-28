@@ -26,14 +26,14 @@
 
 ## 5. Documentation and release metadata
 
-- [x] 5.1 Update `packages/adapters/nextjs/README.md` and `ARCHITECTURE.md` to document both export styles, the shared-initialization guarantee, and the option-identity match; verify `pnpm docs:validate` passes. (The root `docs:validate` script pointed at the removed `scripts/docs/build-docs.ts`; it now delegates to the live website harness via `pnpm --filter website docs:verify`. Our files produce no findings; the 102 remaining findings are pre-existing website content and unchanged by this change.)
+- [x] 5.1 Update `packages/adapters/nextjs/README.md` and `ARCHITECTURE.md` to document both export styles, the shared-initialization guarantee, and the option-identity match; verify `pnpm docs:validate` runs and reports no findings for this change. (The root `docs:validate` script pointed at the removed `scripts/docs/build-docs.ts`; it now delegates to the live website harness via `pnpm --filter website docs:verify`. Our files produce no findings; the command exits 1 only because of 102 pre-existing website findings — 9 broken links, 80 MDX compile/type, 13 forbidden words — unchanged by this change.)
 - [x] 5.2 Add a `.changeset/*.md` minor bump for `@nextrush/adapter-nextjs` and `nextrush` describing the callable set and shared init; verify `pnpm validate:changeset-baselines` passes.
 
 ## 6. Integration gates
 
 - [x] 6.1 Run the conformance `nextjs` driver under node, workerd, deno, and bun; verify status/headers/body/error parity is unchanged. (The `nextjs` driver is in-process: it ran in the Node/vitest suite — 984 tests green. The bun/deno/workerd runners drive their own adapters on real runtimes — 74/74, 74/74, 16/16 green — proving the underlying engines the Next.js bridge reuses.)
 - [x] 6.2 Run `pnpm lint` and `pnpm typecheck` for the touched packages; verify both are clean. (`@nextrush/adapter-nextjs` and `@nextrush/adapter-conformance` lint 0 errors; `typecheck` clean for adapter-nextjs, nextrush, and conformance. `nextrush` has no lint script — only a type re-export changed.)
-- [x] 6.3 Verify the adapter still imports no runtime-specific API (`node:*`, `process`, `Buffer`, `Deno`/`Bun` globals) and package coverage stays at or above 90%. (Only match is a word in a comment. Coverage: 97.14% lines / 96% functions / 91.42% branches.)
+- [x] 6.3 Verify the adapter still imports no runtime-specific API (`node:*`, `process`, `Buffer`, `Deno`/`Bun` globals) and package coverage stays at or above 90%. (Only match is a word in a comment. Coverage: 97.18% lines / 96% functions / 91.42% branches.)
 
 ## Workflow follow-up
 
