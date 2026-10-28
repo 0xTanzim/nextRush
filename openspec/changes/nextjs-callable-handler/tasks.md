@@ -7,11 +7,11 @@
 
 ## 2. Adapter behavior (TDD)
 
-- [ ] 2.1 RED: add unit tests in `packages/adapters/nextjs/src/__tests__/index.test.ts` asserting `typeof handle(app) === 'function'`, each of the seven properties is a function, and `handle(app) === handle(app).GET`; run `pnpm --filter @nextrush/adapter-nextjs test` and confirm they fail.
-- [ ] 2.2 GREEN: change `handle()` to build one method-agnostic dispatcher and return `Object.assign(dispatcher, { GET, POST, … OPTIONS })` (all the same reference), add `export type NextRouteHandlerSet = NextRouteHandler & NextRouteHandlers`, and return it; verify 2.1 passes and existing destructuring tests still pass.
-- [ ] 2.3 RED: add tests for shared initialization — same app + equivalent options return the same handler object and invoke a factory once; `handle(app)` vs `handle(app, {})` share, `handle(app, { timeout: 5 })` is distinct; a rejecting factory is retried on the next request; run tests and confirm they fail.
-- [ ] 2.4 GREEN: add the module-level `WeakMap<AppSource, SharedEntry[]>` cache (match on `timeout` equality and `onError` identity, entry owns the lazy engine with reset-on-rejection) and delete the per-call `enginePromise`; verify 2.3 passes and no prior test regresses.
-- [ ] 2.5 Add a parity test that the callable and the destructured `GET` produce identical status/headers/body for the same request, and that HEAD responses keep their existing (body-less) semantics; verify the test passes.
+- [x] 2.1 RED: add unit tests in `packages/adapters/nextjs/src/__tests__/index.test.ts` asserting `typeof handle(app) === 'function'`, each of the seven properties is a function, and `handle(app) === handle(app).GET`; run `pnpm --filter @nextrush/adapter-nextjs test` and confirm they fail.
+- [x] 2.2 GREEN: change `handle()` to build one method-agnostic dispatcher and return `Object.assign(dispatcher, { GET, POST, … OPTIONS })` (all the same reference), add `export type NextRouteHandlerSet = NextRouteHandler & NextRouteHandlers`, and return it; verify 2.1 passes and existing destructuring tests still pass.
+- [x] 2.3 RED: add tests for shared initialization — same app + equivalent options return the same handler object and invoke a factory once; `handle(app)` vs `handle(app, {})` share, `handle(app, { timeout: 5 })` is distinct; a rejecting factory is retried on the next request; run tests and confirm they fail.
+- [x] 2.4 GREEN: add the module-level `WeakMap<AppSource, SharedEntry[]>` cache (match on `timeout` equality and `onError` identity, entry owns the lazy engine with reset-on-rejection) and delete the per-call `enginePromise`; verify 2.3 passes and no prior test regresses.
+- [x] 2.5 Add a parity test that the callable and the destructured `GET` produce identical status/headers/body for the same request, and that HEAD responses keep their existing (body-less) semantics; verify the test passes.
 
 ## 3. Public surface
 

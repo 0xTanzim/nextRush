@@ -37,6 +37,45 @@ describe('handle()', () => {
     expect(handlers.OPTIONS).toBeTypeOf('function');
   });
 
+  it('returns a callable handler set whose named handlers are the same function', () => {
+    const handlers = handle(buildTestApp());
+
+    expect(handlers).toBeTypeOf('function');
+    for (const method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const) {
+      expect(handlers[method]).toBe(handlers);
+    }
+  });
+
+  it('dispatches a request through the callable form', async () => {
+    const GET = handle(buildTestApp());
+
+    const response = await GET(new Request('http://localhost/hello'), NO_PARAMS);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ message: 'hello' });
+  });
+
+  it('direct assignment and destructuring produce identical responses', async () => {
+    const callable = handle(buildTestApp());
+    const { GET } = handle(buildTestApp());
+
+    const viaCallable = await callable(new Request('http://localhost/hello'), NO_PARAMS);
+    const viaNamed = await GET(new Request('http://localhost/hello'), NO_PARAMS);
+
+    expect(viaCallable.status).toBe(viaNamed.status);
+    expect([...viaCallable.headers]).toEqual([...viaNamed.headers]);
+    await expect(viaCallable.text()).resolves.toBe(await viaNamed.text());
+  });
+
+  it('HEAD dispatches through the derived GET handler with no body', async () => {
+    const HEAD = handle(buildTestApp());
+
+    const response = await HEAD(new Request('http://localhost/hello', { method: 'HEAD' }), NO_PARAMS);
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe('');
+  });
+
   it('dispatches a GET request to the mounted application, path unmodified', async () => {
     const { GET } = handle(buildTestApp());
 
@@ -187,5 +226,62 @@ describe('handle()', () => {
     const response = await GET(new Request('http://localhost/does-not-exist'), NO_PARAMS);
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe('handle() — shared initialization', () => {
+  it('returns the same handler set and boots once for the same app and options', async () => {
+    const factory = vi.fn(() => buildTestApp());
+    const first = handle(factory);
+    const second = handle(factory);
+
+    expect(second).toBe(first);
+
+    await first(new Request('http://localhost/hello'), NO_PARAMS);
+    await second(new Request('http://localhost/hello'), NO_PARAMS);
+
+    expect(factory).toHaveBeenCalledTimes(1);
+  });
+
+  it('shares default and empty options but isolates a differing timeout', () => {
+    const app = buildTestApp();
+
+    const withDefault = handle(app);
+    const withEmpty = handle(app, {});
+    const withTimeout = handle(app, { timeout: 5 });
+
+    expect(withEmpty).toBe(withDefault);
+    expect(withTimeout).not.toBe(withDefault);
+  });
+
+  it('shares by onError identity and isolates a different function', () => {
+    const app = buildTestApp();
+    const onError = vi.fn(() => new Response('handled', { status: 502 }));
+
+    const first = handle(app, { onError });
+    const second = handle(app, { onError });
+    const third = handle(app, { onError: vi.fn() });
+
+    expect(second).toBe(first);
+    expect(third).not.toBe(first);
+  });
+
+  it('does not cache a failed boot on the shared entry', async () => {
+    let attempt = 0;
+    const factory = () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error('boom');
+      return buildTestApp();
+    };
+    const first = handle(factory);
+    const second = handle(factory);
+
+    expect(second).toBe(first);
+
+    await expect(first(new Request('http://localhost/hello'), NO_PARAMS)).rejects.toThrow();
+
+    const response = await second(new Request('http://localhost/hello'), NO_PARAMS);
+    expect(response.status).toBe(200);
+    expect(attempt).toBe(2);
   });
 });
