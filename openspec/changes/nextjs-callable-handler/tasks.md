@@ -20,10 +20,10 @@
 
 ## 4. Real Next.js build matrix
 
-- [ ] 4.1 Switch `packages/adapters/conformance/deploy-verification/nextjs-app-16/app/api/[[...route]]/route.ts` to direct assignment (`export const GET = handle(app)` …); run the app's `build` script and verify `next build` succeeds.
+- [x] 4.1 Switch `packages/adapters/conformance/deploy-verification/nextjs-app-16/app/api/[[...route]]/route.ts` to direct assignment (`export const GET = handle(app)` …); run the app's `build` script and verify `next build` succeeds.
 - [ ] 4.2 Repeat the direct-assignment switch and `next build` for `nextjs-app-15`; verify success.
 - [ ] 4.3 Repeat the direct-assignment switch and `next build` for `nextjs-app-14`; verify success.
-- [ ] 4.4 Add a destructuring route fixture (e.g. a second route file in `nextjs-app-16`) and verify `next build` accepts it, guarding backward compatibility.
+- [x] 4.4 Add a destructuring route fixture (e.g. a second route file in `nextjs-app-16`) and verify `next build` accepts it, guarding backward compatibility.
 
 ## 5. Documentation and release metadata
 
