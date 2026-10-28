@@ -9,17 +9,17 @@
 [![ESM only](https://img.shields.io/badge/module-ESM--only-blue.svg)](https://nodejs.org/api/esm.html)
 [![license](https://img.shields.io/npm/l/@nextrush/adapter-nextjs.svg)](https://github.com/0xTanzim/nextRush/blob/main/LICENSE)
 
-|  |  |
-| --- | --- |
-| **Purpose** | Mount a NextRush `Application` in a Next.js App Router route handler |
-| **Package type** | Adapter |
-| **Status** | Beta 🚧 |
-| **Included in `nextrush`?** | ✅ Yes — re-exported as `nextrush/nextjs` (optional peer, functional installs skip it) |
-| **Support tier** | Public — stable surface once out of beta — see [ADR-0014](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0014-adapter-nextjs-prepend-only.md) |
-| **Maintenance** | Active |
-| **Runtime** | Universal — Node · Bun · Deno · Cloudflare (via OpenNext) — anywhere Next.js itself runs |
-| **Requires** | Node `>=22` · ESM-only · TypeScript `>=5.x` · Next.js `>=14.0.0` (App Router only) |
-| **Introduced** | `v1.0.0-beta.0` |
+|                             |                                                                                                                                                            |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Purpose**                 | Mount a NextRush `Application` in a Next.js App Router route handler                                                                                       |
+| **Package type**            | Adapter                                                                                                                                                    |
+| **Status**                  | Beta 🚧                                                                                                                                                    |
+| **Included in `nextrush`?** | ✅ Yes — re-exported as `nextrush/nextjs` (optional peer, functional installs skip it)                                                                     |
+| **Support tier**            | Public — stable surface once out of beta — see [ADR-0014](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0014-adapter-nextjs-prepend-only.md) |
+| **Maintenance**             | Active                                                                                                                                                     |
+| **Runtime**                 | Universal — Node · Bun · Deno · Cloudflare (via OpenNext) — anywhere Next.js itself runs                                                                   |
+| **Requires**                | Node `>=22` · ESM-only · TypeScript `>=5.x` · Next.js `>=14.0.0` (App Router only)                                                                         |
+| **Introduced**              | `v1.0.0-beta.0`                                                                                                                                            |
 
 ## Highlights
 
@@ -121,6 +121,22 @@ import { handle } from 'nextrush/nextjs';
 export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = handle(app);
 ```
 
+Either export style works. Destructuring and direct assignment are equally cheap:
+
+```ts
+// One call, one engine
+export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = handle(app);
+
+// Or one export per method — the calls share the same engine
+export const GET = handle(app);
+export const POST = handle(app);
+```
+
+`handle(app)` returns a **callable handler set**: a route handler that also exposes `GET`…`OPTIONS`
+as properties. Calls with the same app source and equivalent options return the same set and
+initialize **one** engine. Options match by `timeout` value and `onError` identity, so a different
+timeout or error handler gets its own engine.
+
 No `runtime` export (Node is already the default; the Edge runtime is deprecated upstream), no
 mount-prefix configuration. The route is mounted the same way any NextRush route is mounted
 anywhere else: `app.route('/api', router)`. See [Project structure](#project-structure-for-a-real-api)
@@ -129,12 +145,15 @@ below for how this splits further as the API grows.
 ## Capabilities
 
 **Capabilities**
-- **Seven-method export** — `handle(app)` returns `{ GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS }` in one call
+
+- **Callable, destructurable handler set** — `handle(app)` returns a function that also carries `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, and `OPTIONS` as properties, so both export styles work
+- **One engine per route module** — repeated `handle(app)` calls with the same app and equivalent options share one initialized engine, matched by `timeout` value and `onError` identity
 - **Class/DI support** — pass a factory (`() => Application | Promise<Application>`) for apps needing `await registerModule(...)` before use
 - **Background work** — `ctx.waitUntil()` is wired to Next's `after()` when available, and never throws even if `after()` itself does
 - **Mount-mismatch diagnostic** — in development, a mounted-prefix mistake logs an actionable hint instead of a bare 404
 
 **Developer experience**
+
 - Fully typed, zero `any`
 - No configuration for the common path — `timeout` and `onError` are the only options, both pass-throughs to the underlying engine
 
@@ -258,20 +277,23 @@ const app = (g.__nextrushApp ??= buildApp());
 
 ## API overview
 
-| Export | Signature | Since | Stability | Description |
-| ------ | --------- | ----- | --------- | ----------- |
-| `handle` | `(app: AppSource, options?: NextHandlerOptions) => NextRouteHandlers` | `1.0.0-beta.0` | Beta 🚧 | Mounts an app, returns all seven route-handler exports |
-| `type AppSource` | — | `1.0.0-beta.0` | Beta 🚧 | An `Application`, or a (possibly async) factory producing one |
-| `type NextRouteHandlers` | — | `1.0.0-beta.0` | Beta 🚧 | The seven exported handler functions |
-| `type NextHandlerOptions` | — | `1.0.0-beta.0` | Beta 🚧 | `{ timeout?, onError? }` |
-| `type NextRouteContext` | — | `1.0.0-beta.0` | Beta 🚧 | The structural shape of Next's second handler argument |
+| Export                     | Signature                                                               | Since          | Stability | Description                                                                    |
+| -------------------------- | ----------------------------------------------------------------------- | -------------- | --------- | ------------------------------------------------------------------------------ |
+| `handle`                   | `(app: AppSource, options?: NextHandlerOptions) => NextRouteHandlerSet` | `1.0.0-beta.0` | Beta 🚧   | Mounts an app, returns one callable handler set exposing all seven exports     |
+| `type AppSource`           | —                                                                       | `1.0.0-beta.0` | Beta 🚧   | An `Application`, or a (possibly async) factory producing one                  |
+| `type NextRouteHandlerSet` | —                                                                       | `1.2.0`        | Beta 🚧   | `NextRouteHandler & NextRouteHandlers` — the callable value `handle()` returns |
+| `type NextRouteHandlers`   | —                                                                       | `1.0.0-beta.0` | Beta 🚧   | The seven named handler functions                                              |
+| `type NextRouteHandler`    | —                                                                       | `1.0.0-beta.0` | Beta 🚧   | One Next.js route handler                                                      |
+| `type NextHandlerOptions`  | —                                                                       | `1.0.0-beta.0` | Beta 🚧   | `{ timeout?, onError? }`                                                       |
+| `type NextRouteContext`    | —                                                                       | `1.0.0-beta.0` | Beta 🚧   | The structural shape of Next's second handler argument                         |
+| `type NextRouteParams`     | —                                                                       | `1.0.0-beta.0` | Beta 🚧   | Next's route params record                                                     |
 
 ## Options
 
-| Option | Type | Required | Default | Security-sensitive | Description |
-| ------ | ---- | -------- | ------- | ------------------ | ----------- |
-| `timeout` | `number` | No | the edge engine's default (25 000 ms) | — | Per-request timeout in ms, raced to a `504` when the handler has not already committed a response |
-| `onError` | `(error, ctx) => Response \| Promise<Response>` | No | the engine's default 500 handler | — | Custom error → `Response` mapping |
+| Option    | Type                                            | Required | Default                               | Security-sensitive | Description                                                                                       |
+| --------- | ----------------------------------------------- | -------- | ------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
+| `timeout` | `number`                                        | No       | the edge engine's default (25 000 ms) | —                  | Per-request timeout in ms, raced to a `504` when the handler has not already committed a response |
+| `onError` | `(error, ctx) => Response \| Promise<Response>` | No       | the engine's default 500 handler      | —                  | Custom error → `Response` mapping                                                                 |
 
 **Request timeout and a committed response**
 
@@ -294,21 +316,22 @@ settled is still raced exactly as before.
 
 **Requirements**
 
-| Requirement | Version |
-| ----------- | ------- |
-| NextRush | `4.x` |
-| Next.js | `>=14.0.0` (App Router only) |
-| Node.js | `>=22` |
-| TypeScript | `>=5.x` |
+| Requirement | Version                      |
+| ----------- | ---------------------------- |
+| NextRush    | `4.x`                        |
+| Next.js     | `>=14.0.0` (App Router only) |
+| Node.js     | `>=22`                       |
+| TypeScript  | `>=5.x`                      |
 
 **Runtimes**
 
-| Runtime | Supported | Notes |
-| ------- | --------- | ----- |
-| Node.js `>=22` | ✅ | Next's default runtime |
+| Runtime                            | Supported    | Notes                                                                                                     |
+| ---------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------- |
+| Node.js `>=22`                     | ✅           | Next's default runtime                                                                                    |
 | Bun / Deno / Cloudflare (OpenNext) | ✅ / ✅ / ✅ | The package imports no runtime-specific API — pinned by `packages/adapters/conformance`'s `nextjs` driver |
 
 **Integration**
+
 - **Peer dependencies:** `next >=14.0.0` (optional)
 - **Works with:** any NextRush middleware/class-runtime package — the mounted app is an ordinary `Application`
 - **Incompatible with:** the Pages Router (not supported — see [ARCHITECTURE.md](./ARCHITECTURE.md#rejected-alternatives))
