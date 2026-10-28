@@ -52,10 +52,7 @@ export interface NextRouteContext {
 }
 
 /** One Next.js route-handler export. */
-export type NextRouteHandler = (
-  request: Request,
-  context: NextRouteContext
-) => Promise<Response>;
+export type NextRouteHandler = (request: Request, context: NextRouteContext) => Promise<Response>;
 
 /** The seven methods Next.js supports, ready to destructure. */
 export interface NextRouteHandlers {
@@ -112,19 +109,24 @@ const sharedSets = new WeakMap<AppSource, SharedEntry[]>();
  *   (RFC-049), so exporting each method directly does not multiply engines.
  */
 export function handle(app: AppSource, options: NextHandlerOptions = {}): NextRouteHandlerSet {
+  // Snapshot the values the cache matches on. The engine is built lazily on the
+  // first dispatch, so handing it the caller's live options object would let a
+  // later mutation retarget a set whose cache key still describes the old
+  // values — the same key would then mean two different engines.
+  const timeout = options.timeout;
+  const onError = options.onError;
+
   let entries = sharedSets.get(app);
   if (entries === undefined) {
     entries = [];
     sharedSets.set(app, entries);
   }
 
-  const shared = entries.find(
-    (entry) => entry.timeout === options.timeout && entry.onError === options.onError
-  );
+  const shared = entries.find((entry) => entry.timeout === timeout && entry.onError === onError);
   if (shared !== undefined) return shared.handlerSet;
 
-  const handlerSet = createHandlerSet(app, options);
-  entries.push({ timeout: options.timeout, onError: options.onError, handlerSet });
+  const handlerSet = createHandlerSet(app, { timeout, onError });
+  entries.push({ timeout, onError, handlerSet });
   return handlerSet;
 }
 

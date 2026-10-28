@@ -24,6 +24,14 @@ function buildTestApp() {
   return app;
 }
 
+function echoRequest(): Request {
+  return new Request('http://localhost/echo', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ a: 1 }),
+  });
+}
+
 describe('handle()', () => {
   it('returns all seven Next.js route-handler exports', () => {
     const handlers = handle(buildTestApp());
@@ -70,7 +78,10 @@ describe('handle()', () => {
   it('HEAD dispatches through the derived GET handler with no body', async () => {
     const HEAD = handle(buildTestApp());
 
-    const response = await HEAD(new Request('http://localhost/hello', { method: 'HEAD' }), NO_PARAMS);
+    const response = await HEAD(
+      new Request('http://localhost/hello', { method: 'HEAD' }),
+      NO_PARAMS
+    );
 
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toBe('');
@@ -172,20 +183,23 @@ describe('handle()', () => {
     // successfully, but the engine-building step (createFetchHandler) fails —
     // exercising ensureEngine's own catch-and-reset, not memoizeAppSource's.
     const edge = await import('@nextrush/adapter-edge');
-    const spy = vi
-      .spyOn(edge, 'createFetchHandler')
-      .mockImplementationOnce(() => {
-        throw new Error('engine construction failed');
-      });
+    const spy = vi.spyOn(edge, 'createFetchHandler').mockImplementationOnce(() => {
+      throw new Error('engine construction failed');
+    });
 
-    const { GET } = handle(buildTestApp());
+    const app = buildTestApp();
+    const first = handle(app);
 
-    await expect(GET(new Request('http://localhost/hello'), NO_PARAMS)).rejects.toThrow(
+    await expect(first.GET(new Request('http://localhost/hello'), NO_PARAMS)).rejects.toThrow(
       'engine construction failed'
     );
 
+    // The failed boot is retried through the same cached set, not a new one.
+    const second = handle(app);
+    expect(second).toBe(first);
+
     spy.mockRestore();
-    const response = await GET(new Request('http://localhost/hello'), NO_PARAMS);
+    const response = await second.GET(new Request('http://localhost/hello'), NO_PARAMS);
     expect(response.status).toBe(200);
   });
 
@@ -283,5 +297,100 @@ describe('handle() — shared initialization', () => {
     const response = await second(new Request('http://localhost/hello'), NO_PARAMS);
     expect(response.status).toBe(200);
     expect(attempt).toBe(2);
+  });
+
+  it('builds one engine and invokes an async factory once under concurrent first requests', async () => {
+    const edge = await import('@nextrush/adapter-edge');
+    const engineSpy = vi.spyOn(edge, 'createFetchHandler');
+    let bootCount = 0;
+    const factory = async () => {
+      bootCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return buildTestApp();
+    };
+    const handlers = handle(factory);
+
+    await Promise.all([
+      handlers.GET(new Request('http://localhost/hello'), NO_PARAMS),
+      handlers.GET(new Request('http://localhost/hello'), NO_PARAMS),
+      handlers.POST(echoRequest(), NO_PARAMS),
+    ]);
+
+    expect(bootCount).toBe(1);
+    expect(engineSpy).toHaveBeenCalledTimes(1);
+    engineSpy.mockRestore();
+  });
+
+  it('gives each distinct option set its own engine', async () => {
+    const edge = await import('@nextrush/adapter-edge');
+    const engineSpy = vi.spyOn(edge, 'createFetchHandler');
+    const app = buildTestApp();
+    const onError = vi.fn(() => new Response('handled', { status: 502 }));
+
+    await handle(app, { timeout: 100 }).GET(new Request('http://localhost/hello'), NO_PARAMS);
+    await handle(app, { timeout: 200 }).GET(new Request('http://localhost/hello'), NO_PARAMS);
+    await handle(app, { onError }).GET(new Request('http://localhost/hello'), NO_PARAMS);
+
+    expect(engineSpy).toHaveBeenCalledTimes(3);
+    engineSpy.mockRestore();
+  });
+
+  it('snapshots options so mutating the caller object cannot retarget a cached set', async () => {
+    const app = buildTestApp();
+    const options = { timeout: 1000 };
+    const first = handle(app, options);
+
+    options.timeout = 5; // far below /slow's 50 ms
+
+    const second = handle(app, { timeout: 1000 });
+    expect(second).toBe(first);
+
+    const response = await first.GET(new Request('http://localhost/slow'), NO_PARAMS);
+    expect(response.status).toBe(200);
+  });
+
+  it('dispatches every supported method through the one shared engine', async () => {
+    const edge = await import('@nextrush/adapter-edge');
+    const engineSpy = vi.spyOn(edge, 'createFetchHandler');
+    const router = createRouter();
+    for (const method of ['get', 'post', 'put', 'patch', 'delete', 'options'] as const) {
+      router[method]('/method', (ctx) => {
+        ctx.json({ method: method.toUpperCase() });
+      });
+    }
+    const handlers = handle(createApp({ router }));
+
+    for (const method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const) {
+      const response = await handlers[method](
+        new Request('http://localhost/method', { method }),
+        NO_PARAMS
+      );
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ method });
+    }
+
+    expect(engineSpy).toHaveBeenCalledTimes(1);
+    engineSpy.mockRestore();
+  });
+
+  it('propagates route errors through a shared set using the framework error response', async () => {
+    const router = createRouter();
+    router.get('/boom', () => {
+      throw new Error('nope');
+    });
+    const app = createApp({ router });
+    const handlers = handle(app);
+    const shared = handle(app);
+
+    expect(shared).toBe(handlers);
+
+    for (const handler of [handlers, handlers.GET]) {
+      const response = await handler(new Request('http://localhost/boom'), NO_PARAMS);
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toMatchObject({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+      });
+    }
   });
 });
