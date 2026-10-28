@@ -89,9 +89,10 @@ destructuring to guard that path.
   correct semantics, documented.
 - [Module-level mutable state] → bounded to a `WeakMap` with tiny value arrays; no unbounded
   growth; justified in the RFC/ADR per AGENTS.md.
-- [Next validator rejects extra properties] → proven by the 14/15/16 `next build` matrix; if any
-  version rejects, fall back to documenting destructuring and drop the additive surface (spec's
-  direct-assignment scenarios become the tripwire).
+- [Next validator rejects extra properties] → proven by the `next build` matrix on pinned
+  `next@14.2.35`, `next@15.5.28`, and `next@16.4.2` (both styles); if a future version rejects,
+  fall back to documenting destructuring and drop the additive surface (spec's direct-assignment
+  scenarios become the tripwire).
 - [Missing surface lock] → `@nextrush/adapter-nextjs` has no `public-surface.test.ts` though
   `public-surface-lock` requires one; add it (value + type tuple) as part of this change so the new
   type export is locked.
@@ -104,6 +105,7 @@ value; the shared cache is internal and removable without API change.
 
 ## Open Questions
 
-- Whether to wire the three `next build` fixtures into CI (currently manual), and pin
-  `nextjs-app-14`/`nextjs-app-15` to real Next 14/15 — they currently install the catalog
-  `next@16.4.2`, so only 16 is proven. Deferrable; does not change specs or the approach.
+- [x] Wire the three `next build` fixtures into CI (still manual), and pin
+      `nextjs-app-14`/`nextjs-app-15` to real Next 14/15. Resolved: fixtures pinned to
+      `14.2.35` (React 18.3.1) / `15.5.28` / `16.4.2` and all pass `next build`; CI wiring
+      remains follow-up work.

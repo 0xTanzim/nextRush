@@ -308,10 +308,10 @@ application, never to the adapter serving it. See RFC-024 §9.4.
   same function reference
 - **Conformance / cross-adapter parity:** yes — `packages/adapters/conformance`'s `nextjs` driver runs the full shared suite
 - **Type-level proof:** real `next build` fixtures under
-  `packages/adapters/conformance/deploy-verification/nextjs-app-{14,15,16}/`. **Known gap:** the
-  workspace `next` catalog currently resolves all three fixtures to Next 16.4.2, so the version
-  slots exercise separate route files, not separate Next releases. Per-fixture version pinning is
-  tracked follow-up work (RFC-049 §17); until then, 14/15 compatibility is not build-verified.
+  `packages/adapters/conformance/deploy-verification/nextjs-app-{14,15,16}/`, pinned to
+  `next@14.2.35` (React 18.3.1), `next@15.5.28`, and `next@16.4.2`. All three pass with the
+  direct-assignment form; the 16 fixture also keeps a destructured route, so both styles are
+  validated per release instead of relying on one version's validator.
 - **Coverage:** ≥90% lines/functions (CI-enforced)
 
 ## Evolution strategy

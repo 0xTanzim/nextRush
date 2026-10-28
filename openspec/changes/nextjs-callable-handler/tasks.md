@@ -22,10 +22,11 @@
 
 - [x] 4.1 Switch `packages/adapters/conformance/deploy-verification/nextjs-app-16/app/api/[[...route]]/route.ts` to direct assignment (`export const GET = handle(app)` …); run the app's `build` script and verify `next build` succeeds.
 - [x] 4.4 Add a destructuring route fixture (e.g. a second route file in `nextjs-app-16`) and verify `next build` accepts it, guarding backward compatibility.
+- [x] 4.5 Pin `nextjs-app-14` to Next `14.2.35` + React `18.3.1`, `nextjs-app-15` to `15.5.28`, and `nextjs-app-16` to `16.4.2`; run `next build` in each fixture. All three pass, so P2's version matrix is real rather than three copies of the catalog Next 16.
 
 ## 5. Documentation and release metadata
 
-- [x] 5.1 Update `packages/adapters/nextjs/README.md` and `ARCHITECTURE.md` to document both export styles, the shared-initialization guarantee, and the option-identity match; verify `pnpm docs:validate` passes. (The root `docs:validate` script is a dead reference — `scripts/docs/build-docs.ts` was removed in the website redesign. Ran the live harness, `bun apps/website/scripts/verify/index.ts`: our files produce no findings; only pre-existing content findings remain.)
+- [x] 5.1 Update `packages/adapters/nextjs/README.md` and `ARCHITECTURE.md` to document both export styles, the shared-initialization guarantee, and the option-identity match; verify `pnpm docs:validate` passes. (The root `docs:validate` script pointed at the removed `scripts/docs/build-docs.ts`; it now delegates to the live website harness via `pnpm --filter website docs:verify`. Our files produce no findings; the 102 remaining findings are pre-existing website content and unchanged by this change.)
 - [x] 5.2 Add a `.changeset/*.md` minor bump for `@nextrush/adapter-nextjs` and `nextrush` describing the callable set and shared init; verify `pnpm validate:changeset-baselines` passes.
 
 ## 6. Integration gates
@@ -36,7 +37,6 @@
 
 ## Workflow follow-up
 
-- Pin `nextjs-app-14` and `nextjs-app-15` to real Next 14/15 (and matching React) and re-run the
-  build matrix — today all three fixtures resolve the catalog `next@16.4.2`, so only 16 is proven.
+- Wire the three `next build` fixtures into CI (the matrix is run manually today).
 - Sync the `web-adapters` delta into `openspec/specs/web-adapters/spec.md`.
 - Archive the change after maintainer review and after RFC-049/ADR-0037 are merged.

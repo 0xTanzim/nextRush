@@ -56,8 +56,9 @@ incompatible option sets isolated.
 - **Negative / cost:** a function-with-properties is less conventional; shared identity and
   option-identity matching need documentation.
 - **Neutral:** factory apps resolve once across calls instead of once per call.
-- **Follow-up:** wire the `next build` fixtures into CI, and pin the 14/15 fixtures to real Next
-  14/15 — they currently resolve the catalog `next@16.4.2`, so only 16 is proven.
+- **Follow-up:** wire the `next build` fixtures into CI. The fixtures are pinned to real releases
+  (`next@14.2.35` with React 18.3.1, `next@15.5.28`, `next@16.4.2`) and all three pass
+  `next build` in both export styles.
 
 ---
 

@@ -323,6 +323,9 @@ settled is still raced exactly as before.
 | Node.js     | `>=22`                       |
 | TypeScript  | `>=5.x`                      |
 
+Next.js 14, 15, and 16 are build-verified against real releases (`14.2.35`, `15.5.28`, `16.4.2`)
+by the pinned fixtures in `packages/adapters/conformance/deploy-verification/`.
+
 **Runtimes**
 
 | Runtime                            | Supported    | Notes                                                                                                     |

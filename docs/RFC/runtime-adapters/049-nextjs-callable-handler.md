@@ -17,14 +17,14 @@
 
 ## Progress Tracker
 
-**Overall:** `[▓▓▓▓▓▓▓▓░░]` 85% — P0/P1/P3 complete, P2 partial (Next 16 proven; 14/15 deferred to §17) · Doc status: `Implemented`
+**Overall:** `[▓▓▓▓▓▓▓▓▓▓]` 100% — P0/P1/P2/P3 complete · Doc status: `Implemented`
 
-| Phase | Part / deliverable                       | Status                                     |
-| ----- | ---------------------------------------- | ------------------------------------------ |
-| P0    | Callable handler set + shared-init cache | ✅ Done                                    |
-| P1    | Public type + surface lock               | ✅ Done                                    |
-| P2    | Next.js 14/15/16 `next build` matrix     | ⚠️ Partial — 16 only; 14/15 deferred (§17) |
-| P3    | Docs, changeset, conformance parity      | ✅ Done                                    |
+| Phase | Part / deliverable                       | Status  |
+| ----- | ---------------------------------------- | ------- |
+| P0    | Callable handler set + shared-init cache | ✅ Done |
+| P1    | Public type + surface lock               | ✅ Done |
+| P2    | Next.js 14/15/16 `next build` matrix     | ✅ Done |
+| P3    | Docs, changeset, conformance parity      | ✅ Done |
 
 ---
 
@@ -38,6 +38,11 @@
 - **v3 (`2026-10-28`)** — Implementation shipped (P0/P1/P3, P2 Next 16 only): callable handler
   set, `WeakMap` shared cache, public surface lock, docs, changeset, conformance parity, and
   coverage (97.14% lines / 96% functions).
+- **v4 (`2026-10-28`)** — P2 closed: the fixtures are pinned to real Next releases
+  (`14.2.35`, `15.5.28`, `16.4.2`; Next 14 also pins React 18.3.1) and all three pass
+  `next build` in both export styles. Root `docs:validate` repaired to delegate to the live
+  website harness (`pnpm --filter website docs:verify`); the dead `scripts/docs/build-docs.ts`
+  reference is gone.
 
 ---
 
@@ -356,13 +361,13 @@ Direct assignment stays a build/runtime error and the seven-engine defect stays 
 
 ## 11. Risks & Mitigations
 
-| Risk                                    | Mitigation                                                                                     | Likelihood | Impact |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------- | ------ |
-| Next validator rejects extra properties | Prove with real `next build` on 14/15/16                                                       | Low        | High   |
-| Next 14/15 validators unverified        | Fixtures currently resolve catalog `next@16.4.2`; pin real 14/15 (§17) before claiming support | High       | Med    |
-| Shared identity surprises a caller      | Document; additive and intended                                                                | Low        | Low    |
-| Inline `onError` prevents sharing       | Document identity matching                                                                     | Med        | Low    |
-| Module-level state grows unbounded      | `WeakMap` + tiny per-app arrays; no strong retention                                           | Low        | Low    |
+| Risk                                    | Mitigation                                                                                                                | Likelihood | Impact |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------- | ------ |
+| Next validator rejects extra properties | Prove with real `next build` on 14/15/16                                                                                  | Low        | High   |
+| Next 14/15 validators unverified        | Pinned fixtures: `next@14.2.35` (React 18.3.1), `next@15.5.28`, `next@16.4.2`; all three pass `next build` in both styles | Low        | Med    |
+| Shared identity surprises a caller      | Document; additive and intended                                                                                           | Low        | Low    |
+| Inline `onError` prevents sharing       | Document identity matching                                                                                                | Med        | Low    |
+| Module-level state grows unbounded      | `WeakMap` + tiny per-app arrays; no strong retention                                                                      | Low        | Low    |
 
 ---
 
@@ -389,30 +394,32 @@ Direct assignment stays a build/runtime error and the seven-engine defect stays 
 
 ## 14. Success Metrics
 
-| Metric                          | Baseline (today)                                       | Target / threshold                                                           |
-| ------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Engines per seven-method module | 7 with direct assignment (errors before reaching this) | 1                                                                            |
-| `typeof handle(app)`            | `"object"`                                             | `"function"`                                                                 |
-| Destructured request behavior   | parity                                                 | byte-identical                                                               |
-| `next build` (Next 16.4.2)      | direct assignment fails type check                     | passes (direct + destructured); 14/15 deferred — fixtures resolve catalog 16 |
-| Test coverage                   | —                                                      | ≥ 90% lines/functions                                                        |
+| Metric                                    | Baseline (today)                                       | Target / threshold                                          |
+| ----------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------- |
+| Engines per seven-method module           | 7 with direct assignment (errors before reaching this) | 1                                                           |
+| `typeof handle(app)`                      | `"object"`                                             | `"function"`                                                |
+| Destructured request behavior             | parity                                                 | byte-identical                                              |
+| `next build` (14.2.35 / 15.5.28 / 16.4.2) | direct assignment fails type check                     | passes on all three pinned versions (direct + destructured) |
+| Test coverage                             | —                                                      | ≥ 90% lines/functions                                       |
 
 ---
 
 ## 15. Phased Implementation Plan
 
-| Phase  | Goal (what ships)                | Depends on | Exit condition (checkable)                                              | Status     |
-| ------ | -------------------------------- | ---------- | ----------------------------------------------------------------------- | ---------- |
-| **P0** | Callable set + shared-init cache | —          | Adapter unit tests green; parity test green                             | ✅ Done    |
-| **P1** | Public type + surface lock       | P0         | `typecheck` clean; surface test green                                   | ✅ Done    |
-| **P2** | Next.js 14/15/16 build matrix    | P1         | Next 16 `next build` passes (both styles); real 14/15 deferred to §17   | ⚠️ Partial |
-| **P3** | Docs, changeset, conformance     | P2         | Docs updated and validated; changeset baseline green; conformance green | ✅ Done    |
+| Phase  | Goal (what ships)                | Depends on | Exit condition (checkable)                                              | Status  |
+| ------ | -------------------------------- | ---------- | ----------------------------------------------------------------------- | ------- |
+| **P0** | Callable set + shared-init cache | —          | Adapter unit tests green; parity test green                             | ✅ Done |
+| **P1** | Public type + surface lock       | P0         | `typecheck` clean; surface test green                                   | ✅ Done |
+| **P2** | Next.js 14/15/16 build matrix    | P1         | `next build` passes on pinned 14.2.35, 15.5.28, 16.4.2 (both styles)    | ✅ Done |
+| **P3** | Docs, changeset, conformance     | P2         | Docs updated and validated; changeset baseline green; conformance green | ✅ Done |
 
 ### 15.1 Testing strategy
 
 - **Unit:** callable shape, shared identity, option matching, retry, parity, HEAD.
-- **Integration:** real `next build` on the deploy-verification fixtures. Today all three
-  (14/15/16) resolve the workspace catalog `next@16.4.2`, so only Next 16 is build-verified.
+- **Integration:** real `next build` on the deploy-verification fixtures, pinned per release:
+  `nextjs-app-14` → Next `14.2.35` / React `18.3.1`, `nextjs-app-15` → Next `15.5.28`,
+  `nextjs-app-16` → Next `16.4.2`. All three pass with the direct-assignment form, and the 16
+  fixture keeps a destructured route as the backward-compatibility guard.
 - **Cross-runtime:** the conformance suite runs the `nextjs` driver in-process under Node/vitest;
   the bun/deno/workerd runners prove the underlying execution engines on their real runtimes.
 - **Coverage:** ≥ 90% lines/functions for the package — measured 97.14% lines / 96% functions.
@@ -432,8 +439,6 @@ Direct assignment stays a build/runtime error and the seven-engine defect stays 
 ## 17. Future Work
 
 - Wire the three `next build` fixtures into CI (currently manual).
-- Pin `nextjs-app-14`/`nextjs-app-15` to real Next 14/15 (and matching React) — they currently
-  install the catalog `next@16.4.2`, so 14/15 are unproven.
 - Consider a shared engine cache for other adapters if the same pattern appears.
 
 ---
