@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "@nextrush/adapter-nextjs": "workspace:*",
-    "next": "catalog:web",
+    "next": "15.5.28",
     "nextrush": "workspace:*",
     "react": "catalog:web",
     "react-dom": "catalog:web"
@@ -16,7 +16,7 @@
     "@types/node": "catalog:node",
     "@types/react": "catalog:web",
     "@types/react-dom": "catalog:web",
-    "typescript": "catalog:tooling"
+    "typescript": "5.9.3"
   },
   "version": "0.0.1"
 }

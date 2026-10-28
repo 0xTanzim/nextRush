@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "@nextrush/adapter-nextjs": "workspace:*",
-    "next": "catalog:web",
+    "next": "16.4.2",
     "nextrush": "workspace:*",
     "react": "catalog:web",
     "react-dom": "catalog:web"
