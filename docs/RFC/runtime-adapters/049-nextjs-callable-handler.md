@@ -429,8 +429,8 @@ Direct assignment stays a build/runtime error and the seven-engine defect stays 
 - **Docs validation:** `pnpm docs:validate` delegates to `pnpm --filter website docs:verify`
   (the retired `scripts/docs/build-docs.ts` is not reintroduced). The harness currently exits 1
   with 102 pre-existing website findings — 9 broken links, 80 MDX compile/type errors, and 13
-  forbidden words. None are in files touched by this change, and no branch commit changes
-  `apps/website/`.
+  forbidden words. No commit in this change (`cd051a36..HEAD`) touches `apps/website/`, so none
+  of the findings are introduced here.
 - **Coverage:** ≥ 90% lines/functions for the package — measured 97.18% lines / 96% functions.
 
 ---
