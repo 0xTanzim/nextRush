@@ -36,7 +36,7 @@ import { createApp, listen } from 'nextrush';
 const app = createApp();
 
 app.get('/hello/:name', (ctx) => {
-  ctx.body = { message: `Hello, ${ctx.params.name}!` };
+  ctx.json({ message: `Hello, ${ctx.params.name}!` });
 });
 
 await listen(app, 8080);
@@ -58,7 +58,7 @@ curl http://localhost:8080/hello/world
 Notes on what just happened:
 
 - **`createApp()`** builds the application: router, middleware pipeline, and a fresh [`Context`](Core-Concepts) per request.
-- **Handlers write through `ctx`** (`ctx.body`), they do not return a `Response`. Serialization, headers, and status are controlled on the context.
+- **Responses are explicit** — `ctx.json(...)`, `ctx.send(...)`, and `ctx.status`. A handler may also return a value, which settles the response (objects and arrays as JSON, strings as text, `Response`/bytes/streams as-is). `ctx.body` is the *request* body, written by parsers.
 - **Port 8080** is the framework default; pass any port (or an existing server) to `listen`.
 
 ## 3. Middleware and errors
@@ -76,8 +76,7 @@ app.use(json()); // parse JSON bodies
 
 app.post('/tasks', (ctx) => {
   const task = ctx.body; // parsed request body
-  ctx.status = 201;
-  ctx.body = { id: 1, ...task };
+  ctx.json({ id: 1, ...task }, 201);
 });
 
 app.get('/tasks/:id', (ctx) => {

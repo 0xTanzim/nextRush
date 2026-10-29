@@ -34,6 +34,9 @@ describe('Public API surface (runtime exports)', () => {
     // the single normalization owner every path-based consumer (mount-prefix
     // matching, CSRF exclude paths, a hand-written policy guard) should call
     // instead of re-deriving its own fold/collapse/strip.
+    // `settleHandlerReturn` is RFC-050's internal settlement helper, exported
+    // so `@nextrush/class` shares one return-value table; it carries no semver
+    // guarantee and the handler contract stays `void | Promise<void>`.
     const expectedRuntime = [
       'createRouter',
       'endpoint',
@@ -43,6 +46,7 @@ describe('Public API surface (runtime exports)', () => {
       'parseSegments',
       'canonicalizePath',
       'hasDotSegment',
+      'settleHandlerReturn',
     ].sort();
 
     expect(actualExports).toEqual(expectedRuntime);

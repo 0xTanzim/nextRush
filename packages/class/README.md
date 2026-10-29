@@ -215,6 +215,38 @@ class ArticleController {
 }
 ```
 
+### Return values
+
+What a route method returns becomes the response, unless the method already committed one:
+
+| Returned value | Response |
+| -------------- | -------- |
+| `undefined` | Nothing is written — commit explicitly with `@Ctx()` (`ctx.json` / `ctx.send`) |
+| `Response` | Its status, headers (including every `Set-Cookie`) and body are adopted |
+| `string` | Text body |
+| `Uint8Array` / `ArrayBuffer` / `ReadableStream` / Node readable | Binary or streamed body |
+| `null` | JSON `null` |
+| Object or array | JSON (`application/json`) |
+| Other primitives (`number`, `boolean`) | Their string form |
+
+`@HttpCode` / the route `statusCode` and `@SetHeader` are applied before settlement. A method that
+already called `ctx.json(...)`, `ctx.send(...)` or `ctx.redirect(...)` keeps that response and the
+returned value is ignored.
+
+```ts
+@Controller('/items')
+class ItemController {
+  @Get()
+  list() { return [{ id: 1 }]; } // 200 application/json
+
+  @Get('/download')
+  download() { return new Uint8Array([0, 1, 2]); } // binary, not a digit-keyed object
+
+  @Get('/created')
+  created() { return Response.json({ id: 1 }, { status: 201 }); } // 201 preserved
+}
+```
+
 ### Protect a route with a guard
 
 ```ts

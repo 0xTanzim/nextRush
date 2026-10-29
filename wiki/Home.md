@@ -14,13 +14,13 @@ import { createApp, listen } from 'nextrush';
 const app = createApp();
 
 app.get('/hello/:name', (ctx) => {
-  ctx.body = { message: `Hello, ${ctx.params.name}!` };
+  ctx.json({ message: `Hello, ${ctx.params.name}!` });
 });
 
 await listen(app, 8080);
 ```
 
-Handlers write through the [`Context`](Core-Concepts) — no returned `Response` objects, no hidden global state.
+Handlers answer through the [`Context`](Core-Concepts) — `ctx.json(...)` / `ctx.send(...)`, or by returning a value, which settles the response (objects and arrays as JSON, strings as text). `ctx.body` holds the *request* body.
 
 **Class-based — module-first** for larger apps that prefer controllers and DI. Declare a feature as a `@Module`, compose features into an `AppModule`, and `registerModule` wires the whole graph:
 

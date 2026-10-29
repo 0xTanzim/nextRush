@@ -86,13 +86,21 @@ describe('NF-1 §2.1: dispatch forwards without an extra async frame', () => {
     expect(returned).toBe(sentinel);
   });
 
-  it('the len === 0 executor forwards a native handler promise unwrapped (identity)', () => {
-    const p = Promise.resolve();
+  it('the len === 0 executor settles a handler promise and returns a promise', async () => {
+    // RFC-050: a promise-returning handler must be observed so its resolved
+    // value can settle the response, which necessarily returns a derived
+    // promise. The de-async guarantee that survives is the synchronous one —
+    // a `void` handler returns the canonical RESOLVED_PROMISE (asserted in
+    // executor-settled-sync.test.ts) — and dispatch still forwards identity.
+    const rows = [{ id: 1 }];
+    const p = Promise.resolve(rows as unknown as void);
+    const json = vi.fn();
     const exec = compileExecutor((() => p) as RouteHandler, []);
+    const ctx = createCtx({ json });
 
-    // Promise.resolve(p) === p for a native promise; an `async` wrapper would
-    // return a distinct promise.
-    expect(exec(createCtx())).toBe(p);
+    await exec(ctx);
+
+    expect(json).toHaveBeenCalledWith(rows);
   });
 
   it('a matched synchronous handler still produces a byte-identical response', async () => {

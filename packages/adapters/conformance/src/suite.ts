@@ -28,7 +28,7 @@ import { cookies } from '@nextrush/cookies';
 import { createRouter } from '@nextrush/router';
 import { registerScenario } from './scenario';
 import { expect } from '@nextrush/adapter-conformance/test-primitives';
-import { OUTGOING_RESPONSE } from '@nextrush/types';
+import { OUTGOING_RESPONSE, type RouteHandler } from '@nextrush/types';
 import type { ConformanceDriver } from './drivers/types';
 import { json } from './support';
 
@@ -912,6 +912,45 @@ export function defineResponseConformance(
 
     expect(res.status).toBe(200);
     expect(json<{ ok: boolean }>(res).ok).toBe(true);
+  });
+
+  registerScenario(driver, '#49 return settlement: a returned array answers as JSON', {}, async () => {
+    const rows = [{ id: 1 }, { id: 2 }];
+    const res = await driver.dispatch(
+      (app) => {
+        const router = createRouter();
+        router.get('/', (() => rows) as unknown as RouteHandler);
+        app.route('/', router);
+      },
+      { path: '/' }
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.header('content-type')).toBe('application/json');
+    expect(res.text()).toBe('[{"id":1},{"id":2}]');
+  });
+
+  registerScenario(driver, '#49 return settlement: a returned Response keeps status, headers and body', {}, async () => {
+    // Explicit headers, not `Response.json`: runtimes spell that helper's
+    // generated Content-Type differently (Bun appends `;charset=utf-8`), and the
+    // scenario is about adoption copying what the Response carries.
+    const made = new Response(JSON.stringify({ id: 1 }), {
+      status: 201,
+      headers: { 'content-type': 'application/json', 'x-made': 'yes' },
+    });
+    const res = await driver.dispatch(
+      (app) => {
+        const router = createRouter();
+        router.get('/', (() => made) as unknown as RouteHandler);
+        app.route('/', router);
+      },
+      { path: '/' }
+    );
+
+    expect(res.status).toBe(201);
+    expect(res.header('content-type')).toBe('application/json');
+    expect(res.header('x-made')).toBe('yes');
+    expect(res.text()).toBe('{"id":1}');
   });
 }
 

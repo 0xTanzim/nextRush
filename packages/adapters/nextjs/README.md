@@ -382,6 +382,42 @@ parameter (`EdgeExecutionContext`) isn't assignable from Next's route context.
 
 </details>
 
+<details>
+<summary><strong>My handler returns an array and the body is empty</strong></summary>
+
+**Cause:** either the value was assigned to `ctx.body`, or the installed router predates return
+settlement. `ctx.body` is the **request** body that parsers fill in; assigning to it sends nothing,
+so the client gets an empty `200`.
+
+**Fix:** return the value (the matched handler's resolved value settles the response: objects and
+arrays become JSON, strings become text, `Response`/bytes/streams are preserved), or write through
+`ctx.json(...)` / `ctx.send(...)`. See the router's
+[return-values table](../../router/README.md#return-values).
+
+```ts
+import type { RouteHandler } from 'nextrush';
+
+// ✓ returned array → 200 application/json, body `[{"id":1}]`
+api.get('/rooms', (() => store.list()) as unknown as RouteHandler);
+
+// ✓ explicit write-through — fully typed, no cast
+api.get('/rooms', (ctx) => {
+  ctx.json(store.list());
+});
+```
+
+`RouteHandler` stays `void | Promise<void>` by design, so a value-returning handler needs the
+`as unknown as RouteHandler` cast shown above; `ctx.json`/`ctx.send` are the fully typed path.
+
+Two precedence rules apply:
+
+- **A committed response wins.** If the handler already wrote with `ctx.json`/`ctx.send` (or set a
+  status and body), the returned value is ignored.
+- **Middleware returns are ignored.** Only the matched route handler's return settles; a middleware
+  that returns a value changes nothing.
+
+</details>
+
 ## FAQ
 
 **Can I use this without `nextrush`?**

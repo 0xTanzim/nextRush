@@ -53,7 +53,7 @@ app.get('/users/:id', async (ctx) => {
   const source = await readFile('./views/user.ejs', 'utf-8'); // re-read on every request
   const html = ejs.render(source, { id: ctx.params.id });     // re-compiled on every request
   ctx.set('Content-Type', 'text/html');
-  ctx.body = html;
+  ctx.send(html);
 });
 ```
 

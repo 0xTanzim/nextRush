@@ -252,6 +252,29 @@ describe('rooms API happy path', () => {
   });
 });
 
+describe('handler return settlement (RFC-050)', () => {
+  it('answers a returned array as JSON', async () => {
+    const res = await fetch(`${baseUrl}/api/returned-array`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'application/json');
+    assert.equal(await res.text(), '[{"id":1,"name":"Atlas"},{"id":2,"name":"Orion"}]');
+  });
+
+  it('preserves a returned Response status, headers and body', async () => {
+    const res = await fetch(`${baseUrl}/api/returned-response`);
+    assert.equal(res.status, 201);
+    assert.equal(res.headers.get('content-type'), 'application/json');
+    assert.equal(res.headers.get('x-made'), 'yes');
+    assert.equal(await res.text(), '{"id":1}');
+  });
+
+  it('keeps the committed response over the returned value', async () => {
+    const res = await fetch(`${baseUrl}/api/committed`);
+    assert.equal(res.status, 202);
+    assert.deepEqual(await res.json(), { committed: true });
+  });
+});
+
 describe('rooms API failure matrix', () => {
   it('rejects malformed JSON with the body-parser envelope', async () => {
     const res = await fetch(`${baseUrl}/api/rooms`, {

@@ -42,6 +42,22 @@ app.get('/booted', (ctx) => {
   ctx.json({ booted: true });
 });
 
+// RFC-050: a handler's return value settles the response. Both routes return
+// WITHOUT writing through ctx, so an adapter that drops the value answers an
+// empty 200 instead.
+app.get('/returned-array', () => [{ id: 1 }, { id: 2 }]);
+app.get(
+  '/returned-response',
+  () =>
+    // Built with explicit headers: the runtime's own spelling of a convenience
+    // constructor differs (Bun appends `;charset=utf-8`), which is not what this
+    // route asserts.
+    new Response(JSON.stringify({ id: 1 }), {
+      status: 201,
+      headers: { 'content-type': 'application/json', 'x-made': 'yes' },
+    })
+);
+
 app.use(async (ctx) => {
   if (ctx.path === '/bad-json' && ctx.method === 'POST') {
     // Reaching here would mean the malformed body was accepted; the parser is
@@ -90,7 +106,12 @@ app.use(async (ctx) => {
     ctx.json({ hello: 'world', n: 42, nested: { a: [1, 2, 3] } });
     return;
   }
-  if (ctx.path === '/booted' || ctx.path === '/unrouted') {
+  if (
+    ctx.path === '/booted' ||
+    ctx.path === '/unrouted' ||
+    ctx.path === '/returned-array' ||
+    ctx.path === '/returned-response'
+  ) {
     // Handed off explicitly to the router boot mounted: `/booted` must be reached
     // through it, and `/unrouted` must end as the framework 404 rather than as an
     // empty 200. A bare `return` would end the chain here instead.

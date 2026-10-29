@@ -28,6 +28,11 @@ export type { RouteGroup } from './group-router';
 export { createNode, NodeType, parseSegments } from './segment-trie';
 export type { HandlerEntry, ParsedSegment, TrieNode } from './segment-trie';
 
+// Handler return-value settlement (RFC-050). Internal: exported so
+// `@nextrush/class` settles controller returns through the same table; the
+// public handler contract stays `void | Promise<void>`.
+export { settleHandlerReturn } from './settle';
+
 // Re-export relevant types
 export type {
   HttpMethod,

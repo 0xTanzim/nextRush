@@ -269,9 +269,12 @@ await listen(app, 8080);
 ## Singletons and status codes
 
 Controllers resolve as **singletons** and are shared across requests — keep them stateless and put
-per-request data in `ctx.state` via `@Ctx()`, never on `this`. A returned value serializes as JSON
-with HTTP 200. To change the status: `@HttpCode(201)` for a fixed value, inject `@Ctx()` and set
-`ctx.status` for runtime logic, or throw an `HttpError` subclass to signal an error:
+per-request data in `ctx.state` via `@Ctx()`, never on `this`. A route method's return value is
+settled into the response: objects and arrays serialize as JSON (`200` by default), strings and
+other primitives as text, while a returned `Response`, `Uint8Array`/`ArrayBuffer` or stream keeps
+its status, headers and body; `null` is JSON `null`. A response the method already committed wins
+over its return value. To change the status: `@HttpCode(201)` for a fixed value, inject `@Ctx()`
+and set `ctx.status` for runtime logic, or throw an `HttpError` subclass to signal an error:
 
 ```ts
 import { NotFoundError } from 'nextrush';

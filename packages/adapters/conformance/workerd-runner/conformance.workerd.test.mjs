@@ -258,6 +258,21 @@ test('boot-before-dispatch: a route declared on the app router is reached on rea
   assert.deepEqual(await res.json(), { booted: true });
 });
 
+test('RFC-050: a returned array is answered as JSON on real workerd', async () => {
+  const res = await (await getMf()).dispatchFetch('http://localhost/returned-array');
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'application/json');
+  assert.equal(await res.text(), '[{"id":1},{"id":2}]');
+});
+
+test('RFC-050: a returned Response keeps its status and headers on real workerd', async () => {
+  const res = await (await getMf()).dispatchFetch('http://localhost/returned-response');
+  assert.equal(res.status, 201);
+  assert.equal(res.headers.get('content-type'), 'application/json');
+  assert.equal(res.headers.get('x-made'), 'yes');
+  assert.equal(await res.text(), '{"id":1}');
+});
+
 test('boot-before-dispatch: an unrouted path is a 404, not an empty 200, on real workerd', async () => {
   const res = await (await getMf()).dispatchFetch('http://localhost/unrouted');
   assert.equal(res.status, 404);

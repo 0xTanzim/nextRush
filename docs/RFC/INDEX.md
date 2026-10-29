@@ -77,6 +77,7 @@ invent a new structure per RFC.
 | [046](runtime-adapters/046-json-media-type-and-response-construction.md) | One JSON media type, and a plain init record for the Web response | **Shipped** — Deno GET −16.6 % server CPU/req, POST −8.1 %; no Bun/Node regression; ADR-0034 | runtime-adapters |
 | [047](request-data/047-lazy-body-parsing.md) | `@nextrush/body-parser` — opt-in lazy body parsing | **Implemented** | request-data |
 | [049](runtime-adapters/049-nextjs-callable-handler.md) | `@nextrush/adapter-nextjs` — callable-and-destructurable route-handler set, one shared engine per app + options | **Approved** | runtime-adapters |
+| [050](runtime-adapters/050-handler-return-settlement.md) | Route handlers and class controllers settle their returned value into the response | **Approved** | runtime-adapters |
 
 ## Note on RFC-005 (Plugin System)
 
