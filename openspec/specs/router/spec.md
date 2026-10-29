@@ -765,3 +765,102 @@ re-applied here, and a decoded value SHALL NOT be re-segmented.
 
 - **WHEN** a router is mounted at `/API` and a request for `/API/Users/ABC` matches `/Users/:name`
 - **THEN** the bound value is `ABC`
+
+### Requirement: Route dispatch settles a matched handler's returned value into the response
+
+When a matched route handler resolves to a defined value and no response has been committed, the
+dispatcher SHALL settle that value into the response: `Response` as its status, headers and body;
+`Uint8Array`/`ArrayBuffer`/readable stream as a binary or streamed body; `string` as text; array
+and plain object as JSON; `null` as JSON `null`; other primitives as their string form. A resolved
+thenable MUST be awaited before settlement.
+
+#### Scenario: An array return becomes a JSON array
+
+- **WHEN** a handler returns `[{ id: 1 }, { id: 2 }]` (or a promise resolving to it)
+- **THEN** the response is `200` with `Content-Type: application/json` and the JSON array as body
+
+#### Scenario: An object return becomes JSON
+
+- **WHEN** a handler returns `{ ok: true }`
+- **THEN** the response is `200` with `Content-Type: application/json` and body `{"ok":true}`
+
+#### Scenario: A string return becomes a text body
+
+- **WHEN** a handler returns `'hello'`
+- **THEN** the response is `200` with a text content type and body `hello`
+
+#### Scenario: Binary and stream returns are forwarded unchanged
+
+- **WHEN** a handler returns a `Uint8Array`, an `ArrayBuffer`, a Web `ReadableStream`, or a Node
+  readable stream
+- **THEN** the response carries those bytes (or stream) with a binary content type, not a JSON
+  object built from the value
+
+#### Scenario: A returned Response is adopted
+
+- **WHEN** a handler returns `Response.json(rows)` (or any `Response`)
+- **THEN** the response status, headers (including every `Set-Cookie` value) and body are the
+  ones the returned `Response` carries
+
+#### Scenario: Primitive and null returns settle predictably
+
+- **WHEN** a handler returns `null`, a number, or a boolean
+- **THEN** `null` is sent as JSON `null`, and the number or boolean is sent as its string form
+
+#### Scenario: A committed response wins over a return value
+
+- **WHEN** a handler calls `ctx.json(...)`, `ctx.send(...)`, or redirects, and then returns a
+  different value
+- **THEN** the response the handler committed is sent and the returned value is ignored
+
+#### Scenario: Middleware returns are not settled
+
+- **WHEN** an application-level or route-level middleware returns a defined value
+- **THEN** no response is produced from that middleware value; only the matched route handler's
+  resolved value settles the response
+
+#### Scenario: A handler that returns nothing is unchanged
+
+- **WHEN** a handler returns `undefined` (the documented `void` contract)
+- **THEN** no body is produced by settlement, an empty `200`/explicit status still answers as
+  before, and dispatch stays on its synchronous fast path with no added microtask
+
+#### Scenario: Settlement is identical across adapters
+
+- **WHEN** the same returned-value handlers run through the Node, Bun, Deno, Edge, and Next.js
+  adapter entry points
+- **THEN** status, headers and body are byte-identical, and the Next.js result is confirmed over a
+  real `next build` + `next start` server, not only in-process
+
+### Requirement: Class-controller execution settles returned values with the same rules
+
+A class controller method's returned value SHALL settle through the same value table as a route
+handler's return. A non-plain object (`Response`, typed array, ArrayBuffer, readable stream) MUST
+NOT be JSON-serialized as `{}` or as a digit-keyed object, and a response the method already
+committed MUST win over its return value.
+
+#### Scenario: A controller returning a Response preserves it
+
+- **WHEN** a controller method returns `Response.json([{ id: 1 }])`
+- **THEN** the client receives the JSON array, not `{}`, with the returned status and headers
+
+#### Scenario: A controller returning bytes preserves the bytes
+
+- **WHEN** a controller method returns a `Uint8Array` or an `ArrayBuffer`
+- **THEN** the response body is those bytes with a binary content type, not a JSON digit map
+
+#### Scenario: A controller returning a stream streams it
+
+- **WHEN** a controller method returns a Web `ReadableStream` or a Node readable
+- **THEN** the response streams that data, not an empty JSON object
+
+#### Scenario: A controller's committed response wins
+
+- **WHEN** a controller method calls `ctx.json(...)` (or otherwise commits) and also returns a
+  value
+- **THEN** the committed response is sent and the returned value is ignored
+
+#### Scenario: Plain controller returns are unchanged
+
+- **WHEN** a controller method returns an array, a plain object, a string, `null`, or `undefined`
+- **THEN** the response matches today's behavior for those value kinds
