@@ -130,6 +130,28 @@ describe('allowedMethods() middleware — end-to-end characterization', () => {
     expect(ctx.set).not.toHaveBeenCalled();
   });
 
+  it('keeps a matched GET handler 404 instead of rewriting it to 405', async () => {
+    router.get('/rooms/:id', vi.fn());
+
+    // The handler ran, found no rooms/<id>, and set 404 itself. GET is in the
+    // path's Allow set, so answering 405 would contradict that header.
+    const ctx = createMockContext({ method: 'GET', path: '/rooms/missing', status: 404 });
+    await router.allowedMethods()(ctx, async () => {});
+
+    expect(ctx.status).toBe(404);
+    expect(ctx.set).not.toHaveBeenCalled();
+  });
+
+  it('keeps a registered OPTIONS handler 404 instead of answering it itself', async () => {
+    router.options('/r', vi.fn());
+
+    const ctx = createMockContext({ method: 'OPTIONS', path: '/r', status: 404 });
+    await router.allowedMethods()(ctx, async () => {});
+
+    expect(ctx.status).toBe(404);
+    expect(ctx.set).not.toHaveBeenCalled();
+  });
+
   it('reports allowed methods for a path via the public allowedMethods() middleware (replaces prior direct-private-call test)', async () => {
     router.get('/r', vi.fn());
     router.post('/r', vi.fn());

@@ -62,3 +62,11 @@ Legend: ✅ full (executed assertion) · ⚠️ partial (different model) · �
 - **Proof (`serverless`)** — 🟡 simulated here because its real deployment runtime
   IS Node (Lambda/GCF/Azure all run Node); real-runtime coverage for that target
   is `node`'s own row, not double-counted as a second real-runtime proof.
+- **Proof (`nextjs`)** — 🟡 simulated here: this column runs the in-process
+  App Router driver. Separately, `deploy-verification/nextjs-app-16` proves the
+  adapter over a real `next build` + `next start` server with JSON CRUD, dynamic
+  params, 404/405, OPTIONS/HEAD, and body-parser errors
+  (`pnpm --filter nextjs-app-16 test:integration`). That is a curated subset, not
+  the shared conformance suite, so it is reported here and in the
+  deploy-verification README rather than counted as real-runtime breadth; a
+  passing build alone is never integration proof.

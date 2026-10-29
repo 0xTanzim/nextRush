@@ -730,6 +730,9 @@ importers:
       '@nextrush/adapter-nextjs':
         specifier: workspace:*
         version: link:../../../nextjs
+      '@nextrush/body-parser':
+        specifier: workspace:*
+        version: link:../../../../middleware/body-parser
       next:
         specifier: 16.4.2
         version: 16.4.2(@opentelemetry/api@1.9.0)(@playwright/test@1.64.1)(@types/node@26.6.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

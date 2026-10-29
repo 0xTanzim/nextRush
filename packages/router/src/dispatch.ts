@@ -116,10 +116,12 @@ export function createRoutesMiddleware(
  * Build the allowed-methods middleware.
  *
  * Runs after the dispatch middleware: if the request was a 404, it does a
- * single tree walk to collect every method registered for the path. An
- * `OPTIONS` request gets a `200` with an `Allow` header; any other method
- * gets a `405` with `Allow`. If no method is registered for the path it
- * leaves the 404 untouched.
+ * single tree walk to collect every method registered for the path. A method
+ * the path does not register gets a `405` with `Allow`; an `OPTIONS` request
+ * gets a `200` with `Allow`. A 404 produced by the matched handler for the
+ * requested method (an unknown resource id, for example) is left untouched —
+ * the method is registered, so answering 405 would contradict `Allow`. If no
+ * method is registered for the path the 404 is left untouched too.
  *
  * @param root - Trie root to walk for allowed methods.
  * @param caseSensitive - Router case-sensitivity option.
@@ -141,6 +143,11 @@ export function createAllowedMethodsMiddleware(
     const allowed = findAllowedMethods(ctx.path, root, caseSensitive, strict);
 
     if (allowed.length === 0) return;
+
+    // The request method is in the path's Allow set: the 404 came from the
+    // matched handler (or a registered OPTIONS handler), not from a method
+    // miss. Leave that answer in place.
+    if (allowed.includes(ctx.method)) return;
 
     const allowHeader = allowed.join(', ');
 

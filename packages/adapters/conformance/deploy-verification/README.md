@@ -24,6 +24,35 @@ secrets are absent (forks, and any environment without the deploy credentials co
 Every deployed resource is named `nextrush-deploy-verify-<run-id>` and tagged
 `ephemeral=true` so a failed teardown is identifiable and cheap to clean up by hand.
 
+## Next.js App Router real-server proof (local, no deploy)
+
+`nextjs-app-14/`, `nextjs-app-15/`, and `nextjs-app-16/` are App Router fixtures. A successful
+`next build` only proves the route modules compile and type-check — it is **not** integration
+proof. `nextjs-app-16/` additionally runs a production `next build` plus a real `next start`
+server and drives the API over HTTP:
+
+```bash
+# The fixture consumes the workspace packages' built dist, not their src —
+# rebuild dependencies first so the proof never exercises stale code.
+pnpm --filter "nextjs-app-16^..." build
+pnpm --filter nextjs-app-16 test:integration
+```
+
+The fixture serves a conference-room CRUD API at `/api/rooms` (list, get, create, replace,
+partial-update, delete) with:
+
+- JSON bodies through `bodyParser()`; malformed JSON, invalid fields, and unsupported content
+  types answer deterministic 400/415 envelopes.
+- Dynamic `:id` params; an unknown id is a 404 for GET/PUT/PATCH/DELETE.
+- `405` + `Allow` for an unregistered method, `OPTIONS` with `Allow`, and `HEAD` with the GET
+  headers and an empty body.
+
+The room store lives in module memory, so it is **per server process and not durable** — the
+sequential-state test relies on one process serving every request. It exists to prove the
+Next.js adapter over real HTTP, not to model persistence, and it does not run the shared
+conformance suite (see `docs/runtime-certification-matrix.md`, which keeps the `nextjs` column
+at its in-process proof level for that reason).
+
 ## Required secrets (repository/environment secrets — never hardcoded)
 
 | Secret | Used by |
