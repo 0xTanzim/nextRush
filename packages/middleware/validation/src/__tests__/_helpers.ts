@@ -19,8 +19,14 @@ export function fake<T>(
 
 /** Minimal Context stub carrying only what the validation middleware touches. */
 export function mockCtx(
-  init: { body?: unknown; query?: Record<string, unknown>; params?: Record<string, string> } = {}
+  init: {
+    body?: unknown;
+    query?: Record<string, unknown>;
+    params?: Record<string, string>;
+    headers?: Record<string, string | undefined>;
+  } = {}
 ): Context {
+  const headers = init.headers ?? {};
   return {
     body: init.body,
     // RFC-047: the middleware consumes the body through `readBody()`, so the
@@ -28,6 +34,12 @@ export function mockCtx(
     readBody: async <T = unknown>() => init.body as T,
     query: init.query ?? {},
     params: init.params ?? {},
+    // Real Contexts always carry a request-scoped state bag; validate() writes
+    // the coerced values there.
+    state: {},
+    // validate() reads request headers to tell "no body sent" apart from
+    // "no body parser installed".
+    get: (field: string) => headers[field.toLowerCase()],
   } as unknown as Context;
 }
 

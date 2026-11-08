@@ -14,7 +14,9 @@ describe('Public API surface (runtime exports)', () => {
     const actualExports = Object.keys(validationApi).sort();
 
     // SEALED: intentional public runtime API surface.
-    const expectedRuntime = ['validate', 'ValidationError'].sort();
+    // `validated` was added deliberately (issue #69) — the coerced query/params
+    // values are exposed on ctx.state and read back through this accessor.
+    const expectedRuntime = ['validate', 'validated', 'ValidationError'].sort();
 
     expect(actualExports).toEqual(expectedRuntime);
   });

@@ -19,7 +19,8 @@
  * @packageDocumentation
  */
 
-export { validate } from './validate.js';
+export { validate, validated } from './validate.js';
+export type { ValidateOptions, ValidatedInput } from './types.js';
 
 // Re-exported so validation errors can be caught/typed from a single import
 // site. The error itself is owned by @nextrush/errors and rendered by the

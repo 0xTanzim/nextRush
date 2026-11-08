@@ -31,9 +31,21 @@ export class ValidationError extends NextRushError {
   /** List of validation issues */
   readonly issues: ValidationIssue[];
 
-  constructor(issues: ValidationIssue[], message = 'Validation failed') {
+  /**
+   * @param issues - Every validation issue to report.
+   * @param message - Human-readable summary.
+   * @param status - HTTP status to emit. Defaults to `400 Bad Request`.
+   *
+   * @remarks
+   * `status` is overridable because "the request was malformed" and "the request
+   * was well-formed but semantically invalid" are different failures, and API
+   * specs legitimately map the second to `422 Unprocessable Entity`. The `code`
+   * stays `VALIDATION_ERROR` regardless: the code names the *kind* of failure,
+   * the status names the *class* of it.
+   */
+  constructor(issues: ValidationIssue[], message = 'Validation failed', status = 400) {
     super(message, {
-      status: 400,
+      status,
       code: 'VALIDATION_ERROR',
       expose: true,
     });
