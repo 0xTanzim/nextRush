@@ -32,7 +32,7 @@ invent a new structure per RFC.
 | [001](release-process/001-hybrid-versioning.md) | Hybrid Versioning & Release Strategy | Implemented | release-process |
 | [002](request-data/002-route-metadata.md) | Route Metadata System (OpenAPI as first renderer) | Approved / shipped | request-data |
 | [003](request-data/003-stream.md) | `@nextrush/stream` — unified response streaming | Shipped | request-data |
-| [004](request-data/004-validation.md) | `@nextrush/validation` — Standard Schema request validation | Shipped | request-data |
+| [004](request-data/004-validation.md) | `@nextrush/validation` — Standard Schema request validation | Shipped — v5 adds `validated(ctx)` + `errorStatus` (#69, #70) | request-data |
 | [005](class-runtime/005-plugin-system.md) | Extension Model (Plugin → Extension), Composition-First | Shipped — see ADR-0002 | class-runtime |
 | [006](class-runtime/006-di-container-ownership.md) | Per-app DI container ownership & isolation | Shipped (Option A) | class-runtime |
 | [007](class-runtime/007-class-consolidation.md) | `@nextrush/class` runtime consolidation | Shipped — see ADR-0003, ADR-0004 | class-runtime |
