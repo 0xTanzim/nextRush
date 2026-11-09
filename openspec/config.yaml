@@ -133,7 +133,7 @@ rules:
     - >-
       Performance designs must define baseline, workload, runtime/tool versions, warm-up,
       repetitions, variance/noise, and the end-to-end metric expected to move. Prefer the existing
-      harness under `apps/benchmark/`; run `pnpm bench:validate` before timing when response parity
+      harness under `apps/benchmark/`; run `pnpm bench:validate` from that workspace (or `pnpm --filter nextrush-benchmark bench:validate` from the repository root) before timing when response parity
       matters. Use controlled multi-run A/B and disjoint server/client CPU pinning where supported.
       Disclose host interference, unavailable hardware counters, and non-publishable runs.
       Micro-benchmarks support an explanation; they do not replace end-to-end evidence.
