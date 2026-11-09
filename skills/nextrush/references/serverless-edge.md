@@ -92,6 +92,7 @@ createFetchHandler(app, {
 | Lambda via serverless | `'edge'` | `'lambda'` |
 | GCF via serverless | `'edge'` | `'gcf'` |
 | Azure via serverless | `'edge'` | `'azure'` |
+| Vercel Serverless via serverless | `'edge'` | `'vercel'` |
 
 Detection order (edge): Cloudflare UA → `VERCEL_REGION` → Netlify (`Deno` + `NETLIFY=true`) → generic edge.
 
@@ -167,6 +168,36 @@ import { app as functions } from '@azure/functions';
 
 functions.http('api', { handler: createAzureHandler(app) });
 ```
+
+### Vercel Serverless Functions (Node.js runtime / Fluid Compute)
+
+For Node.js Serverless Functions on Vercel (`api/index.ts` or standalone API deployments), use `@nextrush/adapter-serverless`. It provides dual-dispatch:
+- Native Web standard Route Handlers (`fetch`, `GET`, `POST`, `PUT`, etc.)
+- Node.js `(req, res)` compatibility with backpressured chunk streaming and multi-cookie preservation
+- Local standalone execution with `listenIfStandalone(handler)`
+
+```typescript
+import { createApp } from 'nextrush';
+import { createVercelHandler, listenIfStandalone } from '@nextrush/adapter-serverless';
+
+const app = createApp();
+app.get('/api/health', (ctx) => ctx.json({ status: 'ok', platform: ctx.platform }));
+
+const handler = createVercelHandler(app);
+
+// 1. Universal default export (handles both Web Request and Node req/res)
+export default handler;
+
+// 2. Named route handler exports for Vercel Web Route Handlers
+export const { GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, fetch } = handler;
+
+// 3. Standalone runner (starts server when NOT in serverless Vercel environment)
+listenIfStandalone(handler);
+```
+
+> **Edge vs Serverless on Vercel:**
+> - If you configure `export const config = { runtime: 'edge' }`, use `createVercelHandler` from `@nextrush/adapter-edge`.
+> - If you use Node.js serverless functions (default Vercel Function runtime / Fluid Compute) or want hybrid standalone local execution, use `createVercelHandler` from `@nextrush/adapter-serverless`.
 
 ### Serverless rules
 

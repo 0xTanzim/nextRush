@@ -8,7 +8,9 @@
  * @packageDocumentation
  */
 
-import type { PlatformId } from '@nextrush/types';
+import type { PlatformId, ProxyTrust } from '@nextrush/types';
+import type { Context } from '@nextrush/core';
+import type { VercelIncomingMessageLike, VercelServerResponseLike } from './platform-shapes';
 
 /**
  * Maps a provider's native event to a Web `Request` and the produced `Response`
@@ -88,3 +90,54 @@ export interface ServerlessHandlerOptions {
   // not an option: see `createLambdaStreamingHandler` for true Function URL
   // response streaming.
 }
+
+/**
+ * Options for {@link createVercelHandler}.
+ */
+export interface VercelHandlerOptions extends ServerlessHandlerOptions {
+  /** Custom error handler mapping Error to Response */
+  readonly onError?: (error: Error, ctx: Context) => Response | Promise<Response>;
+  /** Proxy trust configuration for client IP resolution (RFC-030) */
+  readonly proxy?: ProxyTrust;
+  /** Explicit platform override (defaults to 'vercel') */
+  readonly platform?: PlatformId;
+}
+
+/**
+ * Options for {@link listenIfStandalone}.
+ */
+export interface VercelListenOptions {
+  /** Port to listen on. Defaults to process.env.PORT or 3000 */
+  readonly port?: number;
+  /** Host to bind to. Defaults to '0.0.0.0' or 'localhost' */
+  readonly host?: string;
+  /** Callback invoked once the server starts listening */
+  readonly onListen?: (info: { port: number; host?: string }) => void;
+}
+
+/** Web standard handler for Vercel route invocations. */
+export type VercelWebHandler = (request: Request, ctx?: unknown) => Promise<Response>;
+
+/** Route handler methods for Vercel named exports. */
+export interface VercelRouteHandlers {
+  readonly GET: VercelWebHandler;
+  readonly POST: VercelWebHandler;
+  readonly PUT: VercelWebHandler;
+  readonly PATCH: VercelWebHandler;
+  readonly DELETE: VercelWebHandler;
+  readonly HEAD: VercelWebHandler;
+  readonly OPTIONS: VercelWebHandler;
+}
+
+/**
+ * The universal handler returned by {@link createVercelHandler}.
+ * Callable as both Node (req, res) and Web standard (request),
+ * carrying HTTP method route handlers and standalone local runner.
+ */
+export interface VercelHandler extends VercelRouteHandlers {
+  (req: VercelIncomingMessageLike, res: VercelServerResponseLike): Promise<void>;
+  (request: Request, ctx?: unknown): Promise<Response>;
+  readonly fetch: VercelWebHandler;
+  readonly listenIfStandalone: (options?: VercelListenOptions) => Promise<unknown>;
+}
+

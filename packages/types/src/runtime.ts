@@ -42,6 +42,7 @@ export type PlatformId =
   | 'gcf'
   | 'azure'
   | 'cloudflare-workers'
+  | 'vercel'
   | 'vercel-edge'
   | 'netlify-edge';
 

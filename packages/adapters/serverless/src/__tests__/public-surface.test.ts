@@ -32,6 +32,13 @@ import type {
   ServerlessHandler,
   ServerlessHandlerOptions,
   StreamingLambdaHandler,
+  VercelHandler,
+  VercelHandlerOptions,
+  VercelIncomingMessageLike,
+  VercelListenOptions,
+  VercelRouteHandlers,
+  VercelServerResponseLike,
+  VercelWebHandler,
 } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
@@ -45,7 +52,11 @@ describe('Public API surface (runtime exports)', () => {
       'createGoogleHandler',
       'createGcfHandler',
       'createAzureHandler',
+      'createVercelHandler',
       'createLambdaStreamingHandler',
+      'isServerlessEnvironment',
+      'isStandaloneEnvironment',
+      'listenIfStandalone',
 
       // Advanced / Runtime authors only (Tier 3)
       'createServerlessAdapter',
@@ -55,6 +66,8 @@ describe('Public API surface (runtime exports)', () => {
       'writeGcfResult',
       'toAzureEvent',
       'toAzureResponse',
+      'toVercelWebRequest',
+      'writeVercelWebResponse',
 
       // Built-in mappers (Tier 3 building blocks)
       'lambdaFunctionUrl',
@@ -97,6 +110,13 @@ describe('Public API surface (type-only exports)', () => {
       GcfHttpResponse,
       AzureHttpRequestLike,
       AzureHttpResponseLike,
+      VercelIncomingMessageLike,
+      VercelServerResponseLike,
+      VercelHandler,
+      VercelHandlerOptions,
+      VercelListenOptions,
+      VercelRouteHandlers,
+      VercelWebHandler,
     ];
     expectTypeOf<Surface>().not.toBeNever();
   });

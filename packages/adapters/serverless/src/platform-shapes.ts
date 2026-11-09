@@ -50,3 +50,34 @@ export interface AzureHttpResponseLike {
   cookies?: readonly { name: string; value: string }[];
   body?: string | Uint8Array;
 }
+
+/**
+ * The subset of Node.js / Vercel Serverless HTTP request this adapter reads.
+ * A real `http.IncomingMessage` or `@vercel/node`'s `VercelRequest` is structurally assignable to this.
+ */
+export interface VercelIncomingMessageLike {
+  readonly method?: string;
+  readonly url?: string;
+  readonly headers: Record<string, string | string[] | undefined>;
+  readonly signal?: AbortSignal;
+  [Symbol.asyncIterator]?(): AsyncIterableIterator<Uint8Array | Buffer | string>;
+  readonly body?: unknown;
+  readonly rawBody?: unknown;
+}
+
+/**
+ * The subset of Node.js / Vercel Serverless HTTP response this adapter writes.
+ * A real `http.ServerResponse` or `@vercel/node`'s `VercelResponse` is structurally assignable to this.
+ */
+export interface VercelServerResponseLike {
+  statusCode: number;
+  statusMessage?: string;
+  readonly headersSent?: boolean;
+  readonly writableEnded?: boolean;
+  readonly destroyed?: boolean;
+  setHeader(name: string, value: string | readonly string[]): unknown;
+  write(chunk: unknown): unknown;
+  end(chunk?: unknown): unknown;
+  once?(event: string, listener: (...args: unknown[]) => void): unknown;
+}
+

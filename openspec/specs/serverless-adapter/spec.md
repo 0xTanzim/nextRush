@@ -14,8 +14,8 @@ globals), plus committed full-chain platform integration fixtures.
 ### Requirement: Tiered public API — per-provider handlers hide internals
 The serverless adapter SHALL expose a tiered public API so ordinary users never encounter internal architecture (`EventMapper`, registry, provider selection). *Internal complexity MUST NOT become user complexity.*
 
-- **Tier 1 (primary surface):** per-provider one-liner handlers — `createLambdaHandler(app)`, `createGoogleHandler(app)`, `createAzureHandler(app)` — that auto-configure the correct mapper(s) with zero configuration. (Cloudflare's Tier-1 handler already ships in `@nextrush/adapter-edge`.)
-- **Tier 2:** the same handlers accept an options object (`{ timeout?, streaming? }`) for tuning — no architecture exposed.
+- **Tier 1 (primary surface):** per-provider one-liner handlers — `createLambdaHandler(app)`, `createGoogleHandler(app)`, `createAzureHandler(app)`, and `createVercelHandler(app)` — that auto-configure the correct mapper(s) or bridge with zero configuration. (Cloudflare's Tier-1 handler ships in `@nextrush/adapter-edge`.)
+- **Tier 2:** the same handlers accept an options object (`{ timeout?, onError?, proxy? }`) for tuning — no architecture exposed.
 - **Tier 3 (runtime authors only):** `createServerlessAdapter({ mappers })` and the `EventMapper` interface remain exported but MUST be marked `@advanced` / "Runtime authors only" in JSDoc and docs.
 
 Tier-1 handlers MUST run the same `Context` pipeline and execution model (timeout→504, warm `ready()` reuse) as Tier 3.
@@ -24,8 +24,12 @@ Tier-1 handlers MUST run the same `Context` pipeline and execution model (timeou
 - **WHEN** a user writes `export const handler = createLambdaHandler(app)` with no options
 - **THEN** it serves both Lambda Function URL and API Gateway events without the user naming a mapper or a provider
 
+#### Scenario: Zero-config Vercel handler
+- **WHEN** a user writes `export default createVercelHandler(app)` with no options
+- **THEN** it serves both Node.js HTTP invocations and Web standard Fetch invocations with zero configuration
+
 #### Scenario: Internals not required for normal use
-- **WHEN** a normal application developer deploys to Lambda / Google / Azure
+- **WHEN** a normal application developer deploys to Lambda / Google / Azure / Vercel
 - **THEN** they can do so using only `createXHandler(app)`, never importing or referencing `EventMapper` or `createServerlessAdapter`
 
 #### Scenario: Advanced tier remains available for runtime authors
@@ -113,3 +117,52 @@ The serverless adapter SHALL pass the cross-adapter conformance suite, proving o
 #### Scenario: Serverless adapter joins the parity matrix
 - **WHEN** the conformance suite runs
 - **THEN** the serverless adapter produces responses identical to the other adapters for the shared contract, and the suite passes
+
+### Requirement: Universal Vercel serverless dual-protocol execution
+`createVercelHandler(app)` SHALL return a universal callable handler that accepts both Node.js HTTP invocations `(req: IncomingMessage, res: ServerResponse)` and Web Standard Fetch invocations `(request: Request, ctx?: unknown) => Promise<Response>`, and SHALL expose HTTP verb route handlers (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`) and `.fetch` as properties on the handler function.
+
+#### Scenario: Node.js serverless invocation
+- **WHEN** Vercel invokes the exported handler with `(req, res)`
+- **THEN** the adapter bridges the incoming Node request to a Web `Request`, executes the NextRush pipeline, and writes the response status, headers, and body to `res`
+
+#### Scenario: Web Fetch API invocation
+- **WHEN** Vercel or a test runner invokes the exported handler with `(request)`
+- **THEN** the adapter dispatches directly to the Web runner and returns a Web `Response`
+
+#### Scenario: Named HTTP method route handler execution
+- **WHEN** a route handler is invoked via named export `handler.GET(request)` or `handler.POST(request)`
+- **THEN** the request executes through the Web runner and returns the corresponding `Response`
+
+#### Scenario: Multi-value Set-Cookie headers preserved
+- **WHEN** a route handler returns multiple cookies
+- **THEN** the adapter writes them using `res.setHeader('Set-Cookie', cookiesArray)` preserving each cookie separately
+
+#### Scenario: Platform identity on context
+- **WHEN** a request executes through `createVercelHandler`
+- **THEN** `ctx.platform` is `'vercel'`
+
+### Requirement: Vercel response streaming with backpressure and cancellation
+The Vercel Node.js response bridge SHALL stream response bodies chunk-by-chunk to `res.write` when the response body is a `ReadableStream`, SHALL handle backpressure via the `drain` event when `res.write()` returns `false`, and SHALL abort the body reader if the client disconnects before stream completion.
+
+#### Scenario: Chunked response streaming
+- **WHEN** an application handler streams data via `ctx.sse` or returns a `ReadableStream`
+- **THEN** chunks are written progressively to `res.write` without buffering the entire payload into memory
+
+#### Scenario: Backpressure handling on slow connection
+- **WHEN** `res.write(chunk)` returns `false` due to full kernel socket buffers
+- **THEN** the stream reader pauses and waits for the `drain` event on `res` before reading further chunks
+
+#### Scenario: Reader cancellation on premature client disconnect
+- **WHEN** the incoming connection emits a `close` event before the response stream completes
+- **THEN** the Web stream reader is cancelled immediately and the connection is closed cleanly
+
+### Requirement: Standalone local development detection
+The serverless adapter SHALL expose a `listenIfStandalone(options)` helper and method on `createVercelHandler` that checks serverless environment markers (`VERCEL`, `VERCEL_ENV`, `NOW_REGION`, `AWS_LAMBDA_FUNCTION_NAME`, `K_SERVICE`, `FUNCTION_TARGET`, `FUNCTIONS_WORKER_RUNTIME`). When any marker is present, the function SHALL immediately return `undefined` without binding a socket; when no marker is present, it SHALL start an HTTP server on Node, Bun, or Deno.
+
+#### Scenario: No-op in serverless environment
+- **WHEN** `listenIfStandalone()` executes in an environment where `process.env.VERCEL` is set
+- **THEN** it does not attempt to bind a port or listen on a socket and returns `undefined`
+
+#### Scenario: Starts local server in standalone development
+- **WHEN** `listenIfStandalone({ port: 3000 })` executes in a local environment with no serverless markers
+- **THEN** it starts a listening server on the specified port and invokes `onListen` callback if provided

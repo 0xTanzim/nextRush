@@ -51,6 +51,7 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0036](ADR-0036-opt-in-lazy-body-parsing.md) | Opt-in lazy body parsing via a per-request deferred reader | Accepted | `docs/RFC/request-data/047-lazy-body-parsing.md` |
 | [ADR-0037](ADR-0037-nextjs-callable-handler-set.md) | Callable Next.js route-handler set with a shared engine per app and options | Accepted | `docs/RFC/runtime-adapters/049-nextjs-callable-handler.md` |
 | [ADR-0038](ADR-0038-handler-return-settlement.md) | Settle a handler's returned value into the response through one shared table | Accepted | `docs/RFC/runtime-adapters/050-handler-return-settlement.md` |
+| [ADR-0039](ADR-0039-vercel-serverless-adapter.md) | First-class Vercel Serverless Function adapter with dual-protocol invocation and standalone runner | Accepted | — |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

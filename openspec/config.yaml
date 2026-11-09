@@ -1,104 +1,363 @@
-# OpenSpec project config for NextRush.
-# Schema: the built-in `spec-driven` workflow (artifacts: proposal → specs → design → tasks).
-#   Verified against @fission-ai/openspec 1.6.0 — schemas/spec-driven/schema.yaml.
+# NextRush OpenSpec project configuration.
 #
-# How this file is consumed (do not guess — this is the actual contract):
-#   • `context:`  is injected into EVERY artifact prompt.
-#   • `rules:`    are injected ONLY for the artifact whose id matches the key.
-#                 The artifact ids are EXACTLY: proposal · specs · design · tasks.
-#                 A rules key that is not one of those four is silently ignored —
-#                 e.g. `spec:` (singular) matches nothing and never reaches the AI.
-#   • Keep generic OpenSpec mechanics (delta headers, #### scenarios, checkbox
-#     tracking) in the schema's own instructions; this file adds NextRush-specific
-#     governance on top, plus a few reinforced "fails-silently" traps worth repeating.
+# Workflow: built-in `spec-driven`.
+# Artifacts: proposal -> specs/design -> tasks -> apply -> archive.
+#
+# Current OpenSpec project configuration:
+# - `context` is injected into artifact creation, apply, and archive.
+# - `rules` add guidance to the matching artifact.
+# - `operations.apply/archive.guidance` adds guidance to those operations.
+# - The built-in `spec-driven` schema owns artifact structure and dependencies.
+#
+# Configuration contract:
+# - `context:` is shared project context for artifact generation.
+# - `rules:` keys must match the built-in artifact IDs exactly:
+#   `proposal`, `specs`, `design`, `tasks`.
+# - This file adds NextRush-specific guidance. Generic OpenSpec syntax,
+#   delta headers, artifact dependencies, and task tracking remain owned
+#   by the built-in `spec-driven` schema.
+#
+# Authority:
+# - AGENTS.md: engineering constitution.
+# - openspec/README.md: capability ownership and OpenSpec governance.
+# - openspec/specs/: living behavioral contracts.
+# - docs/RFC/ and docs/adr/: durable architectural decisions.
+
 schema: spec-driven
 
-# ── Project context (injected into ALL artifacts) ──────────────────────────────
+# ── Shared project context ────────────────────────────────────────────────────
 context: |
-  NextRush — minimal, modular, high-performance, ESM-only Node.js HTTP framework
-  (TypeScript strict, pnpm/Turborepo monorepo, Node >= 22). Conventional commits.
-  Engineering constitution: AGENTS.md. Repo rules: .kiro/steering/*.instructions.md.
+  This context applies across artifact creation, implementation (apply), and
+  archive. Keep artifact-specific instructions in `rules` and execution-specific
+  guidance in `operations`.
 
-  ── SPEC GOVERNANCE — READ BEFORE CREATING ANY CHANGE ───────────────────────────
-  `openspec/specs/` is a SMALL, STABLE set of capability specs (16) describing what the
-  framework does TODAY. It is the source of truth we actually read. It must NOT grow
-  one-folder-per-change.
+  PROJECT
+  NextRush is a TypeScript-first, ESM-only, modular Node.js HTTP framework in a
+  pnpm/Turborepo monorepo. Node.js support starts at >=22.0.0. The framework
+  also contains runtime adapters and integrations for other supported runtimes.
+  Verify the currently supported runtime matrix in repository documentation;
+  do not assume every package works identically on every runtime.
 
-  THE ONE RULE: a change EDITS an EXISTING capability's requirements (ADDED / MODIFIED /
-  REMOVED / RENAMED). It does NOT create a new `specs/<capability>/` folder unless a
-  genuinely new, durable capability is being born (rare — expect to justify it).
+  ENGINEERING AUTHORITY
+  - Follow the repository-root AGENTS.md as the engineering constitution.
+  - Follow openspec/README.md for capability ownership and OpenSpec governance.
+  - Treat openspec/specs/ as the living source of intended observable behavior.
+  - Inspect source, tests, package manifests, architecture docs, RFCs, and ADRs
+    before making claims about current implementation.
+  - When implementation and specification disagree, identify the discrepancy
+    and resolve it explicitly; do not silently treat either as correct.
+  - Verify referenced paths and commands exist before relying on them.
+  - Use the repository's existing templates, scripts, skills, and conventions.
 
-  FIXED CAPABILITY LIST (see openspec/README.md for what each owns):
-    router · core-middleware · node-adapter · web-adapters · body-parser ·
-    portable-middleware · graceful-shutdown · health · performance-gate ·
-    runtime-adapter-contract · runtime-capability-negotiation · runtime-proof-harness ·
-    serverless-adapter · adapter-development-kit · public-surface-lock · gap-checklist-accuracy ·
-    framework-composition · project-scaffolding · security-boundaries · dev-tooling ·
-    ecosystem-interop
+  SPEC GOVERNANCE
+  The capability specs describe durable framework responsibilities, not
+  individual changes, optimizations, packages, or temporary implementation
+  details. Prefer modifying an existing capability over creating a new one.
+  Discover the current capability inventory with `openspec list --specs` and
+  consult openspec/README.md for ownership. Do not maintain a second hard-coded
+  capability registry in this file.
+  Create a new capability only when a genuinely new, durable responsibility
+  has no suitable existing owner. Explain why existing capabilities cannot
+  own it. Capability names must describe durable responsibilities, never
+  change-shaped names such as `router-fastpath`, `*-trim`, or `*-cleanup`.
+  Every new capability must have a meaningful Purpose, not a generated stub.
+  Do not create spec deltas for changes that do not alter externally observable
+  behavior. Do not invent requirements merely to make a change look complete.
 
-  A capability is named after a DURABLE thing (`router`, `node-adapter`), never after a
-  change (`router-match-path-allocation-trim`, `*-fastpath`, `*-trim`, `*-cleanup`,
-  `*-microtrims`, `*-final-*`). Every capability spec has a real `## Purpose` — never a
-  "TBD - created by archiving…" stub.
+  ARCHIVE AND DURABLE DECISIONS
+  Follow the archive and retention policy in openspec/README.md and AGENTS.md.
+  Treat changes/archive/ according to the repository's configured retention
+  policy; do not use archived changes as the current source of truth.
+  Git history records shipped changes. Durable architectural rationale belongs
+  in approved docs/RFC/ or docs/adr/ records, not only in an archived change.
+  Capture required durable decisions before archiving.
 
-  ── ARCHIVE IS DISPOSABLE ────────────────────────────────────────────────────────
-  `changes/archive/` is gitignored local scratch — never read for truth, safe to delete
-  anytime. Git commit history is the record of shipped changes. Durable architectural
-  decisions ("why segment-trie", "why ESM-only") live in `docs/RFC/` as RFCs/ADRs and
-  MUST be captured there BEFORE a change is archived — never only in a prunable archive.
+  ARCHITECTURE AND COMPATIBILITY
+  Correctness, security, public API compatibility, and runtime portability are
+  hard constraints. Performance improvements do not justify weakening them.
+  Preserve package dependency direction and keep optional capabilities out of
+  foundational entrypoints unless explicitly justified.
+  Keep portable contracts separate from runtime-specific implementation.
+  Use capability negotiation and adapter contracts where the architecture
+  requires them; do not scatter runtime-name checks through portable code.
+  State real runtime differences rather than promising parity without evidence.
+  Apply the RFC gates in AGENTS.md and openspec/README.md. In particular,
+  changes to packages, capabilities, public APIs/types/Context, routing,
+  middleware, DI, adapters, runtime contracts, or breaking behavior may require
+  an approved RFC before implementation. Follow the repository's actual policy.
+  Breaking public changes need explicit compatibility analysis, migration
+  guidance, and release/semver treatment.
 
-  ── RFC GATING ─────────────────────────────────────────────────────────────────
-  A new package, a new capability, a public-API/Context/routing/middleware/DI/adapter
-  change, or any breaking change is RFC-gated: an approved `docs/RFC/` entry precedes
-  implementation. The RFC defines the architecture; the change's tasks validate it (TDD).
-  New RFCs/ADRs follow the templates: docs/RFC/TEMPLATE.md · docs/adr/TEMPLATE.md.
+  SYSTEMS-LEVEL ENGINEERING
+  Follow AGENTS.md performance and systems-engineering guidance. For changes
+  where relevant, reason from the complete execution path and investigate the
+  layers that can materially affect the workload:
+  - algorithmic complexity, data structures, lookup and dispatch behavior;
+  - allocation rate, object lifetime/escape, retention, and garbage collection;
+  - JIT/compiler behavior, inlining, object shapes, and deoptimizations;
+  - CPU work, branches, instruction cost, and cache locality/pointer chasing;
+  - working-set size, memory access patterns, virtual memory, pages, and TLB;
+  - event-loop work, async boundaries, scheduling, and context switches;
+  - syscalls, network and filesystem I/O, buffering, and backpressure.
+  Do not mechanically discuss every layer for every change. Explain why a
+  layer matters or why it is not relevant. Distinguish source-confirmed facts,
+  measurements, and hypotheses. Do not imply TypeScript directly controls
+  physical cache lines, memory banks, registers, or kernel scheduling.
+  Small improvements, including around 1%, can be valuable when repeatable,
+  above measurement noise, and relevant to real workloads. Never accept a
+  noisy benchmark as proof.
 
-# ── Per-artifact rules (key MUST equal the artifact id, or it is dropped) ───────
+  EVIDENCE AND VERIFICATION
+  Prefer repository evidence over assumptions. Use the existing test,
+  conformance, profiling, allocation, and benchmark infrastructure before
+  inventing new tooling. Benchmark claims need a defined workload, baseline,
+  runtime/tool versions, warm-up, repeated measurements, variance/noise
+  assessment, and a clear statement of what the result proves and does not
+  prove. A microbenchmark can isolate a mechanism; it does not replace
+  end-to-end evidence. Report unavailable hardware counters or environmental
+  controls honestly. Never claim a command, test, benchmark, or validation ran
+  unless it actually ran and passed.
+
+# ── Artifact-specific rules ───────────────────────────────────────────────────
 rules:
-  # id: proposal — WHY. Maps to the schema's Why / What Changes / Capabilities / Impact.
+  # proposal: problem, motivation, scope, affected capabilities, impact.
   proposal:
-    - In the Capabilities section, put the change under "Modified Capabilities" naming the
-      EXISTING capability from the fixed list; leave "New Capabilities" empty unless a genuinely
-      new durable capability is born (and justify why it is not requirements added to an existing one).
-    - Keep it tight — Why / What changes / Capabilities / Impact. No implementation-detail dumps,
-      no restated tasks. Mark any breaking change **BREAKING**.
-    - A breaking public-API change ships a migration path and is RFC-gated (docs/RFC/) before code.
-    - Never use change-shaped capability names (*-fastpath, *-trim, *-cleanup, *-microtrims, *-final-*).
-    - Note the durable decision, if any, that must land in docs/RFC/ before this change is archived.
+    - >
+      Before choosing capabilities, run `openspec list --specs` and consult
+      openspec/README.md. Read the relevant existing living specs and inspect
+      the affected source/tests. Use the actual capability names and ownership;
+      do not infer capability names from package names or archived changes.
+    - >
+      Explain the concrete problem, who or what is affected, why the change
+      matters, and the evidence available (reproduction, issue, profile,
+      benchmark, compatibility gap, or user-facing consequence). Separate
+      confirmed facts from assumptions and unknowns.
+    - >
+      Keep the proposal focused on Why, What Changes, Capabilities, and Impact.
+      State scope and non-goals. Identify affected packages, public surfaces,
+      runtimes, and integrations where relevant. Put implementation details
+      in design.md and implementation breakdown in tasks.md.
+    - >
+      List an existing capability under Modified Capabilities only when its
+      externally observable contract changes. Leave New Capabilities empty
+      unless a genuinely new durable responsibility is justified against the
+      existing capability registry. For internal-only changes, do not invent
+      behavioral spec changes.
+    - >
+      Mark breaking behavior explicitly. Identify affected exports, public
+      types, Context, routing, middleware order, DI, adapter/runtime contracts,
+      and migration/release implications as applicable. Apply the RFC gate
+      from AGENTS.md and openspec/README.md before implementation.
+    - >
+      Identify durable architectural decisions that need an RFC/ADR. Do not
+      treat the change proposal or eventual archive as a substitute for an
+      approved durable decision record.
 
-  # id: specs — WHAT (the delta). NOTE: key is `specs`, NOT `spec` — `spec:` is silently ignored.
+  # specs: observable contracts, not implementation documentation.
   specs:
-    - Write deltas against an EXISTING capability under the delta headers
-      ADDED / MODIFIED / REMOVED / RENAMED Requirements (## level). Do NOT spin up a
-      new specs/<capability>/ folder for a change.
-    - Scenarios MUST use exactly four hashtags (`#### Scenario:`) with WHEN/THEN — three hashtags
-      or a bullet FAILS SILENTLY (strict-validated, but the miss is easy to ship). Every
-      `### Requirement:` has at least one `#### Scenario:`.
-    - MODIFIED requirements MUST paste the ENTIRE requirement block (heading through all scenarios)
-      copied from openspec/specs/<capability>/spec.md, then edited — partial content loses detail at
-      archive. If you are only adding a new concern, use ADDED, not MODIFIED.
-    - REMOVED requirements MUST include a **Reason** and a **Migration** note; RENAMED uses FROM/TO markers.
-    - Requirement text is a contract — precise, testable, phrased with SHALL/MUST (avoid should/may).
-      Titles are unique within a capability; prefer MODIFIED over adding a near-duplicate requirement.
-    - Capability specs stay kebab-case, durable-named, with a real `## Purpose` (never a TBD stub).
+    - >
+      Write deltas against the actual existing capability spec. Preserve the
+      built-in delta headers: ADDED, MODIFIED, REMOVED, and RENAMED
+      Requirements. Do not create a new capability folder for a change unless
+      the durable-capability exception in the shared context is satisfied.
+    - >
+      Requirements describe externally observable behavior and guarantees for
+      framework users, downstream packages, and runtime integrations. Specify
+      relevant inputs, outputs, ordering, errors, lifecycle, cancellation,
+      limits, security properties, and portability. Keep internal class names,
+      private functions, data structures, and implementation choices in
+      design.md, not behavioral requirements.
+    - >
+      Every Requirement must have at least one scenario using exactly
+      `#### Scenario:`. Scenarios must state a meaningful trigger using WHEN
+      (and GIVEN when needed) and an observable THEN outcome. Do not use
+      three-hash headings or bullet points as scenario substitutes.
+    - >
+      For MODIFIED requirements, copy the complete existing requirement block
+      from the living spec, including all scenarios, then edit it. Use ADDED
+      for a genuinely new concern rather than partially rewriting an existing
+      requirement. Avoid duplicate or overlapping requirements.
+    - >
+      REMOVED requirements must explain Reason and Migration. RENAMED
+      requirements must use the exact FROM/TO markers required by the schema.
+      Keep requirement titles unique within a capability.
+    - >
+      Write normative, testable contracts using SHALL or MUST. Avoid vague
+      terms such as fast, efficient, seamless, or should unless they are
+      explicitly defined and measurable.
+    - >
+      Preserve existing capability Purpose sections. A new capability must
+      have a meaningful Purpose that explains its durable responsibility.
+      Never create a TBD or archive-generated placeholder Purpose.
 
-  # id: design — HOW. Optional; skip for trivial changes (the schema gates when it's needed).
+  # design: engineering decisions, execution path, risks, evidence.
   design:
-    - Only write design.md for architecturally non-trivial changes; skip it for a one-line fix.
-    - Record WHY — Decisions (why X over Y, alternatives rejected), Risks/Trade-offs, constraints —
-      not a restatement of tasks.
-    - Link the governing docs/RFC/ entry when the change implements or extends an RFC; do not
-      duplicate the RFC's content — reference it.
-    - Respect the package hierarchy (lower never imports from higher) and the zero-dependency core rule.
+    - >
+      Follow the built-in schema's criteria for whether design.md is required.
+      Include it for changes with meaningful architectural, cross-package,
+      runtime, compatibility, security, lifecycle, data-structure, or
+      performance implications. Omit it for genuinely trivial changes.
+    - >
+      Trace the actual affected execution path using source code and tests.
+      For HTTP changes, consider the relevant portions of startup/registration,
+      adapter entry, core dispatch, routing, middleware, handler execution,
+      response construction/emission, error handling, and teardown. Do not
+      describe stages that the change does not touch. Identify package
+      ownership and dependency direction, and explain why the change belongs
+      at the selected layer.
+    - >
+      Explain the proposed design and its invariants. Compare credible
+      alternatives, including the simplest viable option. State why the chosen
+      approach is preferable and identify rejected alternatives and their
+      costs. Link governing RFCs/ADRs instead of copying their full content.
+    - >
+      For performance-sensitive changes, identify the target workload, metric,
+      baseline, suspected bottleneck, and evidence. Analyze the relevant
+      algorithmic, allocation/GC, JIT, CPU, cache-locality, memory/TLB,
+      event-loop/scheduling, syscall, I/O, and backpressure layers. Separate
+      measured facts from hypotheses; do not speculate about hardware behavior
+      without evidence. Explain why omitted layers are not material.
+    - >
+      Performance validation should use the existing apps/benchmark harness
+      where applicable. Run parity validation before timing when comparable
+      HTTP responses are required. The benchmark package is named
+      `nextrush-benchmark`; from the repository root the parity command is
+      `pnpm --filter nextrush-benchmark bench:validate`. Use repeated,
+      controlled A/B measurements and CPU pinning where supported. Record
+      environment, runtime/tool versions, warm-up, run count, spread/variance,
+      and limitations. Do not present a single noisy run as proof.
+    - >
+      For runtime or adapter changes, define the portable contract, affected
+      runtime/capability matrix, fallback or unsupported behavior, and
+      conformance expectations. Distinguish guaranteed parity from deliberate
+      capability differences.
+    - >
+      For security, lifecycle, and resource-sensitive changes, analyze trust
+      boundaries, malformed/untrusted input, resource exhaustion, fail-open
+      versus fail-closed behavior, concurrency/reentrancy, cancellation,
+      timeout, partial writes, ownership, cleanup, and failure recovery where
+      applicable.
+    - >
+      State risks, trade-offs, compatibility effects, observability needs, and
+      rollback or migration considerations. Resolve questions that could
+      materially change the requirements or architecture before creating
+      implementation tasks.
 
-  # id: tasks — the implementation checklist. Checkbox format is load-bearing (parsed by apply).
+  # tasks: executable implementation plan with observable completion evidence.
   tasks:
-    - Every task MUST be a checkbox `- [ ] X.Y <description>` under a `## <n>. <group>` heading —
-      tasks not in `- [ ]` form are NOT tracked by the apply phase.
-    - Order test-first (RED -> GREEN -> REFACTOR); no production code before a failing test exists.
-    - Keep tasks small and independently verifiable — one concern per task, done in one session.
-    - Where any adapter is touched, include a cross-adapter conformance/parity task
-      (packages/adapters/conformance) — observable behavior must stay identical across runtimes.
-    - Include the gate checks as explicit tasks — per-package line coverage stays at or above 90%,
-      ESLint clean, and tsc strict clean.
-    - Performance work is correctness-first and measurement-gated (bench:validate + a CPU-pinned A/B).
+    - >
+      Every task must be a checkbox in the built-in tracked format:
+      `- [ ] X.Y <description>` under a numbered `## <n>. <group>` heading.
+      Preserve the schema's exact task syntax because apply uses it for
+      progress tracking.
+    - >
+      Organize tasks in dependency order and coherent implementation slices.
+      Keep each task focused and independently reviewable. Avoid both
+      meaningless micro-tasks and oversized tasks that hide several unrelated
+      changes.
+    - >
+      Use RED -> GREEN -> REFACTOR for behavior changes where practical:
+      establish a failing regression test before changing production behavior.
+      Do not force TDD steps onto docs-only or metadata-only changes; use
+      appropriate validation such as schema, parser, type, or link checks.
+    - >
+      Every task must state or clearly imply completion evidence: the test,
+      type check, build, conformance command, benchmark, documentation review,
+      or other observable result that demonstrates it is complete. Use real
+      package scripts and commands verified in the repository; never invent
+      commands.
+    - >
+      Select test layers based on risk: unit, boundary/negative, property or
+      fuzz, integration, lifecycle/concurrency, public type/export,
+      generated-project, and runtime-conformance tests as applicable. Cover
+      error paths, cancellation, cleanup, and resource bounds when the
+      changed contract requires them.
+    - >
+      When adapter or portable runtime behavior changes, include conformance
+      tasks for every affected supported runtime through
+      `packages/adapters/conformance`. Test common behavior and explicitly
+      test documented capability differences.
+    - >
+      Include relevant lint, strict type-check, build, and test gates for the
+      affected packages. Preserve the repository's existing per-package
+      coverage thresholds and exclusions; inspect scripts/check-coverage.ts
+      rather than weakening thresholds or widening exclusions to make a
+      change pass. Run broader repository verification when the scope warrants
+      it, and report checks that could not be run.
+    - >
+      For performance changes, include correctness/parity tests and measured
+      before/after evidence from the existing harness where applicable.
+      Add a regression guard when the metric is stable and the guard is
+      justified. Retain small improvements when repeatable and above noise;
+      reject unsupported or correctness-regressing wins.
+    - >
+      If a published package's behavior or public surface changes, include
+      the required Changeset, release notes, migration documentation, and
+      semver treatment. Do not add release artifacts for private tooling or
+      documentation-only changes unless repository policy requires them.
+    - >
+      Do not mark a task complete until its stated verification actually ran
+      and passed. Never report planned work as completed work.
+
+
+# ── Operation-specific guidance ────────────────────────────────────────────────
+# These instructions guide execution; they do not change the built-in schema's
+# artifact graph, templates, or validation rules.
+operations:
+  apply:
+    guidance:
+      - >
+        Before implementation, inspect the working tree and relevant diffs.
+        Read the approved proposal, specs, design, tasks, applicable AGENTS.md,
+        package guidance, source, tests, and governing RFC/ADR. Preserve
+        unrelated user changes; never reset, overwrite, or clean up unrelated work.
+      - >
+        Treat tasks.md as the approved implementation plan. Work in dependency
+        order and keep task checkboxes accurate. Do not silently broaden scope.
+        If implementation evidence contradicts a requirement or design decision,
+        stop and reconcile the change artifacts before proceeding.
+      - >
+        Implement in coherent, reviewable slices. Add or update regression tests
+        with the implementation they protect. Prefer failing-test-first for
+        behavior changes; use appropriate schema/parser/type checks for
+        documentation and configuration changes.
+      - >
+        Run the verification relevant to each task before marking it complete.
+        Use actual repository scripts and report exact commands and outcomes.
+        Never claim a test, type-check, build, conformance run, or benchmark
+        passed unless it was executed successfully.
+      - >
+        For adapter/runtime changes, run the applicable conformance checks for
+        every affected supported runtime. For performance changes, establish
+        the baseline, validate parity where applicable, change one meaningful
+        variable at a time, and use controlled repeated measurements. Preserve
+        correctness, security, compatibility, and portability over speed.
+      - >
+        Update proposal, specs, design, or tasks when approved scope, observable
+        behavior, architecture, or implementation sequence materially changes.
+        Record newly discovered risks and explain deviations rather than letting
+        the implementation drift silently.
+
+  archive:
+    guidance:
+      - >
+        Do not archive merely because code has been written. Confirm all tracked
+        tasks are complete and their stated verification has actually run.
+        Clearly disclose blocked, skipped, or unavailable checks.
+      - >
+        Compare the shipped implementation against every delta requirement and
+        scenario. Check for missing behavior, accidental removals, duplicated
+        requirements, incorrect capability ownership, and consistency between
+        the implementation and the resulting living specs.
+      - >
+        Synchronize only the intended capability specs. Preserve existing
+        capability boundaries and meaningful Purpose sections. Do not create
+        change-shaped capabilities or modify unrelated living specs.
+      - >
+        Before archiving, ensure durable architectural decisions are captured
+        in the required approved RFC/ADR records. An archived change is not a
+        substitute for a durable architecture decision.
+      - >
+        Review the final diff and report what shipped, exact verification
+        results, release/Changeset implications, known limitations, and any
+        unresolved maintainer decision.

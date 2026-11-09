@@ -4,8 +4,8 @@ description: >
   Build backend APIs with NextRush — runtime-independent, web-standards-first TypeScript framework.
   Use whenever the user mentions NextRush, nextrush, createApp, createRouter, @Controller, @Get/@Post,
   registerControllers, nextrush/class, nextrush/nextjs, adapter-edge, adapter-serverless, adapter-nextjs,
-  createLambdaHandler, createCloudflareHandler, ctx.sse, ctx.ndjson, websocket rooms, create-nextrush,
-  or asks to build/debug/deploy a NextRush app on Node, Bun, Deno, Cloudflare Workers, Vercel Edge,
+  createLambdaHandler, createCloudflareHandler, createVercelHandler, ctx.sse, ctx.ndjson, websocket rooms, create-nextrush,
+  or asks to build/debug/deploy a NextRush app on Node, Bun, Deno, Cloudflare Workers, Vercel (Edge & Node.js Serverless),
   Netlify Edge, AWS Lambda, GCF, Azure Functions, or inside a Next.js App Router route.ts.
   Also use for NextRush middleware (cors, helmet, body-parser, validation, rate-limit, openapi),
   DI/guards/interceptors, streaming SSE/NDJSON, testing with createTestModule, or scaffold CLI.
@@ -156,7 +156,7 @@ Class exports live under `nextrush/class` (or `@nextrush/class`). Functional ent
 ctx.method, ctx.path, ctx.url, ctx.query, ctx.params, ctx.body
 ctx.headers, ctx.get('authorization'), ctx.ip
 ctx.runtime   // 'node' | 'bun' | 'deno' | 'edge' | 'cloudflare-workers' | 'vercel-edge' | ...
-ctx.platform  // 'lambda' | 'gcf' | 'azure' | 'cloudflare-workers' | 'vercel-edge' | 'netlify-edge' | undefined
+ctx.platform  // 'lambda' | 'gcf' | 'azure' | 'vercel' | 'cloudflare-workers' | 'vercel-edge' | 'netlify-edge' | undefined
 ctx.signal    // AbortSignal (client disconnect + timeout)
 ctx.state      // per-request bag
 ctx.env       // edge bindings (Cloudflare KV/D1/R2 when using createCloudflareHandler)
@@ -207,6 +207,7 @@ FaaS event shapes?
   Lambda response streaming      → createLambdaStreamingHandler(app)
   Google Cloud Functions         → createGoogleHandler(app)
   Azure Functions v4             → createAzureHandler(app)
+  Vercel Serverless (Node.js)    → createVercelHandler(app) from '@nextrush/adapter-serverless'
 
 Inside Next.js App Router?
   app/api/[[...route]]/route.ts → handle(app) from 'nextrush/nextjs'
