@@ -68,6 +68,12 @@ describe('ValidationError', () => {
     it('should work without rule', () => {
       const error = ValidationError.fromField('name', 'Name is required');
       expect(error.issues[0].rule).toBeUndefined();
+      expect(error.status).toBe(400);
+    });
+
+    it('should accept custom status', () => {
+      const error = ValidationError.fromField('name', 'Name is invalid', undefined, 422);
+      expect(error.status).toBe(422);
     });
   });
 
@@ -83,6 +89,12 @@ describe('ValidationError', () => {
       expect(error.issues[0].path).toBe('email');
       expect(error.issues[1].path).toBe('name');
       expect(error.issues[2].path).toBe('age');
+      expect(error.status).toBe(400);
+    });
+
+    it('should accept custom status', () => {
+      const error = ValidationError.fromFields({ email: 'Invalid email' }, 422);
+      expect(error.status).toBe(422);
     });
   });
 
@@ -269,6 +281,11 @@ describe('InvalidEmailError', () => {
     const error = new InvalidEmailError('contactEmail');
     expect(error.issues[0].path).toBe('contactEmail');
   });
+
+  it('should accept custom status', () => {
+    const error = new InvalidEmailError('email', 422);
+    expect(error.status).toBe(422);
+  });
 });
 
 describe('InvalidUrlError', () => {
@@ -283,6 +300,11 @@ describe('InvalidUrlError', () => {
   it('should create URL error with custom field', () => {
     const error = new InvalidUrlError('website');
     expect(error.issues[0].path).toBe('website');
+  });
+
+  it('should accept custom status', () => {
+    const error = new InvalidUrlError('website', 422);
+    expect(error.status).toBe(422);
   });
 });
 

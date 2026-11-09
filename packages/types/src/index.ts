@@ -34,6 +34,8 @@ export {
   // Raw HTTP
   type RawHttp,
   type ResponseBody,
+  type ResponseHeaders,
+  type ResponseOptions,
   type WebStreamLike,
 } from './http';
 
@@ -263,5 +265,5 @@ export {
 // protocol between the router and the adapters, not public application surface.
 // ============================================================================
 
-export { DISPATCH_SETTLED_SYNC, type DispatchMarkerCarrier } from './dispatch-marker';
+export { DISPATCH_SETTLED_SYNC, RESOLVED_PROMISE, type DispatchMarkerCarrier } from './dispatch-marker';
 

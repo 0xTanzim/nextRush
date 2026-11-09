@@ -221,6 +221,40 @@ router.redirect('/legacy', '/v2', 308);     // 307/308 preserve the HTTP method
 app.use(router.allowedMethods()); // OPTIONS → Allow header; unknown method on a known path → 405
 ```
 
+### Return values
+
+A handler may `return` its response instead of calling a context method. The router settles the
+value when the handler resolves:
+
+| Returned value | Response |
+| -------------- | -------- |
+| `undefined` | Nothing is written — the documented `void` contract |
+| `Response` | Its status, headers (including every `Set-Cookie`) and body are adopted |
+| `string` | Text body (`text/plain;charset=UTF-8`) |
+| `Uint8Array` / `ArrayBuffer` / `ReadableStream` / Node readable | Binary or streamed body |
+| `null` | JSON `null` |
+| Object or array | JSON (`application/json`) |
+| Other primitives (`number`, `boolean`) | Their string form |
+
+A response the handler already committed wins: `ctx.json(...)`, `ctx.send(...)` or
+`ctx.redirect(...)` followed by a `return` keeps the committed response. Only the matched handler's
+value settles — application- and route-level middleware returns (including `return next()`) are
+ignored, so onion ordering is unchanged.
+
+The public `RouteHandler` type stays `void | Promise<void>` (ADR-0038), so a handler that returns
+a value needs a cast. Calling `ctx.json(...)` / `ctx.send(...)` needs none and is the fully typed
+path:
+
+```ts
+import type { RouteHandler } from '@nextrush/router';
+
+const listUsers = (() => [{ id: 1, name: 'Ada' }]) as unknown as RouteHandler;
+const health = (() => Response.json({ ok: true }, { status: 202 })) as unknown as RouteHandler;
+
+users.get('/', listUsers);    // 200 application/json: [{"id":1,"name":"Ada"}]
+users.get('/health', health); // 202 — headers and body adopted from the Response
+```
+
 ## API overview
 
 The sealed public surface (ADR-0005). Advanced trie internals are exported for tooling but are not part of the everyday API.
@@ -234,6 +268,7 @@ The sealed public surface (ADR-0005). Advanced trie internals are exported for t
 | `createNode` | `(segment, type?) => TrieNode` | `3.0.0` | Advanced 🔧 | Build a trie node (tooling). |
 | `parseSegments` | `(path, caseSensitive?) => ParsedSegment[]` | `3.0.0` | Advanced 🔧 | Split a path into typed segments (tooling). |
 | `NodeType` | `const enum` | `3.0.0` | Advanced 🔧 | `STATIC` / `PARAM` / `WILDCARD`. |
+| `settleHandlerReturn` | `(ctx, value) => void \| Promise<void>` | `4.2.0` | Internal 🔒 | The shared return-value table, exported so `@nextrush/class` settles controller returns identically. No semver guarantee. |
 | `type Router` (as `RouterInterface`) · `RouterOptions` · `Route` · `RouteHandler` · `RouteMatch` · `Middleware` · `HttpMethod` | — | `3.0.0` | Stable ✅ | Re-exported contracts from [`@nextrush/types`](../types). |
 | `type TrieNode` · `HandlerEntry` · `ParsedSegment` · `RouteGroup` | — | `3.0.0` | Advanced 🔧 | Trie/group types. |
 
@@ -343,6 +378,20 @@ app.route('/', router); // ← without this, nothing is matched
 <summary><strong>A wildcard in the middle of a path doesn't work</strong></summary>
 
 **Cause:** a wildcard captures the remainder of the path, so it's only valid as the **last** segment. **Fix:** put `*` at the end (`/files/*`), not in the middle (`/*/files`).
+
+</details>
+
+<details>
+<summary><strong><code>Type '...' is not assignable to type 'void | Promise<void>'</code></strong></summary>
+
+**Cause:** the handler returns a response value, but `RouteHandler` is typed `void | Promise<void>` (ADR-0038 keeps the public contract strict). **Fix:** cast the handler, or write the response through the context (fully typed).
+
+```ts
+const listUsers = (() => [{ id: 1 }]) as unknown as RouteHandler; // ✅ cast
+users.get('/', listUsers);
+
+users.get('/', (ctx) => ctx.json([{ id: 1 }])); // ✅ no cast needed
+```
 
 </details>
 

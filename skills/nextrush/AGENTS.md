@@ -137,7 +137,7 @@ pnpm create nextrush my-api
    Prefer SSE on edge.
 9. Shared app code destined for edge: **no `node:*` / `fs` / `Buffer`**.
 10. Packages are **ESM-only**. Prefer `pnpm`.
-11. Validation: `@nextrush/validation` + Zod at the boundary; failures need `errorHandler`.
+11. Validation: `@nextrush/validation` + Zod at boundary (`validate()`, `createValidate()`, read coerced query/params via `validated(ctx)`); failures throw `ValidationError` (400 by default, or custom `errorStatus: 422`; remap globally with `errorHandler({ validationErrorStatus: 422 })`).
 12. Tests: `@nextrush/testing` (`createTestModule`) for class modules; `app.callback()` with a mock
     `Context` (or `serve(app, { port: 0 })` + `fetch`) for functional — **there is no `app.handle()`**.
 

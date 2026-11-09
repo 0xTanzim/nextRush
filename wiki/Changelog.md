@@ -18,7 +18,7 @@ Release history and upgrade notes. NextRush follows [Semantic Versioning](https:
 
 The framework was rewritten around a functional core for v4; most application code changes are import-path changes plus the response model change.
 
-1. **Handlers write through `ctx`, never return a `Response`.** `ctx.body = value` (or `ctx.send`/`ctx.json`); status via `ctx.status = 201` or `@HttpCode`. If you returned `Response` objects in v3 handlers, that no longer works — return data, write through `ctx`.
+1. **Responses go through `ctx` or a returned value.** Write explicitly with `ctx.json(value)`, `ctx.send(value)` or `ctx.status = 201` / `@HttpCode`; alternatively return a value and it settles the response (objects and arrays as JSON, strings as text, `Response`/bytes/streams as-is). `ctx.body` is the *request* body — assigning to it does not send anything.
 2. **Consolidate imports.** `@nextrush/controllers`, `@nextrush/decorators` → `nextrush/class`. Run the codemod: `nextrush codemod consolidate-imports`.
 3. **Plugins → Extensions.** Rename registrations and adapt to the extension lifecycle (`setup` / `destroy`, `app.extensions`). See [Extensions](Extensions).
 4. **Radix-tree → segment-trie routing.** The matching semantics you rely on (static > dynamic > wildcard precedence, `:param` and `*` wildcards) are preserved; check the [Routing](Routing) page if you relied on subtle radix-tree ordering.

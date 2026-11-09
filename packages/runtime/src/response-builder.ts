@@ -112,6 +112,14 @@ export class WebResponseBuilder {
     this._record.status = status;
 
     if (isStream(prepared.body)) {
+      if (isBodylessResponse(this.method, status)) {
+        // A bodyless status never carries the stream. Cancel it so the producer
+        // is not left running with no consumer, and record an empty body.
+        void prepared.body.cancel().catch((): undefined => undefined);
+        this._record.status = status;
+        this._record.setBody(null);
+        return;
+      }
       this._stream = prepared.body;
       if (prepared.contentType !== undefined) {
         this._record.set('Content-Type', prepared.contentType);

@@ -44,6 +44,8 @@ import type {
   OutgoingHeaders,
   ParsedBody,
   ResponseBody,
+  ResponseHeaders,
+  ResponseOptions,
   RawHttp,
   NodeStreamLike,
   WebStreamLike,
@@ -131,9 +133,9 @@ interface Context {
 
   // Response
   status: number;
-  json(data: unknown): void;
-  send(data: ResponseBody): void;
-  html(content: string): void;
+  json(data: unknown, statusOrOptions?: number | ResponseOptions): void;
+  send(data: ResponseBody, statusOrOptions?: number | ResponseOptions): void;
+  html(content: string, statusOrOptions?: number | ResponseOptions): void;
   redirect(url: string, status?: number): void;
 
   // Headers
@@ -152,6 +154,11 @@ interface Context {
   state: ContextState;
 }
 ```
+
+`ResponseOptions` is `{ status?: number; headers?: ResponseHeaders }`, where `ResponseHeaders` is
+`Record<string, string | number | string[]>`. A status supplied there wins over the carried
+`ctx.status` and is recorded back onto it; accepted values are integers `200`–`599`.
+`Content-Length` is derived from the body and is rejected if supplied.
 
 ### Generated Reference
 

@@ -75,6 +75,7 @@ per validator.
   title="Request/response model"
   types={{
     'request + reply': { type: 'Single ctx', description: 'NextRush merges both into one context object, same as it does coming from Express.' },
+    'reply.code(code).send(data)': { type: 'ctx.json(data, code)', description: 'Pass the status to the response call: ctx.json(data, 201) or ctx.json(data, { status: 201, headers: { Location } }). ctx.status = code still works.' },
     'Lifecycle hooks (onRequest, onSend, ...)': { type: 'Middleware onion model', description: "Fastify's named hook points map onto NextRush's before/after middleware — see Middleware." },
     'fastify-plugin encapsulation': { type: 'Middleware + registrars, no encapsulation scope', description: 'NextRush middleware and registrars are global to the app; there is no per-plugin scoping boundary.' },
     'Runtime targets': { type: 'Node.js only [Fastify] vs Node, Bun, Deno, Edge [NextRush]', description: 'NextRush ships separate adapters per runtime — see Runtime Compatibility.' },

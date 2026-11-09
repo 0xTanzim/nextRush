@@ -91,8 +91,9 @@ router.get('/users/:id', (ctx) => {
   ctx.json({ id: ctx.params.id });
 });
 router.post('/users', (ctx) => {
-  ctx.status = 201;
-  ctx.json({ created: true, data: ctx.body });
+  ctx.json({ created: true, data: ctx.body }, 201);
+  // or: ctx.json({ created: true, data: ctx.body }, { status: 201, headers: { Location: '/users/1' } })
+  // or: ctx.status = 201; ctx.json({ created: true, data: ctx.body })
 });
 
 // Routes registered on the app's default router auto-mount — no app.route() needed
@@ -161,9 +162,13 @@ ctx.state      // per-request bag
 ctx.env       // edge bindings (Cloudflare KV/D1/R2 when using createCloudflareHandler)
 
 // Response
-ctx.status = 201
+ctx.status = 201                                        // carried status (default 200)
 ctx.set('X-Custom', 'v')
-ctx.json(data) | ctx.send(data) | ctx.html(html) | ctx.redirect(url, 302)
+ctx.json(data, statusOrOptions?)                        // application/json
+ctx.send(data, statusOrOptions?)                        // ResponseBody, auto content type
+ctx.html(html, statusOrOptions?)                        // text/html
+// statusOrOptions: 201  |  { status: 201, headers: { Location: '/x' } }
+ctx.redirect(url, 302)
 ctx.stream(async (w) => { await w.write('chunk'); })
 ctx.sse(async (w) => { await w.write({ data: token }); })
 ctx.ndjson(async (w) => { await w.write({ event: 'step', data }); })
@@ -177,7 +182,9 @@ ctx.assert(user, 404, 'User not found')
 ctx.waitUntil?.(promise)  // when platform provides execution context
 ```
 
-**Never invent helpers** like `ctx.ok()` / `ctx.created()` — use `ctx.status` + `ctx.json`.
+**Never invent helpers** like `ctx.ok()` / `ctx.created()` — pass the status to the response call
+(`ctx.json(data, 201)`) or set `ctx.status = 201` first. Supplied headers merge with recorded ones,
+and `Content-Length` in the options throws because the framework derives it.
 
 Full detail: `references/context.md`.
 
@@ -239,7 +246,7 @@ Class/DI apps: pass async factory to `handle(() => bootApp())` so boot is memoiz
 import { cors } from '@nextrush/cors';
 import { helmet } from '@nextrush/helmet';
 import { bodyParser } from '@nextrush/body-parser';
-import { validate } from '@nextrush/validation';
+import { validate, validated, createValidate } from '@nextrush/validation';
 import { rateLimit } from '@nextrush/rate-limit';
 import { compression } from '@nextrush/compression';
 import { cookies } from '@nextrush/cookies';
@@ -252,7 +259,7 @@ import { openapi } from '@nextrush/openapi';
 import { staticMiddleware } from '@nextrush/static';
 import { z } from 'zod';
 
-app.use(errorHandler());
+app.use(errorHandler({ validationErrorStatus: 422 })); // optional: remap default 400 validation errors to 422
 app.use(requestId());
 app.use(timer());
 app.use(logger());
@@ -264,8 +271,14 @@ app.use(rateLimit({ windowMs: 60_000, max: 100 }));
 
 const CreateUser = z.object({ name: z.string().min(1), email: z.string().email() });
 app.post('/users', validate(CreateUser), (ctx) => {
-  ctx.status = 201;
-  ctx.json(ctx.body);
+  ctx.json(ctx.body, 201);
+});
+
+// Coerced query/params via validated(ctx) or validated.query/params(ctx):
+const QuerySchema = z.object({ limit: z.coerce.number().int().min(1) });
+app.get('/items', validate({ query: QuerySchema }, { errorStatus: 422 }), (ctx) => {
+  const { query } = validated(ctx);
+  ctx.json({ limit: query.limit });
 });
 
 app.use(openapi({ router: app.router /* or your router */, info: { title: 'API', version: '1.0' } }));
@@ -416,7 +429,7 @@ extensions: @nextrush/websocket  @nextrush/events
 7. `ctx.runtime === 'node'` false on Lambda/edge adapters — use `ctx.platform`.
 8. Next.js mount mismatch: routes registered without the `/api` prefix the URL has (or vice versa) → 404 + dev warning from `handle()`.
 9. WebSocket needs both `app.use(wss.upgrade())` **and** `wss.attach(server)`.
-10. `validate()` throws `ValidationError` (400) — needs `errorHandler`.
+10. `validate()` throws `ValidationError` (400 by default, overridable with `errorStatus: 422`, `createValidate({ errorStatus })`, or `errorHandler({ validationErrorStatus: 422 })`) — needs `errorHandler`.
 11. Do not double-import `reflect-metadata` (class package already loads it).
 12. Edge: no filesystem, no long sockets; prefer SSE over WS.
 

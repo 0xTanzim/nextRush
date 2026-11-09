@@ -32,7 +32,7 @@ invent a new structure per RFC.
 | [001](release-process/001-hybrid-versioning.md) | Hybrid Versioning & Release Strategy | Implemented | release-process |
 | [002](request-data/002-route-metadata.md) | Route Metadata System (OpenAPI as first renderer) | Approved / shipped | request-data |
 | [003](request-data/003-stream.md) | `@nextrush/stream` — unified response streaming | Shipped | request-data |
-| [004](request-data/004-validation.md) | `@nextrush/validation` — Standard Schema request validation | Shipped | request-data |
+| [004](request-data/004-validation.md) | `@nextrush/validation` — Standard Schema request validation | Shipped — v5 adds `validated(ctx)` + `errorStatus` (#69, #70) | request-data |
 | [005](class-runtime/005-plugin-system.md) | Extension Model (Plugin → Extension), Composition-First | Shipped — see ADR-0002 | class-runtime |
 | [006](class-runtime/006-di-container-ownership.md) | Per-app DI container ownership & isolation | Shipped (Option A) | class-runtime |
 | [007](class-runtime/007-class-consolidation.md) | `@nextrush/class` runtime consolidation | Shipped — see ADR-0003, ADR-0004 | class-runtime |
@@ -76,6 +76,8 @@ invent a new structure per RFC.
 | [045](runtime-adapters/045-bun-request-hotpath-phase-1.md) | Bun request hot path — Phase 1: native text body reads, cheaper timeout dispatch, flattened JSON parsing | **Shipped** — isolated JSON read 6.07 → 3.77 µs; full POST within run noise; ADR-0033 | runtime-adapters |
 | [046](runtime-adapters/046-json-media-type-and-response-construction.md) | One JSON media type, and a plain init record for the Web response | **Shipped** — Deno GET −16.6 % server CPU/req, POST −8.1 %; no Bun/Node regression; ADR-0034 | runtime-adapters |
 | [047](request-data/047-lazy-body-parsing.md) | `@nextrush/body-parser` — opt-in lazy body parsing | **Implemented** | request-data |
+| [049](runtime-adapters/049-nextjs-callable-handler.md) | `@nextrush/adapter-nextjs` — callable-and-destructurable route-handler set, one shared engine per app + options | **Approved** | runtime-adapters |
+| [050](runtime-adapters/050-handler-return-settlement.md) | Route handlers and class controllers settle their returned value into the response | **Approved** | runtime-adapters |
 
 ## Note on RFC-005 (Plugin System)
 

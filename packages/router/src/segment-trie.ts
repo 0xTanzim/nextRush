@@ -10,7 +10,8 @@
  */
 
 import type { Context, HttpMethod, Middleware, RouteHandler, RouteMetadata } from '@nextrush/types';
-import { DISPATCH_SETTLED_SYNC, type DispatchMarkerCarrier } from '@nextrush/types';
+import { DISPATCH_SETTLED_SYNC, RESOLVED_PROMISE, type DispatchMarkerCarrier } from '@nextrush/types';
+import { settleHandlerReturn } from './settle';
 
 /**
  * Node type enumeration
@@ -80,10 +81,9 @@ export type StaticRouteMap = Map<HttpMethod, Map<string, HandlerEntry>>;
 
 /**
  * No-op next function - reusable, zero allocation
- * Caches the resolved Promise to avoid per-call allocation
+ * Reuses the canonical resolved Promise from @nextrush/types to avoid per-call allocation
  * @internal
  */
-const RESOLVED_PROMISE = Promise.resolve();
 export const NOOP_NEXT = (): Promise<void> => RESOLVED_PROMISE;
 
 /**
@@ -107,7 +107,7 @@ export function compileExecutor(
       // to advance into that middleware before running the router).
       if (ctx.setNext) ctx.setNext(NOOP_NEXT);
       try {
-        const result = handler(ctx, NOOP_NEXT);
+        const result = handler(ctx, NOOP_NEXT) as unknown;
         if (result === undefined) {
           // The route settled synchronously: no middleware exists (this is the
           // len === 0 branch) and the handler left nothing pending. Record it so
@@ -123,7 +123,16 @@ export function compileExecutor(
         // dropped: byte-identical to the former `await handler(...)`, minus the
         // async form's internal microtask hop. A native promise is returned as-is
         // (`Promise.resolve(p) === p`).
-        return Promise.resolve(result);
+        if (isThenable(result)) {
+          return Promise.resolve(result).then((value) => settleHandlerReturn(ctx, value));
+        }
+        // RFC-050: a synchronous non-undefined return settles now. A returned
+        // `Response` needs its body read, so that settlement is async and the
+        // marker stays unset until it finishes.
+        const settled = settleHandlerReturn(ctx, result);
+        if (settled !== undefined) return settled;
+        (ctx as Context & DispatchMarkerCarrier)[DISPATCH_SETTLED_SYNC] = true;
+        return RESOLVED_PROMISE;
       } catch (err) {
         // Self-contained "never throw synchronously" contract, identical to the
         // len >= 1 branch: a sync throw becomes a rejection; a non-Error is wrapped.
@@ -162,7 +171,15 @@ export function compileExecutor(
       // Final handler. A handler calling next() is a safe no-op.
       if (ctx.setNext) ctx.setNext(NOOP_NEXT);
       try {
-        return Promise.resolve(handler(ctx, NOOP_NEXT));
+        const result = handler(ctx, NOOP_NEXT) as unknown;
+        if (result === undefined) return Promise.resolve();
+        if (isThenable(result)) {
+          return Promise.resolve(result).then((value) => settleHandlerReturn(ctx, value));
+        }
+        // RFC-050: settle only the matched handler's value. Middleware returns
+        // (including `return next()`) stay ignored, so onion semantics are kept.
+        const settled = settleHandlerReturn(ctx, result);
+        return settled ?? RESOLVED_PROMISE;
       } catch (err) {
         return Promise.reject(err instanceof Error ? err : new Error(String(err)));
       }
@@ -170,6 +187,15 @@ export function compileExecutor(
 
     return dispatch(0);
   };
+}
+
+/** A Promise or a non-Promise thenable — both must be awaited before settlement. */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
 }
 
 /**

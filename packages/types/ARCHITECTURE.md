@@ -236,8 +236,8 @@ classDiagram
       +BodySource bodySource
       +RawHttp raw
       +ContextState state
-      +json(unknown) void
-      +send(ResponseBody) void
+      +json(unknown, number|ResponseOptions?) void
+      +send(ResponseBody, number|ResponseOptions?) void
       +stream(StreamRun) Promise
       +sse(StreamRun) Promise
       +ndjson(StreamRun) Promise

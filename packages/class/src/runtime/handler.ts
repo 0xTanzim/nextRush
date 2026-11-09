@@ -17,6 +17,7 @@ import { getAllFilters } from '../filters/filters.js';
 import { getAllGuards } from '../guards/guards.js';
 import { getAllInterceptors } from '../interceptors/interceptors.js';
 import type { Container } from '@nextrush/di';
+import { settleHandlerReturn } from '@nextrush/router';
 import type { Context, RouteHandler } from '@nextrush/types';
 import { ControllerResolutionError } from '../errors.js';
 import { wrapWithFilters } from '../filters/filter-runner.js';
@@ -183,11 +184,7 @@ export function createRouteHandler(
 
     // Check if response has already been sent (adapter-agnostic)
     if (result !== undefined && !ctx.responded) {
-      if (typeof result === 'object') {
-        ctx.json(result);
-      } else {
-        ctx.send(String(result));
-      }
+      await settleHandlerReturn(ctx, result);
     }
   };
 

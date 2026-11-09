@@ -21,7 +21,7 @@ import type {
   Router,
   SecurityAuditCheck,
 } from '@nextrush/types';
-import { SECURITY_AUDIT } from '@nextrush/types';
+import { RESOLVED_PROMISE, SECURITY_AUDIT } from '@nextrush/types';
 import { compose } from './middleware';
 import { writeDefaultErrorResponse } from './error-handler';
 import { createPrefixMount } from './route-mount';
@@ -749,8 +749,13 @@ export class Application {
       warnDoubleResponse: !this.isProduction,
     });
 
-    return (ctx: Context): Promise<void> =>
-      fn(ctx).then(undefined, (error: unknown) => this.handleError(error, ctx));
+    return (ctx: Context): Promise<void> => {
+      const res = fn(ctx);
+      if (res === RESOLVED_PROMISE) {
+        return RESOLVED_PROMISE;
+      }
+      return res.then(undefined, (error: unknown) => this.handleError(error, ctx));
+    };
   }
 
   /**

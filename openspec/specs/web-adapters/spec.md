@@ -81,13 +81,16 @@ MUST NOT decrease.
 
 ### Requirement: A Next.js App Router route handler can mount a NextRush application without rewriting the request
 
-`@nextrush/adapter-nextjs`'s `handle(app)` SHALL return the seven Next.js route-handler exports
-(`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`) by delegating to
-`@nextrush/adapter-edge`'s `createFetchHandler`, forwarding the incoming `Request` unmodified.
-Mount prefixes MUST be declared by the application itself (`app.route(prefix, router)`) and MUST
-NOT be inferred or stripped by the adapter. The package MUST import no runtime-specific API
-(`node:*`, `process`, `Buffer`, or a `Deno`/`Bun` global) and MUST support only the App Router on
-Next.js 14, 15, and 16.
+`@nextrush/adapter-nextjs`'s `handle(app)` SHALL return a **callable** route handler that also
+exposes the seven named method handlers (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`,
+`OPTIONS`) as properties, and SHALL delegate to `@nextrush/adapter-edge`'s `createFetchHandler`,
+forwarding the incoming `Request` unmodified. The callable and each named property MUST dispatch
+through one method-agnostic dispatcher (routing on `request.method`), so both the
+direct-assignment form (`export const GET = handle(app)`) and the destructuring form
+(`export const { GET, POST } = handle(app)`) are valid. Mount prefixes MUST be declared by the
+application itself (`app.route(prefix, router)`) and MUST NOT be inferred or stripped by the
+adapter. The package MUST import no runtime-specific API (`node:*`, `process`, `Buffer`, or a
+`Deno`/`Bun` global) and MUST support only the App Router on Next.js 14, 15, and 16.
 
 #### Scenario: A mounted app sees the true request
 
@@ -99,8 +102,21 @@ Next.js 14, 15, and 16.
 #### Scenario: All seven methods are available from one call
 
 - **WHEN** `handle(app)` is called
-- **THEN** it returns an object with `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, and `OPTIONS`,
-  each dispatching to the same underlying `Application`
+- **THEN** the returned value is a function exposing `GET`, `POST`, `PUT`, `PATCH`, `DELETE`,
+  `HEAD`, and `OPTIONS` as function properties, each dispatching to the same underlying
+  `Application`
+
+#### Scenario: Direct assignment exports a callable handler
+
+- **WHEN** a route module exports `const GET = handle(app)` (and likewise for the other methods)
+- **THEN** each export is `typeof … === 'function'` and Next.js can invoke it, dispatching the
+  request through the NextRush application
+
+#### Scenario: Direct assignment and destructuring behave identically
+
+- **WHEN** the same request is dispatched through a handler obtained by direct assignment and
+  through the matching named property obtained by destructuring
+- **THEN** status, headers, and body are identical
 
 #### Scenario: Background work reaches Next's `after()` when available
 
@@ -120,10 +136,12 @@ Next.js 14, 15, and 16.
 
 #### Scenario: Cross-runtime parity holds for the Next.js entry point
 
-- **WHEN** the `packages/adapters/conformance` suite's `nextjs` driver runs under the node,
-  workerd, deno, and bun runners
-- **THEN** observable behavior (status, headers, body, error shape) is identical across all four,
-  matching the other Web adapters covered by this capability
+- **WHEN** the `packages/adapters/conformance` suite's `nextjs` driver runs in-process under
+  Node/Vitest
+- **THEN** observable behavior (status, headers, body, error shape) matches the other Web
+  adapters covered by this capability
+- **AND** the Bun, Deno, and workerd conformance runners separately prove the shared engine
+  behavior on their real runtimes, without exercising the Next.js bridge
 
 #### Scenario: The functional install path stays free of Next.js
 
@@ -132,12 +150,37 @@ Next.js 14, 15, and 16.
 - **THEN** all cross-adapter behavior (query, headers, cookies, raw, responses) remains identical
 
 #### Scenario: Allocation micro-benchmarks document the removed work
+
 - **WHEN** `apps/benchmark/scripts/web-context-alloc.js` runs on a query-less, raw-unread request
 - **THEN** it shows neither the empty-`query` object nor the `{ req, res }` wrapper is allocated
 
 #### Scenario: Response parity is unaffected
+
 - **WHEN** `pnpm bench:validate` runs across all benchmark servers
 - **THEN** response bodies and Content-Type remain byte-identical
+
+### Requirement: Repeated `handle()` calls share one initialized engine per app and option set
+
+Calling `handle()` more than once with the same app source and equivalent options SHALL return the
+same handler set and initialize the application and fetch engine only once, so exporting each
+method via direct assignment does not multiply engines. A different `timeout` value or a different
+`onError` function MUST yield a separate handler set and engine. A shared handler MUST preserve the
+existing failed-boot retry contract: a failed resolution is not cached permanently.
+
+#### Scenario: Seven direct-assignment exports initialize one engine
+
+- **WHEN** a route module calls `handle(app)` once per HTTP method with the same app and options
+- **THEN** the app factory resolves once and all seven exports dispatch through one engine
+
+#### Scenario: Equivalent option objects share; differing options do not
+
+- **WHEN** `handle(app)` and `handle(app, {})` are called, then `handle(app, { timeout: 5 })`
+- **THEN** the first two return the same handler set, and the third returns a distinct handler set
+
+#### Scenario: A failed boot is retried on the next call
+
+- **WHEN** the app factory rejects on the first request and succeeds on a later one
+- **THEN** the later request boots the app successfully instead of reusing the failure
 
 ### Requirement: `ctx.ip` avoids a per-request lookup closure on the Web adapters when proxies are not trusted
 
@@ -415,10 +458,11 @@ produces for a target without dot segments.
 
 ### Requirement: The handler timeout is armed only when the handler has not already settled
 
-The Web adapters SHALL arm the handler timeout only when the handler has not already settled
-synchronously, matching the Node adapter's fast path. A response the handler already committed SHALL
-be delivered rather than replaced by the 504. When a timer is armed, the timeout interval, the 504
-response body, the cancellation signal, and the warning text SHALL be unchanged.
+The Web adapters SHALL arm the handler timeout only when the handler has not already committed a
+response synchronously, matching the Node adapter's fast path. A handler that settles without
+committing MAY arm a timer, but its promise SHALL win the direct race and the timer SHALL be
+cleared; no 504 SHALL be produced. A committed response SHALL be delivered. The timeout interval,
+504 body, signal, and warning text SHALL be unchanged.
 
 #### Scenario: A synchronous handler arms no timer
 
@@ -430,6 +474,12 @@ response body, the cancellation signal, and the warning text SHALL be unchanged.
 - **WHEN** a handler does not settle within the configured timeout
 - **THEN** the client receives the same 504 body as before, the cancellation signal is aborted, and
   the same warning is emitted
+
+#### Scenario: A settled handler with no committed response does not time out
+
+- **WHEN** a handler settles without committing a response and its promise wins the timeout race
+- **THEN** no 504 is produced, the timer is cleared, and the runner proceeds with its normal
+  finalization
 
 #### Scenario: Timer behaviour is identical across adapters
 
@@ -584,3 +634,133 @@ change.
 - **WHEN** the change ships
 - **THEN** the conformance suite passes on Node, Bun, Deno, Edge, and serverless, with the same
   observable media type on each
+
+### Requirement: The request deadline is served by one shared timer
+
+The Web adapters' request deadline SHALL be served by a single timer per runner that serves every
+pending deadline, rather than by a timer armed per request. The shared timer SHALL NOT be cancelled
+when a request settles, and SHALL wake on a bounded window so that a runner with no pending deadline
+holds no timer. A deadline SHALL be honoured at its deadline.
+
+#### Scenario: A stuck handler still answers 504 and cancels the request
+
+- **WHEN** a handler does not settle within the configured timeout
+- **THEN** the response is `504 Gateway Timeout` and `ctx.signal` has fired
+
+#### Scenario: A committed response still outlives the timeout
+
+- **WHEN** a handler commits a response and then keeps running past the deadline
+- **THEN** the committed response is the one the client receives
+
+#### Scenario: Many pending deadlines share one timer
+
+- **WHEN** several requests are pending at the same time
+- **THEN** the runner holds one timer for them, not one timer per request
+
+#### Scenario: A settled request releases its deadline
+
+- **WHEN** a request settles before its deadline
+- **THEN** its deadline is removed and the callback never runs
+
+#### Scenario: A settled request does not disturb the shared timer
+
+- **WHEN** a request settles while other requests are still pending
+- **THEN** the shared timer is not cancelled and re-armed, so the remaining deadlines are unaffected
+
+#### Scenario: The timeout behaviour is unchanged by the shared timer
+
+- **WHEN** the shared deadline serves a request that times out
+- **THEN** the response, the cancellation, and the observation of a late rejection are the same as
+  when the deadline had its own timer
+
+### Requirement: The shared deadline is validated by measurement and parity gates
+
+The shared deadline SHALL be accepted only on measured evidence — a CPU-pinned paired A/B per
+runtime, reporting the paired delta — and the timeout contract SHALL be verified by the
+cross-adapter conformance suite on every supported runtime.
+
+#### Scenario: The per-runtime effect is measured
+
+- **WHEN** the shared deadline is evaluated
+- **THEN** its before and after server CPU per request are captured per runtime with the same
+  pinned protocol, and the paired delta is reported with the number of pairs that moved
+
+#### Scenario: The cost of the race is measured without the change
+
+- **WHEN** the cost of the per-request timer is attributed
+- **THEN** the same bundle is measured with the race disabled and with the default timeout, so the
+  difference is the race's cost rather than a difference between two builds
+
+#### Scenario: The timeout contract holds on every runtime
+
+- **WHEN** the change ships
+- **THEN** the timeout scenarios pass on Node, Bun, Deno, Edge, and serverless, and the real-runtime
+  runners on Bun, Deno, and `workerd` pass
+
+### Requirement: The Bun request-path candidates are validated by wire-stage and allocation evidence, and inside-spread results are parked
+
+The Bun adapter's request-path candidates SHALL be accepted only on reproducible stage evidence: wire-path work on the `wire` stage (real listener, shared load generator, median of repeated runs, spread reported), and sub-noise per-request trims on deterministic allocation evidence rather than an RPS A/B. A candidate whose measured effect falls inside the run-to-run spread SHALL be parked and reverted in the same change.
+
+#### Scenario: Wire-path work is measured before and after with the same stage invocation
+- **WHEN** a Bun wire-path candidate is evaluated
+- **THEN** its before and after medians are captured with the same stage invocation, machine, and pinned runtime version, and the run-to-run spread is reported
+
+#### Scenario: An inside-spread result is parked
+- **WHEN** a candidate's after median does not exceed its before median beyond the run-to-run spread
+- **THEN** the candidate is reverted in the same change and the measurement is recorded as a parked result
+
+#### Scenario: A sub-noise trim is accepted on allocation evidence
+- **WHEN** a per-request trim's cost effect is below the wire-stage noise floor
+- **THEN** acceptance rests on deterministic allocation evidence plus the package tests and the cross-adapter conformance suite, not an RPS A/B
+
+#### Scenario: Accepted work keeps behavior and coverage intact
+- **WHEN** an accepted candidate ships
+- **THEN** the cross-adapter conformance suite passes on real Bun with byte-identical observable behavior, and line coverage on the touched packages does not decrease
+
+### Requirement: A Web body source exposes a limited UTF-8 text read
+
+The Web body source SHALL expose an internal limited UTF-8 text read. It SHALL use
+`Request.text()` only when the configured encoding is UTF-8 and a `Content-Length` is present at or
+below the effective limit. It SHALL enforce the limit against actual UTF-8 bytes. All other cases
+SHALL use `buffer(limit)`.
+
+#### Scenario: An eligible Web request uses the native text read
+
+- **WHEN** a Web body source is UTF-8, has a `Content-Length` at or below the limit, and the caller
+  requests text
+- **THEN** the body is read through `Request.text()` and the returned string equals the string the
+  buffer path would decode for the same valid UTF-8 body
+
+#### Scenario: Ineligible requests keep the buffer path
+
+- **WHEN** the body has no `Content-Length`, is chunked, is over the declared limit, or uses a
+  non-UTF-8 encoding
+- **THEN** the existing `buffer(limit)` path is used and its incremental limit enforcement is
+  unchanged
+
+#### Scenario: Actual bytes over the limit are rejected
+
+- **WHEN** a text read returns a string whose actual UTF-8 bytes exceed the effective limit
+- **THEN** the source rejects it with `BodyTooLargeError` and does not cache it as an accepted body
+
+### Requirement: The limited text read preserves BodySource semantics
+
+The limited text read SHALL preserve the public `BodySource` contract, including `text()`,
+`buffer(limit?)`, `json()`, `stream()`, consumed state, and cache behavior. A source without the
+capability, including the Node body source, SHALL keep its existing read path.
+
+#### Scenario: Cache order remains compatible
+
+- **WHEN** `text()` is followed by `buffer()`, or `buffer()` is followed by `text()`
+- **THEN** the second read uses the cached representation without a second platform read, and a
+  valid UTF-8 body round-trips to identical text
+
+#### Scenario: The public BodySource shape is unchanged
+
+- **WHEN** the public `BodySource` type and the Node body source are inspected
+- **THEN** no limited text method is added to the public interface, and Node's behavior is unchanged
+
+#### Scenario: A source without the capability falls back
+
+- **WHEN** a body source does not expose the limited text capability
+- **THEN** body-parser uses its existing `buffer(limit)` path and error mapping

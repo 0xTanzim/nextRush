@@ -388,3 +388,53 @@ describe('serve() with tls — graceful close()', () => {
     instance = undefined as unknown as ServerInstance;
   }, 5000);
 });
+
+describe('serve() with tls — HTTP/2 session drain', () => {
+  it('close() resolves while an idle HTTP/2 session is still open', async () => {
+    // Regression: `Http2SecureServer.close()` does NOT resolve while any h2 session
+    // is open, even one with zero in-flight streams. Before the session-tracking fix
+    // in tls-server.ts, this hung for the full shutdown timeout (30s by default) and
+    // only resolved via the force-close branch — a real hang on every HTTP/2 shutdown,
+    // not just in tests. `shutdownTimeout` is deliberately far above the assertion
+    // window so a regression fails fast instead of waiting out the real default.
+    const app = createApp();
+    app.use(async (ctx) => {
+      ctx.json({ ok: true });
+    });
+
+    const cert = await readFile(certPath, 'utf-8');
+    const key = await readFile(keyPath, 'utf-8');
+
+    instance = await serve(app, { port: 0, tls: { cert, key }, shutdownTimeout: 20_000 });
+
+    const http2 = await import('node:http2');
+    const client = http2.connect(`https://localhost:${instance.port}`, {
+      ca: cert,
+      rejectUnauthorized: false,
+    });
+    await new Promise<void>((resolve, reject) => {
+      client.once('connect', () => resolve());
+      client.once('error', reject);
+    });
+
+    // Complete one request so the session is established and idle — no streams open.
+    await new Promise<void>((resolve, reject) => {
+      const req = client.request({ ':path': '/', ':method': 'GET' });
+      req.on('data', () => undefined);
+      req.on('end', () => resolve());
+      req.on('error', reject);
+      req.end();
+    });
+
+    const startedAt = Date.now();
+    await expect(instance.close()).resolves.toBeUndefined();
+    const elapsed = Date.now() - startedAt;
+
+    // Well under the 20s shutdownTimeout: proves the drain ended the session rather
+    // than falling through to the force-close timer.
+    expect(elapsed).toBeLessThan(5000);
+
+    client.close();
+    instance = undefined as unknown as ServerInstance;
+  }, 10_000);
+});

@@ -69,24 +69,37 @@ router.post('/upload', formData({ maxFileSize: '50mb' }), (ctx) => {
 ## validation — `@nextrush/validation`
 
 ```typescript
-import { validate } from '@nextrush/validation';
+import { validate, validated, createValidate } from '@nextrush/validation';
 import { z } from 'zod';
 
-// Single schema → validates ctx.body
-router.post('/users', validate(z.object({ name: z.string().min(1) })), handler);
+// Single schema → validates and coerces ctx.body
+router.post('/users', validate(z.object({ name: z.string().min(1) })), (ctx) => {
+  ctx.json(ctx.body, 201);
+});
 
-// Named targets
-router.post('/users',
-  validate({
-    body: CreateUserSchema,
-    query: z.object({ dryRun: z.boolean().optional() }),
-    params: z.object({ id: z.string().uuid() }),
-  }),
-  handler
+// Named targets with optional custom error status (default 400)
+router.get('/users/:id',
+  validate(
+    {
+      params: z.object({ id: z.coerce.number().int() }),
+      query: z.object({ dryRun: z.coerce.boolean().optional() }),
+    },
+    { errorStatus: 422 }
+  ),
+  (ctx) => {
+    // Read coerced values with generic validated(ctx) or target helpers:
+    const { params, query } = validated(ctx);
+    const id = validated.params<{ id: number }>(ctx)?.id;
+    const dryRun = validated.query<{ dryRun?: boolean }>(ctx)?.dryRun;
+    ctx.json({ id, dryRun });
+  }
 );
 
-// Types
-import type { ValidationSchema, ValidationTarget } from '@nextrush/validation';
+// Factory for project-wide defaults across routers:
+export const validate422 = createValidate({ errorStatus: 422 });
+
+// Exported types
+import type { ValidateOptions, ValidatedInput, ValidatedAccessor } from '@nextrush/validation';
 ```
 
 ## rate-limit — `@nextrush/rate-limit`

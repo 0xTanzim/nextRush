@@ -261,6 +261,9 @@ The sealed public surface (ADR-0005), guarded by `__tests__/public-surface.test.
 | `normalizeStartupError` | `(err, ctx) => ServerStartError` | `3.1.0` | Stable ✅ | Uniform bind-failure error across adapters. |
 | `createBootGate` | `(app, opts) => BootGate` | `4.0.0` | Stable ✅ | Memoized boot barrier for adapter entry points with no startup phase. |
 | `createWebRunner` | `(app, opts) => (request, extra) => Response` | `4.1.0` | Stable ✅ | The one per-request flow every Web adapter runs: boot, dispatch, timeout race, finalize, errors. |
+| `resolveResponseArgs` | `(arg, fallback, helper) => ResolvedResponseArgs` | `4.2.0` | Stable ✅ | Resolve the per-call status/headers `ctx.json`/`html`/`send` accept (RFC-048), shared by the Web and Node contexts. |
+| `assertResponseStatus` | `(status, helper) => void` | `4.2.0` | Stable ✅ | Reject a status outside the integer `200`–`599` range every adapter can answer (`RangeError`). |
+| `applyResponseHeaders` | `(target, headers?) => void` | `4.2.0` | Stable ✅ | Write supplied headers through the response's own `set()`, rejecting `Content-Length` (`TypeError`). |
 
 ### Exports by domain
 
@@ -271,6 +274,7 @@ The sealed public surface (ADR-0005), guarded by `__tests__/public-surface.test.
 | **Body source** (`body-source.ts`) | `AbstractBodySource` · `WebBodySource` · `EmptyBodySource` · `createWebBodySource` · `createEmptyBodySource` · `BodyConsumedError` · `BodyTooLargeError` · `DEFAULT_BODY_LIMIT` |
 | **Response builder** (`response-builder.ts`) | `WebResponseBuilder` · `assertHeaderSafe` · `isBodylessResponse` · `jsonErrorResponse` |
 | **Recorded response** (`outgoing-response.ts`, `outgoing-headers.ts`) | `OutgoingResponse` · types `OutgoingBody` · `OutgoingHeaderEntry` |
+| **Per-call response args** (`response-args.ts`) | `resolveResponseArgs` · `assertResponseStatus` · `applyResponseHeaders` · types `HeaderWriter` · `ResolvedResponseArgs` |
 | **Web Context base** (`web-context-base.ts`) | `WebContextBase` · types `WebRawHttp` · `WebStreamRunners` |
 | **Boot gate & Web runner** (`boot-gate.ts`, `web-runner.ts`) | `createBootGate` · `createWebRunner` · types `BootableApp` · `BootGate` · `BootGateOptions` · `WebRunnerApp` · `WebRunnerContext` · `WebRunnerOptions` |
 | **Headers** (`headers.ts`) | `headersToRecord` · `resolveClientIp` · `getClientIp` · `getEdgeClientIp` · `isValidClientIp` · types `ClientIpOptions` · `HeaderLookup` |

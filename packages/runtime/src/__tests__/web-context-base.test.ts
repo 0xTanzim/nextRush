@@ -296,3 +296,114 @@ describe('WebContextBase — middleware and errors', () => {
     expect(() => ctx.assert(false, 400, 'bad')).toThrow(HttpError);
   });
 });
+
+describe('WebContextBase response arguments (RFC-048)', () => {
+  it('applies a numeric status and records it on the context', async () => {
+    const ctx = makeContext();
+
+    ctx.json({ ok: true }, 201);
+
+    expect(ctx.status).toBe(201);
+    expect(ctx.getResponse().status).toBe(201);
+    expect(await ctx.getResponse().text()).toBe('{"ok":true}');
+  });
+
+  it('applies an options status', () => {
+    const ctx = makeContext();
+
+    ctx.json({ ok: true }, { status: 202 });
+
+    expect(ctx.getResponse().status).toBe(202);
+  });
+
+  it('keeps the carried status when the argument is omitted', () => {
+    const ctx = makeContext();
+    ctx.status = 201;
+
+    ctx.json({ ok: true });
+
+    expect(ctx.getResponse().status).toBe(201);
+  });
+
+  it('lets an explicit status beat a previously assigned status', () => {
+    const ctx = makeContext();
+    ctx.status = 200;
+
+    ctx.json({ ok: true }, 201);
+
+    expect(ctx.getResponse().status).toBe(201);
+  });
+
+  it('applies supplied headers and lets Content-Type win over the helper default', async () => {
+    const ctx = makeContext();
+
+    ctx.json(
+      { ok: true },
+      { status: 201, headers: { 'X-Trace': 't1', 'Content-Type': 'application/vnd.api+json' } }
+    );
+
+    const res = ctx.getResponse();
+    expect(res.status).toBe(201);
+    expect(res.headers.get('x-trace')).toBe('t1');
+    expect(res.headers.get('content-type')).toBe('application/vnd.api+json');
+  });
+
+  it('applies the same argument to html() and send()', () => {
+    const htmlCtx = makeContext();
+    htmlCtx.html('<b>hi</b>', { status: 202 });
+    expect(htmlCtx.getResponse().status).toBe(202);
+
+    const sendCtx = makeContext();
+    sendCtx.send('body', 203);
+    expect(sendCtx.getResponse().status).toBe(203);
+  });
+
+  it('leaves the response uncommitted when the status is invalid', () => {
+    const ctx = makeContext();
+
+    expect(() => { ctx.json({ ok: true }, 600); }).toThrow(RangeError);
+    expect(ctx.responded).toBe(false);
+  });
+
+  it('leaves the response uncommitted when Content-Length is supplied', () => {
+    const ctx = makeContext();
+
+    expect(() => {
+      ctx.json({ ok: true }, { headers: { 'Content-Length': '10' } });
+    }).toThrow(TypeError);
+    expect(ctx.responded).toBe(false);
+  });
+
+  it('changes nothing when the response is already committed', async () => {
+    const ctx = makeContext();
+    ctx.json({ ok: true });
+
+    ctx.json({ late: true }, { status: 500 });
+
+    expect(ctx.status).toBe(200);
+    expect(ctx.getResponse().status).toBe(200);
+    expect(await ctx.getResponse().text()).toBe('{"ok":true}');
+  });
+});
+
+describe('WebContextBase bodyless stream (RFC-048)', () => {
+  it('cancels a stream instead of sending it at a bodyless status', async () => {
+    const ctx = makeContext();
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('chunk'));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+
+    ctx.send(stream, { status: 204 });
+
+    const res = ctx.getResponse();
+    expect(res.status).toBe(204);
+    expect(await res.text()).toBe('');
+    expect(cancelled).toBe(true);
+  });
+});

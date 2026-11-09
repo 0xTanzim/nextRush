@@ -15,7 +15,13 @@ import {
   normalizeStartupError,
   SETTLE_TURNS,
 } from '@nextrush/runtime';
-import type { AdapterContextFactory, HandlerOptions, ServerAdapter } from '@nextrush/types';
+import {
+  DISPATCH_SETTLED_SYNC,
+  type AdapterContextFactory,
+  type DispatchMarkerCarrier,
+  type HandlerOptions,
+  type ServerAdapter,
+} from '@nextrush/types';
 import {
   type IncomingMessage,
   type OutgoingHttpHeader,
@@ -349,7 +355,11 @@ export function createHandler(
     // the deadline inside the socket guard: arming a macrotask later would put
     // the timer one turn *behind* `server.timeout`, letting the socket guard
     // destroy a response that was ready to send.
-    if (ctx.responded || res.headersSent) {
+    if (
+      ctx.responded ||
+      res.headersSent ||
+      (ctx as unknown as DispatchMarkerCarrier)[DISPATCH_SETTLED_SYNC] === true
+    ) {
       let deadline: ReturnType<typeof setTimeout> | undefined;
 
       let turn = 0;
@@ -365,6 +375,10 @@ export function createHandler(
           settled = true;
           // F-04: cancel the still-running handler cooperatively via ctx.signal.
           ctx.triggerTimeout();
+          if (!ctx.responded && !res.headersSent) {
+            ctx.status = 504;
+            ctx.json({ error: 'Gateway Timeout' });
+          }
           ctx.flushResponse();
         }, timeout);
       };

@@ -19,8 +19,14 @@ export function fake<T>(
 
 /** Minimal Context stub carrying only what the validation middleware touches. */
 export function mockCtx(
-  init: { body?: unknown; query?: Record<string, unknown>; params?: Record<string, string> } = {}
+  init: {
+    body?: unknown;
+    query?: Record<string, unknown>;
+    params?: Record<string, string>;
+    headers?: Record<string, string | undefined>;
+  } = {}
 ): Context {
+  const headers = init.headers ?? {};
   return {
     body: init.body,
     // RFC-047: the middleware consumes the body through `readBody()`, so the
@@ -28,6 +34,12 @@ export function mockCtx(
     readBody: async <T = unknown>() => init.body as T,
     query: init.query ?? {},
     params: init.params ?? {},
+    // Real Contexts always carry a request-scoped state bag; validate() writes
+    // the coerced values there.
+    state: {},
+    // validate() reads request headers to tell "no body sent" apart from
+    // "no body parser installed".
+    get: (field: string) => headers[field.toLowerCase()],
   } as unknown as Context;
 }
 
@@ -38,7 +50,7 @@ export function tracker(): { next: Next; called: () => boolean } {
 }
 
 /** Await a promise expected to reject with ValidationError; return that error. */
-export async function catchErr(promise: Promise<unknown>): Promise<ValidationError> {
+export async function catchErr(promise: Promise<unknown> | void): Promise<ValidationError> {
   try {
     await promise;
     throw new Error('expected the call to throw, but it resolved');

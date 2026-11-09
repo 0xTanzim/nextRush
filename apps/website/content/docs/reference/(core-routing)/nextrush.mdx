@@ -247,8 +247,7 @@ router.post('/users', (ctx) => {
   const id = crypto.randomUUID();
   const user = { id, name };
   users.set(id, user);
-  ctx.status = 201;
-  ctx.json(user);
+  ctx.json(user, { status: 201, headers: { Location: `/users/${id}` } });
 });
 
 // Delete user
@@ -256,8 +255,7 @@ router.delete('/users/:id', (ctx) => {
   if (!users.delete(ctx.params.id)) {
     throw new NotFoundError('User not found');
   }
-  ctx.status = 204;
-  ctx.send(null);
+  ctx.send(null, 204);
 });
 
 app.route('/', router);

@@ -12,7 +12,7 @@
  * @packageDocumentation
  */
 
-import type { HttpMethod, IncomingHeaders, RawHttp, ResponseBody } from './http';
+import type { HttpMethod, IncomingHeaders, RawHttp, ResponseBody, ResponseOptions } from './http';
 import { OUTGOING_RESPONSE, type OutgoingResponseHandle } from './outgoing-response';
 import type { CookieCapability } from './cookies';
 import type { BodySource, PlatformId, Runtime } from './runtime';
@@ -225,42 +225,54 @@ export interface Context {
    * Automatically sets Content-Type: application/json
    *
    * @param data - Data to serialize as JSON
+   * @param statusOrOptions - Explicit status, or response options carrying
+   *   `status` and `headers`. An explicit status overrides the carried
+   *   `ctx.status` and is recorded back onto it. Omitting it keeps the carried
+   *   status (default 200).
    *
    * @example
    * ```typescript
    * ctx.json({ users: [] });
-   * ctx.json({ error: 'Not found' });
+   * ctx.json({ id: 'u_123' }, 201);
+   * ctx.json({ id: 'u_123' }, { status: 201, headers: { Location: '/users/u_123' } });
    * ```
    */
-  json(data: unknown): void;
+  json(data: unknown, statusOrOptions?: number | ResponseOptions): void;
 
   /**
    * Send response (text, buffer, or stream)
    * Automatically detects content type
    *
    * @param data - Response data
+   * @param statusOrOptions - Explicit status, or response options carrying
+   *   `status` and `headers` (see {@link json}).
    *
    * @example
    * ```typescript
    * ctx.send('Hello World');
+   * ctx.send('Created', 201);
+   * ctx.send('Created', { headers: { Location: '/items/1' } });
    * ctx.send(Buffer.from('binary data'));
    * ctx.send(fileStream);
    * ```
    */
-  send(data: ResponseBody): void;
+  send(data: ResponseBody, statusOrOptions?: number | ResponseOptions): void;
 
   /**
    * Send HTML response
    * Automatically sets Content-Type: text/html
    *
    * @param content - HTML string
+   * @param statusOrOptions - Explicit status, or response options carrying
+   *   `status` and `headers` (see {@link json}).
    *
    * @example
    * ```typescript
    * ctx.html('<h1>Hello World</h1>');
+   * ctx.html('<h1>Created</h1>', { status: 201 });
    * ```
    */
-  html(content: string): void;
+  html(content: string, statusOrOptions?: number | ResponseOptions): void;
 
   /**
    * Redirect to another URL

@@ -49,6 +49,8 @@ governing RFC (`docs/RFC/`, which has its own `TEMPLATE.md`).
 | [ADR-0034](ADR-0034-json-media-type-and-response-construction.md) | One JSON media type, and a plain init record for the Web response | Accepted · Shipped | `docs/RFC/runtime-adapters/046-json-media-type-and-response-construction.md` |
 | [ADR-0035](ADR-0035-shared-request-deadline.md) | One shared timer serves the request deadline | Accepted · Shipped | `docs/RFC/runtime-adapters/046-json-media-type-and-response-construction.md` |
 | [ADR-0036](ADR-0036-opt-in-lazy-body-parsing.md) | Opt-in lazy body parsing via a per-request deferred reader | Accepted | `docs/RFC/request-data/047-lazy-body-parsing.md` |
+| [ADR-0037](ADR-0037-nextjs-callable-handler-set.md) | Callable Next.js route-handler set with a shared engine per app and options | Accepted | `docs/RFC/runtime-adapters/049-nextjs-callable-handler.md` |
+| [ADR-0038](ADR-0038-handler-return-settlement.md) | Settle a handler's returned value into the response through one shared table | Accepted | `docs/RFC/runtime-adapters/050-handler-return-settlement.md` |
 
 ## Overlap note: ADR-0003 vs ADR-0004
 

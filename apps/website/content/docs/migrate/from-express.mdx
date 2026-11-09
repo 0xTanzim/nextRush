@@ -21,7 +21,8 @@ linear chain.
     'req.query': { type: 'ctx.query', description: 'Same shape.' },
     'req.body': { type: 'ctx.body', description: 'Populated by @nextrush/body-parser, not automatic.' },
     'res.json(data)': { type: 'ctx.json(data)', description: 'Same behavior.' },
-    'res.status(code)': { type: 'ctx.status = code', description: 'A property assignment, not a method call.' },
+    'res.status(code)': { type: 'ctx.json(data, code)', description: 'The status is a response-call argument: ctx.json(data, 201) or ctx.json(data, { status: 201 }). ctx.status = code still works and applies to the next body call.' },
+    'res.set(field, value)': { type: 'ctx.set(field, value)', description: 'A per-call alternative: ctx.json(data, { headers: { field: value } }).' },
     'res.redirect(url)': { type: 'ctx.redirect(url)', description: 'Same behavior.' },
     'next(err)': { type: 'throw new HttpError(...)', description: 'Throw a typed error instead of calling next with one.' },
   }}

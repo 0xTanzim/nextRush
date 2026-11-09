@@ -134,6 +134,13 @@ export type { PreparedBody } from './response-body';
 export { serializeJson } from './serialize-json';
 export { LAST_RESORT_ERROR_STATUS, unansweredErrorBody } from './unanswered-response';
 
+export {
+  applyResponseHeaders,
+  assertResponseStatus,
+  resolveResponseArgs,
+} from './response-args';
+export type { HeaderWriter, ResolvedResponseArgs } from './response-args';
+
 // ============================================================================
 // Boot Gate (one boot barrier for every adapter entry point)
 // ============================================================================

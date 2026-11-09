@@ -11,6 +11,7 @@ import { SECURITY_AUDIT, type SecurityAuditVerdict } from '@nextrush/types';
 import { HttpError, NextRushError, getHttpStatusMessage } from './base';
 import { GENERIC_ERROR_CODE, resolveErrorCode } from './codes';
 import { getErrorStatus } from './factory';
+import { ValidationError } from './validation';
 
 /**
  * Error handler options
@@ -18,6 +19,15 @@ import { getErrorStatus } from './factory';
 export interface ErrorHandlerOptions {
   /** Include stack trace in development */
   includeStack?: boolean;
+
+  /**
+   * HTTP status to emit for {@link ValidationError} instances that carry the default status 400.
+   *
+   * @remarks
+   * Useful when an API specification mandates `422 Unprocessable Entity` for validation
+   * failures across the entire application without configuring `errorStatus: 422` on every route.
+   */
+  validationErrorStatus?: number;
 
   /**
    * Whether the application is running in production (SEC-14).
@@ -72,7 +82,15 @@ function defaultLogger(error: Error, ctx: Context): void {
  * ```
  */
 export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
-  const { includeStack = false, isProduction = false, logger = defaultLogger, transform, handlers } = options;
+  const { includeStack = false, isProduction = false, logger = defaultLogger, transform, handlers, validationErrorStatus } = options;
+
+  if (validationErrorStatus !== undefined) {
+    if (!Number.isInteger(validationErrorStatus) || validationErrorStatus < 400 || validationErrorStatus > 499) {
+      throw new RangeError(
+        `errorHandler(): validationErrorStatus must be an integer between 400 and 499. Received: ${String(validationErrorStatus)}.`
+      );
+    }
+  }
 
   // SEC-14: warn once per process, not once per request — a per-request
   // warning on a hot error path floods logs for no added value once the
@@ -109,6 +127,14 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
         expose = err.expose;
         code = err.code;
         details = err.details;
+
+        if (
+          err instanceof ValidationError &&
+          validationErrorStatus !== undefined &&
+          err.status === 400
+        ) {
+          status = validationErrorStatus;
+        }
       } else {
         // One contract with `@nextrush/core`'s default error response: a plain
         // error that carries a status is reported with that status, and its code
@@ -132,6 +158,9 @@ export function errorHandler(options: ErrorHandlerOptions = {}): Middleware {
         // adds `issues` while stripping `received`). Duplicating that shape here
         // would silently drift out of sync with subclass overrides.
         body = err.toJSON();
+        if (err instanceof ValidationError && status !== err.status) {
+          body = { ...body, status };
+        }
       } else {
         body = {
           error: expose ? err.name : getHttpStatusMessage(status),

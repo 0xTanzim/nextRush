@@ -7,16 +7,16 @@
   },
   "dependencies": {
     "@nextrush/adapter-nextjs": "workspace:*",
-    "next": "catalog:web",
+    "next": "14.2.35",
     "nextrush": "workspace:*",
-    "react": "catalog:web",
-    "react-dom": "catalog:web"
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
     "@types/node": "catalog:node",
-    "@types/react": "catalog:web",
-    "@types/react-dom": "catalog:web",
-    "typescript": "catalog:tooling"
+    "@types/react": "18.3.28",
+    "@types/react-dom": "18.3.7",
+    "typescript": "5.9.3"
   },
   "version": "0.0.1"
 }

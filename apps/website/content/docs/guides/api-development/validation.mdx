@@ -56,33 +56,36 @@ const app = createApp();
 
 app.post('/users', json(), validate(CreateUserSchema), (ctx) => {
   // ctx.body is now the validated, coerced value — no cast, no second variable
-  ctx.status = 201;
-  ctx.json({ data: ctx.body });
+  ctx.json({ data: ctx.body }, 201);
 });
 
 listen(app, 8080);
 ```
 
-Validate query and route params together by passing a spec map instead of a bare schema:
+Validate query and route params together by passing a schema map instead of a bare schema. Access coerced values using `validated(ctx)` or target helpers like `validated.query(ctx)`:
 
 ```typescript
-import { validate } from '@nextrush/validation';
+import { validate, validated, createValidate } from '@nextrush/validation';
 
 const PaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
 });
 
-app.get('/users', validate({ query: PaginationSchema }), (ctx) => {
-  // ctx.query is validated but left as strings — @nextrush/validation never
-  // coerces query/params in place, only ctx.body
-  ctx.json({ page: ctx.query.page, limit: ctx.query.limit });
+// Pass optional errorStatus (e.g. 422) if your API requires it:
+app.get('/users', validate({ query: PaginationSchema }, { errorStatus: 422 }), (ctx) => {
+  // ctx.query remains string maps for type honesty; coerced values are on validated(ctx):
+  const { query } = validated<{ query: { page: number; limit: number } }>(ctx);
+  // Or: const query = validated.query<{ page: number; limit: number }>(ctx);
+  ctx.json({ page: query.page, limit: query.limit });
 });
+
+// Configure project-wide validation once across all routes:
+export const validate422 = createValidate({ errorStatus: 422 });
 ```
 
 Invalid input never reaches the handler — `validate()` throws the same `ValidationError` this
-guide covers throughout, so it flows into `errorHandler()` exactly like a manually-thrown one. See
-the [`@nextrush/validation` README](https://github.com/0xTanzim/nextRush/tree/main/packages/middleware/validation) for the full options reference.
+guide covers throughout, so it flows into `errorHandler()` exactly like a manually-thrown one. You can also configure `errorHandler({ validationErrorStatus: 422 })` in `@nextrush/errors` to map default 400 validation failures to 422 globally. See the [`@nextrush/validation` Reference](/docs/reference/validation) for the full options reference.
 
 ## Step 1 — Hand-Roll Validation in Functional Routes
 
@@ -147,7 +150,7 @@ validation into a helper function rather than route-level middleware.
   </Step>
 </Steps>
 
-`ValidationError` takes an array of `ValidationIssue` objects as the first argument and an optional message as the second. Each issue uses `path` (not `field`) to identify the failing property.
+`ValidationError` takes an array of `ValidationIssue` objects as the first argument, an optional message as the second (defaults to `'Validation failed'`), and an optional HTTP status as the third (defaults to `400`, overridable to e.g. `422`). Each issue uses `path` (not `field`) to identify the failing property.
 
 ## Step 2 — Validate with Decorators
 

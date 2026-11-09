@@ -88,6 +88,14 @@ const TESTED_FEATURES: ReadonlySet<Feature> = new Set([
  * real-runtime coverage already backs — see the package README's
  * "Real-runtime note" — so it is intentionally NOT double-counted as a
  * second `real-runtime` row.
+ *
+ * `nextjs` stays `simulated` for THIS matrix even though
+ * `deploy-verification/nextjs-app-16` now proves the adapter over a real
+ * `next build` + `next start` server. That harness asserts a curated
+ * CRUD/routing/body-parser set, not the shared `defineConformanceSuite`, so
+ * labelling the column `real-runtime` would claim per-feature proof (Streaming,
+ * SSE, …) that was never executed on-platform. The separate real-server result
+ * is reported in the matrix notes and the deploy-verification README.
  */
 export type ProofLevel = 'real-runtime' | 'simulated';
 
@@ -119,7 +127,7 @@ const REAL_RUNTIME_COVERAGE: Record<string, RealRuntimeCoverage> = {
   deno: 'full-suite', // deno-runner/ runs Deno in-process with the test — full defineConformanceSuite
   edge: 'curated-subset', // workerd-runner/: a genuinely separate isolate — closures can't cross the HTTP boundary
   serverless: 'n/a', // simulated only; real target is Node, covered by node's row
-  nextjs: 'n/a', // simulated only; App Router runs on Node (or workerd via OpenNext) — both already have real-runtime runners
+  nextjs: 'n/a', // shared suite is simulated only; deploy-verification/nextjs-app-16 proves a curated CRUD subset over a real `next start` server (reported separately in the notes)
 };
 
 /** Static fact about the harness's structure — not derived from driver data. */
@@ -129,7 +137,7 @@ const REAL_RUNTIME_RUNNER_EXISTS: Record<string, boolean> = {
   deno: true, // deno-runner/
   edge: true, // workerd-runner/ (real miniflare/workerd isolate)
   serverless: false, // real target is Node, already covered by `node`'s row
-  nextjs: false, // no separate runtime of its own — App Router runs on Node/workerd, both already covered
+  nextjs: false, // no shared-suite runner; the real-server CRUD harness in deploy-verification/nextjs-app-16 is a curated subset, reported separately
 };
 
 /** The capability inputs the matrix is computed from (one per conformance target). */
@@ -319,6 +327,14 @@ export function renderCertificationMarkdown(): string {
     '- **Proof (`serverless`)** — 🟡 simulated here because its real deployment runtime',
     '  IS Node (Lambda/GCF/Azure all run Node); real-runtime coverage for that target',
     "  is `node`'s own row, not double-counted as a second real-runtime proof.",
+    '- **Proof (`nextjs`)** — 🟡 simulated here: this column runs the in-process',
+    '  App Router driver. Separately, `deploy-verification/nextjs-app-16` proves the',
+    '  adapter over a real `next build` + `next start` server with JSON CRUD, dynamic',
+    '  params, 404/405, OPTIONS/HEAD, and body-parser errors',
+    '  (`pnpm --filter nextjs-app-16 test:integration`). That is a curated subset, not',
+    '  the shared conformance suite, so it is reported here and in the',
+    '  deploy-verification README rather than counted as real-runtime breadth; a',
+    '  passing build alone is never integration proof.',
     '',
   ].join('\n');
 }

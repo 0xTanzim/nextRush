@@ -7,14 +7,18 @@
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as validationApi from '../index';
-import type { ValidationIssue } from '../index';
+import type { ValidatedAccessor, ValidatedInput, ValidateOptions, ValidationIssue } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
   it('exports exactly the intended runtime symbols', () => {
     const actualExports = Object.keys(validationApi).sort();
 
     // SEALED: intentional public runtime API surface.
-    const expectedRuntime = ['validate', 'ValidationError'].sort();
+    // `validated` was added deliberately (issue #69) — the coerced query/params
+    // values are exposed on ctx.state and read back through this accessor.
+    // `createValidate` was added deliberately (issue #70) — allows project-wide
+    // defaults (such as errorStatus: 422) across multi-router backends.
+    const expectedRuntime = ['validate', 'validated', 'createValidate', 'ValidationError'].sort();
 
     expect(actualExports).toEqual(expectedRuntime);
   });
@@ -24,7 +28,7 @@ describe('Public API surface (type-only exports)', () => {
   it('the type-only surface stays importable from the barrel', () => {
     // Compile-time only: removing/renaming any of these in src/index.ts fails
     // this file to type-check.
-    type Surface = [ValidationIssue];
+    type Surface = [ValidationIssue, ValidateOptions, ValidatedInput, ValidatedAccessor];
     expectTypeOf<Surface>().not.toBeNever();
   });
 });

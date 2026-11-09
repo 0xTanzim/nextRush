@@ -1,0 +1,154 @@
+---
+title: 'Status codes and headers on the call: a smaller response API'
+description: >
+  A user wrote ctx.json(data, 202) and got a 200. The argument was silently ignored — and that
+  turned out to be one symptom of a response API with no per-call status or headers. Here is what
+  we changed, the design we deliberately did not take, and a content-type bug we found on the way.
+author: NextRush Team
+date: '2026-10-26'
+tags:
+  - dx
+  - api
+  - context
+---
+
+A user sent us this:
+
+```ts
+ctx.json({ id: 'u_123' }, 202);
+```
+
+The response came back `200`. Not an error, not a warning — the second argument was silently dropped.
+That is the worst failure shape a framework can produce: the code says one thing, the wire says
+another, and nothing tells you.
+
+The shipped implementation explains it. Both the Web context and the Node context declared the
+method with a single parameter, and built the response from `ctx.status`:
+
+```ts title="packages/runtime/src/web-context-base.ts (before)"
+json(data: unknown): void {
+  this._response.json(data, this.status);   // this.status is still 200
+}
+```
+
+TypeScript rejected a second argument at the call site; plain JavaScript dropped it at runtime, and
+nothing had changed `ctx.status`. So we fixed it — along with the thing right next to it that the
+report did not mention: there was no per-call way to set response headers either. A handler that
+needed `Location`, `Cache-Control` or a request id had to call `ctx.set()` once per header before
+writing the body.
+
+## The API we shipped
+
+```ts
+ctx.json({ users });                                    // carried status (default 200)
+ctx.json({ id: 'u_123' }, 201);                         // numeric shorthand
+ctx.json({ id: 'u_123' }, {                             // options object
+  status: 201,
+  headers: {
+    Location: '/users/u_123',
+    'Cache-Control': 'no-store',
+  },
+});
+```
+
+Same second argument on `ctx.html(content, statusOrOptions?)` and
+`ctx.send(body, statusOrOptions?)`. `ctx.status = 201` still works exactly as before — this is an
+addition, not a replacement.
+
+### Precedence, stated once
+
+1. No argument → the carried `ctx.status`, default `200`.
+2. A number → that status for this response.
+3. An object → its `status` and `headers` when present.
+4. An explicit status beats a prior assignment — and is **written back** onto `ctx.status`.
+
+That last rule matters more than it looks. A logging middleware that runs after the handler reads
+`ctx.status` to report what happened. If `ctx.json(data, 201)` had used a local override and left
+`ctx.status` at `200`, every log line and metric for created resources would be wrong while the
+client saw `201`. Persisting the value keeps the recorded response honest.
+
+### Headers merge, they do not replace
+
+Supplied headers go through the same header implementation `ctx.set()` already uses, so there is one
+set of semantics rather than two:
+
+- an ordinary field overrides a previously recorded value (case-insensitive), keeping its position;
+- `Set-Cookie` accumulates, so cookies set by middleware survive;
+- an array replaces the field and then contributes each element;
+- a supplied `Content-Type` wins over the helper's automatic media type.
+
+One rule is new and deliberate: **`Content-Length` in the options throws.** The framework derives the
+length from the serialized body at flush. A supplied value that disagrees truncates the response on
+Node and throws or truncates on the Web adapters — a silent data-loss bug hidden behind a helpful
+option. Saying no is the honest behavior.
+
+### Invalid statuses fail before anything is written
+
+Accepted statuses are integers `200`–`599`. That range is not a preference: the Web `Response`
+constructor allows 200–599, our builder rejects 1xx outright, and Node's `writeHead` accepts
+100–999. The adapters genuinely disagree outside it, so the shared range is the only one that can
+produce identical behavior everywhere.
+
+An out-of-range or non-integer value throws a `RangeError` naming the accepted range *before* the
+body is serialized, so the response is still uncommitted and the error handler can answer. One
+resolver in `@nextrush/runtime` does this for every adapter — the Web contexts and the Node context
+call the same function.
+
+## The content-type bug we found on the way
+
+Writing the tests exposed something worse than the original report. This:
+
+```ts
+ctx.set('Content-Type', 'application/vnd.api+json');
+ctx.json({ ok: true });
+```
+
+answered `application/json`. The body method's default was overwriting an explicitly chosen type.
+Our own adapter contract says the opposite — an explicit content type wins, before *or* after the
+body method — so this was a documented behavior that the code did not implement.
+
+The fix is small: the content type a body method supplies is now a **fallback**, not an overwrite.
+Apply headers before writing the body and an explicit `Content-Type` survives — for every body kind,
+including streams, which commit their head during the call.
+
+This is the one behavior change in the release, and it is worth knowing about even though it makes
+the code match the contract.
+
+## What we rejected
+
+- **`ctx.status(code)`.** The tempting Express/Hono-shaped API. JavaScript cannot make `ctx.status`
+  behave as both a number and a callable function: reading `ctx.status === 404` and calling
+  `ctx.status(404)` cannot coexist under one name, and strict equality is used throughout the
+  framework and in user code. That is a breaking redesign with a migration, not a convenience patch.
+  It stays a separate decision.
+- **Options-only.** `ctx.json(data, { status: 201 })` for the common case is noise. The numeric form
+  is shorthand, and `redirect(url, status)` already set that precedent.
+- **`HeadersInit`.** Accepting the DOM type would pull the DOM lib into a package that compiles
+  without it, and a `Headers` instance normalizes casing and collapses multi-value fields — exactly
+  the properties the merge policy has to preserve.
+- **`statusText`, `cookies`, `contentType`, `body` in the options object.** No demonstrated need, and
+  each one is a contract we would have to support for years.
+
+## Migration
+
+Nothing to do. Existing calls compile and behave identically:
+
+```ts
+ctx.status = 201;
+ctx.json(payload);
+```
+
+If you want the shorter form:
+
+```ts
+ctx.json(payload, 201);
+```
+
+Both are supported, and both are covered by the cross-adapter conformance suite — Node, Bun, Deno,
+Edge and serverless run the same scenarios and must produce identical status, headers and body bytes.
+
+## What's next
+
+A response helper that can carry a status is one step. The larger question — whether `ctx.status`
+itself should become a method — is a breaking change and a separate proposal. We would rather ship a
+small, correct addition now than hold it hostage to a redesign that needs a migration guide.

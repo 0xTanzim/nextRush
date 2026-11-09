@@ -31,9 +31,21 @@ export class ValidationError extends NextRushError {
   /** List of validation issues */
   readonly issues: ValidationIssue[];
 
-  constructor(issues: ValidationIssue[], message = 'Validation failed') {
+  /**
+   * @param issues - Every validation issue to report.
+   * @param message - Human-readable summary.
+   * @param status - HTTP status to emit. Defaults to `400 Bad Request`.
+   *
+   * @remarks
+   * `status` is overridable because "the request was malformed" and "the request
+   * was well-formed but semantically invalid" are different failures, and API
+   * specs legitimately map the second to `422 Unprocessable Entity`. The `code`
+   * stays `VALIDATION_ERROR` regardless: the code names the *kind* of failure,
+   * the status names the *class* of it.
+   */
+  constructor(issues: ValidationIssue[], message = 'Validation failed', status = 400) {
     super(message, {
-      status: 400,
+      status,
       code: 'VALIDATION_ERROR',
       expose: true,
     });
@@ -44,19 +56,19 @@ export class ValidationError extends NextRushError {
   /**
    * Create from a single field error
    */
-  static fromField(path: string, message: string, rule?: string): ValidationError {
-    return new ValidationError([{ path, message, rule }]);
+  static fromField(path: string, message: string, rule?: string, status = 400): ValidationError {
+    return new ValidationError([{ path, message, rule }], 'Validation failed', status);
   }
 
   /**
    * Create from multiple field errors
    */
-  static fromFields(errors: Record<string, string>): ValidationError {
+  static fromFields(errors: Record<string, string>, status = 400): ValidationError {
     const issues = Object.entries(errors).map(([path, message]) => ({
       path,
       message,
     }));
-    return new ValidationError(issues);
+    return new ValidationError(issues, 'Validation failed', status);
   }
 
   /**
@@ -114,10 +126,11 @@ export class ValidationError extends NextRushError {
  * Required field missing
  */
 export class RequiredFieldError extends ValidationError {
-  constructor(field: string) {
+  constructor(field: string, status = 400) {
     super(
       [{ path: field, message: `${field} is required`, rule: 'required' }],
-      `${field} is required`
+      `${field} is required`,
+      status
     );
   }
 }
@@ -126,7 +139,7 @@ export class RequiredFieldError extends ValidationError {
  * Field type mismatch
  */
 export class TypeMismatchError extends ValidationError {
-  constructor(field: string, expected: string, received: string) {
+  constructor(field: string, expected: string, received: string, status = 400) {
     super(
       [
         {
@@ -137,7 +150,8 @@ export class TypeMismatchError extends ValidationError {
           received,
         },
       ],
-      `${field} must be of type ${expected}`
+      `${field} must be of type ${expected}`,
+      status
     );
   }
 }
@@ -146,13 +160,13 @@ export class TypeMismatchError extends ValidationError {
  * Value out of range
  */
 export class RangeValidationError extends ValidationError {
-  constructor(field: string, min?: number, max?: number) {
+  constructor(field: string, min?: number, max?: number, status = 400) {
     const parts: string[] = [];
     if (min !== undefined) parts.push(`at least ${min}`);
     if (max !== undefined) parts.push(`at most ${max}`);
     const message = `${field} must be ${parts.join(' and ')}`;
 
-    super([{ path: field, message, rule: 'range', expected: { min, max } }], message);
+    super([{ path: field, message, rule: 'range', expected: { min, max } }], message, status);
   }
 }
 
@@ -160,13 +174,13 @@ export class RangeValidationError extends ValidationError {
  * String length violation
  */
 export class LengthError extends ValidationError {
-  constructor(field: string, min?: number, max?: number) {
+  constructor(field: string, min?: number, max?: number, status = 400) {
     const parts: string[] = [];
     if (min !== undefined) parts.push(`at least ${min} characters`);
     if (max !== undefined) parts.push(`at most ${max} characters`);
     const message = `${field} must be ${parts.join(' and ')}`;
 
-    super([{ path: field, message, rule: 'length', expected: { min, max } }], message);
+    super([{ path: field, message, rule: 'length', expected: { min, max } }], message, status);
   }
 }
 
@@ -174,7 +188,7 @@ export class LengthError extends ValidationError {
  * Pattern mismatch
  */
 export class PatternError extends ValidationError {
-  constructor(field: string, pattern: string, message?: string) {
+  constructor(field: string, pattern: string, message?: string, status = 400) {
     super(
       [
         {
@@ -184,7 +198,8 @@ export class PatternError extends ValidationError {
           expected: pattern,
         },
       ],
-      message ?? `${field} does not match required pattern`
+      message ?? `${field} does not match required pattern`,
+      status
     );
   }
 }
@@ -193,10 +208,11 @@ export class PatternError extends ValidationError {
  * Invalid email format
  */
 export class InvalidEmailError extends ValidationError {
-  constructor(field = 'email') {
+  constructor(field = 'email', status = 400) {
     super(
       [{ path: field, message: 'Invalid email address', rule: 'email' }],
-      'Invalid email address'
+      'Invalid email address',
+      status
     );
   }
 }
@@ -205,7 +221,7 @@ export class InvalidEmailError extends ValidationError {
  * Invalid URL format
  */
 export class InvalidUrlError extends ValidationError {
-  constructor(field = 'url') {
-    super([{ path: field, message: 'Invalid URL', rule: 'url' }], 'Invalid URL');
+  constructor(field = 'url', status = 400) {
+    super([{ path: field, message: 'Invalid URL', rule: 'url' }], 'Invalid URL', status);
   }
 }

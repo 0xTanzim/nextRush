@@ -52,10 +52,7 @@ export interface NextRouteContext {
 }
 
 /** One Next.js route-handler export. */
-export type NextRouteHandler = (
-  request: Request,
-  context: NextRouteContext
-) => Promise<Response>;
+export type NextRouteHandler = (request: Request, context: NextRouteContext) => Promise<Response>;
 
 /** The seven methods Next.js supports, ready to destructure. */
 export interface NextRouteHandlers {
@@ -75,7 +72,28 @@ export interface NextHandlerOptions {
   onError?: (error: Error, ctx: Context) => Response | Promise<Response>;
 }
 
-const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
+/**
+ * The value returned by {@link handle}: a Next.js route handler that also
+ * exposes the seven method handlers as properties, so both
+ * `export const GET = handle(app)` and `export const { GET } = handle(app)`
+ * are valid. All eight slots are the same function — dispatch is
+ * method-agnostic and the engine routes on `request.method` (RFC-049).
+ */
+export type NextRouteHandlerSet = NextRouteHandler & NextRouteHandlers;
+
+interface SharedEntry {
+  readonly timeout: number | undefined;
+  readonly onError: NextHandlerOptions['onError'];
+  readonly handlerSet: NextRouteHandlerSet;
+}
+
+/**
+ * One handler set per (app source, effective options), so a route module that
+ * exports each method directly initializes one engine, not seven (RFC-049).
+ * Weak keys keep HMR and discarded apps collectable; values that reference
+ * the key are handled by WeakMap ephemeron semantics.
+ */
+const sharedSets = new WeakMap<AppSource, SharedEntry[]>();
 
 /**
  * Mount a NextRush application in a Next.js App Router route handler.
@@ -85,9 +103,34 @@ const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as 
  *   next request after a failed boot, never permanently poisoned.
  * @param options - Timeout and error-handling pass-throughs to the underlying
  *   fetch engine. See {@link NextHandlerOptions}.
- * @returns The seven Next.js route-handler exports, ready to destructure.
+ * @returns A callable handler set: one route handler that also exposes the
+ *   seven method handlers as properties. Repeated calls with the same app
+ *   source and equivalent options return the same set and share one engine
+ *   (RFC-049), so exporting each method directly does not multiply engines.
  */
-export function handle(app: AppSource, options: NextHandlerOptions = {}): NextRouteHandlers {
+export function handle(app: AppSource, options: NextHandlerOptions = {}): NextRouteHandlerSet {
+  // Snapshot the values the cache matches on. The engine is built lazily on the
+  // first dispatch, so handing it the caller's live options object would let a
+  // later mutation retarget a set whose cache key still describes the old
+  // values — the same key would then mean two different engines.
+  const timeout = options.timeout;
+  const onError = options.onError;
+
+  let entries = sharedSets.get(app);
+  if (entries === undefined) {
+    entries = [];
+    sharedSets.set(app, entries);
+  }
+
+  const shared = entries.find((entry) => entry.timeout === timeout && entry.onError === onError);
+  if (shared !== undefined) return shared.handlerSet;
+
+  const handlerSet = createHandlerSet(app, { timeout, onError });
+  entries.push({ timeout, onError, handlerSet });
+  return handlerSet;
+}
+
+function createHandlerSet(app: AppSource, options: NextHandlerOptions): NextRouteHandlerSet {
   const resolveApp = memoizeAppSource(app);
 
   // Deferred: the fetch engine is built lazily on first dispatch, once the
@@ -168,10 +211,14 @@ export function handle(app: AppSource, options: NextHandlerOptions = {}): NextRo
     return response;
   };
 
-  const handlers = {} as NextRouteHandlers;
-  for (const method of METHODS) {
-    handlers[method] = (request: Request, context?: NextRouteContext) =>
-      dispatch(request, context);
-  }
-  return handlers;
+  const handler: NextRouteHandler = (request, context) => dispatch(request, context);
+  return Object.assign(handler, {
+    GET: handler,
+    POST: handler,
+    PUT: handler,
+    PATCH: handler,
+    DELETE: handler,
+    HEAD: handler,
+    OPTIONS: handler,
+  } satisfies NextRouteHandlers);
 }

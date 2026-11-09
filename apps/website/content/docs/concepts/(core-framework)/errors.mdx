@@ -206,6 +206,7 @@ const app = createApp();
 app.use(
   errorHandler({
     includeStack: process.env.NODE_ENV !== 'production', // dev-only stack in the body
+    validationErrorStatus: 422, // optional: map default 400 validation errors to 422
     logger: (err, ctx) => myLogger.error(`${ctx.method} ${ctx.path}`, err),
   })
 );
@@ -214,6 +215,7 @@ declare const myLogger: { error(msg: string, err: Error): void };
 ```
 
 - **`includeStack`** decides whether the error's stack trace is added to the response body. Gate it on the environment so a stack appears while you develop and never in production.
+- **`validationErrorStatus`** lets you remap default 400 `ValidationError` instances to 422 (or any custom 4xx status) application-wide for specs that mandate Unprocessable Entity for schema failures.
 - **`logger`** replaces the default console logging — the hook to route errors into your own observability stack.
 - **`transform`** lets you rewrite the response body when your API needs a shape other than the default. The full option list is in the Reference; this page covers only what changing each one *means*.
 

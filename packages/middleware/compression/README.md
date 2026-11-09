@@ -57,7 +57,7 @@ app.use((ctx, next) => {
   next();
   const compressed = gzipSync(Buffer.from(JSON.stringify(ctx.body)));
   ctx.set('Content-Encoding', 'gzip');
-  ctx.body = compressed;
+  ctx.send(compressed);
   // Ignores Accept-Encoding entirely, compresses PNGs the same as JSON,
   // and compresses a 40-byte response just as eagerly as a 400KB one.
 });

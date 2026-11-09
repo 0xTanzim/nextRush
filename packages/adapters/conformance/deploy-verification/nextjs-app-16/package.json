@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "next build"
+    "build": "next build",
+    "test:integration": "next build && node --test test/integration.test.mjs"
   },
   "dependencies": {
     "@nextrush/adapter-nextjs": "workspace:*",
-    "next": "catalog:web",
+    "@nextrush/body-parser": "workspace:*",
+    "next": "16.4.2",
     "nextrush": "workspace:*",
     "react": "catalog:web",
     "react-dom": "catalog:web"

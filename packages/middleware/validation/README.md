@@ -239,9 +239,14 @@ The sealed public surface (ADR-0005).
 
 | Export | Signature | Since | Stability | Description |
 | ------ | --------- | ----- | --------- | ----------- |
-| `validate` | `(arg: StandardSchemaV1 \| RequestSchemas) => Middleware` | 1.0.0 | Stable | Validates the body (schema form), or the body/query/params (map form). |
-| `ValidationError` | `class` (re-exported from `@nextrush/errors`) | 1.0.0 | Stable | Thrown on any validation failure; carries aggregated `issues`, `status: 400`, `code: 'VALIDATION_ERROR'`. |
+| `validate` | `(arg: StandardSchemaV1 \| RequestSchemas, options?: ValidateOptions) => Middleware` | 1.0.0 | Stable | Validates the body (schema form), or the body/query/params (map form). |
+| `createValidate` | `(defaultOptions?: ValidateOptions) => typeof validate` | 1.1.0 | Stable | Factory creating preconfigured `validate` middleware (e.g. `{ errorStatus: 422 }`) for multi-router backends. |
+| `validated` | `ValidatedAccessor` | 1.1.0 | Stable | Accessor and target helpers (`validated.query`, `validated.params`, `validated.body`) to read coerced values from `ctx`. |
+| `ValidationError` | `class` (re-exported from `@nextrush/errors`) | 1.0.0 | Stable | Thrown on any validation failure; carries aggregated `issues`, `status: 400` (or configured status), `code: 'VALIDATION_ERROR'`. |
 | `type ValidationIssue` | -- (re-exported from `@nextrush/errors`) | 1.0.0 | Stable | `{ path, message, rule?, expected?, received? }` -- the shape of one aggregated issue. |
+| `type ValidateOptions` | `{ errorStatus?: number }` | 1.1.0 | Stable | Options for `validate()` and `createValidate()`. |
+| `type ValidatedInput` | `interface ValidatedInput<TBody, TQuery, TParams>` | 1.1.0 | Stable | Generic coerced data shape stored on `ctx.state.validated`. |
+| `type ValidatedAccessor` | `interface ValidatedAccessor` | 1.1.0 | Stable | Callable accessor and target helper methods contract. |
 
 ## Options
 
@@ -251,23 +256,66 @@ The sealed public surface (ADR-0005).
 | -------------- | ---- | -------- | ------- | ------------------- | ----------- |
 | `schema` | `StandardSchemaV1` | Yes (one of the two forms) | -- | No | Validates `ctx.body` against this schema; equivalent to `{ body: schema }`. |
 | `spec.body` | `StandardSchemaV1` | No | Not validated if omitted | No | Validates and **overwrites** `ctx.body` with the coerced value. |
-| `spec.query` | `StandardSchemaV1` | No | Not validated if omitted | No | Validates `ctx.query`; left unmodified (still a string map) on success. |
-| `spec.params` | `StandardSchemaV1` | No | Not validated if omitted | No | Validates `ctx.params`; left unmodified (still a string map) on success. |
+| `spec.query` | `StandardSchemaV1` | No | Not validated if omitted | No | Validates `ctx.query`; coerced value exposed on `ctx.state.validated`, `ctx.query` left unmodified (still a string map). |
+| `spec.params` | `StandardSchemaV1` | No | Not validated if omitted | No | Validates `ctx.params`; coerced value exposed on `ctx.state.validated`, `ctx.params` left unmodified (still a string map). |
+| `options.errorStatus` | `number` | No | `400` | No | HTTP status emitted when validation fails. Set `422` to match a spec that reserves `400` for malformed requests. |
 
 ### One source of truth
 
-| Target | On success | `ctx.*` after validation |
-| ------ | ----------- | -------------------------- |
-| **body** | validate + coerce + **overwrite `ctx.body`** | the coerced value |
-| **params** | validate; leave unmodified | the original `string` values |
-| **query** | validate; leave unmodified | the original `string` / `string[]` values |
+| Target | On success | `ctx.*` after validation | `validated(ctx).*` |
+| ------ | ----------- | -------------------------- | ------------------- |
+| **body** | validate + coerce + **overwrite `ctx.body`** | the coerced value | the coerced value |
+| **params** | validate + coerce | the original `string` values | the coerced value |
+| **query** | validate + coerce | the original `string` / `string[]` values | the coerced value |
 
-**Why body overwrites and query/params don't:** `ctx.body` is typed `unknown`, so replacing it with the coerced object is honest -- the type never disagrees with the runtime. `ctx.query`/`ctx.params` are declared as `string` maps; writing a coerced `number` back would make TypeScript report `string` while the runtime holds a `number`. Query and params are validated but intentionally left unmodified: bad input is rejected, and what the handler reads is exactly what the URL contained.
+**Why body overwrites and query/params don't:** `ctx.body` is typed `unknown`, so replacing it with the coerced object is honest -- the type never disagrees with the runtime. `ctx.query`/`ctx.params` are declared as `string` maps; writing a coerced `number` back would make TypeScript report `string` while the runtime holds a `number`. So the coerced values go to `ctx.state.validated` instead, which is `unknown`-valued and therefore honest, and you read them with `validated(ctx)`. `ctx.query`/`ctx.params` still hold exactly what the URL contained.
 
 ```ts
-// query is validated (rejects bad input) but stays a string -- coerce explicitly:
-const page = Number(ctx.query.page);
+import { validate, validated } from '@nextrush/validation';
+
+const Query = z.object({ page: z.coerce.number().int().min(1).default(1) });
+type QueryType = z.infer<typeof Query>;
+
+app.get('/items', validate({ query: Query }), (ctx) => {
+  // Option 1: target helper (direct, typed)
+  const query = validated.query<QueryType>(ctx);
+  ctx.json({ page: query?.page });
+
+  // Option 2: generic destructuring
+  const { query: q } = validated<{ query: QueryType }>(ctx);
+
+  // ctx.query.page is still the raw string, unchanged:
+  // ctx.query.page === '3'
+});
 ```
+
+### Choosing the failure status
+
+Validation failures default to `400 Bad Request`. When your API spec maps semantic validation failures to `422 Unprocessable Entity` and reserves `400` for malformed requests, set `errorStatus`:
+
+```ts
+app.post('/users', validate({ body: CreateUser }, { errorStatus: 422 }), handler);
+```
+
+For project-wide configuration across multiple routers, use `createValidate()`:
+
+```ts
+// src/validation.ts
+import { createValidate } from '@nextrush/validation';
+
+export const validate = createValidate({ errorStatus: 422 });
+```
+
+Now every router importing `validate` from `./validation` automatically emits `422` on schema failures without having to repeat `{ errorStatus: 422 }` on every route. You can also configure `errorHandler({ validationErrorStatus: 422 })` from `@nextrush/errors` as a centralized safety net.
+
+The error `code` stays `VALIDATION_ERROR` either way: the code names the *kind* of failure, the status names its *class*. Issues still aggregate across every configured target into a single error.
+
+`errorStatus` must be an integer from **400 to 499**. It is checked when `validate()` is called, not per request, so a typo fails at startup instead of on the first bad request. The range is 4xx-only on purpose: a validation failure is the client's fault, and reporting it as a 5xx would both mislabel the fault and contradict the framework's rule that a 5xx never exposes its details.
+
+### Stacking and body schemas
+
+- Calling `validate()` more than once on the same route **merges** the coerced targets, so `validate({ params })` followed by `validate({ query })` keeps both. A later call overwrites only the keys it validates.
+- A `body` schema requires a body parser. If a request carries a body but `ctx.readBody()` resolves to `undefined` because none is installed, `validate()` throws an error naming the missing parser rather than reporting a misleading "expected object, received undefined" schema failure.
 
 ## Compatibility
 
@@ -323,13 +371,29 @@ app.post('/users', json(), validate(User), handler); // json() must run first
 <details>
 <summary><strong>`ctx.query.page` is still a string after validating it as a number</strong></summary>
 
-**Cause:** query and params are validated but intentionally never overwritten (see [One source of truth](#one-source-of-truth)) -- `ctx.query`/`ctx.params` stay typed as string maps so TypeScript is never wrong about their runtime shape. **Fix:** coerce explicitly after validation confirms the value is well-formed.
+**Cause:** query and params are validated but intentionally never overwritten (see [One source of truth](#one-source-of-truth)) -- `ctx.query`/`ctx.params` stay typed as string maps so TypeScript is never wrong about their runtime shape. **Fix:** read the coerced value from `validated(ctx)` instead.
 
 ```ts
-const SearchQuery = z.object({ page: z.string().regex(/^\d+$/) });
+const SearchQuery = z.object({ page: z.coerce.number().int().min(1) });
 app.get('/search', validate({ query: SearchQuery }), (ctx) => {
-  const page = Number(ctx.query.page); // validated shape, explicit coercion
+  const { query } = validated(ctx);
+  const page = query.page; // number -- coerced by the schema
+  // ctx.query.page is still the raw string
 });
+```
+
+</details>
+
+<details>
+<summary><strong><code>validate()</code> throws <code>TypeError: unknown schema target</code> at startup</strong></summary>
+
+**Cause:** the schema map has a key that is not `body`, `query`, or `params` -- usually a typo like `querys`, or a schema filed under a domain name like `user`. This is rejected when `validate()` is called rather than at request time, because a misspelled target would otherwise validate **nothing** and silently pass every request through.
+
+**Fix:** use one of the three valid target names.
+
+```ts
+validate({ query: Query });   // correct
+validate({ querys: Query });  // TypeError at startup -- would have validated nothing
 ```
 
 </details>

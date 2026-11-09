@@ -1,11 +1,12 @@
 /**
  * @nextrush/adapter-nextjs - Boot
  *
- * Memoizes the {@link AppSource} → `Application` resolution once per
- * `handle()` call, and resolves Next's `after()` once as a capability probe
- * (RFC-024 §8.3) — never a runtime-identity check. `next` stays an optional
- * peer: when `next/server` cannot be imported, `after` resolves to
- * `undefined` and callers degrade to their existing no-op contract.
+ * Memoizes the {@link AppSource} → `Application` resolution once per shared
+ * handler set (one per app source and equivalent options), and resolves Next's
+ * `after()` once as a capability probe (RFC-024 §8.3) — never a
+ * runtime-identity check. `next` stays an optional peer: when `next/server`
+ * cannot be imported, `after` resolves to `undefined` and callers degrade to
+ * their existing no-op contract.
  *
  * @packageDocumentation
  */

@@ -93,12 +93,13 @@ describe('unsignCookie expiry and rejection branches not covered elsewhere', () 
 
   it('rejects a tampered signature without throwing', async () => {
     const signed = await signCookie('session', 'value', 'secret');
-    // The replacement must differ from the current final character — the HMAC is
-    // deterministic, so a blind substitution is a no-op whenever the signature
-    // already ends in that character (observed flake under act/CI).
-    const lastChar = signed.slice(-1);
-    const replacement = lastChar === '0' ? '1' : '0';
-    const tampered = `${signed.slice(0, -1)}${replacement}`;
+    // Tamper the signature portion from the beginning rather than the final character:
+    // the 43rd base64url character in a 32-byte HMAC has 2 unused padding bits which
+    // atob() ignores when only the lowest bit changes.
+    const lastDot = signed.lastIndexOf('.');
+    const sig = signed.slice(lastDot + 1);
+    const tamperedSig = (sig[0] === 'a' ? 'b' : 'a') + sig.slice(1);
+    const tampered = `${signed.slice(0, lastDot + 1)}${tamperedSig}`;
     expect(tampered).not.toBe(signed);
     await expect(unsignCookie('session', tampered, 'secret')).resolves.toBeUndefined();
   });
