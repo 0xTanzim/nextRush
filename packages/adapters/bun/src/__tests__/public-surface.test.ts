@@ -34,6 +34,11 @@ describe('Public API surface (runtime exports)', () => {
       // Shared error classes re-exported from @nextrush/runtime
       'BodyConsumedError',
       'BodyTooLargeError',
+      'ServerStartError',
+
+      // Runtime detection
+      'isBun',
+      'isBunRuntime',
 
       // Utilities
       'getContentLength',

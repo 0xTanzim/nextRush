@@ -206,6 +206,10 @@ listenIfStandalone(handler);
 3. Branch on `ctx.platform`, not `ctx.runtime === 'node'`
 4. Timeout → cooperative cancel via `ctx.signal`, result 504
 5. Cloudflare is **not** in this package — use adapter-edge
+6. **Bun & Deno Runtime Guarding & Ergonomics**:
+   - `createHandler(app)` from `@nextrush/adapter-bun` or `@nextrush/adapter-deno` produces `(request: Request, server?: ...) => Response | Promise<Response>`. Calling with 1 argument (`await handler(request)`) is fully typed and supported; no dummy server/info object is required.
+   - Calling `serve(app)` from `@nextrush/adapter-bun` or `@nextrush/adapter-deno` in an incompatible runtime (such as Node.js or a Vercel Serverless Function without `"bunVersion": "1.4.x"` in `vercel.json`) throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` and actionable instructions to use `@nextrush/adapter-node` or `@nextrush/adapter-serverless`.
+   - Both adapters re-export `isBun` / `isDeno` (and `isBunRuntime` / `isDenoRuntime`) and `ServerStartError`.
 
 ### Warm instance note
 

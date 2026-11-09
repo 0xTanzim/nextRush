@@ -19,8 +19,8 @@ export { DenoContext, createDenoContext } from './context';
 // Body Source
 export { EmptyBodySource, createEmptyBodySource } from './body-source';
 
-// Re-export shared error classes from @nextrush/runtime
-export { BodyConsumedError, BodyTooLargeError } from '@nextrush/runtime';
+// Re-export shared error classes and runtime detection from @nextrush/runtime
+export { BodyConsumedError, BodyTooLargeError, isDeno, isDeno as isDenoRuntime, ServerStartError } from '@nextrush/runtime';
 
 // Utilities
 // eslint-disable-next-line @typescript-eslint/no-deprecated -- F-09: intentional compat re-export, not a usage site

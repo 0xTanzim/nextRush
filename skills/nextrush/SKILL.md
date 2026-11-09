@@ -219,6 +219,7 @@ Inside Next.js App Router?
 2. On serverless/edge via these adapters, `ctx.runtime` is often `'edge'` — use **`ctx.platform`** to know provider (`'lambda' | 'gcf' | 'azure' | ...`).
 3. Next.js: only App Router. Pages Router unsupported. Mount paths live on the **app** (`app.route('/api', router)`), not the bridge.
 4. WebSocket package is **Node-only**. Edge/Bun/Deno: use platform native WS or SSE via `@nextrush/stream`.
+5. **Runtime Guarding & Clean Calling**: `@nextrush/adapter-bun` and `@nextrush/adapter-deno` handlers have optional second arguments (`await handler(request)` without dummy servers). In non-Bun/Deno runtimes (e.g., Vercel without `bunVersion`), calling `serve()` throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` and actionable migration advice. Both re-export `isBun` / `isDeno` and `ServerStartError`.
 
 Details: `references/adapters.md`, `references/nextjs.md`, `references/serverless-edge.md`.
 

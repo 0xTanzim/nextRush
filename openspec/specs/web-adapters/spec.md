@@ -764,3 +764,40 @@ capability, including the Node body source, SHALL keep its existing read path.
 
 - **WHEN** a body source does not expose the limited text capability
 - **THEN** body-parser uses its existing `buffer(limit)` path and error mapping
+
+### Requirement: Bun and Deno server startup runtime environment verification
+When `serve()` in `@nextrush/adapter-bun` or `@nextrush/adapter-deno` is invoked, the adapter SHALL verify that the native runtime global and server method (`globalThis.Bun.serve` or `globalThis.Deno.serve`) exist before attempting to start the server. If the expected runtime is not detected, it SHALL throw a `ServerStartError` with error code `'ERR_RUNTIME_NOT_DETECTED'`, detailing the missing runtime and recommending the appropriate alternative adapter.
+
+#### Scenario: Non-Bun runtime invocation of Bun adapter serve()
+- **WHEN** `serve()` in `@nextrush/adapter-bun` is called in an environment where `globalThis.Bun.serve` is undefined
+- **THEN** it throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` naming the missing Bun runtime and recommending `@nextrush/adapter-node` or `@nextrush/adapter-serverless`
+
+#### Scenario: Non-Deno runtime invocation of Deno adapter serve()
+- **WHEN** `serve()` in `@nextrush/adapter-deno` is called in an environment where `globalThis.Deno.serve` is undefined
+- **THEN** it throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` naming the missing Deno runtime and recommending `@nextrush/adapter-node`
+
+### Requirement: Optional server context parameter in Bun and Deno request runners
+The request handler returned by `createHandler()` in `@nextrush/adapter-bun` SHALL accept an optional `server?: ReturnType<typeof Bun.serve>`, and the handler returned by `createHandler()` in `@nextrush/adapter-deno` SHALL accept an optional `info?: DenoServeHandlerInfo`, allowing direct single-argument `handler(request)` invocation without requiring caller-provided dummy objects.
+
+#### Scenario: Single-argument Bun handler invocation
+- **WHEN** `handler(request)` in `@nextrush/adapter-bun` is invoked with a single Web standard `Request` without a second server parameter
+- **THEN** it executes the request pipeline and returns a valid Web standard `Response`
+
+#### Scenario: Single-argument Deno handler invocation
+- **WHEN** `handler(request)` in `@nextrush/adapter-deno` is invoked with a single Web standard `Request` without a second info parameter
+- **THEN** it executes the request pipeline and returns a valid Web standard `Response`
+
+#### Scenario: Full runtime server inspection preserved when provided
+- **WHEN** `Bun.serve` or `Deno.serve` invokes the handler providing the runtime's native server or info object
+- **THEN** client IP address resolution uses the native server object properties
+
+### Requirement: Runtime environment detection re-exports on Web adapters
+`@nextrush/adapter-bun` SHALL export `isBun` and `isBunRuntime`, and `@nextrush/adapter-deno` SHALL export `isDeno` and `isDenoRuntime`, enabling consumer code and test runners to inspect the active execution environment prior to binding sockets.
+
+#### Scenario: Consumer checks Bun environment before starting server
+- **WHEN** a consumer calls `isBun()` or `isBunRuntime()` from `@nextrush/adapter-bun`
+- **THEN** it returns `true` when running on Bun and `false` otherwise
+
+#### Scenario: Consumer checks Deno environment before starting server
+- **WHEN** a consumer calls `isDeno()` or `isDenoRuntime()` from `@nextrush/adapter-deno`
+- **THEN** it returns `true` when running on Deno and `false` otherwise
