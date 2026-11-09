@@ -106,7 +106,7 @@ A `Router` is a self-contained bundle of routes you register in one place and mo
 - **Named parameters** — `/users/:id`, multiple per path, original case preserved
 - **Wildcards** — `/files/*` captures the remainder into `ctx.params['*']`
 - **Route groups** — shared prefix + middleware, arbitrarily nestable
-- **Composition** — `mount()` / `use()` sub-routers; `app.route()` for Hono-style mounting
+- **Composition** — `mount()` / `use()` sub-routers with single or multi-prefix arrays (`['/api', '/v1']`); `app.route()` for modular router mounting
 - **Redirects** — `301`/`302`/`303`/`307`/`308` with param interpolation
 - **Method handling** — per-method shortcuts plus `allowedMethods()` for correct `405`/`Allow`
 

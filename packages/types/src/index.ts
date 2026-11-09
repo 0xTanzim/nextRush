@@ -114,6 +114,8 @@ export {
   // Canonical address + handle
   type ServerAddress,
   type ServerHandle,
+  // Universal fetch handler (Milestone 2)
+  type UniversalFetchHandler,
 } from './adapter';
 
 // ============================================================================

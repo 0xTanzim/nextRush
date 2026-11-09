@@ -801,3 +801,24 @@ The request handler returned by `createHandler()` in `@nextrush/adapter-bun` SHA
 #### Scenario: Consumer checks Deno environment before starting server
 - **WHEN** a consumer calls `isDeno()` or `isDenoRuntime()` from `@nextrush/adapter-deno`
 - **THEN** it returns `true` when running on Deno and `false` otherwise
+
+### Requirement: Universal Web Standards Fetch (`app.fetch`)
+
+The `Application` class in `@nextrush/core` and the `nextrush` entrypoint SHALL provide an instance-bound `app.fetch` method adhering to the Web Platform `fetch` signature. It SHALL enable direct zero-boilerplate export across Bun (`export default app;`), Cloudflare Workers (`export default app;`), Vercel Edge (`export default { fetch: app.fetch }`), Deno (`Deno.serve(app.fetch)`), and Web standard fetch unit tests without requiring adapter imports.
+
+#### Scenario: Direct zero-boilerplate export on Web runtimes
+- **WHEN** an application instance is exported as `export default app;` or `{ fetch: app.fetch }`
+- **THEN** it accepts incoming Web standard `Request` objects and dispatches through the application pipeline, returning a valid Web standard `Response` or `Promise<Response>`
+
+#### Scenario: Multi-runtime signature normalization
+- **WHEN** `app.fetch` is called with runtime-specific arguments (Cloudflare Workers `(request, env, ctx)`, Vercel Edge `(request, ctx)`, Bun `(request, server)`, Deno `(request, info)`, or single-argument `(request)`)
+- **THEN** `UniversalWebContext` normalizes the arguments transparently, providing access to `ctx.env`, `ctx.waitUntil()`, and native client IP resolution
+
+#### Scenario: Zero overhead on traditional Node.js servers
+- **WHEN** an application is started using `listen(app, port)` without calling `app.fetch`
+- **THEN** the universal fetch runner is never initialized, incurring zero memory allocations, zero CPU cycles, and zero timer scheduling
+
+#### Scenario: Deferred boot barrier memoization
+- **WHEN** multiple concurrent requests arrive on an unbooted cold application instance via `app.fetch`
+- **THEN** the boot barrier (`app.ready()`) executes exactly once and memoizes the booted handler, dispatching all concurrent requests without race conditions or multiple initialization passes
+

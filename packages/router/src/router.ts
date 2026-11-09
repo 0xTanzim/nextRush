@@ -221,16 +221,26 @@ export class Router {
     return this;
   }
 
-  use(pathOrMiddleware: string | Middleware | Router, routerOrUndefined?: Router): this {
+  use(
+    pathOrMiddleware: string | readonly string[] | Middleware | Router,
+    routerOrUndefined?: Router
+  ): this {
     if (typeof pathOrMiddleware === 'function') {
       this.routerMiddleware.push(pathOrMiddleware);
-    } else if (typeof pathOrMiddleware === 'string' && routerOrUndefined instanceof Router) {
-      this.mountRouter(pathOrMiddleware, routerOrUndefined);
+    } else if (
+      (typeof pathOrMiddleware === 'string' || Array.isArray(pathOrMiddleware)) &&
+      routerOrUndefined instanceof Router
+    ) {
+      this.mount(pathOrMiddleware, routerOrUndefined);
     } else if (typeof pathOrMiddleware === 'string') {
       throw new Error(
         `router.use('${pathOrMiddleware}', ...) requires a Router instance as the second argument. ` +
           'Use router.group(prefix, callback) for prefix-scoped middleware, ' +
           'or router.use(middlewareFn) to register middleware without a prefix.'
+      );
+    } else if (Array.isArray(pathOrMiddleware)) {
+      throw new Error(
+        'router.use(prefixes, ...) requires a Router instance as the second argument.'
       );
     } else if (pathOrMiddleware instanceof Router) {
       this.mountRouter('', pathOrMiddleware);
@@ -239,13 +249,69 @@ export class Router {
   }
 
   /**
-   * Mount a sub-router at a path prefix (Hono-style) — the explicit, more
+   * Mount a sub-router at one or more path prefixes — the explicit, more
    * semantic equivalent of `router.use(path, subRouter)`.
    * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#sub-router-mounting | README: Sub-Router Mounting}
    */
-  mount(path: string, router: Router): this {
-    this.mountRouter(path, router);
+  mount(path: string | readonly string[], router: Router): this {
+    if (!router || !(router instanceof Router)) {
+      throw new TypeError('router.mount() requires a Router instance');
+    }
+
+    if (Array.isArray(path)) {
+      if (path.length === 0) {
+        throw new Error('router.mount() requires at least one path prefix when an array is provided');
+      }
+      for (const p of path) {
+        if (typeof p !== 'string') {
+          throw new TypeError(
+            `Route path prefix must be a string, received ${p === null ? 'null' : typeof p}`
+          );
+        }
+        if (p.length === 0) {
+          throw new TypeError('Route path prefix must be a non-empty string');
+        }
+      }
+      const seen = new Set<string>();
+      for (const p of path) {
+        const normalized = this.normalizeMountPrefix(p);
+        if (!seen.has(normalized)) {
+          seen.add(normalized);
+          this.mount(normalized, router);
+        }
+      }
+      return this;
+    }
+
+    if (typeof path !== 'string') {
+      throw new TypeError(
+        `Route path prefix must be a string or array of strings, received ${path === null ? 'null' : typeof path}`
+      );
+    }
+
+    const normalized = this.normalizeMountPrefix(path);
+    this.mountRouter(normalized === '/' ? '' : normalized, router);
     return this;
+  }
+
+  /**
+   * Normalize a sub-router mount path prefix:
+   * - Collapses consecutive slashes (e.g. `//api///` -> `/api`, `/api//v1` -> `/api/v1`)
+   * - Strips trailing slashes (except for root `/`)
+   * - Ensures a leading slash
+   */
+  private normalizeMountPrefix(path: string): string {
+    let normalized = path;
+    if (normalized.includes('//')) {
+      normalized = normalized.replace(/\/+/g, '/');
+    }
+    while (normalized.length > 1 && normalized.endsWith('/')) {
+      normalized = normalized.slice(0, -1);
+    }
+    if (!normalized.startsWith('/')) {
+      normalized = '/' + normalized;
+    }
+    return normalized;
   }
 
   /** Mount a sub-router, carrying its own `routerMiddleware` onto every copied route. */

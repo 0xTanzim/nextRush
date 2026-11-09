@@ -257,7 +257,7 @@ async function dispatchWithTimeout(
  * The returned function answers with a bare `Response` when the dispatch proved
  * it had already finished (see {@link DISPATCH_SETTLED_SYNC}). Bun, Deno and edge
  * runtimes all accept either shape, so a synchronous route avoids the promise hop
- * at the runtime boundary — the same fast path Hono's `app.fetch` takes.
+ * at the runtime boundary — providing a direct, zero-allocation synchronous fast path.
  *
  * @example
  * ```typescript

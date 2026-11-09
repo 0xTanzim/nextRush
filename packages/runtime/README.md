@@ -147,6 +147,15 @@ Detection is memoized after the first call, and the feature decision keys off `c
 - **Headers & query** — `headersToRecord()` (prototype-pollution-safe, keeps multi-value `set-cookie`) and `parseQueryString()` (single-pass, DoS-limited)
 - **Cancellation** — `combineAbortSignal()` merges client-disconnect and timeout into one `ctx.signal`
 
+**Universal Fetch Primitives (RFC-052)**
+- **`UniversalWebContext`** — Extends `WebContextBase` to transparently normalize 5 runtime invocation signatures:
+  1. Standard 1-argument `fetch(req)`
+  2. Cloudflare Workers `fetch(req, env, ctx)` (exposes `ctx.env` and `ctx.waitUntil`)
+  3. Vercel Edge `fetch(req, ctx)` (exposes `ctx.waitUntil`)
+  4. Bun `fetch(req, server)` (resolves client IP via `server.requestIP`)
+  5. Deno `fetch(req, info)` (resolves client IP via `info.remoteAddr`)
+- **`createUniversalFetchHandler(app, options)`** — Request runner backing `app.fetch` across all Web Platform runtimes with zero per-request wrapper allocations, deferred boot barrier (`app.ready()`), microtask settlement, and timeout protection.
+
 **Server startup errors**
 - **`ServerStartError` / `normalizeStartupError()`** — one typed error (`EADDRINUSE` / `EACCES` / `EADDRNOTAVAIL` / `UNKNOWN`) so every adapter surfaces bind failures identically
 

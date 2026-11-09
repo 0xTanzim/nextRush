@@ -102,7 +102,7 @@ app.use(async (ctx) => {
   ctx.set('x-response-time', `${Date.now() - start}ms`);
 });
 
-// Feature router, mounted under a prefix (Hono-style composition).
+// Feature router, mounted under a prefix (modular router composition).
 const users = createRouter();
 users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 app.route('/users', users);
@@ -116,7 +116,8 @@ listen(app, 8080);
 
 **Application**
 - **Middleware registration** — `app.use(...mw)`, chainable, validated (a non-function throws)
-- **Router mounting** — `app.route(prefix, router)` mounts a feature router, rewriting `ctx.path` under the prefix
+- **Multi-prefix router mounting** — `app.route(prefix | prefixes[], router)` mounts a feature router under one or multiple prefixes with deduplication and slash normalization
+- **Universal Web fetch** — `app.fetch(request, ...args)` is instance-bound for direct zero-boilerplate export across Bun (`export default app;`), Cloudflare Workers, Vercel Edge, Deno, and fetch tests, with zero overhead on traditional `listen()` servers
 - **Route shortcuts** — `app.get/post/put/patch/delete/head/all(...)` delegate to the app-owned router
 - **Frozen-after-boot lifecycle** — `ready()` -> `start()` -> `close()`, with config frozen once booted
 
@@ -215,11 +216,32 @@ const app = createApp();
 const api = createRouter();
 api.get('/health', (ctx) => ctx.json({ ok: true }));
 
-app.route('/api', api);   // mounted under /api; ctx.path is rewritten for the sub-router
-app.route('/', api);      // root mount — no prefix processing
+app.route('/api', api);          // mounted under /api; ctx.path is rewritten for the sub-router
+app.route(['/api', '/v1'], api); // multi-prefix mount — handles both prefixes identically
+app.route('/', api);             // root mount — no prefix processing
 ```
 
-`app.route()` strips the prefix from `ctx.path` while the sub-router runs and restores it afterwards, so middleware registered after the mount still sees the original path.
+`app.route()` strips the prefix from `ctx.path` while the sub-router runs and restores it afterwards, so middleware registered after the mount still sees the original path. When an array of prefixes is provided, prefixes are automatically normalized and deduplicated.
+
+### Zero-boilerplate exports with `app.fetch`
+
+Every `Application` instance provides an instance-bound `app.fetch` method adhering to the Web Platform `fetch` standard:
+
+```ts
+// Bun & Cloudflare Workers:
+export default app;
+
+// Vercel Edge:
+export default { fetch: app.fetch };
+
+// Deno:
+Deno.serve(app.fetch);
+
+// Web standard testing:
+const res = await app.fetch(new Request('http://localhost/health'));
+```
+
+Traditional Node.js servers using `listen(app, 8080)` never trigger the fetch runner, incurring zero allocations and zero CPU overhead.
 
 ### Set a custom error handler
 

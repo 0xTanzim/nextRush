@@ -23,6 +23,13 @@ export type {
 export { compose, flattenMiddleware, isMiddleware } from './middleware';
 export type { ComposeOptions, ComposedMiddleware } from './middleware';
 
+// Universal Fetch
+export { DEFAULT_UNIVERSAL_TIMEOUT_MS } from '@nextrush/runtime';
+export type {
+  UniversalFetchOptions,
+  UniversalWebContext,
+} from '@nextrush/runtime';
+
 // Errors
 export {
   BadRequestError,
@@ -51,6 +58,7 @@ export type {
   RouteHandler,
   RouteParams,
   Router,
+  UniversalFetchHandler,
 } from '@nextrush/types';
 
 // Re-export constants

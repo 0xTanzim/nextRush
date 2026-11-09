@@ -49,7 +49,7 @@ grows past a couple of routes, you're stuck choosing between two bad options:
   `listen()` and run their own server. Next.js already owns the process; there's no `listen()` to
   call, and no way to hand a `Request` to something that only speaks `(req, res)`.
 
-What you actually want is what [Hono](https://hono.dev) popularized: a real app — routers,
+What you actually want is a clean, modular backend architecture: a real app — routers,
 middleware, a service layer, typed context — built once, the same way regardless of where it
 runs, then **mounted** into the route file with one line:
 
@@ -241,7 +241,7 @@ import { handle } from 'nextrush/nextjs';
 export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = handle(app);
 ```
 
-This is the same shape [Hono](https://hono.dev) popularized: routers are plain, composable
+This is the modern web-standard bridge pattern: routers are plain, composable
 modules; the route file is a one-line bridge; and the app never knows or cares that it's running
 inside Next.js — the identical `src/server/app.ts` also boots under `listen()`,
 `@nextrush/adapter-edge`, or any other adapter, unchanged.

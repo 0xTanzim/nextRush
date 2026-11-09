@@ -8,7 +8,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as nextrushApi from '../index';
 import { Application, ContentType, HttpStatus, ERROR_CODES, codeForStatus, HttpError, NextRushError, BadRequestError, BadGatewayError, ConflictError, ForbiddenError, GatewayTimeoutError, InternalServerError, MethodNotAllowedError, NotFoundError, NotImplementedError, ServiceUnavailableError, TooManyRequestsError, UnauthorizedError, UnprocessableEntityError, ValidationError, createError, errorHandler, isHttpError, notFoundHandler, Router, compose, createApp, createRouter, endpoint, createHandler, listen, serve } from '../index';
-import type { ApplicationOptions, ComposedMiddleware, RouterOptions, ServeOptions, ServerInstance, ErrorHandlerOptions, HttpErrorOptions, ValidationIssue, Context, Extension, ExtensionContext, HttpMethod, HttpStatusCode, Middleware, Next, RouteHandler, RouteDefinition, RouteMetadata, Runtime } from '../index';
+import type { ApplicationOptions, ComposedMiddleware, RouterOptions, ServeOptions, ServerInstance, ErrorHandlerOptions, HttpErrorOptions, ValidationIssue, Context, Extension, ExtensionContext, HttpMethod, HttpStatusCode, Middleware, Next, RouteHandler, RouteDefinition, RouteMetadata, Runtime, UniversalFetchHandler, UniversalFetchOptions, UniversalWebContext } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
   it('exports exactly the intended runtime symbols', () => {
@@ -114,6 +114,9 @@ describe('Public API surface (type-only exports)', () => {
       RouteDefinition,
       RouteMetadata,
       Runtime,
+      UniversalFetchHandler,
+      UniversalFetchOptions,
+      UniversalWebContext,
     ];
     expectTypeOf<Surface>().not.toBeNever();
   });

@@ -17,6 +17,7 @@ import type {
   ServerAdapter,
   ServerAddress,
   ServerHandle,
+  UniversalFetchHandler,
 } from '../adapter';
 
 describe('ServerAddress', () => {
@@ -107,16 +108,16 @@ describe('ServerAdapter — negative (contract is enforced)', () => {
     // prettier-ignore
     // @ts-expect-error - a ServerAdapter missing createHandler must not satisfy the contract
     const bad: ServerAdapter = { serve: (_app: unknown) => Promise.resolve({ address: () => ({ port: 0, host: '' }), close: () => Promise.resolve() }) };
-    void bad;
-    expect(true).toBe(true);
+    expect(typeof bad.serve).toBe('function');
+    expectTypeOf<{ serve: (_app: unknown) => Promise<unknown> }>().not.toMatchTypeOf<ServerAdapter>();
   });
 
   it('rejects an adapter whose serve does not return a ServerHandle', () => {
     // prettier-ignore
     // @ts-expect-error - serve must resolve to a ServerHandle, not a bare object
     const bad: ServerAdapter = { serve: (_app: unknown) => Promise.resolve({ nope: true }), createHandler: (_app: unknown) => () => undefined };
-    void bad;
-    expect(true).toBe(true);
+    expect(typeof bad.serve).toBe('function');
+    expect(typeof bad.createHandler).toBe('function');
   });
 });
 
@@ -125,8 +126,7 @@ describe('FetchAdapter — negative (contract is enforced)', () => {
     // prettier-ignore
     // @ts-expect-error - createFetchHandler must return a FetchHandler producing a Response
     const bad: FetchAdapter = { createFetchHandler: (_app: unknown) => (_req: Request): string => 'not a response' };
-    void bad;
-    expect(true).toBe(true);
+    expect(typeof bad.createFetchHandler).toBe('function');
   });
 });
 
@@ -146,3 +146,129 @@ describe('AdapterContextFactory', () => {
     >().toEqualTypeOf<[Request, { trustProxy: boolean }?]>();
   });
 });
+
+describe('UniversalFetchHandler', () => {
+  it('is satisfiable by a 1-argument fetch handler', async () => {
+    const handler: UniversalFetchHandler = (_request: Request) => new Response('one-arg');
+    const res = await handler(new Request('http://localhost/'));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('one-arg');
+  });
+
+  it('is satisfiable by a 2-argument fetch handler (Vercel Edge execution context)', async () => {
+    interface VercelCtx {
+      waitUntil(promise: Promise<unknown>): void;
+    }
+    const handler: UniversalFetchHandler = (
+      _request: Request,
+      _ctx?: unknown
+    ) => new Response('vercel-edge');
+
+    const mockCtx: VercelCtx = { waitUntil: () => undefined };
+    const res = await handler(new Request('http://localhost/'), mockCtx);
+    expect(await res.text()).toBe('vercel-edge');
+  });
+
+  it('is satisfiable by a 2-argument fetch handler (Bun server)', async () => {
+    interface BunServer {
+      requestIP(req: Request): { address: string } | null;
+    }
+    const handler: UniversalFetchHandler = (
+      _request: Request,
+      _server?: unknown
+    ) => new Response('bun');
+
+    const mockServer: BunServer = { requestIP: () => ({ address: '127.0.0.1' }) };
+    const res = await handler(new Request('http://localhost/'), mockServer);
+    expect(await res.text()).toBe('bun');
+  });
+
+  it('is satisfiable by a 2-argument fetch handler (Deno serve info)', async () => {
+    interface DenoInfo {
+      remoteAddr: { hostname: string };
+    }
+    const handler: UniversalFetchHandler = (
+      _request: Request,
+      _info?: unknown
+    ) => new Response('deno');
+
+    const mockInfo: DenoInfo = { remoteAddr: { hostname: '127.0.0.1' } };
+    const res = await handler(new Request('http://localhost/'), mockInfo);
+    expect(await res.text()).toBe('deno');
+  });
+
+  it('is satisfiable by a 3-argument fetch handler (Cloudflare Workers env + ctx)', async () => {
+    interface CloudflareEnv {
+      KV: unknown;
+    }
+    interface CloudflareCtx {
+      waitUntil(promise: Promise<unknown>): void;
+    }
+    const handler: UniversalFetchHandler = (
+      _request: Request,
+      _env?: unknown,
+      _ctx?: unknown
+    ) => new Response('cloudflare');
+
+    const mockEnv: CloudflareEnv = { KV: {} };
+    const mockCtx: CloudflareCtx = { waitUntil: () => undefined };
+    const res = await handler(new Request('http://localhost/'), mockEnv, mockCtx);
+    expect(await res.text()).toBe('cloudflare');
+  });
+
+  it('supports synchronous bare Response returns without Promise wrap', () => {
+    const handler: UniversalFetchHandler = (_request: Request) => new Response('sync-ok');
+    const res = handler(new Request('http://localhost/'));
+    expect(res).toBeInstanceOf(Response);
+    expectTypeOf(res).toEqualTypeOf<Response | Promise<Response>>();
+  });
+
+  it('is assignable to runtime calling contracts across major platforms', () => {
+    const universal: UniversalFetchHandler = (_req, _envOrServer, _ctx) => new Response('ok');
+
+    // 1-arg calling convention (Node 22+, Deno, unit tests)
+    const call1Arg: (req: Request) => Response | Promise<Response> = universal;
+    expectTypeOf(call1Arg).toMatchTypeOf<UniversalFetchHandler>();
+
+    // 2-arg Vercel Edge convention
+    const callVercel: (req: Request, ctx: { waitUntil(p: Promise<unknown>): void }) => Response | Promise<Response> = universal;
+    expectTypeOf(callVercel).toMatchTypeOf<(req: Request, ctx: { waitUntil(p: Promise<unknown>): void }) => Response | Promise<Response>>();
+
+    // 2-arg Bun convention
+    const callBun: (req: Request, server: { requestIP(r: Request): unknown }) => Response | Promise<Response> = universal;
+    expectTypeOf(callBun).toMatchTypeOf<(req: Request, server: { requestIP(r: Request): unknown }) => Response | Promise<Response>>();
+
+    // 2-arg Deno convention
+    const callDeno: (req: Request, info: { remoteAddr: unknown }) => Response | Promise<Response> = universal;
+    expectTypeOf(callDeno).toMatchTypeOf<(req: Request, info: { remoteAddr: unknown }) => Response | Promise<Response>>();
+
+    // 3-arg Cloudflare Workers convention
+    const callCF: (req: Request, env: { KV: unknown }, ctx: { waitUntil(p: Promise<unknown>): void }) => Response | Promise<Response> = universal;
+    expectTypeOf(callCF).toMatchTypeOf<(req: Request, env: { KV: unknown }, ctx: { waitUntil(p: Promise<unknown>): void }) => Response | Promise<Response>>();
+  });
+});
+
+describe('UniversalFetchHandler — negative (contract is enforced)', () => {
+  it('rejects a handler returning a non-Response value', () => {
+    // prettier-ignore
+    // @ts-expect-error - UniversalFetchHandler must return Response | Promise<Response>
+    const bad: UniversalFetchHandler = (_req: Request): string => 'invalid';
+    expect(typeof bad).toBe('function');
+    expect(bad(new Request('http://localhost/'))).toBe('invalid');
+    expectTypeOf<(_req: Request) => string>().not.toMatchTypeOf<UniversalFetchHandler>();
+    expectTypeOf<(_req: Request) => number>().not.toMatchTypeOf<UniversalFetchHandler>();
+    expectTypeOf<(_req: Request) => Promise<string>>().not.toMatchTypeOf<UniversalFetchHandler>();
+    expectTypeOf<(_req: Request) => void>().not.toMatchTypeOf<UniversalFetchHandler>();
+  });
+
+  it('rejects a handler requiring more than 3 parameters', () => {
+    // prettier-ignore
+    // @ts-expect-error - UniversalFetchHandler accepts at most 3 parameters
+    const bad: UniversalFetchHandler = (_req: Request, _b: unknown, _c: unknown, _d: unknown) => new Response('bad');
+    expect(typeof bad).toBe('function');
+    expect(bad.length).toBe(4);
+    expectTypeOf<(_req: Request, _b: unknown, _c: unknown, _d: unknown) => Response>().not.toMatchTypeOf<UniversalFetchHandler>();
+    expectTypeOf<(_req: Request, _b: unknown, _c: unknown, _d: unknown) => Promise<Response>>().not.toMatchTypeOf<UniversalFetchHandler>();
+  });
+});
+

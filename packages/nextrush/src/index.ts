@@ -114,7 +114,12 @@ export function createApp(options?: ApplicationOptions): Application {
 }
 
 export { Application, compose };
-export type { ApplicationOptions, ComposedMiddleware } from '@nextrush/core';
+export type {
+  ApplicationOptions,
+  ComposedMiddleware,
+  UniversalFetchOptions,
+  UniversalWebContext,
+} from '@nextrush/core';
 
 // ============================================
 // ROUTER: Segment Trie Routing + Route Metadata
@@ -177,7 +182,9 @@ export type {
     RouteDefinition,
     RouteMetadata,
     // Runtime
-    Runtime
+    Runtime,
+    // Universal Fetch
+    UniversalFetchHandler
 } from '@nextrush/types';
 
 // HTTP constants

@@ -102,6 +102,7 @@ import type {
   StreamSource,
   TextStreamWriter,
   Token,
+  UniversalFetchHandler,
   ValueProvider,
   WebStreamLike,
 } from '../index';
@@ -146,10 +147,11 @@ describe('Public API surface (runtime exports)', () => {
 describe('Public API surface (type-only exports, incl. runtime-adapter-contract)', () => {
   it('the adapter contract triad stays importable from the barrel', () => {
     // The three types this change (openspec/changes/harden-runtime-edge-serverless,
-    // task group 1) promoted to an enforced public contract.
+    // task group 1) promoted to an enforced public contract, plus UniversalFetchHandler (Milestone 2).
     expectTypeOf<ServerAdapter<object, object>>().not.toBeNever();
     expectTypeOf<FetchAdapter<object>>().not.toBeNever();
     expectTypeOf<AdapterContextFactory<readonly unknown[]>>().not.toBeNever();
+    expectTypeOf<UniversalFetchHandler>().not.toBeNever();
   });
 
   it('every other listed type-only export remains importable from the barrel', () => {
@@ -231,6 +233,7 @@ describe('Public API surface (type-only exports, incl. runtime-adapter-contract)
       StreamSource<unknown>,
       TextStreamWriter,
       Token,
+      UniversalFetchHandler,
       ValueProvider<object>,
       WebStreamLike,
     ];

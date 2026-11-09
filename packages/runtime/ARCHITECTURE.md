@@ -9,7 +9,7 @@
 | **Package** | `@nextrush/runtime` |
 | **Layer** | `runtime` — above `router`, below the platform adapters |
 | **Depends on** | `@nextrush/types` (contracts) · `@nextrush/errors` (the `NextRushError` base) |
-| **Depended on by** | `@nextrush/adapter-{node,bun,deno,edge,serverless}` and `adapters/conformance` |
+| **Depended on by** | `@nextrush/core`, `@nextrush/adapter-{node,bun,deno,edge,serverless}`, and `adapters/conformance` |
 | **Public entry** | `src/index.ts` (barrel — exports only) |
 | **Internal modules** | 10 implementation files (+ a `types.ts` re-export) · 1,898 LOC · largest `detection.ts` 475 LOC (above the 300 cap — see Contributor notes) |
 | **On the request hot path?** | **Partial** — detection is cached at startup; the body / response / query / client-IP / signal primitives run **per request** in the web adapters |
@@ -24,6 +24,7 @@
 - ✓ **Capability negotiation** — the `capabilitiesFor()` matrix and the named `*Profile` views that describe what each runtime can do
 - ✓ The **cross-runtime request/response primitives** every adapter shares — `WebBodySource`, `WebResponseBuilder`, `resolveClientIp`, `parseQueryString`, `combineAbortSignal`, `headersToRecord`
 - ✓ The **uniform server-startup error** (`ServerStartError` / `normalizeStartupError`) so bind failures look identical across adapters
+- ✓ The **universal fetch engine** (`UniversalWebContext` and `createUniversalFetchHandler`) powering zero-boilerplate `app.fetch` across Web Platform runtimes
 - ✓ The **shared adapter default constants** (timeout / shutdown / keep-alive / methods-without-body)
 
 **This package does NOT own:**

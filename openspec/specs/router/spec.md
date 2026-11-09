@@ -864,3 +864,20 @@ committed MUST win over its return value.
 
 - **WHEN** a controller method returns an array, a plain object, a string, `null`, or `undefined`
 - **THEN** the response matches today's behavior for those value kinds
+
+### Requirement: Multi-Prefix Router Mounting
+
+`Application.prototype.route` and `Router.prototype.mount` SHALL accept either a single path prefix string or a readonly array of path prefix strings (e.g. `['/api', '/v1']`). When an array of prefixes is provided, the target router SHALL be mounted under each specified prefix, allowing identical route handling across multiple URI prefixes without route duplication.
+
+#### Scenario: Mounting a router across multiple path prefixes
+- **WHEN** `app.route(['/api', '/v1'], router)` or `parentRouter.mount(['/api', '/v1'], subRouter)` is called
+- **THEN** requests targeting `/api/*` and `/v1/*` match the mounted router's routes with identical parameter extraction and middleware execution
+
+#### Scenario: Prefix normalization and deduplication
+- **WHEN** a prefix array contains duplicate prefixes, consecutive slashes, or trailing slashes (e.g. `['/api', '//api/', '/v1/']`)
+- **THEN** prefixes are normalized to leading-slash single-slash format without trailing slash, deduplicated, and mounted exactly once per distinct prefix
+
+#### Scenario: Invalid prefix array validation
+- **WHEN** `app.route` or `router.mount` is called with an empty array `[]` or an array containing non-string or empty elements
+- **THEN** it immediately throws an error rejecting the invalid prefix configuration
+

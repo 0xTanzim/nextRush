@@ -20,8 +20,15 @@ import type {
   RouteEntry,
   Router,
   SecurityAuditCheck,
+  UniversalFetchHandler,
 } from '@nextrush/types';
 import { RESOLVED_PROMISE, SECURITY_AUDIT } from '@nextrush/types';
+import {
+  createUniversalFetchHandler,
+  type UniversalFetchOptions,
+  type UniversalWebContext,
+  type WebRunnerApp,
+} from '@nextrush/runtime';
 import { compose } from './middleware';
 import { writeDefaultErrorResponse } from './error-handler';
 import { createPrefixMount } from './route-mount';
@@ -189,6 +196,12 @@ export interface ApplicationOptions {
    * `nextrush/class`; omitted for functional, DI-free apps.
    */
   container?: Container;
+
+  /**
+   * Options for universal fetch dispatches (`app.fetch`).
+   * Configures timeout and unhandled error handling across Web Platform runtimes.
+   */
+  fetch?: UniversalFetchOptions;
 }
 
 /**
@@ -300,6 +313,13 @@ export class Application {
   /** In-flight shutdown promise — memoized so concurrent close() calls share one (H-3) */
   private _closePromise: Promise<Error[]> | null = null;
 
+  /**
+   * Lazily initialized universal fetch runner backing `app.fetch`.
+   * Undefined until first `app.fetch` call (zero overhead for traditional servers).
+   * Reset to undefined on close() for clean re-booting in test suites.
+   */
+  private _fetchRunner?: UniversalFetchHandler;
+
   /** The app-owned router (optional). Route methods delegate to it. */
   readonly router?: Router;
 
@@ -311,6 +331,7 @@ export class Application {
     this.options = {
       env: options.env ?? 'development',
       proxy,
+      fetch: options.fetch,
     };
     this.logger = options.logger ?? NOOP_LOGGER;
     this.router = options.router;
@@ -376,7 +397,7 @@ export class Application {
   private assertConfigurable(method: string): void {
     if (this._isReady || this._isRunning) {
       throw new Error(
-        `Cannot call ${method}() after the app has booted (ready()) or started — ` +
+        `Cannot call ${method}() after the app has booted. Cannot call ${method}() after application has booted or server has started — ` +
           `configuration is frozen`
       );
     }
@@ -406,16 +427,55 @@ export class Application {
   }
 
   /**
-   * Mount a router at a path prefix.
+   * Mount a router at one or more path prefixes.
    *
-   * @param path - Path prefix (e.g. '/api/users')
-   * @param router - Router instance to mount
-   * @returns this for chaining
+   * @param path - A single path prefix or an array of prefixes (e.g. `['/api', '/v1']`).
+   * @param router - Routable instance to mount.
+   * @returns this for chaining.
+   * @throws if `path` is an empty array, not a string or array of strings, or contains non-string elements.
    */
-  route(path: string, router: Routable): this {
+  route(path: string | readonly string[], router: Routable): this {
     this.assertConfigurable('route');
+
+    if (!router || typeof router.routes !== 'function') {
+      throw new TypeError('app.route() requires a router with a routes() method');
+    }
+
+    if (Array.isArray(path)) {
+      if (path.length === 0) {
+        throw new Error('app.route() requires at least one path prefix when an array is provided');
+      }
+      for (const p of path) {
+        if (typeof p !== 'string') {
+          throw new TypeError(
+            `Route path prefix must be a string, received ${p === null ? 'null' : typeof p}`
+          );
+        }
+        if (p.length === 0) {
+          throw new TypeError('Route path prefix must be a non-empty string');
+        }
+      }
+      const seen = new Set<string>();
+      for (const p of path) {
+        const normalized = this.normalizeMountPrefix(p);
+        if (!seen.has(normalized)) {
+          seen.add(normalized);
+          this.route(normalized, router);
+        }
+      }
+      return this;
+    }
+
+    if (typeof path !== 'string') {
+      throw new TypeError(
+        `Route path prefix must be a string or array of strings, received ${path === null ? 'null' : typeof path}`
+      );
+    }
+
+    const normalizedPrefix = this.normalizeMountPrefix(path);
+
     // Root mount optimization: skip all prefix processing
-    if (path === '/' || path === '') {
+    if (normalizedPrefix === '/') {
       const rootMiddleware = router.routes();
       this._rootRoutesMiddleware = rootMiddleware;
       this.middlewareStack.push(rootMiddleware);
@@ -423,16 +483,30 @@ export class Application {
     }
 
     const routerMiddleware = router.routes();
-    // Normalize prefix: ensure leading '/', strip trailing '/'
-    let normalizedPrefix = path.endsWith('/') ? path.slice(0, -1) : path;
-    if (!normalizedPrefix.startsWith('/')) {
-      normalizedPrefix = '/' + normalizedPrefix;
-    }
-
     this.middlewareStack.push(
       createPrefixMount(normalizedPrefix, routerMiddleware, router.matchesMountPrefix?.bind(router))
     );
     return this;
+  }
+
+  /**
+   * Normalize a route mount path prefix:
+   * - Collapses consecutive slashes (e.g. `//api///` -> `/api`, `/api//v1` -> `/api/v1`)
+   * - Strips trailing slashes (except for root `/`)
+   * - Ensures a leading slash
+   */
+  private normalizeMountPrefix(path: string): string {
+    let normalized = path;
+    if (normalized.includes('//')) {
+      normalized = normalized.replace(/\/+/g, '/');
+    }
+    while (normalized.length > 1 && normalized.endsWith('/')) {
+      normalized = normalized.slice(0, -1);
+    }
+    if (!normalized.startsWith('/')) {
+      normalized = '/' + normalized;
+    }
+    return normalized;
   }
 
   private requireRouter(): Router {
@@ -595,68 +669,87 @@ export class Application {
    * memoized by {@link ready}.
    */
   private async _boot(): Promise<this> {
-    // extension SOMEWHERE (regardless of order) — catches a typo'd or
-    // never-registered dependency name with a distinct message from the
-    // order-sensitive check below, before running any setup().
-    const allNames = new Set(this.extensions.map((e) => e.name));
-    for (const extension of this.extensions) {
-      if (extension.needs) {
-        for (const dep of extension.needs) {
-          if (!allNames.has(dep)) {
-            throw new Error(
-              `Extension "${extension.name}" needs "${dep}", but no extension named ` +
-                `"${dep}" was ever registered.`
-            );
-          }
-        }
-      }
-    }
+    const addedDecorations: string[] = [];
+    const routerMountedBefore = this._routerMounted;
+    const initialStackLength = this.middlewareStack.length;
 
-    const setupDone = new Set<string>();
-
-    for (const extension of this.extensions) {
-      // Declare-and-assert dependency check (no auto-sort; registration order is the order)
-      if (extension.needs) {
-        for (const dep of extension.needs) {
-          if (!setupDone.has(dep)) {
-            throw new Error(
-              `Extension "${extension.name}" needs "${dep}", but "${dep}" was not ` +
-                `registered before it. Register the "${dep}" extension before "${extension.name}".`
-            );
+    try {
+      // extension SOMEWHERE (regardless of order) — catches a typo'd or
+      // never-registered dependency name with a distinct message from the
+      // order-sensitive check below, before running any setup().
+      const allNames = new Set(this.extensions.map((e) => e.name));
+      for (const extension of this.extensions) {
+        if (extension.needs) {
+          for (const dep of extension.needs) {
+            if (!allNames.has(dep)) {
+              throw new Error(
+                `Extension "${extension.name}" needs "${dep}", but no extension named ` +
+                  `"${dep}" was ever registered.`
+              );
+            }
           }
         }
       }
 
-      const ctx: ExtensionContext = {
-        app: this,
-        logger: this.logger,
-        container: this.container,
-        env: this.options.env ?? 'development',
-        name: extension.name,
-        decorate: (name: string, value: unknown): void => {
-          this.decorate(name, value);
-        },
-      };
+      const setupDone = new Set<string>();
 
-      await extension.setup(ctx);
-      setupDone.add(extension.name);
+      for (const extension of this.extensions) {
+        // Declare-and-assert dependency check (no auto-sort; registration order is the order)
+        if (extension.needs) {
+          for (const dep of extension.needs) {
+            if (!setupDone.has(dep)) {
+              throw new Error(
+                `Extension "${extension.name}" needs "${dep}", but "${dep}" was not ` +
+                  `registered before it. Register the "${dep}" extension before "${extension.name}".`
+              );
+            }
+          }
+        }
+
+        const ctx: ExtensionContext = {
+          app: this,
+          logger: this.logger,
+          container: this.container,
+          env: this.options.env ?? 'development',
+          name: extension.name,
+          decorate: (name: string, value: unknown): void => {
+            this.decorate(name, value);
+            addedDecorations.push(name);
+          },
+        };
+
+        await extension.setup(ctx);
+        setupDone.add(extension.name);
+      }
+
+      // Mount the app-owned router LAST, so routes run after all middleware
+      // (both user- and extension-registered).
+      if (this.router && !this._routerMounted) {
+        const rootMiddleware = this.router.routes();
+        this._rootRoutesMiddleware = rootMiddleware;
+        this.middlewareStack.push(rootMiddleware);
+        this._routerMounted = true;
+      }
+
+      if (this.isProduction) {
+        this._runSecurityAudits();
+      }
+
+      this._isReady = true;
+      return this;
+    } catch (err: unknown) {
+      // Rollback any decorations added during this failed boot attempt so retry can succeed
+      for (const name of addedDecorations) {
+        Reflect.deleteProperty(this, name);
+        this.decorations.delete(name);
+      }
+      if (!routerMountedBefore && this._routerMounted) {
+        this.middlewareStack.length = initialStackLength;
+        this._routerMounted = false;
+        this._rootRoutesMiddleware = undefined;
+      }
+      throw err;
     }
-
-    // Mount the app-owned router LAST, so routes run after all middleware
-    // (both user- and extension-registered).
-    if (this.router) {
-      const rootMiddleware = this.router.routes();
-      this._rootRoutesMiddleware = rootMiddleware;
-      this.middlewareStack.push(rootMiddleware);
-      this._routerMounted = true;
-    }
-
-    if (this.isProduction) {
-      this._runSecurityAudits();
-    }
-
-    this._isReady = true;
-    return this;
   }
 
   /**
@@ -678,6 +771,61 @@ export class Application {
       this.logger.warn(`[security-boundaries] ${verdict.message}`);
     }
   }
+
+  /**
+   * Universal fetch handler backing `app.fetch` across Web Platform runtimes.
+   * Lazily initialized on first `app.fetch` call to ensure zero overhead for
+   * traditional Node.js servers calling `listen()`.
+   */
+  private _getFetchRunner(): UniversalFetchHandler {
+    if (!this._isReady && this.extensions.length === 0) {
+      this._bootSync();
+    }
+    return (this._fetchRunner ??= createUniversalFetchHandler(
+      this as unknown as WebRunnerApp<(ctx: UniversalWebContext) => Promise<void>>,
+      this.options.fetch
+    ));
+  }
+
+  /**
+   * Synchronous boot sequence for zero-extension applications.
+   * Enables immediate synchronous dispatch without awaiting ready().
+   */
+  private _bootSync(): void {
+    if (this.router) {
+      const rootMiddleware = this.router.routes();
+      this._rootRoutesMiddleware = rootMiddleware;
+      this.middlewareStack.push(rootMiddleware);
+      this._routerMounted = true;
+    }
+
+    if (this.isProduction) {
+      this._runSecurityAudits();
+    }
+
+    this._isReady = true;
+    this._isRunning = true;
+  }
+
+  /**
+   * Instance-bound Universal Fetch handler.
+   *
+   * Enables zero-boilerplate exports (`export default app;`) across Cloudflare Workers,
+   * Vercel Edge, Bun, Deno, and standard 1-arg fetch dispatches.
+   *
+   * Safe to destructure: `const { fetch } = app; fetch(request)`.
+   */
+  public readonly fetch: UniversalFetchHandler = (
+    request: Request,
+    envOrServerOrInfoOrCtx?: unknown,
+    executionCtx?: unknown
+  ): Response | Promise<Response> => {
+    return (this._fetchRunner ?? this._getFetchRunner())(
+      request,
+      envOrServerOrInfoOrCtx,
+      executionCtx
+    );
+  };
 
   /**
    * Attach a value to the app under `name`. Extension-author primitive, invoked
@@ -770,6 +918,10 @@ export class Application {
       } catch (handlerError) {
         this.logger.error('Error handler threw:', handlerError);
       }
+    } else if (this.options.fetch?.onError) {
+      // When fetch runner options specify a custom onError hook, propagate the
+      // error so the universal fetch runner's onError barrier intercepts it.
+      throw err;
     }
 
     // The error path must answer the client. A custom handler can complete
@@ -907,6 +1059,7 @@ export class Application {
     this._readyPromise = null;
     this._closePromise = null;
     this._closeStarted = false;
+    this._fetchRunner = undefined;
 
     // Undo the router mount that ready() appended, so a subsequent ready()
     // (re-boot in tests / hot reload) does not stack a second router (audit C-2).
