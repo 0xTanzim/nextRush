@@ -198,14 +198,14 @@ import { ValidationError } from '@nextrush/validation'; // re-exported for catch
 
 ```typescript
 // exports
-export { validate, validated };
-export type { ValidateOptions, ValidatedInput };
+export { validate, validated, createValidate };
+export type { ValidateOptions, ValidatedInput, ValidatedAccessor };
 export { ValidationError, type ValidationIssue }; // re-exported from @nextrush/errors
 ```
 
 `validate(User)` is still the golden-path signature. The Standard Schema type and the internal `RequestSchemas`/`ValidationTarget` types are **not exported** — users never write them (see §10 for the real type-level contract). No decorator helper, no schema DSL.
 
-**v5 amendment — two additions and three construction-time guards.** `validated(ctx)` and the `ValidateOptions`/`ValidatedInput` types are exported (§5, §7); `validated` is a runtime export, so the package's sealed public-surface test was updated deliberately rather than bypassed. The options bag exists only for `errorStatus` — it is not a general extensibility surface.
+**v5 amendment — additions and construction-time guards.** `validated(ctx)`, `createValidate()`, and the `ValidateOptions`/`ValidatedInput`/`ValidatedAccessor` types are exported (§5, §7); runtime exports are tracked in the package's sealed public-surface test. `createValidate` provides project-wide validator instantiation (e.g. `errorStatus: 422`) across multi-router projects.
 
 The guards exist because three user mistakes were **indistinguishable from success** at runtime:
 

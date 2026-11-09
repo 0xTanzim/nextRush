@@ -46,41 +46,122 @@ app.post('/users', json(), validate(User), (ctx) => {
 
 On success, `ctx.body` **is** the validated, coerced value — no separate accessor.
 
-## `validate(schema)` / `validate(spec)`
+## `validate(schema)` / `validate(spec, options)`
 
 **Signature:**
 
 ```ts
-function validate(arg: StandardSchemaV1 | RequestSchemas): Middleware;
+function validate(
+  arg: StandardSchemaV1 | RequestSchemas,
+  options?: ValidateOptions
+): Middleware;
+
+function createValidate(defaultOptions?: ValidateOptions): typeof validate;
 ```
+
+<TypeTable
+  title="ValidateOptions"
+  types={{
+    errorStatus: {
+      type: 'number',
+      description: 'HTTP status to emit on validation failure (integer between 400 and 499).',
+      default: '400',
+      optional: true,
+    },
+  }}
+/>
 
 | Form | Validates |
 | --- | --- |
-| `validate(schema)` | the request body against `schema` |
-| `validate({ body?, query?, params? })` | each provided target against its own schema |
+| `validate(schema, options?)` | the request body against `schema` |
+| `validate({ body?, query?, params? }, options?)` | each provided target against its own schema |
 
 **Behavior:**
 
-- On success: overwrites `ctx.body` with the coerced value; leaves `ctx.query`/`ctx.params` unmodified; calls `next()`.
-- On failure: throws `ValidationError`, aggregating every issue across every validated target — never calls `next()`.
+- On success: overwrites `ctx.body` with the coerced value; stores all coerced targets on `ctx.state.validated` (read via `validated(ctx)`); leaves `ctx.query`/`ctx.params` unmodified; calls `next()`.
+- On failure: throws `ValidationError` with `status: options.errorStatus ?? 400`, aggregating every issue across every validated target — never calls `next()`.
 - Atomic across targets: if any target fails, `ctx.body` is not overwritten.
-- A schema whose own validator throws an unexpected error (not a validation failure) propagates unchanged — it is never swallowed into a 400.
+- A schema whose own validator throws an unexpected error (not a validation failure) propagates unchanged — it is never swallowed into the failure status.
 
-### Validating Multiple Targets
+### Validating Multiple Targets and Reading Coerced Input
 
 ```ts
+import { validate, validated } from '@nextrush/validation';
+import { z } from 'zod';
+
+const ParamsSchema = z.object({ id: z.string().uuid() });
+const QuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  sort: z.enum(['asc', 'desc']).default('asc'),
+});
+
 app.get(
   '/users/:id',
-  validate({
-    params: z.object({ id: z.string().uuid() }),
-    query: z.object({ sort: z.enum(['asc', 'desc']) }),
-  }),
+  validate(
+    {
+      params: ParamsSchema,
+      query: QuerySchema,
+    },
+    { errorStatus: 422 }
+  ),
   (ctx) => {
-    const { id } = ctx.params;
-    const { sort } = ctx.query;
-    ctx.json({ id, sort });
+    // Access typed coerced values via validated(ctx):
+    const { params, query } = validated<{
+      params: { id: string };
+      query: { page: number; sort: 'asc' | 'desc' };
+    }>(ctx);
+
+    // Or use target-specific helpers:
+    const page = validated.query<{ page: number; sort: string }>(ctx)?.page;
+    const id = validated.params<{ id: string }>(ctx)?.id;
+
+    ctx.json({ id, page, sort: query.sort });
   }
 );
+```
+
+## Reading Coerced Values: `validated(ctx)`
+
+`ctx.query` and `ctx.params` are declared as string maps. In order to keep TypeScript honest without dangerous type casts, `@nextrush/validation` exposes all coerced values via the `validated` helper.
+
+```ts
+import { validated } from '@nextrush/validation';
+
+// Read all coerced targets:
+const { body, query, params } = validated(ctx);
+
+// Generic type parameter:
+const { query } = validated<{ query: { limit: number } }>(ctx);
+
+// Target-specific helpers:
+const query = validated.query<{ limit: number }>(ctx);
+const params = validated.params<{ id: string }>(ctx);
+const body = validated.body<MyUserType>(ctx);
+```
+
+When validation has not run, `validated(ctx)` safely returns `{}` so destructuring never throws, and target helpers return `undefined`.
+
+## Project-Wide Validation: `createValidate(defaultOptions)`
+
+If your API mandates `422 Unprocessable Entity` for all schema failures, avoid repeating `{ errorStatus: 422 }` on every route with `createValidate`:
+
+```ts title="src/lib/validation.ts"
+import { createValidate } from '@nextrush/validation';
+
+export const validate = createValidate({ errorStatus: 422 });
+```
+
+```ts title="src/routes/items.ts"
+import { validate, validated } from '../lib/validation';
+
+// Reusable validator with 422 status baked in:
+app.get('/items', validate({ query: QuerySchema }), (ctx) => {
+  const { query } = validated(ctx);
+  ctx.json(query);
+});
+
+// Route-level options still override the default when needed:
+app.post('/auth/login', validate(LoginSchema, { errorStatus: 400 }), handler);
 ```
 
 ## One Source of Truth
@@ -88,17 +169,13 @@ app.get(
 <TypeTable
   title="Behavior by target"
   types={{
-    body: { type: 'unknown', description: 'Validated, coerced, and written back to ctx.body.' },
-    query: { type: 'Record<string, string | string[]>', description: 'Validated; rejected if invalid; left as the original string values.' },
-    params: { type: 'Record<string, string>', description: 'Validated; rejected if invalid; left as the original string values.' },
+    body: { type: 'unknown', description: 'Validated, coerced, and written back to ctx.body as well as ctx.state.validated.body.' },
+    query: { type: 'Record<string, string | string[]>', description: 'Validated; left as original string maps on ctx.query. Coerced values available via validated.query(ctx).' },
+    params: { type: 'Record<string, string>', description: 'Validated; left as original string maps on ctx.params. Coerced values available via validated.params(ctx).' },
   }}
 />
 
-**Why body overwrites and query/params don't:** `ctx.body` is typed `unknown`, so replacing it with the coerced object is honest — the static type never disagrees with the runtime value. `ctx.query`/`ctx.params` are declared as `string` maps; writing a coerced `number` back would make TypeScript claim `string` while the runtime holds a `number`. So query and params are validated but intentionally left unmodified — coerce explicitly at the read site if needed:
-
-```ts
-const page = Number(ctx.query.page);
-```
+**Why body overwrites and query/params don't:** `ctx.body` is typed `unknown`, so replacing it with the coerced object is honest — the static type never disagrees with the runtime value. `ctx.query`/`ctx.params` are declared as `string` maps; writing a coerced `number` back would make TypeScript claim `string` while the runtime holds a `number`. Coerced query and params values are stored on `ctx.state.validated` and read cleanly with `validated(ctx)` or `validated.query/params(ctx)`.
 
 ## Middleware Order
 
@@ -115,7 +192,7 @@ app.post(
 
 If no body parser ran, `ctx.body` is `undefined`, and the schema decides the outcome (a required object schema rejects it with a 400).
 
-## Errors
+## Errors & Status Codes
 
 Failures throw the framework's existing `ValidationError` from `@nextrush/errors` — there is no separate error type for this package. It is rendered automatically by the framework's error handler, and `toJSON()` strips raw input so passwords or tokens never leak into the response:
 
@@ -124,13 +201,15 @@ Failures throw the framework's existing `ValidationError` from `@nextrush/errors
   "error": "ValidationError",
   "message": "Validation failed",
   "code": "VALIDATION_ERROR",
-  "status": 400,
+  "status": 422,
   "issues": [
     { "path": "body.email", "message": "Invalid email address" },
     { "path": "query.sort", "message": "Invalid enum value. Expected 'asc' | 'desc'" }
   ]
 }
 ```
+
+The error status defaults to `400 Bad Request`, but can be set per route via `errorStatus`, project-wide via `createValidate({ errorStatus })`, or globally in `@nextrush/errors` via `errorHandler({ validationErrorStatus: 422 })`.
 
 `ValidationError` and `ValidationIssue` are re-exported from `@nextrush/validation` for a single import site:
 
@@ -142,7 +221,7 @@ app.use(async (ctx, next) => {
     await next();
   } catch (err) {
     if (err instanceof ValidationError) {
-      ctx.status = 400;
+      ctx.status = err.status;
       ctx.json(err.toJSON());
       return;
     }
@@ -156,6 +235,7 @@ app.use(async (ctx, next) => {
 - Standard Schema issues never carry the offending value, and `ValidationError.toJSON()` strips `received` — invalid passwords or tokens never appear in an error response.
 - No prototype pollution: issue paths are joined only into display strings (`body.__proto__.x` is a label, never an assignment).
 - Fail-closed: a schema that signals failure with an empty issues array still rejects the request — validation never silently passes.
+- `errorStatus` is bounded to `400..499` at construction time — rejecting server error codes (5xx) or redirect codes (3xx) before any request runs.
 
 ## Runtime Compatibility
 
@@ -163,7 +243,7 @@ Zero runtime dependencies beyond `@nextrush/types` and `@nextrush/errors`. Runs 
 
 ## Non-Goals
 
-- **Coercing `ctx.query`/`ctx.params`** — validated but left unmodified today; typed coercion is a planned non-breaking upgrade.
+- **Mutating `ctx.query`/`ctx.params` in-place** — left as string maps for type honesty; coerced values are cleanly accessed via `validated(ctx)`.
 - **A schema DSL** — your schema library is the DSL.
 - **Body parsing** — that is [`@nextrush/body-parser`](/docs/reference/body-parser)'s job.
 - **Response validation** — planned alongside `@nextrush/openapi`.
@@ -172,4 +252,5 @@ Zero runtime dependencies beyond `@nextrush/types` and `@nextrush/errors`. Runs 
 
 - [`@nextrush/openapi`](/docs/reference/openapi) — reads the schemas this middleware contributes to route metadata and renders them as a spec
 - [`@nextrush/body-parser`](/docs/reference/body-parser) — populates `ctx.body` before validation runs
+- [`@nextrush/errors`](/docs/reference/errors) — provides `ValidationError` and `errorHandler({ validationErrorStatus })`
 - [Validation Guide](/docs/guides/api-development/validation) — task-oriented walkthrough with more examples

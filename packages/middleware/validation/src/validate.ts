@@ -16,7 +16,7 @@ import type { Context, Middleware, Next } from '@nextrush/types';
 import { ROUTE_METADATA, type MetadataContribution } from '@nextrush/types';
 import { runSchema } from './run-schema.js';
 import type { StandardSchemaV1 } from '@nextrush/types';
-import type { RequestSchemas, ValidateOptions, ValidatedInput, ValidationTarget } from './types.js';
+import type { RequestSchemas, ValidateOptions, ValidatedAccessor, ValidatedInput, ValidationTarget } from './types.js';
 
 /**
  * The `ctx.state` key holding the coerced values. Exported only so `validated()`
@@ -55,24 +55,7 @@ export function validate(
   const schemas = normalizeSchemas(arg);
   const errorStatus = options.errorStatus ?? 400;
 
-  // Fail fast at construction, not at request time. An out-of-range status
-  // reaches `res.writeHead()`, which throws ERR_HTTP_INVALID_STATUS_CODE
-  // asynchronously — that is an uncaught exception that takes down the whole
-  // process, so a config typo would become a remote DoS on the first bad
-  // request. Rejecting it here surfaces the mistake at startup instead.
-  //
-  // Bounded to 4xx on purpose: a validation failure is the client's fault, so
-  // reporting it as a 5xx would both mislabel the fault and contradict this
-  // framework's own rule that a 5xx never exposes its details (`base.ts`:
-  // `expose = status < 500`). `ValidationError` sets `expose: true`, so a 5xx
-  // here would leak every issue while claiming the server broke.
-  if (!Number.isInteger(errorStatus) || errorStatus < 400 || errorStatus > 499) {
-    throw new RangeError(
-      `validate(): errorStatus must be an integer between 400 and 499 ` +
-        `(a validation failure is a client error, never a success or a server fault). ` +
-        `Received: ${String(errorStatus)}.`
-    );
-  }
+  assertValidErrorStatus(errorStatus);
 
   const middleware: Middleware = async (ctx: Context, next: Next): Promise<void> => {
     const issues: ValidationIssue[] = [];
@@ -151,13 +134,14 @@ export function validate(
     // Merge with anything an earlier `validate()` on the same route already
     // stored, so stacking `validate({ params })` then `validate({ query })`
     // keeps both instead of the second silently clobbering the first.
-    const previous = ctx.state[VALIDATED_STATE_KEY];
+    const state = ((ctx as { state?: Record<string, unknown> }).state ??= {});
+    const previous = state[VALIDATED_STATE_KEY];
     const validatedInput: ValidatedInput =
       previous !== null && typeof previous === 'object' ? { ...previous } : {};
     if (bodyValidated) validatedInput.body = coercedBody;
     if (queryValidated) validatedInput.query = coercedQuery;
     if (paramsValidated) validatedInput.params = coercedParams;
-    ctx.state[VALIDATED_STATE_KEY] = validatedInput;
+    state[VALIDATED_STATE_KEY] = validatedInput;
 
     await next();
   };
@@ -174,6 +158,41 @@ export function validate(
 }
 
 /**
+ * Create a reusable `validate` middleware preconfigured with default options.
+ *
+ * @param defaultOptions - Default validation settings applied to every route, e.g. `{ errorStatus: 422 }`.
+ * @returns A configured `validate` function with identical signature to {@link validate}.
+ *
+ * @example
+ * ```ts
+ * // Configure project-wide validation once:
+ * export const validate = createValidate({ errorStatus: 422 });
+ *
+ * // Use across all routers without repeating errorStatus:
+ * app.get('/items', validate({ query: QuerySchema }), handler);
+ * ```
+ */
+export function createValidate(defaultOptions: ValidateOptions = {}): typeof validate {
+  if (defaultOptions.errorStatus !== undefined) {
+    assertValidErrorStatus(defaultOptions.errorStatus);
+  }
+
+  return function configuredValidate(
+    arg: StandardSchemaV1 | RequestSchemas,
+    options?: ValidateOptions
+  ): Middleware {
+    return validate(arg, options ? { ...defaultOptions, ...options } : defaultOptions);
+  };
+}
+
+function getValidated(ctx: Context): ValidatedInput {
+  const state = (ctx as { state?: Record<string, unknown> } | undefined)?.state;
+  const stored = state?.[VALIDATED_STATE_KEY];
+  if (stored === null || typeof stored !== 'object') return {};
+  return stored;
+}
+
+/**
  * Read the coerced values produced by {@link validate}.
  *
  * @param ctx - The request context.
@@ -184,17 +203,47 @@ export function validate(
  * coerced values. An empty object (rather than `undefined`) is returned when
  * validation did not run, so a destructure never throws.
  *
+ * Can be typed via type parameters or target-specific helpers (`validated.query(ctx)`):
+ *
  * @example
  * ```ts
- * const { query, params } = validated(ctx);
+ * const { query } = validated<{ query: { limit: number } }>(ctx);
+ * const query = validated.query<{ limit: number }>(ctx);
  * ```
  */
-export function validated(ctx: Context): ValidatedInput {
-  const stored = ctx.state[VALIDATED_STATE_KEY];
-  // Every field of ValidatedInput is optional, so a narrowed `object` is already
-  // assignable — no cast needed.
-  if (stored === null || typeof stored !== 'object') return {};
-  return stored;
+export const validated: ValidatedAccessor = Object.assign(
+  (ctx: Context) => getValidated(ctx),
+  {
+    query: (ctx: Context) => getValidated(ctx).query,
+    params: (ctx: Context) => getValidated(ctx).params,
+    body: (ctx: Context) => getValidated(ctx).body,
+  }
+) as unknown as ValidatedAccessor;
+
+/**
+ * Ensure `errorStatus` is an integer between 400 and 499.
+ *
+ * @remarks
+ * Fail fast at construction, not at request time. An out-of-range status
+ * reaches `res.writeHead()`, which throws ERR_HTTP_INVALID_STATUS_CODE
+ * asynchronously — that is an uncaught exception that takes down the whole
+ * process, so a config typo would become a remote DoS on the first bad
+ * request. Rejecting it here surfaces the mistake at startup instead.
+ *
+ * Bounded to 4xx on purpose: a validation failure is the client's fault, so
+ * reporting it as a 5xx would both mislabel the fault and contradict this
+ * framework's own rule that a 5xx never exposes its details (`base.ts`:
+ * `expose = status < 500`). `ValidationError` sets `expose: true`, so a 5xx
+ * here would leak every issue while claiming the server broke.
+ */
+function assertValidErrorStatus(errorStatus: number): void {
+  if (!Number.isInteger(errorStatus) || errorStatus < 400 || errorStatus > 499) {
+    throw new RangeError(
+      `validate(): errorStatus must be an integer between 400 and 499 ` +
+        `(a validation failure is a client error, never a success or a server fault). ` +
+        `Received: ${String(errorStatus)}.`
+    );
+  }
 }
 
 type CheckResult = { ok: true; value: unknown } | { ok: false };

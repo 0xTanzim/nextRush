@@ -358,6 +358,47 @@ describe('errorHandler', () => {
       expect(jsonCall.details).toBeUndefined();
     });
   });
+
+  describe('validationErrorStatus', () => {
+    it('should map default ValidationError status 400 to validationErrorStatus', async () => {
+      const handler = errorHandler({ validationErrorStatus: 422 });
+      const ctx = createMockContext();
+
+      await handler(ctx, async () => {
+        throw new ValidationError([{ path: 'email', message: 'invalid email' }]);
+      });
+
+      expect(ctx.status).toBe(422);
+      expect(ctx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 422,
+          code: 'VALIDATION_ERROR',
+        })
+      );
+    });
+
+    it('should preserve explicit custom status when error already specified one', async () => {
+      const handler = errorHandler({ validationErrorStatus: 422 });
+      const ctx = createMockContext();
+
+      await handler(ctx, async () => {
+        throw new ValidationError([{ path: 'email', message: 'invalid email' }], 'Validation failed', 409);
+      });
+
+      expect(ctx.status).toBe(409);
+      expect(ctx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 409,
+        })
+      );
+    });
+
+    it('should throw RangeError at construction if validationErrorStatus is out of range', () => {
+      expect(() => errorHandler({ validationErrorStatus: 200 })).toThrow(RangeError);
+      expect(() => errorHandler({ validationErrorStatus: 500 })).toThrow(RangeError);
+      expect(() => errorHandler({ validationErrorStatus: 422.5 })).toThrow(RangeError);
+    });
+  });
 });
 
 describe('notFoundHandler', () => {

@@ -50,7 +50,7 @@ export function tracker(): { next: Next; called: () => boolean } {
 }
 
 /** Await a promise expected to reject with ValidationError; return that error. */
-export async function catchErr(promise: Promise<unknown>): Promise<ValidationError> {
+export async function catchErr(promise: Promise<unknown> | void): Promise<ValidationError> {
   try {
     await promise;
     throw new Error('expected the call to throw, but it resolved');

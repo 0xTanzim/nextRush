@@ -18,11 +18,20 @@ app.get('/items', validate({ query: Query }, { errorStatus: 422 }), (ctx) => {
   read back with the new `validated(ctx)` accessor, which returns `{}` when no `validate()` ran so a
   destructure never throws. Only targets that were configured *and* passed appear. Nothing is written
   on failure, so the existing atomicity guarantee holds.
+- **Strict type safety and helpers.** `validated` is fully generic (`validated<{ query: MyQuery }>(ctx)`)
+  and provides target-specific helpers (`validated.query<T>(ctx)`, `validated.params<T>(ctx)`, `validated.body<T>(ctx)`)
+  for cast-free typing under TypeScript strict mode.
 - `ctx.query` and `ctx.params` are still left unmodified. They are declared as string maps, so writing
   a coerced number back would make the type disagree with the runtime. The coerced values live on
   `ctx.state` (which is `unknown`-valued) instead.
+- **`createValidate()` factory.** For projects where an API specification mandates `422` (or any custom status)
+  across dozens of routers, `createValidate({ errorStatus: 422 })` creates a preconfigured `validate` function
+  so the status option does not need to be repeated on every route.
 - **`ValidationError` accepts an optional status**, defaulting to `400`, so `new ValidationError(issues)`
   is unchanged for every existing caller. `validate(arg, { errorStatus })` threads it through.
+  `ValidationError.fromField` and `fromFields` also accept optional `status`.
+- **`errorHandler({ validationErrorStatus: 422 })`** provides a global fallback in `@nextrush/errors`
+  mapping default 400 validation errors to 422.
 - The error `code` stays `VALIDATION_ERROR` at any status: the code names the kind of failure, the
   status names its class. A `422` validation failure still aggregates every issue across every target.
 

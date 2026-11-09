@@ -88,7 +88,7 @@ import { errorHandler } from 'nextrush';
 // Must be first middleware registered
 app.use(errorHandler({
   includeStack: process.env.NODE_ENV !== 'production',
-  logErrors: true,
+  validationErrorStatus: 422, // optional: map default 400 ValidationErrors to 422
 }));
 
 // Produces JSON responses:
@@ -122,7 +122,7 @@ app.use(async (ctx, next) => {
           error: 'Validation failed',
           issues: err.issues,    // structured ValidationIssue[]
         },
-        400
+        err.status
       );
       return;
     }
@@ -136,17 +136,22 @@ app.use(async (ctx, next) => {
 An explicit status passed to a response helper is recorded back onto `ctx.status`, so logging
 middleware downstream still reports the status that was actually sent.
 
-## ValidationError (from @nextrush/validation)
+## ValidationError (from @nextrush/validation or @nextrush/errors)
 
 ```typescript
 import { ValidationError } from 'nextrush';
+
+// Supports optional custom HTTP status (defaults to 400):
+new ValidationError(issues, 'Validation failed', 422);
+ValidationError.fromField('email', 'Invalid email', undefined, 422);
+ValidationError.fromFields({ email: 'Invalid email' }, 422);
 
 try {
   validate(schema)(ctx, async () => {});
 } catch (err) {
   if (err instanceof ValidationError) {
     err.issues  // structured ValidationIssue[] (non-empty)
-    err.status  // 400
+    err.status  // 400 by default (or custom errorStatus)
     err.code    // 'VALIDATION_ERROR'
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '@nextrush/errors';
 import { ROUTE_METADATA } from '@nextrush/types';
-import { validate, validated } from '../validate.js';
+import { validate, validated, createValidate } from '../validate.js';
 import { catchErr, fake, mockCtx, tracker } from './_helpers.js';
 
 describe('validate (body shorthand)', () => {
@@ -253,7 +253,7 @@ describe('#69 — stacking validate() on one route', () => {
     const badParams = fake(() => ({ issues: [{ message: 'bad', path: ['id'] }] }));
     const query = fake(() => ({ value: { page: 3 } }));
 
-    await catchErr(validate({ params: badParams })(ctx, tracker().next));
+    await catchErr(validate({ params: badParams, query })(ctx, tracker().next));
     expect(ctx.state['validated']).toBeUndefined();
   });
 });
@@ -336,5 +336,124 @@ describe('validate() rejects silent-no-op mistakes at construction', () => {
   it('still accepts the body shorthand', () => {
     const schema = fake(() => ({ value: {} }));
     expect(() => validate(schema)).not.toThrow();
+  });
+});
+
+describe('validated target helpers', () => {
+  it('validated.query(ctx) reads query target directly', async () => {
+    const query = fake(() => ({ value: { page: 3 } }));
+    const ctx = mockCtx({ query: { page: '3' } });
+    await validate({ query })(ctx, tracker().next);
+
+    expect(validated.query(ctx)).toEqual({ page: 3 });
+    expect(validated.params(ctx)).toBeUndefined();
+    expect(validated.body(ctx)).toBeUndefined();
+  });
+
+  it('validated.params(ctx) reads params target directly', async () => {
+    const params = fake(() => ({ value: { id: 42 } }));
+    const ctx = mockCtx({ params: { id: '42' } });
+    await validate({ params })(ctx, tracker().next);
+
+    expect(validated.params(ctx)).toEqual({ id: 42 });
+    expect(validated.query(ctx)).toBeUndefined();
+  });
+
+  it('validated.body(ctx) reads body target directly', async () => {
+    const body = fake(() => ({ value: { name: 'Ada' } }));
+    const ctx = mockCtx({ body: { name: 'Ada' } });
+    await validate(body)(ctx, tracker().next);
+
+    expect(validated.body(ctx)).toEqual({ name: 'Ada' });
+  });
+
+  it('helpers return undefined when no validation ran', () => {
+    const ctx = mockCtx({});
+    expect(validated.query(ctx)).toBeUndefined();
+    expect(validated.params(ctx)).toBeUndefined();
+    expect(validated.body(ctx)).toBeUndefined();
+  });
+});
+
+describe('createValidate() factory', () => {
+  it('creates validate middleware with default errorStatus', async () => {
+    const validate422 = createValidate({ errorStatus: 422 });
+    const schema = fake(() => ({ issues: [{ message: 'invalid', path: ['field'] }] }));
+    const ctx = mockCtx({ body: {} });
+
+    const err = await catchErr(validate422(schema)(ctx, tracker().next));
+    expect(err).toBeInstanceOf(ValidationError);
+    expect(err.status).toBe(422);
+  });
+
+  it('allows route-level options to override factory default', async () => {
+    const validate422 = createValidate({ errorStatus: 422 });
+    const schema = fake(() => ({ issues: [{ message: 'invalid', path: ['field'] }] }));
+    const ctx = mockCtx({ body: {} });
+
+    const err = await catchErr(validate422(schema, { errorStatus: 400 })(ctx, tracker().next));
+    expect(err).toBeInstanceOf(ValidationError);
+    expect(err.status).toBe(400);
+  });
+
+  it('validates default errorStatus at factory creation', () => {
+    expect(() => createValidate({ errorStatus: 302 })).toThrow(RangeError);
+    expect(() => createValidate({ errorStatus: 500 })).toThrow(RangeError);
+    expect(() => createValidate({ errorStatus: 422.5 })).toThrow(RangeError);
+  });
+
+  it('works with default empty options', async () => {
+    const customValidate = createValidate();
+    const schema = fake(() => ({ value: { ok: true } }));
+    const ctx = mockCtx({ body: {} });
+    const t = tracker();
+
+    await customValidate(schema)(ctx, t.next);
+    expect(t.called()).toBe(true);
+  });
+
+  it('attaches ROUTE_METADATA to middleware returned by configured validate', () => {
+    const validate422 = createValidate({ errorStatus: 422 });
+    const schema = fake(() => ({ value: { ok: true } }));
+    const mw = validate422(schema);
+
+    const meta = (mw as unknown as Record<symbol, unknown>)[ROUTE_METADATA];
+    expect(meta).toEqual({
+      request: { body: schema },
+    });
+  });
+
+  it('works with multi-target schema maps in configured validate', async () => {
+    const validate422 = createValidate({ errorStatus: 422 });
+    const querySchema = fake(() => ({ value: { limit: 10 } }));
+    const mw = validate422({ query: querySchema });
+
+    const ctx = mockCtx({ query: { limit: '10' } });
+    const t = tracker();
+    await mw(ctx, t.next);
+
+    expect(t.called()).toBe(true);
+    expect(validated.query(ctx)).toEqual({ limit: 10 });
+  });
+
+  it('safely handles contexts without state property in validated()', () => {
+    const bareCtx = {} as any;
+    expect(validated(bareCtx)).toEqual({});
+    expect(validated.query(bareCtx)).toBeUndefined();
+    expect(validated.params(bareCtx)).toBeUndefined();
+    expect(validated.body(bareCtx)).toBeUndefined();
+  });
+
+  it('safely initializes state when validate() runs on a context without state property', async () => {
+    const querySchema = fake(() => ({ value: { page: 1 } }));
+    const mw = validate({ query: querySchema });
+    const bareCtx = { query: { page: '1' } } as any;
+    const t = tracker();
+
+    await mw(bareCtx, t.next);
+
+    expect(t.called()).toBe(true);
+    expect(bareCtx.state).toBeDefined();
+    expect(validated.query(bareCtx)).toEqual({ page: 1 });
   });
 });

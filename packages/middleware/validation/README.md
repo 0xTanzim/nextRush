@@ -239,9 +239,14 @@ The sealed public surface (ADR-0005).
 
 | Export | Signature | Since | Stability | Description |
 | ------ | --------- | ----- | --------- | ----------- |
-| `validate` | `(arg: StandardSchemaV1 \| RequestSchemas) => Middleware` | 1.0.0 | Stable | Validates the body (schema form), or the body/query/params (map form). |
-| `ValidationError` | `class` (re-exported from `@nextrush/errors`) | 1.0.0 | Stable | Thrown on any validation failure; carries aggregated `issues`, `status: 400`, `code: 'VALIDATION_ERROR'`. |
+| `validate` | `(arg: StandardSchemaV1 \| RequestSchemas, options?: ValidateOptions) => Middleware` | 1.0.0 | Stable | Validates the body (schema form), or the body/query/params (map form). |
+| `createValidate` | `(defaultOptions?: ValidateOptions) => typeof validate` | 1.1.0 | Stable | Factory creating preconfigured `validate` middleware (e.g. `{ errorStatus: 422 }`) for multi-router backends. |
+| `validated` | `ValidatedAccessor` | 1.1.0 | Stable | Accessor and target helpers (`validated.query`, `validated.params`, `validated.body`) to read coerced values from `ctx`. |
+| `ValidationError` | `class` (re-exported from `@nextrush/errors`) | 1.0.0 | Stable | Thrown on any validation failure; carries aggregated `issues`, `status: 400` (or configured status), `code: 'VALIDATION_ERROR'`. |
 | `type ValidationIssue` | -- (re-exported from `@nextrush/errors`) | 1.0.0 | Stable | `{ path, message, rule?, expected?, received? }` -- the shape of one aggregated issue. |
+| `type ValidateOptions` | `{ errorStatus?: number }` | 1.1.0 | Stable | Options for `validate()` and `createValidate()`. |
+| `type ValidatedInput` | `interface ValidatedInput<TBody, TQuery, TParams>` | 1.1.0 | Stable | Generic coerced data shape stored on `ctx.state.validated`. |
+| `type ValidatedAccessor` | `interface ValidatedAccessor` | 1.1.0 | Stable | Callable accessor and target helper methods contract. |
 
 ## Options
 
@@ -269,10 +274,15 @@ The sealed public surface (ADR-0005).
 import { validate, validated } from '@nextrush/validation';
 
 const Query = z.object({ page: z.coerce.number().int().min(1).default(1) });
+type QueryType = z.infer<typeof Query>;
 
 app.get('/items', validate({ query: Query }), (ctx) => {
-  const { query } = validated(ctx);   // { page: number } -- coerced, typed by the schema
-  ctx.json({ page: query.page });
+  // Option 1: target helper (direct, typed)
+  const query = validated.query<QueryType>(ctx);
+  ctx.json({ page: query?.page });
+
+  // Option 2: generic destructuring
+  const { query: q } = validated<{ query: QueryType }>(ctx);
 
   // ctx.query.page is still the raw string, unchanged:
   // ctx.query.page === '3'
@@ -286,6 +296,17 @@ Validation failures default to `400 Bad Request`. When your API spec maps semant
 ```ts
 app.post('/users', validate({ body: CreateUser }, { errorStatus: 422 }), handler);
 ```
+
+For project-wide configuration across multiple routers, use `createValidate()`:
+
+```ts
+// src/validation.ts
+import { createValidate } from '@nextrush/validation';
+
+export const validate = createValidate({ errorStatus: 422 });
+```
+
+Now every router importing `validate` from `./validation` automatically emits `422` on schema failures without having to repeat `{ errorStatus: 422 }` on every route. You can also configure `errorHandler({ validationErrorStatus: 422 })` from `@nextrush/errors` as a centralized safety net.
 
 The error `code` stays `VALIDATION_ERROR` either way: the code names the *kind* of failure, the status names its *class*. Issues still aggregate across every configured target into a single error.
 

@@ -181,6 +181,7 @@ Every `NextRushError` has these properties:
       title="errorHandler options"
       types={{
         includeStack: { type: 'boolean', description: 'Include stack trace in response', optional: true, default: 'false' },
+        validationErrorStatus: { type: 'number', description: 'HTTP status (400..499) to emit for ValidationError instances carrying default status 400', optional: true },
         logger: { type: '(error: Error, ctx: Context) => void', description: 'Custom error logging function', optional: true, default: 'Console logger' },
         transform: { type: '(error: Error, ctx: Context) => Record<string, unknown>', description: 'Custom response body transformer', optional: true },
         handlers: { type: 'Map<ErrorConstructor, (error: Error, ctx: Context) => void>', description: 'Type-specific error handlers', optional: true },
@@ -278,7 +279,13 @@ Every `NextRushError` has these properties:
     });
     ```
 
-    The `ValidationError` constructor takes `(issues, message?)` — issues first, optional message second (defaults to `'Validation failed'`).
+    The `ValidationError` constructor takes `(issues, message?, status?)` — issues first, optional message second (defaults to `'Validation failed'`), and optional HTTP status third (defaults to `400`). You can pass `422` when an API specification requires Unprocessable Entity for schema validation failures:
+
+    ```typescript
+    throw new ValidationError(issues, 'Validation failed', 422);
+    ```
+
+    Alternatively, configure `errorHandler({ validationErrorStatus: 422 })` to map all default 400 validation errors to 422 application-wide without updating individual routes.
 
     The JSON response strips the `received` field from issues to prevent leaking sensitive input values:
 
@@ -298,23 +305,26 @@ Every `NextRushError` has these properties:
     **Convenience constructors:**
 
     `RequiredFieldError` and `TypeMismatchError` are not re-exported by the `nextrush`
-    meta-package — import them directly from `@nextrush/errors`:
+    meta-package — import them directly from `@nextrush/errors`. All factory methods and error subclasses also accept an optional `status` code (defaults to `400`):
 
     ```typescript
     import { RequiredFieldError, TypeMismatchError } from '@nextrush/errors';
     import { ValidationError } from 'nextrush';
 
-    // Single required field
-    throw new RequiredFieldError('email');
+    // Single required field (with optional custom status, e.g. 422)
+    throw new RequiredFieldError('email', 422);
 
     // Type mismatch
-    throw new TypeMismatchError('age', 'number', 'string');
+    throw new TypeMismatchError('age', 'number', 'string', 422);
+
+    // From a single field
+    throw ValidationError.fromField('email', 'Invalid format', 'email', 422);
 
     // From a flat error map
     throw ValidationError.fromFields({
       email: 'Invalid format',
       name: 'Too short',
-    });
+    }, 422);
     ```
 
   </Step>

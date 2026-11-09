@@ -265,7 +265,7 @@ throw new TooManyRequestsError('Rate limit exceeded', {
 
 ## Validation Errors
 
-`ValidationError` extends `NextRushError` (not `HttpError`) and provides structured validation failure reporting. It always returns status 400 with `expose: true`.
+`ValidationError` extends `NextRushError` (not `HttpError`) and provides structured validation failure reporting. It defaults to status `400 Bad Request` with `expose: true`, and accepts an optional custom HTTP status code (e.g. `422 Unprocessable Entity`) for schema and business validation failures.
 
 ```typescript
 import {
@@ -279,24 +279,28 @@ import {
   InvalidUrlError,
 } from '@nextrush/errors';
 
-// Validation error with multiple issues
-throw new ValidationError([
-  { path: 'email', message: 'Required', rule: 'required' },
-  { path: 'age', message: 'Must be positive', rule: 'range' },
-]);
+// Validation error with multiple issues (optional custom status, defaults to 400)
+throw new ValidationError(
+  [
+    { path: 'email', message: 'Required', rule: 'required' },
+    { path: 'age', message: 'Must be positive', rule: 'range' },
+  ],
+  'Validation failed',
+  422
+);
 
-// Static factory methods
-throw ValidationError.fromField('email', 'Invalid format', 'email');
-throw ValidationError.fromFields({ email: 'Required', age: 'Must be number' });
+// Static factory methods with optional custom status
+throw ValidationError.fromField('email', 'Invalid format', 'email', 422);
+throw ValidationError.fromFields({ email: 'Required', age: 'Must be number' }, 422);
 
-// Field-specific errors
-throw new RequiredFieldError('email');
-throw new TypeMismatchError('age', 'number', 'string');
-throw new RangeValidationError('age', 0, 120);
-throw new LengthError('password', 8, 100);
-throw new PatternError('username', '^[a-z0-9]+$');
-throw new InvalidEmailError();
-throw new InvalidUrlError();
+// Field-specific errors with optional custom status
+throw new RequiredFieldError('email', 422);
+throw new TypeMismatchError('age', 'number', 'string', 422);
+throw new RangeValidationError('age', 0, 120, 422);
+throw new LengthError('password', 8, 100, 422);
+throw new PatternError('username', '^[a-z0-9]+$', undefined, 422);
+throw new InvalidEmailError('email', 422);
+throw new InvalidUrlError('url', 422);
 ```
 
 `ValidationError` provides helper methods for querying issues:
@@ -463,6 +467,9 @@ app.use(
       myLogger.error(err, { path: ctx.path, method: ctx.method });
     },
 
+    // Remap default 400 ValidationErrors to 422 across the application
+    validationErrorStatus: 422,
+
     // Custom error response transformer
     transform: (err, ctx) => ({
       success: false,
@@ -491,6 +498,11 @@ app.use(
       type: 'boolean',
       description: 'Include stack trace in error responses',
       default: 'false',
+    },
+    validationErrorStatus: {
+      type: 'number',
+      description: 'HTTP status code (400..499) to emit for ValidationError instances carrying the default status 400',
+      optional: true,
     },
     logger: {
       type: '(error: Error, ctx: Context) => void',
