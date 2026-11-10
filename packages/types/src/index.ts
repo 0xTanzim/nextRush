@@ -105,6 +105,7 @@ export {
 // ============================================================================
 
 export {
+  type AppSource,
   type FetchAdapter,
   type FetchHandler,
   type FetchHandlerOptions,

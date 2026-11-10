@@ -69,6 +69,10 @@ function toRequest(event: ApiGatewayV1Event): Request {
     }
   }
 
+  if (!headers.has('x-forwarded-for') && event.requestContext?.identity?.sourceIp) {
+    headers.set('x-forwarded-for', event.requestContext.identity.sourceIp);
+  }
+
   const bodilessMethod = method === 'GET' || method === 'HEAD';
   let body: BodyInit | undefined;
   if (!bodilessMethod && event.body !== undefined && event.body !== null) {

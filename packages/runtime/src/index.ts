@@ -193,3 +193,5 @@ export type {
   UniversalExecutionContext,
 } from './universal-context';
 
+export { memoizeAppSource } from './memoize-app';
+

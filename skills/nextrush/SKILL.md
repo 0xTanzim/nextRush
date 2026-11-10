@@ -223,11 +223,12 @@ Inside Next.js App Router?
 
 ### Critical adapter rules
 
-1. **Build app at module scope** on serverless (once per cold start), never inside the handler.
-2. On serverless/edge via these adapters, `ctx.runtime` is often `'edge'` — use **`ctx.platform`** to know provider (`'lambda' | 'gcf' | 'azure' | ...`).
-3. Next.js: only App Router. Pages Router unsupported. Mount paths live on the **app** (`app.route('/api', router)`), not the bridge.
-4. WebSocket package is **Node-only**. Edge/Bun/Deno: use platform native WS or SSE via `@nextrush/stream`.
-5. **Runtime Guarding & Clean Calling**: `@nextrush/adapter-bun` and `@nextrush/adapter-deno` handlers have optional second arguments (`await handler(request)` without dummy servers). In non-Bun/Deno runtimes (e.g., Vercel without `bunVersion`), calling `serve()` throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` and actionable migration advice. Both re-export `isBun` / `isDeno` and `ServerStartError`.
+1. **Build app at module scope** on serverless (once per cold start), never inside the handler. When async initialization (e.g. database connections, async controllers) is needed, pass an async factory `createLambdaHandler(async () => { ...; return app; })` to eliminate top-level `await` crashes (`ERR_REQUIRE_ASYNC_MODULE`).
+2. On serverless/edge via these adapters, `ctx.runtime` is often `'edge'` — use **`ctx.platform`** to know provider (`'lambda' | 'gcf' | 'azure' | 'vercel' | ...`).
+3. **Background tasks (`ctx.waitUntil`)**: Serverless adapters automatically drain background tasks before returning to the runtime (or bridge to `@vercel/request-context` on Vercel), preventing premature container freeze and dropped telemetry.
+4. Next.js: only App Router. Pages Router unsupported. Mount paths live on the **app** (`app.route('/api', router)`), not the bridge.
+5. WebSocket package is **Node-only**. Edge/Bun/Deno: use platform native WS or SSE via `@nextrush/stream`.
+6. **Runtime Guarding & Clean Calling**: `@nextrush/adapter-bun` and `@nextrush/adapter-deno` handlers have optional second arguments (`await handler(request)` without dummy servers). In non-Bun/Deno runtimes (e.g., Vercel without `bunVersion`), calling `serve()` throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` and actionable migration advice. Both re-export `isBun` / `isDeno` and `ServerStartError`.
 
 Details: `references/adapters.md`, `references/nextjs.md`, `references/serverless-edge.md`.
 

@@ -149,6 +149,7 @@ describe('Public API surface (runtime exports)', () => {
       'createUniversalFetchHandler',
       'createWebRunner',
       'SETTLE_TURNS',
+      'memoizeAppSource',
 
       // Body source
       'AbstractBodySource',

@@ -17,8 +17,8 @@
  */
 
 import type { Application } from '@nextrush/core';
-import { createWebRunner } from '@nextrush/runtime';
-import type { AdapterContextFactory, FetchAdapter, PlatformId, ProxyTrust } from '@nextrush/types';
+import { createWebRunner, memoizeAppSource } from '@nextrush/runtime';
+import type { AdapterContextFactory, AppSource, FetchAdapter, PlatformId, ProxyTrust } from '@nextrush/types';
 import { createEdgeContext, EdgeContext, type EdgeExecutionContext } from './context';
 
 /**
@@ -127,12 +127,19 @@ export type FetchHandler = (
  * ```
  */
 export function createFetchHandler(
-  app: Application,
+  appSource: AppSource<Application>,
   options: FetchHandlerOptions = {}
 ): FetchHandler {
-  const run = createEdgeRunner(app, options);
-  return (request: Request, executionContext?: EdgeExecutionContext): Response | Promise<Response> =>
-    run(request, { executionContext });
+  const getApp = memoizeAppSource(appSource);
+  let run: ((request: Request, extras: EdgeExtras) => Response | Promise<Response>) | undefined;
+
+  return async (request: Request, executionContext?: EdgeExecutionContext): Promise<Response> => {
+    if (!run) {
+      const app = await getApp();
+      run = createEdgeRunner(app, options);
+    }
+    return run(request, { executionContext });
+  };
 }
 
 /** Per-request platform extras the edge context needs. */
@@ -218,21 +225,27 @@ export type CloudflareFetchHandler<Env = Record<string, unknown>> = (
  * ```
  */
 export function createCloudflareHandler<Env = Record<string, unknown>>(
-  app: Application,
+  appSource: AppSource<Application>,
   options: FetchHandlerOptions = {}
 ): { fetch: CloudflareFetchHandler<Env> } {
-  const run = createEdgeRunner(app, options);
+  const getApp = memoizeAppSource(appSource);
+  let run: ((request: Request, extras: EdgeExtras) => Response | Promise<Response>) | undefined;
 
   return {
-    fetch: (request: Request, env: Env, ctx: EdgeExecutionContext): Response | Promise<Response> =>
-      run(request, { executionContext: ctx, env }),
+    fetch: async (request: Request, env: Env, ctx: EdgeExecutionContext): Promise<Response> => {
+      if (!run) {
+        const app = await getApp();
+        run = createEdgeRunner(app, options);
+      }
+      return run(request, { executionContext: ctx, env });
+    },
   };
 }
 
 /**
  * Create Vercel Edge Function handler
  *
- * @param app - NextRush Application instance
+ * @param app - NextRush Application instance or async factory producing one
  * @param options - Handler options
  * @returns Vercel Edge Function handler
  *
@@ -256,16 +269,16 @@ export function createCloudflareHandler<Env = Record<string, unknown>>(
  * ```
  */
 export function createVercelHandler(
-  app: Application,
+  appSource: AppSource<Application>,
   options: FetchHandlerOptions = {}
 ): FetchHandler {
-  return createFetchHandler(app, options);
+  return createFetchHandler(appSource, options);
 }
 
 /**
  * Create Netlify Edge Function handler
  *
- * @param app - NextRush Application instance
+ * @param app - NextRush Application instance or async factory producing one
  * @param options - Handler options
  * @returns Netlify Edge Function handler
  *
@@ -285,10 +298,10 @@ export function createVercelHandler(
  * ```
  */
 export function createNetlifyHandler(
-  app: Application,
+  appSource: AppSource<Application>,
   options: FetchHandlerOptions = {}
 ): FetchHandler {
-  return createFetchHandler(app, options);
+  return createFetchHandler(appSource, options);
 }
 
 /**

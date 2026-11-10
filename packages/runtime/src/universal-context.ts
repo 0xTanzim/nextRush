@@ -244,8 +244,23 @@ export class UniversalWebContext<Env = unknown> extends WebContextBase {
    * suites and shutdown hooks can deterministically await settlement via {@link drainWaitUntil}.
    */
   waitUntil(promise: Promise<unknown>): void {
+    // 1. Direct host execution context (Cloudflare Workers, Vercel Edge 2nd arg)
     if (this.executionContext && typeof this.executionContext.waitUntil === 'function') {
       this.executionContext.waitUntil(promise);
+      return;
+    }
+
+    // 2. Vercel / Next.js global request context symbols
+    const globalContext =
+      (globalThis as unknown as { [k: symbol]: { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } })[
+        Symbol.for('@vercel/request-context')
+      ]?.get?.() ??
+      (globalThis as unknown as { [k: symbol]: { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } })[
+        Symbol.for('@next/request-context')
+      ]?.get?.();
+
+    if (globalContext && typeof globalContext.waitUntil === 'function') {
+      globalContext.waitUntil(promise);
       return;
     }
 

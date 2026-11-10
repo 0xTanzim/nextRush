@@ -230,14 +230,33 @@ const handler = createCloudflareHandler(app, {
 });
 ```
 
+### Async Application Factory (Preventing Top-Level Await)
+
+All Edge handler creators accept either an `Application` instance or a factory function (sync or async) returning an `Application`:
+
+```ts
+import { createApp } from '@nextrush/core';
+import { createVercelHandler } from '@nextrush/adapter-edge';
+
+// Evaluated lazily on first request and memoized in warm isolates
+export default createVercelHandler(async () => {
+  const app = createApp();
+  await initServices();
+  app.get('/', (ctx) => ctx.json({ status: 'ok' }));
+  return app;
+});
+```
+
+This prevents top-level `await` execution issues and avoids cold start penalties during module parsing.
+
 ## API overview
 
 | Export | Signature | Since | Stability | Description |
 | ------ | --------- | ----- | --------- | ------------ |
-| `createFetchHandler` | `(app: Application, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Generic Fetch-API handler; the runner every other export delegates to |
-| `createCloudflareHandler` | `<Env>(app: Application, options?: FetchHandlerOptions) => { fetch: CloudflareFetchHandler<Env> }` | `1.0.0` | Internal | Cloudflare Workers module export -- `(request, env, ctx)` signature; threads `env` onto `ctx.env` |
-| `createVercelHandler` | `(app: Application, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Vercel Edge Function handler (delegates to `createFetchHandler`) |
-| `createNetlifyHandler` | `(app: Application, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Netlify Edge Function handler (delegates to `createFetchHandler`) |
+| `createFetchHandler` | `(app: AppSource<Application>, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Generic Fetch-API handler; the runner every other export delegates to |
+| `createCloudflareHandler` | `<Env>(app: AppSource<Application>, options?: FetchHandlerOptions) => { fetch: CloudflareFetchHandler<Env> }` | `1.0.0` | Internal | Cloudflare Workers module export -- `(request, env, ctx)` signature; threads `env` onto `ctx.env` |
+| `createVercelHandler` | `(app: AppSource<Application>, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Vercel Edge Function handler (supports `(request, context)` and async app factory) |
+| `createNetlifyHandler` | `(app: AppSource<Application>, options?: FetchHandlerOptions) => FetchHandler` | `1.0.0` | Internal | Netlify Edge Function handler (delegates to `createFetchHandler`) |
 | `createHandler` | same as `createFetchHandler` | `1.0.0` | Internal | Alias of `createFetchHandler`, kept for naming consistency with other adapters |
 | `DEFAULT_EDGE_TIMEOUT_MS` | `24_000` | `1.0.0` | Internal | Default request timeout in ms when `options.timeout` is omitted |
 | `detectEdgeRuntime` | `() => EdgeRuntimeInfo` | `1.0.0` | Internal | Detects which edge platform is running -- see Runtime detection below |
@@ -300,10 +319,9 @@ added additively in RFC-026; `ctx.runtime`'s type and values are unchanged.
 Three development-mode diagnostics exist to make otherwise-silent failures attributable. All three
 are gated on `app.isProduction` being false, except the timeout log, which always fires.
 
-**`ctx.waitUntil()` with no execution context** — the promise is dropped without running (unchanged
-behavior). Outside production the first such call per context warns:
+**`ctx.waitUntil()` with no execution context** — outside production the first such call per context warns:
 
-> `[nextrush/edge] ctx.waitUntil() was called, but this platform provided no execution context — the promise was dropped without running. This is expected on platforms with no background-task support (e.g. Vercel Edge); on Cloudflare Workers it usually means `ctx` was not passed through to createCloudflareHandler. (This message appears in development only.)`
+> `[nextrush/edge] ctx.waitUntil() was called, but the host environment provided no execution context. On Cloudflare Workers ensure ctx was passed to fetch(); on Vercel Edge ensure the context parameter was received. (This message appears in development only.)`
 
 **A second, different `Application` booting in the same isolate** — the mechanical signature of
 building the app inside the exported handler instead of at module scope. Warns once per module

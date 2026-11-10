@@ -21,7 +21,7 @@ import { createServerlessAdapter } from './adapter';
 import { gcf, type GcfEvent, type GcfResult } from './mappers/gcf';
 import { TEXT_CONTENT_TYPE, base64ToBytes, bytesToBase64 } from './mappers/_v2';
 import type { GcfHttpRequest, GcfHttpResponse } from './platform-shapes';
-import type { ServerlessHandler, ServerlessHandlerOptions } from './types';
+import type { AppSource, ServerlessHandler, ServerlessHandlerOptions } from './types';
 
 /**
  * Bridge a functions-framework request into a {@link GcfEvent}.
@@ -113,7 +113,7 @@ export function writeGcfResult(res: GcfHttpResponse, result: GcfResult): void {
  * ```
  */
 export function createGoogleHandler(
-  app: Application,
+  app: AppSource<Application>,
   options: ServerlessHandlerOptions = {}
 ): (req: GcfHttpRequest, res: GcfHttpResponse) => Promise<void> {
   const eventHandler = createGoogleEventHandler(app, options);
@@ -131,14 +131,14 @@ export function createGoogleHandler(
  * explicitly named — the honest answer for fixture tests, a custom bridge, or
  * a host whose request shape isn't functions-framework-standard.
  *
- * @param app - The NextRush application.
+ * @param app - The NextRush application instance, or an async factory producing one.
  * @param options - Optional Tier-2 tuning ({@link ServerlessHandlerOptions}).
  * @returns A handler `(event) => Promise<result>` over the GCF request essentials.
  *
  * @see {@link createGoogleHandler} for the true drop-in over the real `req`/`res`.
  */
 export function createGoogleEventHandler(
-  app: Application,
+  app: AppSource<Application>,
   options: ServerlessHandlerOptions = {}
 ): ServerlessHandler<GcfEvent, GcfResult> {
   return createServerlessAdapter<GcfEvent, GcfResult>({

@@ -122,6 +122,19 @@ export type UniversalFetchHandler = (
 ) => Response | Promise<Response>;
 
 
+// ============================================================================
+// Application Source Contract (Serverless & Edge Top-Level Await Elimination)
+// ============================================================================
+
+/**
+ * An application instance, or a synchronous or asynchronous factory producing one.
+ * Used by serverless and edge adapters to defer initialization until the first request,
+ * eliminating top-level await in module evaluation scope.
+ *
+ * @typeParam TApp - The application type (adapters bind `Application`).
+ */
+export type AppSource<TApp = unknown> = TApp | (() => TApp | Promise<TApp>);
+
 /**
  * Contract for server-style adapters (node/bun/deno).
  *

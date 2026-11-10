@@ -21,7 +21,7 @@ import { createServerlessAdapter } from './adapter';
 import { azure, type AzureEvent, type AzureResult } from './mappers/azure';
 import { TEXT_CONTENT_TYPE, base64ToBytes, bytesToBase64 } from './mappers/_v2';
 import type { AzureHttpRequestLike, AzureHttpResponseLike } from './platform-shapes';
-import type { ServerlessHandler, ServerlessHandlerOptions } from './types';
+import type { AppSource, ServerlessHandler, ServerlessHandlerOptions } from './types';
 
 /**
  * Bridge an Azure Functions v4 request into an {@link AzureEvent}.
@@ -113,7 +113,7 @@ export function toAzureResponse(result: AzureResult): AzureHttpResponseLike {
  * ```
  */
 export function createAzureHandler(
-  app: Application,
+  app: AppSource<Application>,
   options: ServerlessHandlerOptions = {}
 ): (req: AzureHttpRequestLike, ctx?: unknown) => Promise<AzureHttpResponseLike> {
   const eventHandler = createAzureEventHandler(app, options);
@@ -132,14 +132,14 @@ export function createAzureHandler(
  * explicitly named — the honest answer for fixture tests, a custom bridge, or
  * a host whose request shape isn't v4-standard.
  *
- * @param app - The NextRush application.
+ * @param app - The NextRush application instance, or an async factory producing one.
  * @param options - Optional Tier-2 tuning ({@link ServerlessHandlerOptions}).
  * @returns A handler `(event) => Promise<result>` over the Azure v4 request essentials.
  *
  * @see {@link createAzureHandler} for the true drop-in over the real v4 `HttpRequest`.
  */
 export function createAzureEventHandler(
-  app: Application,
+  app: AppSource<Application>,
   options: ServerlessHandlerOptions = {}
 ): ServerlessHandler<AzureEvent, AzureResult> {
   return createServerlessAdapter<AzureEvent, AzureResult>({

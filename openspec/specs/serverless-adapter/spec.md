@@ -166,3 +166,37 @@ The serverless adapter SHALL expose a `listenIfStandalone(options)` helper and m
 #### Scenario: Starts local server in standalone development
 - **WHEN** `listenIfStandalone({ port: 3000 })` executes in a local environment with no serverless markers
 - **THEN** it starts a listening server on the specified port and invokes `onListen` callback if provided
+
+### Requirement: AppSource asynchronous application factory and warm memoization
+All Tier-1 serverless entrypoints (`createLambdaHandler`, `createGoogleHandler`, `createAzureHandler`, `createVercelHandler`, and `createServerlessAdapter`) SHALL accept an `AppSource<Application>` (either an `Application` instance or a synchronous/asynchronous factory function `() => Application | Promise<Application>`). The factory SHALL be evaluated lazily on the first incoming request and memoized across invocations in warm instances, eliminating top-level `await` and preventing `ERR_REQUIRE_ASYNC_MODULE` errors on Node and Lambda runtimes.
+
+#### Scenario: Async app factory initialization on first request
+- **WHEN** an entrypoint is initialized with an async factory function `createLambdaHandler(async () => { await init(); return app; })`
+- **THEN** initialization occurs upon receipt of the first request without top-level await in the module scope
+
+#### Scenario: Concurrent first invocations share single initialization promise
+- **WHEN** multiple requests arrive concurrently at a cold instance configured with an async app factory
+- **THEN** the factory executes exactly once and all concurrent requests await the same memoized application instance
+
+### Requirement: Background task draining prior to container freeze
+In execution environments that freeze CPU execution immediately upon response return (such as AWS Lambda, Google Cloud Functions, Azure Functions, and Vercel Node Serverless), the handler SHALL track background promises registered with `ctx.waitUntil()` and await their settlement (`Promise.allSettled`) before returning the final response to the runtime, bounded by a configurable `waitUntilTimeout` to prevent dropped background telemetry or data loss.
+
+#### Scenario: Background tasks complete before Lambda handler returns
+- **WHEN** a handler dispatches background work via `ctx.waitUntil(asyncWork())` under AWS Lambda
+- **THEN** the serverless adapter waits for `asyncWork()` to settle before returning the Lambda result to the runtime
+
+#### Scenario: Background tasks forward to Vercel request context in Vercel serverless
+- **WHEN** a handler dispatches background work via `ctx.waitUntil(asyncWork())` under Vercel Serverless
+- **THEN** the adapter forwards the promise to `Symbol.for('@vercel/request-context')` if available, or drains it before ending the HTTP response
+
+### Requirement: Client IP normalization across API Gateway event versions
+When API Gateway events do not supply an explicit `x-forwarded-for` header, the event mapper SHALL map `event.requestContext.http.sourceIp` (APIGW v2 / Lambda Function URL) or `event.requestContext.identity.sourceIp` (APIGW v1) into `x-forwarded-for` so that `ctx.ip` reliably resolves the client IP address.
+
+#### Scenario: Client IP resolved from API Gateway v2 requestContext
+- **WHEN** an API Gateway v2 event contains `requestContext.http.sourceIp` and lacks an `x-forwarded-for` header
+- **THEN** the mapped request includes `x-forwarded-for` matching `sourceIp`, allowing `ctx.ip` to report the client IP
+
+#### Scenario: Client IP resolved from API Gateway v1 requestContext
+- **WHEN** an API Gateway v1 event contains `requestContext.identity.sourceIp` and lacks an `x-forwarded-for` header
+- **THEN** the mapped request includes `x-forwarded-for` matching `sourceIp`, allowing `ctx.ip` to report the client IP
+

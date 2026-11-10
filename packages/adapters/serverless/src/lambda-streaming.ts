@@ -21,7 +21,7 @@
 import type { Application } from '@nextrush/core';
 import { createFetchHandler as createEdgeFetchHandler } from '@nextrush/adapter-edge';
 import { v2ToRequest, type ApiGatewayV2Event } from './mappers/_v2';
-import type { ServerlessHandlerOptions } from './types';
+import type { AppSource, ServerlessHandlerOptions } from './types';
 
 /** Minimal writable surface of the Lambda-provided response stream. */
 export interface LambdaResponseStream {
@@ -72,7 +72,7 @@ function getAwsLambda(): AwsLambdaStreaming | undefined {
  * use that one unless you specifically need true Function URL response streaming.
  */
 export function createLambdaStreamingHandler(
-  app: Application,
+  app: AppSource<Application>,
   options: ServerlessHandlerOptions = {},
 ): StreamingLambdaHandler {
   const engine = createEdgeFetchHandler(

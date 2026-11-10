@@ -156,6 +156,21 @@ export const handler = createLambdaHandler(app);
 // optional: createLambdaHandler(app, { timeout: 10_000 })
 ```
 
+#### Async App Factory Pattern (Eliminates Top-Level Await)
+
+Node runtimes on AWS Lambda and serverless platforms reject top-level `await` with `ERR_REQUIRE_ASYNC_MODULE`. When your application requires async setup (database connection, async controller discovery), pass an async factory function:
+
+```typescript
+export const handler = createLambdaHandler(async () => {
+  const app = createApp();
+  await initDatabase();
+  app.get('/users', async (ctx) => ctx.json(await getUsers()));
+  return app;
+});
+```
+
+The factory runs lazily on the first incoming request and is memoized across warm invocations. Concurrent first requests await the same promise.
+
 **Wrong** (rebuilds every invocation):
 
 ```typescript
@@ -220,11 +235,12 @@ listenIfStandalone(handler);
 
 ### Serverless rules
 
-1. App + handler at **module scope**
+1. App + handler at **module scope** (or pass an async app factory `() => Promise<Application>` to avoid top-level await)
 2. Per-request data on `ctx` / `ctx.state` only — no module-scope mutable request state
 3. Branch on `ctx.platform`, not `ctx.runtime === 'node'`
-4. Timeout → cooperative cancel via `ctx.signal`, result 504
-5. Cloudflare is **not** in this package — use adapter-edge
+4. **Background tasks (`ctx.waitUntil`)**: Serverless handlers automatically drain background promises before returning to the runtime (or bridge to `@vercel/request-context` on Vercel), preventing premature container freeze and dropped tasks
+5. Timeout → cooperative cancel via `ctx.signal`, result 504
+6. Cloudflare is **not** in this package — use adapter-edge
 6. **Bun & Deno Runtime Guarding & Ergonomics**:
    - `createHandler(app)` from `@nextrush/adapter-bun` or `@nextrush/adapter-deno` produces `(request: Request, server?: ...) => Response | Promise<Response>`. Calling with 1 argument (`await handler(request)`) is fully typed and supported; no dummy server/info object is required.
    - Calling `serve(app)` from `@nextrush/adapter-bun` or `@nextrush/adapter-deno` in an incompatible runtime (such as Node.js or a Vercel Serverless Function without `"bunVersion": "1.4.x"` in `vercel.json`) throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` and actionable instructions to use `@nextrush/adapter-node` or `@nextrush/adapter-serverless`.

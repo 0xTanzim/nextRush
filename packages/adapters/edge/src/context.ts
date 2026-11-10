@@ -34,6 +34,9 @@ export interface EdgeExecutionContext {
   passThroughOnException?(): void;
 }
 
+/** Shared empty promises array avoiding allocations when no tasks are tracked. */
+const EMPTY_PROMISES: readonly Promise<unknown>[] = Object.freeze([]);
+
 /**
  * Edge Context implementation
  *
@@ -75,6 +78,7 @@ export class EdgeContext<Env = unknown> extends WebContextBase {
   private _ipWarned = false;
   /** Whether the caller opted into trusting proxy headers for IP resolution. */
   private readonly _proxy: ProxyTrust;
+  private _trackedPromises?: Promise<unknown>[] = undefined;
 
   constructor(
     request: Request,
@@ -160,26 +164,67 @@ export class EdgeContext<Env = unknown> extends WebContextBase {
    * Use this for fire-and-forget operations that should complete
    * after the response is sent (logging, analytics, etc.)
    *
-   * Silently does nothing when the platform provides no execution context
-   * (e.g. Vercel Edge, or a serverless invocation with no `waitUntil` support)
-   * — the same as always. Outside production, the first such call additionally
-   * warns once per context, since a dropped promise here is otherwise
-   * undebuggable (P2-4).
+   * Checks direct host execution context (Cloudflare Workers, Vercel Edge context argument),
+   * global request context symbols (Vercel / Next.js), and falls back to safe error handling
+   * and tracked promise retention.
    */
   waitUntil(promise: Promise<unknown>): void {
-    if (this.executionContext?.waitUntil) {
+    // 1. Direct host execution context (Cloudflare Workers ctx, Vercel Edge context parameter)
+    if (this.executionContext && typeof this.executionContext.waitUntil === 'function') {
       this.executionContext.waitUntil(promise);
       return;
     }
+
+    // 2. Vercel / Next.js global request context symbols
+    const globalContext =
+      (globalThis as unknown as { [k: symbol]: { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } })[
+        Symbol.for('@vercel/request-context')
+      ]?.get?.() ??
+      (globalThis as unknown as { [k: symbol]: { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } })[
+        Symbol.for('@next/request-context')
+      ]?.get?.();
+
+    if (globalContext && typeof globalContext.waitUntil === 'function') {
+      globalContext.waitUntil(promise);
+      return;
+    }
+
     if (!this._isProduction && !this._waitUntilWarned) {
       this._waitUntilWarned = true;
       console.warn(
-        '[nextrush/edge] ctx.waitUntil() was called, but this platform provided no execution ' +
-          'context — the promise was dropped without running. This is expected on platforms with ' +
-          'no background-task support (e.g. Vercel Edge); on Cloudflare Workers it usually means ' +
-          '`ctx` was not passed through to createCloudflareHandler. (This message appears in ' +
-          'development only.)'
+        '[nextrush/edge] ctx.waitUntil() was called, but the host environment provided no execution context. ' +
+          'On Cloudflare Workers ensure `ctx` was passed to fetch(); on Vercel Edge ensure the context parameter was received. ' +
+          '(This message appears in development only.)'
       );
+    }
+
+    // Shield against unhandled promise rejection crashing the runtime
+    promise.catch((err: unknown) => {
+      if (!this._isProduction) {
+        console.error(
+          '[nextrush/edge] Unhandled rejection in ctx.waitUntil() background task:',
+          err
+        );
+      }
+    });
+
+    // Track promise for deterministic lifecycle drain and testing
+    (this._trackedPromises ??= []).push(promise);
+  }
+
+  /**
+   * Pending background tasks tracked when host lacks native execution context.
+   */
+  get pendingWaitUntils(): readonly Promise<unknown>[] {
+    return this._trackedPromises ?? EMPTY_PROMISES;
+  }
+
+  /**
+   * Await settlement of all tracked background tasks.
+   */
+  async drainWaitUntil(): Promise<void> {
+    if (this._trackedPromises && this._trackedPromises.length > 0) {
+      await Promise.allSettled(this._trackedPromises);
     }
   }
 }

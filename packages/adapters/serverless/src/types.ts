@@ -8,9 +8,11 @@
  * @packageDocumentation
  */
 
-import type { PlatformId, ProxyTrust } from '@nextrush/types';
+import type { AppSource, PlatformId, ProxyTrust } from '@nextrush/types';
 import type { Context } from '@nextrush/core';
 import type { VercelIncomingMessageLike, VercelServerResponseLike } from './platform-shapes';
+
+export type { AppSource };
 
 /**
  * Maps a provider's native event to a Web `Request` and the produced `Response`
@@ -86,6 +88,13 @@ export interface ServerlessHandlerOptions {
    * produced instead of hanging the invocation.
    */
   readonly timeout?: number;
+  /**
+   * Maximum duration in ms to await pending background tasks (from ctx.waitUntil)
+   * before terminating the serverless invocation.
+   *
+   * @default 5000
+   */
+  readonly waitUntilTimeout?: number;
   // No `streaming` flag here — buffered vs. streaming is a different handler,
   // not an option: see `createLambdaStreamingHandler` for true Function URL
   // response streaming.

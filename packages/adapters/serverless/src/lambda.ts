@@ -28,7 +28,7 @@ import {
   type LambdaFunctionUrlEvent,
   type LambdaFunctionUrlResult,
 } from './mappers/lambda-function-url';
-import type { EventMapper, ServerlessHandler, ServerlessHandlerOptions } from './types';
+import type { AppSource, EventMapper, ServerlessHandler, ServerlessHandlerOptions } from './types';
 
 /** Any AWS Lambda HTTP event `createLambdaHandler` accepts (v2 or v1 shape). */
 export type LambdaEvent = LambdaFunctionUrlEvent | ApiGatewayV1Event;
@@ -47,7 +47,7 @@ const lambdaMappers: readonly EventMapper<LambdaEvent, LambdaResult>[] = [
  * Create an AWS Lambda handler for a NextRush app. Serves Lambda Function URL,
  * API Gateway HTTP API (v2), and API Gateway REST API (v1) with zero config.
  *
- * @param app - The NextRush application.
+ * @param app - The NextRush application instance, or an async factory producing one.
  * @param options - Optional Tier-2 tuning ({@link ServerlessHandlerOptions}).
  * @returns A Lambda handler `(event, context?) => Promise<result>`.
  *
@@ -59,10 +59,16 @@ const lambdaMappers: readonly EventMapper<LambdaEvent, LambdaResult>[] = [
  * export const handler = createLambdaHandler(app);
  * // with tuning:
  * export const handler = createLambdaHandler(app, { timeout: 5000 });
+ * // with async factory (zero top-level await):
+ * export const handler = createLambdaHandler(async () => {
+ *   const app = createApp();
+ *   await registerControllers(app, ...);
+ *   return app;
+ * });
  * ```
  */
 export function createLambdaHandler(
-  app: Application,
+  app: AppSource<Application>,
   options: ServerlessHandlerOptions = {}
 ): ServerlessHandler<LambdaEvent, LambdaResult> {
   return createServerlessAdapter<LambdaEvent, LambdaResult>({

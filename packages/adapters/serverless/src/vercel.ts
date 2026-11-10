@@ -14,6 +14,7 @@ import type { Application } from '@nextrush/core';
 import { createFetchHandler as createEdgeFetchHandler, type EdgeExecutionContext } from '@nextrush/adapter-edge';
 import type { VercelIncomingMessageLike, VercelServerResponseLike } from './platform-shapes';
 import type {
+  AppSource,
   VercelHandler,
   VercelHandlerOptions,
   VercelListenOptions,
@@ -172,7 +173,7 @@ export function isStandaloneEnvironment(): boolean {
  * and automatically no-op when running inside a serverless platform.
  */
 export async function listenIfStandalone(
-  appOrHandler: Application | VercelHandler,
+  appOrHandler: AppSource<Application> | VercelHandler,
   options: VercelListenOptions = {}
 ): Promise<unknown> {
   if (isServerlessEnvironment()) {
@@ -180,9 +181,9 @@ export async function listenIfStandalone(
   }
 
   const handler =
-    typeof appOrHandler === 'function'
-      ? appOrHandler
-      : createVercelHandler(appOrHandler);
+    typeof appOrHandler === 'function' && 'fetch' in appOrHandler
+      ? (appOrHandler as VercelHandler)
+      : createVercelHandler(appOrHandler as AppSource<Application>);
 
   const envPort = typeof process !== 'undefined' ? process.env.PORT : undefined;
   const port =
@@ -270,10 +271,10 @@ function isNodeInvocation(
  * ```
  */
 export function createVercelHandler(
-  app: Application,
+  appSource: AppSource<Application>,
   options: VercelHandlerOptions = {}
 ): VercelHandler {
-  const engine = createEdgeFetchHandler(app, {
+  const engine = createEdgeFetchHandler(appSource, {
     platform: options.platform ?? 'vercel',
     ...(options.timeout !== undefined ? { timeout: options.timeout } : {}),
     ...(options.onError !== undefined ? { onError: options.onError } : {}),
@@ -285,8 +286,38 @@ export function createVercelHandler(
   ): Promise<Response | undefined> => {
     if (isNodeInvocation(arg1, arg2)) {
       const webReq = toVercelWebRequest(arg1 as VercelIncomingMessageLike);
-      const webRes = await engine(webReq);
+      const trackedTasks: Promise<unknown>[] = [];
+      const executionContext: EdgeExecutionContext = {
+        waitUntil(promise: Promise<unknown>): void {
+          trackedTasks.push(promise);
+        },
+      };
+
+      const webRes = await engine(webReq, executionContext);
       await writeVercelWebResponse(arg2, webRes);
+
+      if (trackedTasks.length > 0) {
+        // 1. Check native Vercel / Next.js request context if available
+        const globalContext =
+          (globalThis as unknown as { [k: symbol]: { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } })[
+            Symbol.for('@vercel/request-context')
+          ]?.get?.() ??
+          (globalThis as unknown as { [k: symbol]: { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } })[
+            Symbol.for('@next/request-context')
+          ]?.get?.();
+
+        if (globalContext && typeof globalContext.waitUntil === 'function') {
+          for (const task of trackedTasks) {
+            globalContext.waitUntil(task);
+          }
+        } else {
+          // 2. Settle tasks before container freeze
+          await Promise.race([
+            Promise.allSettled(trackedTasks),
+            new Promise((resolve) => setTimeout(resolve, options.waitUntilTimeout ?? 5000)),
+          ]);
+        }
+      }
       return undefined;
     }
     return engine(arg1 as Request, arg2 as EdgeExecutionContext | undefined);

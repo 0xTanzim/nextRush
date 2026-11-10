@@ -822,3 +822,20 @@ The `Application` class in `@nextrush/core` and the `nextrush` entrypoint SHALL 
 - **WHEN** multiple concurrent requests arrive on an unbooted cold application instance via `app.fetch`
 - **THEN** the boot barrier (`app.ready()`) executes exactly once and memoizes the booted handler, dispatching all concurrent requests without race conditions or multiple initialization passes
 
+### Requirement: Edge adapter Vercel waitUntil integration and AppSource support
+
+In `@nextrush/adapter-edge`, `EdgeContext.prototype.waitUntil` and the handler factories (`createFetchHandler`, `createCloudflareHandler`, `createVercelHandler`, and `createNetlifyHandler`) SHALL forward background tasks directly to host execution contexts and global request context symbols (`Symbol.for('@vercel/request-context')`, `Symbol.for('@next/request-context')`). Furthermore, all handler factories SHALL accept `AppSource<Application>` (`Application | (() => Application | Promise<Application>)`) to defer application creation and eliminate top-level `await`.
+
+#### Scenario: Vercel Edge forwards waitUntil to executionContext
+- **WHEN** running on Vercel Edge with `(request, context)` and `ctx.waitUntil(promise)` is called
+- **THEN** the promise is registered directly with `context.waitUntil(promise)` without warning
+
+#### Scenario: Vercel Edge forwards waitUntil to request context symbol
+- **WHEN** running in an environment where `globalThis[Symbol.for('@vercel/request-context')]` is present
+- **THEN** `ctx.waitUntil(promise)` forwards the promise to the request context bridge
+
+#### Scenario: Edge handlers accept AppSource async factory
+- **WHEN** `createVercelHandler` or `createFetchHandler` is initialized with an async factory function
+- **THEN** initialization runs lazily on the first request and is memoized across warm invocations
+
+

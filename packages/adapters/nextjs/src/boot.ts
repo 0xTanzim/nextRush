@@ -12,11 +12,11 @@
  */
 
 import type { Application } from '@nextrush/core';
+import type { AppSource } from '@nextrush/types';
 
-/** An app, or a (possibly async) factory producing one. */
-export type AppSource = Application | (() => Application | Promise<Application>);
+export type { AppSource };
 
-function isFactory(source: AppSource): source is () => Application | Promise<Application> {
+function isFactory(source: AppSource<Application>): source is () => Application | Promise<Application> {
   return typeof source === 'function';
 }
 
@@ -28,7 +28,7 @@ function isFactory(source: AppSource): source is () => Application | Promise<App
  * it, so a transient boot failure does not permanently poison the handler
  * (RFC-024 §8.7).
  */
-export function memoizeAppSource(source: AppSource): () => Promise<Application> {
+export function memoizeAppSource(source: AppSource<Application>): () => Promise<Application> {
   if (!isFactory(source)) {
     const app = source;
     return () => Promise.resolve(app);
