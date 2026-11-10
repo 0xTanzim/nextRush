@@ -37,9 +37,10 @@ NextRush is a **runtime-independent, web-standards-first** TypeScript backend fr
 
 | Goal | Package / entry |
 |------|-----------------|
+| Universal Fetch (Cloudflare, Bun, Deno, Vercel Edge) | `export default app;` or `export default { fetch: app.fetch };` |
 | Standalone API (Node default) | `nextrush` → `serve` / `listen` |
-| Bun / Deno process | `@nextrush/adapter-bun` / `@nextrush/adapter-deno` |
-| Cloudflare / Vercel Edge / Netlify Edge | `@nextrush/adapter-edge` |
+| Bun / Deno dedicated process | `Bun.serve(app)` / `Deno.serve(app.fetch)` or `@nextrush/adapter-bun` / `adapter-deno` |
+| Specialized Edge bindings / timeouts | `@nextrush/adapter-edge` |
 | AWS Lambda / GCF / Azure Functions | `@nextrush/adapter-serverless` |
 | Mount inside Next.js App Router | `nextrush/nextjs` → `handle(app)` |
 | Controllers + DI | `nextrush/class` |
@@ -85,23 +86,26 @@ const router = createRouter();
 app.use(errorHandler()); // outermost
 app.use(bodyParser());
 
-router.get('/', (ctx) => ctx.json({ message: 'Hello NextRush!' }));
+app.get('/health', (ctx) => ctx.json({ ok: true }));
+
+router.get('/users', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
 router.get('/users/:id', (ctx) => {
   ctx.assert(ctx.params.id, 400, 'id required');
   ctx.json({ id: ctx.params.id });
 });
 router.post('/users', (ctx) => {
   ctx.json({ created: true, data: ctx.body }, 201);
-  // or: ctx.json({ created: true, data: ctx.body }, { status: 201, headers: { Location: '/users/1' } })
-  // or: ctx.status = 201; ctx.json({ created: true, data: ctx.body })
 });
 
-// Routes registered on the app's default router auto-mount — no app.route() needed
-// if you passed the same router into createApp, or use createApp()'s built-in router via app.get:
+// Multi-prefix mounting: mount the router simultaneously at /api and /v1
+app.route(['/api', '/v1'], router);
 
-app.get('/health', (ctx) => ctx.json({ ok: true }));
-
+// Option A: Node.js long-running server
 await serve(app, { port: 8080 });
+
+// Option B: Universal Fetch (Cloudflare Workers, Bun, Deno, Vercel Edge)
+// export default app;
+// or: export default { fetch: app.fetch };
 ```
 
 `createApp()` from `nextrush` wires a default router so `app.get` / `app.post` work out of the box. Import `createApp` from `@nextrush/core` only when you want a bare engine (bring-your-own router).
@@ -191,16 +195,20 @@ Full detail: `references/context.md`.
 ## Adapter Decision Guide
 
 ```
-Need listen()/own process?
-  Node → nextrush (adapter-node re-export)
-  Bun  → @nextrush/adapter-bun
-  Deno → @nextrush/adapter-deno
+Universal Fetch host (no adapter needed)?
+  Cloudflare Workers → export default app; (or export default { fetch: app.fetch })
+  Bun / Deno         → export default app; or Bun.serve(app) / Deno.serve(app.fetch)
+  Vercel Edge        → export default app; (with config.runtime = 'edge')
 
-Fetch API host (no listen)?
-  Cloudflare Workers → createCloudflareHandler(app)
-  Vercel Edge        → createVercelHandler(app)
-  Netlify Edge       → createNetlifyHandler(app)
-  Generic Fetch      → createFetchHandler(app)
+Need listen()/own process (Node.js)?
+  Node → nextrush (adapter-node re-export: serve(app) / listen(app))
+  Bun  → @nextrush/adapter-bun (serve(app))
+  Deno → @nextrush/adapter-deno (serve(app))
+
+Advanced Edge bindings & custom timeouts?
+  Cloudflare Workers → createCloudflareHandler(app) from '@nextrush/adapter-edge'
+  Vercel Edge        → createVercelHandler(app) from '@nextrush/adapter-edge'
+  Netlify Edge       → createNetlifyHandler(app) from '@nextrush/adapter-edge'
 
 FaaS event shapes?
   AWS Lambda (URL / APIGW v1/v2) → createLambdaHandler(app)
@@ -387,10 +395,28 @@ Deeper diagrams & package hierarchy: `references/architecture.md`.
 9. **Do not import Node APIs into shared app code** destined for edge.
 10. **ESM-only** packages — use `"type": "module"`.
 11. **OpenAPI**: attach `endpoint({...})` + `validate(schema)`; mount `openapi({ router })`.
-12. **Test with `@nextrush/testing`** for class modules; `app.callback()` with a mock `Context` for
-    functional (no `app.handle()`).
+12. **Test directly with `app.fetch`**: call `await app.fetch(new Request('http://localhost/path'))` for pure in-memory end-to-end testing without opening network ports; use `@nextrush/testing` for class DI modules; use `app.callback()` with a mock `Context` for low-level middleware pipeline unit testing.
 
 Expanded checklist: `references/best-practices.md`.
+
+## Meta-Package (`nextrush`) vs Raw Packages (`@nextrush/core`)
+
+NextRush is architected as a modular ecosystem:
+- **`nextrush`** is the standard, batteries-included meta-package. It bundles `@nextrush/router` into `createApp()` so `app.get()`, `app.post()`, and router shortcuts work directly.
+- **`@nextrush/core`** is the router-agnostic micro-core. It includes `Application`, middleware composition, and universal fetch (`app.fetch`), but **no router** by default.
+  - If an app or agent calls `app.get(...)` on a bare `@nextrush/core` instance, it will throw:
+    `"No router configured. Create your app with createApp() from nextrush (batteries-included), or pass one: createApp({ router: createRouter() })"`.
+  - When using standalone packages, pair `@nextrush/core` with `@nextrush/router`:
+    ```typescript
+    import { createApp } from '@nextrush/core';
+    import { createRouter } from '@nextrush/router';
+
+    const router = createRouter();
+    router.get('/health', (ctx) => ctx.json({ ok: true }));
+
+    const app = createApp({ router }); // or app.route(['/api', '/v1'], router);
+    export default app; // Universal fetch works out of the box!
+    ```
 
 ## Package Map
 

@@ -22,19 +22,23 @@ interface ApplicationOptions {
 ### Application Methods
 
 ```typescript
-app.use(...middleware: Middleware[]): this         // register global middleware
-app.route(path: string, router: Router): this      // mount sub-router at path
-app.get/post/put/patch/delete/head/all(path, ...entries): this // verbs on the app-owned router
-app.setErrorHandler(handler: ErrorHandler): this   // replace the error boundary
-app.extend(extension): this                        // queue an Extension (setup runs at ready())
-app.ready(): Promise<this>                         // boot extensions + mount router, freeze config
-app.callback(): (ctx: Context) => Promise<void>    // the composed handler (adapters + tests run this)
-app.close(options?): Promise<Error[]>              // teardown (onShutdown hooks / close hooks)
+app.use(...middleware: Middleware[]): this                    // register global middleware
+app.route(prefix: string | string[], router: Routable): this  // mount sub-router at single or multiple paths
+app.get/post/put/patch/delete/head/all(path, ...entries): this// verbs on the app-owned router
+app.setErrorHandler(handler: ErrorHandler): this              // replace the error boundary
+app.extend(extension): this                                   // queue an Extension (setup runs at ready())
+app.ready(): Promise<this>                                    // boot extensions + mount router, freeze config
+app.callback(): (ctx: Context) => Promise<void>               // the composed handler (adapters run this)
+app.fetch: (request: Request, ...args: unknown[]) => Promise<Response> // universal Web Fetch entrypoint
+app.close(options?): Promise<Error[]>                         // teardown (onShutdown hooks / close hooks)
 ```
 
-> There is **no `app.handle(request)`**. The request path is `app.callback()`: adapters build a
-> `Context` from the native request and run `callback()(ctx)`. Use `callback()` the same way in
-> tests (see `references/testing.md`).
+> **Universal Fetch (`app.fetch`)**:
+> Any NextRush application instance has a pre-bound `app.fetch` property. This can be directly
+> exported for Cloudflare Workers (`export default app;`), Bun (`Bun.serve(app)`), Deno (`Deno.serve(app.fetch)`),
+> or used directly in tests (`const res = await app.fetch(new Request('http://localhost/path'))`).
+>
+> In low-level Node.js adapters, `app.callback()` returns the middleware execution function.
 ```
 
 ## Router

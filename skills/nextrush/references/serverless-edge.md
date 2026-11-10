@@ -7,6 +7,25 @@
 
 So Lambda reports `ctx.runtime === 'edge'` and `ctx.platform === 'lambda'`.
 
+## Zero-Boilerplate Universal Export (Native `app.fetch`)
+
+Every NextRush application natively implements `app.fetch(request, env?, ctx?)`. Standard Fetch runtimes require **no adapter packages**:
+
+```typescript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+
+app.get('/health', (ctx) => ctx.json({ ok: true }));
+
+// Cloudflare Workers (automatically receives env and execution context on ctx.env and ctx.waitUntil)
+export default app;
+// Or explicit fetch export:
+// export default { fetch: app.fetch };
+```
+
+For advanced edge capabilities (custom timeout racing, specialized Netlify Edge context, or custom error formatting), use `@nextrush/adapter-edge` as detailed below.
+
 ## Edge — `@nextrush/adapter-edge`
 
 ### Install

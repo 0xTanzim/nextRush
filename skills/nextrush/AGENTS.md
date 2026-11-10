@@ -17,7 +17,7 @@ Runtime-independent, web-standards-first TypeScript backend framework.
 - Same app code → Node, Bun, Deno, Cloudflare Workers, Vercel/Netlify Edge, AWS Lambda, GCF,
   Azure Functions, or **inside Next.js App Router**
 - Dual paradigm: **functional** (`nextrush`) and **class + DI** (`nextrush/class`)
-- Do **not** invent Express / Fastify / Nest / Hono APIs. Use real NextRush packages and Context
+- Do **not** invent foreign framework APIs. Use real NextRush packages and Context
   methods from this skill.
 
 ---
@@ -62,6 +62,43 @@ app.use(errorHandler());
 app.use(bodyParser());
 app.get('/health', (ctx) => ctx.json({ ok: true }));
 await serve(app, { port: 8080 });
+```
+
+### Universal Fetch / Edge / Serverless (Cloudflare Workers, Bun, Deno, Vercel Edge)
+
+NextRush applications feature native Universal Fetch (`app.fetch`). Zero boilerplate adapter export:
+
+```typescript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+app.get('/health', (ctx) => ctx.json({ ok: true }));
+
+// 1. Cloudflare Workers / Bun / Vercel Edge (auto-detects .fetch on default export):
+export default app;
+
+// 2. Or explicit fetch export:
+// export default { fetch: app.fetch };
+
+// 3. Or Deno / Bun direct process:
+// Deno.serve(app.fetch);
+// Bun.serve(app);
+```
+
+### Multi-Prefix Route Mounting
+
+Mount sub-routers at single or multiple path prefixes simultaneously with automatic normalization and deduplication:
+
+```typescript
+import { createApp, createRouter } from 'nextrush';
+
+const app = createApp();
+const api = createRouter();
+
+api.get('/users', (ctx) => ctx.json([{ id: 1, name: 'Alice' }]));
+
+// Mount at both /api and /v1:
+app.route(['/api', '/v1'], api);
 ```
 
 ### Next.js App Router
@@ -138,8 +175,41 @@ pnpm create nextrush my-api
 9. Shared app code destined for edge: **no `node:*` / `fs` / `Buffer`**.
 10. Packages are **ESM-only**. Prefer `pnpm`.
 11. Validation: `@nextrush/validation` + Zod at boundary (`validate()`, `createValidate()`, read coerced query/params via `validated(ctx)`); failures throw `ValidationError` (400 by default, or custom `errorStatus: 422`; remap globally with `errorHandler({ validationErrorStatus: 422 })`).
-12. Tests: `@nextrush/testing` (`createTestModule`) for class modules; `app.callback()` with a mock
-    `Context` (or `serve(app, { port: 0 })` + `fetch`) for functional — **there is no `app.handle()`**.
+12. Tests: `await app.fetch(new Request('http://localhost/path'))` runs the full universal pipeline in memory without starting a network server; `@nextrush/testing` (`createTestModule`) for class modules; `app.callback()` with a mock `Context` for low-level middleware pipeline unit testing.
+
+---
+
+## Meta-Package (`nextrush`) vs Raw Packages (`@nextrush/core`)
+
+NextRush is fully modular:
+
+1. **`nextrush` (Batteries-Included Meta-Package)**:
+   - Exports `createApp`, `createRouter`, `serve`, `listen`, `errorHandler`, errors, and types.
+   - Automatically wires `@nextrush/router` into `createApp()` so `app.get()`, `app.post()`, etc. work directly on the application instance.
+   - Recommended for standard applications.
+
+2. **`@nextrush/core` (Minimal, Standalone Engine)**:
+   - Contains only the core Application class, middleware pipeline composer, and `app.fetch` execution engine (via `@nextrush/runtime`).
+   - Does **not** bundle a router. If you call `app.get(...)` without configuring a router, NextRush throws:
+     `"No router configured. Create your app with createApp() from nextrush (batteries-included), or pass one: createApp({ router: createRouter() })"`.
+   - **`app.fetch` works standalone** out of the box!
+   - To use routing with separate packages:
+     ```typescript
+     import { createApp } from '@nextrush/core';
+     import { createRouter } from '@nextrush/router';
+
+     const router = createRouter();
+     router.get('/health', (ctx) => ctx.json({ ok: true }));
+
+     // Option A: pass router at creation
+     const app = createApp({ router });
+     app.get('/users', (ctx) => ctx.json([]));
+
+     // Option B: mount sub-router at single or multiple paths
+     // app.route(['/api', '/v1'], router);
+
+     export default app;
+     ```
 
 ---
 
