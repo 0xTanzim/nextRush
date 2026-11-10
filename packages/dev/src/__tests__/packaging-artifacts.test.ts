@@ -56,8 +56,8 @@ describe('emitPackagingArtifacts', () => {
     expect(existsSync(result.bridgePath!)).toBe(true);
     const bridgeContent = readFileSync(result.bridgePath!, 'utf8');
     expect(bridgeContent).toContain("export * from './index.js';");
-    expect(bridgeContent).toContain("import _default from './index.js';");
-    expect(bridgeContent).toContain("export default _default;");
+    expect(bridgeContent).toContain("import * as _mod from './index.js';");
+    expect(bridgeContent).toContain("export default _mod.default;");
   });
 
   it('auto-detects @nextrush/adapter-serverless in package.json and emits bridge', async () => {

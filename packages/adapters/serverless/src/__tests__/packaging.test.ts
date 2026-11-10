@@ -58,8 +58,8 @@ describe('prepareServerlessPackage', () => {
     expect(result.bridgePath.endsWith('index.mjs')).toBe(true);
     const content = readFileSync(result.bridgePath, 'utf8');
     expect(content).toContain("export * from './index.js';");
-    expect(content).toContain("import _default from './index.js';");
-    expect(content).toContain("export default _default;");
+    expect(content).toContain("import * as _mod from './index.js';");
+    expect(content).toContain("export default _mod.default;");
   });
 
   it('customizes entryName and normalizes extensions', async () => {
@@ -68,7 +68,8 @@ describe('prepareServerlessPackage', () => {
     expect(result.bridgePath.endsWith('handler.mjs')).toBe(true);
     const content = readFileSync(result.bridgePath, 'utf8');
     expect(content).toContain("export * from './handler.js';");
-    expect(content).toContain("import _default from './handler.js';");
+    expect(content).toContain("import * as _mod from './handler.js';");
+    expect(content).toContain("export default _mod.default;");
   });
 
   it('allows Node.js to execute the emitted .mjs bridge as native ESM in an isolated directory', async () => {
@@ -97,5 +98,34 @@ console.log('ESM_LOADED_OK');
 
     const { stdout } = await execFileAsync(process.execPath, [runnerScript], { cwd: testDir });
     expect(stdout.trim()).toBe('ESM_LOADED_OK');
+  });
+
+  it('allows Node.js to execute the emitted .mjs bridge with named-only exports without SyntaxError', async () => {
+    const namedDir = join(tmpdir(), `nextrush-named-${Date.now()}`);
+    mkdirSync(namedDir, { recursive: true });
+    try {
+      const jsEntry = join(namedDir, 'index.js');
+      writeFileSync(
+        jsEntry,
+        `export const handler = (event) => ({ statusCode: 200, body: "ok" });\n`,
+        'utf8'
+      );
+
+      await prepareServerlessPackage({ outDir: namedDir });
+
+      const script = `
+import { handler } from './index.mjs';
+const res = handler({});
+if (res.statusCode !== 200) process.exit(1);
+console.log('NAMED_ONLY_OK');
+`;
+      const runnerScript = join(namedDir, 'runner.mjs');
+      writeFileSync(runnerScript, script, 'utf8');
+
+      const { stdout } = await execFileAsync(process.execPath, [runnerScript], { cwd: namedDir });
+      expect(stdout.trim()).toBe('NAMED_ONLY_OK');
+    } finally {
+      rmSync(namedDir, { recursive: true, force: true });
+    }
   });
 });

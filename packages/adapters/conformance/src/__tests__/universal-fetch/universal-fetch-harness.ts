@@ -6,48 +6,9 @@
  * along with declaration merging to verify contract conformance.
  */
 
-import { createApp, Application, type ApplicationOptions, type Routable } from '@nextrush/core';
+import { createApp, Application, type ApplicationOptions } from '@nextrush/core';
 import { Router } from '@nextrush/router';
 import '@nextrush/core';
-
-/**
- * Creates an Application pre-configured with a router (matching batteries-included `nextrush` entrypoint)
- */
-export function createUniversalApp(options?: ApplicationOptions): Application {
-  return createApp({
-    router: new Router(),
-    ...options,
-  });
-}
-
-// Augment Application interface for test typing across milestones before/after implementation
-declare module '@nextrush/core' {
-  interface ApplicationOptions {
-    /**
-     * Universal fetch options including timeout and error handling.
-     */
-    fetch?: {
-      timeout?: number;
-      onError?: (error: Error, ctx?: unknown) => Response | Promise<Response>;
-    };
-  }
-
-  interface Application {
-    /**
-     * Universal instance-bound fetch handler.
-     */
-    readonly fetch: (
-      request: Request,
-      envOrServerOrInfoOrCtx?: unknown,
-      executionCtx?: unknown
-    ) => Response | Promise<Response>;
-
-    /**
-     * Mount a router across one or more path prefixes.
-     */
-    route(path: string | readonly string[], router: Routable): this;
-  }
-}
 
 declare module '@nextrush/types' {
   interface Context {
@@ -58,10 +19,14 @@ declare module '@nextrush/types' {
   }
 }
 
-declare module '@nextrush/router' {
-  interface Router {
-    mount(prefix: string | readonly string[], router: Router): this;
-  }
+/**
+ * Creates an Application pre-configured with a router (matching batteries-included `nextrush` entrypoint)
+ */
+export function createUniversalApp(options?: ApplicationOptions): Application {
+  return createApp({
+    router: new Router(),
+    ...options,
+  });
 }
 
 /**

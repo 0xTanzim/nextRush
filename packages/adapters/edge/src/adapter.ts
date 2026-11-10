@@ -131,13 +131,16 @@ export function createFetchHandler(
   options: FetchHandlerOptions = {}
 ): FetchHandler {
   const getApp = memoizeAppSource(appSource);
-  let run: ((request: Request, extras: EdgeExtras) => Response | Promise<Response>) | undefined;
+  let runnerPromise: Promise<((request: Request, extras: EdgeExtras) => Response | Promise<Response>)> | undefined;
 
   return async (request: Request, executionContext?: EdgeExecutionContext): Promise<Response> => {
-    if (!run) {
-      const app = await getApp();
-      run = createEdgeRunner(app, options);
-    }
+    runnerPromise ??= getApp()
+      .then((app) => createEdgeRunner(app, options))
+      .catch((err: unknown) => {
+        runnerPromise = undefined;
+        throw err;
+      });
+    const run = await runnerPromise;
     return run(request, { executionContext });
   };
 }
@@ -229,14 +232,17 @@ export function createCloudflareHandler<Env = Record<string, unknown>>(
   options: FetchHandlerOptions = {}
 ): { fetch: CloudflareFetchHandler<Env> } {
   const getApp = memoizeAppSource(appSource);
-  let run: ((request: Request, extras: EdgeExtras) => Response | Promise<Response>) | undefined;
+  let runnerPromise: Promise<((request: Request, extras: EdgeExtras) => Response | Promise<Response>)> | undefined;
 
   return {
     fetch: async (request: Request, env: Env, ctx: EdgeExecutionContext): Promise<Response> => {
-      if (!run) {
-        const app = await getApp();
-        run = createEdgeRunner(app, options);
-      }
+      runnerPromise ??= getApp()
+        .then((app) => createEdgeRunner(app, options))
+        .catch((err: unknown) => {
+          runnerPromise = undefined;
+          throw err;
+        });
+      const run = await runnerPromise;
       return run(request, { executionContext: ctx, env });
     },
   };

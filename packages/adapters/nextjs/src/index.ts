@@ -93,7 +93,7 @@ interface SharedEntry {
  * Weak keys keep HMR and discarded apps collectable; values that reference
  * the key are handled by WeakMap ephemeron semantics.
  */
-const sharedSets = new WeakMap<AppSource, SharedEntry[]>();
+const sharedSets = new WeakMap<object, SharedEntry[]>();
 
 /**
  * Mount a NextRush application in a Next.js App Router route handler.
@@ -108,7 +108,7 @@ const sharedSets = new WeakMap<AppSource, SharedEntry[]>();
  *   source and equivalent options return the same set and share one engine
  *   (RFC-049), so exporting each method directly does not multiply engines.
  */
-export function handle(app: AppSource, options: NextHandlerOptions = {}): NextRouteHandlerSet {
+export function handle(app: AppSource<Application>, options: NextHandlerOptions = {}): NextRouteHandlerSet {
   // Snapshot the values the cache matches on. The engine is built lazily on the
   // first dispatch, so handing it the caller's live options object would let a
   // later mutation retarget a set whose cache key still describes the old
@@ -116,10 +116,10 @@ export function handle(app: AppSource, options: NextHandlerOptions = {}): NextRo
   const timeout = options.timeout;
   const onError = options.onError;
 
-  let entries = sharedSets.get(app);
+  let entries = sharedSets.get(app as object);
   if (entries === undefined) {
     entries = [];
-    sharedSets.set(app, entries);
+    sharedSets.set(app as object, entries);
   }
 
   const shared = entries.find((entry) => entry.timeout === timeout && entry.onError === onError);
@@ -130,7 +130,7 @@ export function handle(app: AppSource, options: NextHandlerOptions = {}): NextRo
   return handlerSet;
 }
 
-function createHandlerSet(app: AppSource, options: NextHandlerOptions): NextRouteHandlerSet {
+function createHandlerSet(app: AppSource<Application>, options: NextHandlerOptions): NextRouteHandlerSet {
   const resolveApp = memoizeAppSource(app);
 
   // Deferred: the fetch engine is built lazily on first dispatch, once the

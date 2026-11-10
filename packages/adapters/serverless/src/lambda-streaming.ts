@@ -103,10 +103,19 @@ export function createLambdaStreamingHandler(
 
     if (response.body !== null) {
       const reader = response.body.getReader();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        out.write(value); // one write per produced chunk — not buffered
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const canContinue = (out as any).write(value);
+          if (canContinue === false && typeof (out as any).once === 'function') {
+            await new Promise<void>((resolve) => {
+              (out as any).once('drain', resolve);
+            });
+          }
+        }
+      } finally {
+        reader.releaseLock?.();
       }
     }
     out.end();

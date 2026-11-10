@@ -33,6 +33,7 @@ export interface GcfHttpResponse {
   status(code: number): unknown;
   setHeader(name: string, value: string | readonly string[]): unknown;
   send(body: string | Uint8Array): unknown;
+  readonly headersSent?: boolean;
 }
 
 /** The subset of Azure Functions v4 `HttpRequest` this adapter reads. */
@@ -43,11 +44,24 @@ export interface AzureHttpRequestLike {
   arrayBuffer(): Promise<ArrayBuffer>;
 }
 
+/** An Azure Functions v4 structured response cookie. */
+export interface AzureCookieLike {
+  name: string;
+  value: string;
+  domain?: string;
+  path?: string;
+  expires?: Date;
+  maxAge?: number;
+  secure?: boolean;
+  httpOnly?: boolean;
+  sameSite?: 'Strict' | 'Lax' | 'None';
+}
+
 /** Azure v4 `HttpResponseInit`-assignable result this adapter returns. */
 export interface AzureHttpResponseLike {
   status: number;
   headers?: Record<string, string>;
-  cookies?: readonly { name: string; value: string }[];
+  cookies?: readonly AzureCookieLike[];
   body?: string | Uint8Array;
 }
 

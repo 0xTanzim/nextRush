@@ -28,6 +28,7 @@ export function detectTopLevelAwait(content: string): TopLevelAwaitCheckResult {
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
+    if (rawLine === undefined) continue;
     const trimmed = rawLine.trim();
 
     // Skip empty lines and single-line comments

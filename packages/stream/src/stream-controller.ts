@@ -30,17 +30,20 @@ export class StreamController {
   private _pullResolve: (() => void) | null = null;
   private _abortCallbacks: (() => void)[] = [];
   private _closed = false;
+  private _aborted = false;
 
   constructor(signal: AbortSignal) {
     this.signal = signal;
     if (!signal.aborted) {
       signal.addEventListener('abort', this._onAbort, { once: true });
+    } else {
+      this._aborted = true;
     }
   }
 
   /** `true` once the client has disconnected. */
   get aborted(): boolean {
-    return this.signal.aborted;
+    return this.signal.aborted || this._aborted;
   }
 
   /**
@@ -57,6 +60,17 @@ export class StreamController {
    */
   onPull(): void {
     this._resolvePull();
+  }
+
+  /**
+   * @internal Called when the consumer cancels the read side (e.g. client disconnect).
+   */
+  onCancel(_reason?: unknown): void {
+    if (this._closed) return;
+    this._closed = true;
+    this.signal.removeEventListener('abort', this._onAbort);
+    this._resolvePull();
+    this._onAbort();
   }
 
   /**
@@ -77,18 +91,24 @@ export class StreamController {
    * @throws StreamAbortedError if the client has disconnected.
    */
   async enqueue(chunk: Uint8Array): Promise<void> {
-    if (this.aborted) throw new StreamAbortedError();
+    if (this.aborted || this._closed) throw new StreamAbortedError();
     const controller = this._rsController;
     if (!controller) {
       throw new Error('StreamController is not attached to a stream.');
     }
-    controller.enqueue(chunk);
+    try {
+      controller.enqueue(chunk);
+    } catch {
+      this._closed = true;
+      this._aborted = true;
+      throw new StreamAbortedError();
+    }
     // Backpressure: if the consumer's buffer is full, wait until the next pull().
     if ((controller.desiredSize ?? 1) <= 0) {
       await this._waitForPull();
       // Re-check via the signal directly: the client may have disconnected
       // while we were parked on backpressure.
-      if (this.signal.aborted) throw new StreamAbortedError();
+      if (this.aborted || this._closed) throw new StreamAbortedError();
     }
   }
 
@@ -155,6 +175,7 @@ export class StreamController {
   }
 
   private _onAbort = (): void => {
+    this._aborted = true;
     // Unblock any writer waiting on backpressure so it observes the abort.
     this._resolvePull();
     const callbacks = this._abortCallbacks;

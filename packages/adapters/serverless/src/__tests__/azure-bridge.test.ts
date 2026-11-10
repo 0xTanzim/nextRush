@@ -100,8 +100,8 @@ describe('toAzureResponse', () => {
       isBase64Encoded: false,
     });
     expect(res.cookies).toEqual([
-      { name: 'a', value: '1' },
-      { name: 'b', value: '2' },
+      { name: 'a', value: '1', path: '/' },
+      { name: 'b', value: '2', path: '/' },
     ]);
   });
 });

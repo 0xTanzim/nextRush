@@ -118,8 +118,17 @@ export function createGoogleHandler(
 ): (req: GcfHttpRequest, res: GcfHttpResponse) => Promise<void> {
   const eventHandler = createGoogleEventHandler(app, options);
   return async (req: GcfHttpRequest, res: GcfHttpResponse): Promise<void> => {
-    const result = await eventHandler(toGcfEvent(req));
-    writeGcfResult(res, result);
+    try {
+      const result = await eventHandler(toGcfEvent(req));
+      writeGcfResult(res, result);
+    } catch (err) {
+      console.error('[nextrush/serverless] Unhandled error in Google Cloud Function handler:', err);
+      if (!res.headersSent) {
+        res.status(500);
+        res.setHeader('content-type', 'application/json; charset=utf-8');
+        res.send(JSON.stringify({ error: 'Internal Server Error' }));
+      }
+    }
   };
 }
 

@@ -74,7 +74,7 @@ export function v2ToRequest(event: ApiGatewayV2Event): Request {
 
   const bodilessMethod = method === 'GET' || method === 'HEAD';
   let body: BodyInit | undefined;
-  if (!bodilessMethod && event.body !== undefined) {
+  if (!bodilessMethod && event.body !== undefined && event.body !== null && event.body !== '') {
     body = event.isBase64Encoded === true ? (base64ToBytes(event.body) as BodyInit) : event.body;
   }
 

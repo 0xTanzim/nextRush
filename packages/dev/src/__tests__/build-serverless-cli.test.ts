@@ -72,7 +72,8 @@ describe('nextrush build --serverless packaging artifacts', () => {
     expect(existsSync(mjsBridgePath)).toBe(true);
     const bridgeContent = readFileSync(mjsBridgePath, 'utf8');
     expect(bridgeContent).toContain("export * from './index.js';");
-    expect(bridgeContent).toContain("import _default from './index.js';");
+    expect(bridgeContent).toContain("import * as _mod from './index.js';");
+    expect(bridgeContent).toContain("export default _mod.default;");
   }, 30_000);
 });
 

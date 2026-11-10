@@ -77,6 +77,10 @@ export function createServerlessAdapter<Event, Result, Ctx = unknown>(
       });
 
       return async (event: Event, platformCtx?: Ctx): Promise<Result> => {
+        if (platformCtx && typeof platformCtx === 'object' && 'callbackWaitsForEmptyEventLoop' in platformCtx) {
+          (platformCtx as { callbackWaitsForEmptyEventLoop: boolean }).callbackWaitsForEmptyEventLoop = false;
+        }
+
         const mapper = resolveMapper(mappers, provider, event);
         const request = mapper.toRequest(event, platformCtx);
 
@@ -84,6 +88,8 @@ export function createServerlessAdapter<Event, Result, Ctx = unknown>(
         const trackedTasks: Promise<unknown>[] = [];
         const executionContext: EdgeExecutionContext = {
           waitUntil(promise: Promise<unknown>): void {
+            // Shield against unhandled promise rejections on the Node event loop during request dispatch
+            promise.catch(() => {});
             trackedTasks.push(promise);
           },
         };
@@ -100,14 +106,28 @@ export function createServerlessAdapter<Event, Result, Ctx = unknown>(
               : undefined;
 
           const maxWaitMs =
-            lambdaRemainingMs !== undefined && lambdaRemainingMs > 0
-              ? Math.min(lambdaRemainingMs, 5000)
+            lambdaRemainingMs !== undefined
+              ? Math.max(0, Math.min(lambdaRemainingMs, 5000))
               : 5000;
 
-          await Promise.race([
-            Promise.allSettled(trackedTasks),
-            new Promise((resolve) => setTimeout(resolve, maxWaitMs)),
-          ]);
+          if (maxWaitMs > 0) {
+            let timerId: ReturnType<typeof setTimeout> | undefined;
+            const timeoutPromise = new Promise((resolve) => {
+              timerId = setTimeout(resolve, maxWaitMs);
+              if (typeof (timerId as { unref?: () => void })?.unref === 'function') {
+                (timerId as { unref: () => void }).unref();
+              }
+            });
+
+            await Promise.race([
+              Promise.allSettled(trackedTasks),
+              timeoutPromise,
+            ]).finally(() => {
+              if (timerId !== undefined) {
+                clearTimeout(timerId);
+              }
+            });
+          }
         }
 
         return result;
