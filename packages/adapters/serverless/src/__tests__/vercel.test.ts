@@ -195,6 +195,34 @@ describe('toVercelWebRequest', () => {
     const text = await webReq.text();
     expect(JSON.parse(text)).toEqual({ message: 'hello from vercel' });
   });
+
+  it('handles pre-parsed object body from Vercel Node Serverless runtime', async () => {
+    const parsedPayload = { ping: 'pong', verified: true };
+    const req: VercelIncomingMessageLike = {
+      method: 'POST',
+      url: '/api/echo',
+      headers: { 'content-type': 'application/json', host: 'localhost' },
+      body: parsedPayload,
+    };
+
+    const webReq = toVercelWebRequest(req);
+    const text = await webReq.text();
+    expect(JSON.parse(text)).toEqual(parsedPayload);
+  });
+
+  it('handles Buffer body from Vercel Node Serverless runtime', async () => {
+    const rawBuffer = Buffer.from(JSON.stringify({ fromBuffer: true }));
+    const req: VercelIncomingMessageLike = {
+      method: 'POST',
+      url: '/api/echo',
+      headers: { 'content-type': 'application/json', host: 'localhost' },
+      body: rawBuffer,
+    };
+
+    const webReq = toVercelWebRequest(req);
+    const text = await webReq.text();
+    expect(JSON.parse(text)).toEqual({ fromBuffer: true });
+  });
 });
 
 describe('writeVercelWebResponse', () => {

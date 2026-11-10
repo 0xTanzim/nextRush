@@ -58,6 +58,12 @@ export function toVercelWebRequest(req: VercelIncomingMessageLike): Request {
       body = req.rawBody as BodyInit;
     } else if (typeof req.body === 'string' || req.body instanceof Uint8Array) {
       body = req.body as BodyInit;
+    } else if (req.body !== null && typeof req.body === 'object') {
+      if (typeof Buffer !== 'undefined' && Buffer.isBuffer(req.body)) {
+        body = new Uint8Array(req.body) as unknown as BodyInit;
+      } else {
+        body = JSON.stringify(req.body);
+      }
     } else if (typeof (req as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === 'function') {
       const fromFn = (ReadableStream as unknown as { from?: (it: unknown) => ReadableStream }).from;
       if (typeof fromFn === 'function') {
