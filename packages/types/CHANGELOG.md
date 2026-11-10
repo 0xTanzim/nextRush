@@ -1,5 +1,46 @@
 # @nextrush/types
 
+## 4.2.0
+
+### Minor Changes
+
+- [#78](https://github.com/0xTanzim/nextRush/pull/78) [`914f2de`](https://github.com/0xTanzim/nextRush/commit/914f2de19ffbb4ff1790f5be86eadcc771bb7611) Thanks [@0xTanzim](https://github.com/0xTanzim)! - `ctx.json()`, `ctx.html()` and `ctx.send()` accept a second argument: a numeric status or a
+  `ResponseOptions` object.
+
+  ```ts
+  ctx.json({ users }); // unchanged
+  ctx.json({ id: 'u_123' }, 201);
+  ctx.json({ id: 'u_123' }, { status: 201, headers: { Location: '/users/u_123' } });
+  ```
+
+  - An explicit status overrides the carried `ctx.status` for that response and is recorded back onto
+    it, so post-handler middleware (logging, metrics) sees the status that was actually sent.
+  - Accepted statuses are integers 200-599; anything else throws a `RangeError` before the response is
+    committed.
+  - Supplied headers merge with recorded headers: an ordinary field overrides its earlier value,
+    `Set-Cookie` accumulates, an array replaces then appends, and a supplied `Content-Type` wins over
+    the helper's automatic media type. `Content-Length` is derived from the body and is rejected.
+  - `ctx.status = code` is unchanged and remains supported.
+
+  Behavior fix included: an explicitly recorded `Content-Type` now wins over a body method's default
+  media type in both orders, which is the behavior the adapter contract already documented.
+
+- [#80](https://github.com/0xTanzim/nextRush/pull/80) [`bd568d8`](https://github.com/0xTanzim/nextRush/commit/bd568d8926ea4ead65c4bce32016f691dec91140) Thanks [@0xTanzim](https://github.com/0xTanzim)! - feat(core,runtime,router): add universal fetch (`app.fetch`) and multi-prefix mounting ([#74](https://github.com/0xTanzim/nextrush/issues/74), [#77](https://github.com/0xTanzim/nextrush/issues/77))
+
+  - **Universal Fetch (`app.fetch`)**: Instance-bound Web standards request handler on `Application` enabling direct zero-boilerplate export (`export default app;` / `export default { fetch: app.fetch }`) across Bun, Cloudflare Workers, Vercel Edge, Deno, and Web standard fetch unit tests without manual adapter imports.
+  - **Multi-Runtime Signature Normalization**: `UniversalWebContext` transparently normalizes 5 runtime signatures (1-arg `fetch(req)`, Cloudflare Workers `(req, env, ctx)` with `ctx.env` and `ctx.waitUntil`, Vercel Edge `(req, ctx)` with `ctx.waitUntil`, Bun `(req, server)` with `server.requestIP`, and Deno `(req, info)` with `info.remoteAddr`).
+  - **Zero Overhead on Traditional Servers**: Lazily initialized fetch runner ensures Node.js `listen(app, port)` servers incur zero allocations, zero CPU overhead, and zero timer scheduling.
+  - **Multi-Prefix Router Mounting**: `app.route(prefixes, router)` and `router.mount(prefixes, subRouter)` accept arrays of path prefixes (e.g. `['/api', '/v1']`), normalizing slashes and deduplicating prefixes automatically.
+
+- [#80](https://github.com/0xTanzim/nextRush/pull/80) [`73fd473`](https://github.com/0xTanzim/nextRush/commit/73fd4736234780455adf95e69cc981d52b84422b) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Adds first-class `createVercelHandler` for Node.js Serverless runtime on Vercel (Fluid Compute) and hybrid standalone runner support ([#71](https://github.com/0xTanzim/nextrush/issues/71)).
+
+  ### What's new
+  - **Universal Dual-Protocol Dispatch**: `createVercelHandler(app, options?)` returns a callable handler set accepting both Web standard `Request` (Route Handlers) and Node.js `(IncomingMessage, ServerResponse)` invocations.
+  - **Node.js HTTP Bridge**: Efficiently adapts Node incoming messages into Web standard `Request` without external dependencies, and streams the Web `Response` with chunk backpressure (`drain`), multi-cookie preservation via `response.headers.getSetCookie()`, and client disconnect cancellation (`reader.cancel()`).
+  - **Callable Handler Set**: The returned handler carries named HTTP method exports (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`, `fetch`) and `.listenIfStandalone()`, supporting both universal default export and named destructuring.
+  - **Standalone Runner Support**: `listenIfStandalone(handler, options?)`, `isServerlessEnvironment()`, and `isStandaloneEnvironment()` enable running the identical handler in local dev, Docker, or standalone VMs without wrapping code in environment guards.
+  - **Platform Identity**: Adds `'vercel'` to `PlatformId`, declared on `ctx.platform === 'vercel'`.
+
 ## 4.1.0
 
 ### Minor Changes

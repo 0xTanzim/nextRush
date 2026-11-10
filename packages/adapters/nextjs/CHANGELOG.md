@@ -1,5 +1,40 @@
 # @nextrush/adapter-nextjs
 
+## 1.2.0
+
+### Minor Changes
+
+- [#78](https://github.com/0xTanzim/nextRush/pull/78) [`d3cfdbf`](https://github.com/0xTanzim/nextRush/commit/d3cfdbf33375362e143d588e02d2c58cd673d9a1) Thanks [@0xTanzim](https://github.com/0xTanzim)! - `handle()` now returns a callable handler set, so a route module can assign each method directly
+  instead of destructuring one call. Repeated calls with the same app source and equivalent options
+  share one initialized engine.
+
+  ```ts
+  // app/api/[[...route]]/route.ts
+  export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = handle(app); // unchanged
+
+  // or, one export per method — still one engine
+  export const GET = handle(app);
+  export const POST = handle(app);
+  ```
+
+  - `handle()` returns `NextRouteHandlerSet` — a function that also carries `GET`…`OPTIONS` as
+    properties. All seven names are the same dispatcher reference.
+  - Handler sets are cached per app source in a `WeakMap`, matched on `timeout` value and `onError`
+    identity. A different timeout or error handler gets its own set and engine.
+  - The cache is weakly keyed, so a discarded app (including a route-module reload under HMR) does
+    not leak its engine.
+  - A failed boot still retries on the next request; the failure is not cached permanently.
+  - Destructuring is unchanged and remains the recommended single-call form.
+
+  `NextRouteHandlerSet` is also re-exported from `nextrush/nextjs`.
+
+### Patch Changes
+
+- Updated dependencies [[`914f2de`](https://github.com/0xTanzim/nextRush/commit/914f2de19ffbb4ff1790f5be86eadcc771bb7611), [`d87f80e`](https://github.com/0xTanzim/nextRush/commit/d87f80e31e27c04bb7e2bbf1adcbe33f12850afc), [`bd568d8`](https://github.com/0xTanzim/nextRush/commit/bd568d8926ea4ead65c4bce32016f691dec91140), [`73fd473`](https://github.com/0xTanzim/nextRush/commit/73fd4736234780455adf95e69cc981d52b84422b)]:
+  - @nextrush/types@4.2.0
+  - @nextrush/adapter-edge@1.1.1
+  - @nextrush/core@4.2.0
+
 ## 1.1.0
 
 ### Minor Changes
