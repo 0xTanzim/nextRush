@@ -73,3 +73,10 @@ export {
     generateHelp,
     type GeneratorType
 } from './generators/index.js';
+
+// Serverless Static Checks (Issue #75)
+export {
+    detectTopLevelAwait,
+    formatTopLevelAwaitWarning,
+    type TopLevelAwaitCheckResult
+} from './checker/serverless-check.js';

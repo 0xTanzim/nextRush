@@ -97,6 +97,17 @@ bunx create-nextrush my-api --runtime bun
 - `createApp` and `createRouter` still come from `nextrush` — runtime-independent
 - `listen`, `serve`, and `createHandler` come from `@nextrush/adapter-bun` — the meta-package's `listen` is wired to `@nextrush/adapter-node` specifically
 
+<Callout type="info">
+  **Zero-Adapter Export (Universal Fetch)**: Because NextRush applications expose a first-class `app.fetch` handler, you can also export the application directly to Bun's native server without an adapter:
+  ```ts
+  import { createApp } from 'nextrush';
+  const app = createApp();
+  app.get('/', (ctx) => ctx.json({ status: 'ok' }));
+  export default app; // Bun automatically invokes app.fetch
+  ```
+  Use `@nextrush/adapter-bun` when you need explicit `serve()` options, port configuration, or access to `server.requestIP`.
+</Callout>
+
 <Callout type="warn">
 **This is the one place Bun's setup differs from Node's.** `import { listen } from 'nextrush'`
 starts a Node server even when running under Bun (Bun's Node-compat layer makes that import

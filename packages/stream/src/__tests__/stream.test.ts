@@ -242,6 +242,46 @@ describe('cancellation', () => {
       StreamAbortedError,
     );
   });
+
+  it('triggers abort cleanup and swallows StreamAbortedError when consumer cancels readable stream', async () => {
+    let capturedStream!: ReadableStream<Uint8Array>;
+    const ctx: StreamCapableContext = {
+      signal: new AbortController().signal,
+      set: () => {},
+      sendStream: async (source) => {
+        capturedStream = source;
+      },
+    };
+
+    const abortSpy = vi.fn();
+    let writeThrew = false;
+
+    await runTextStream(ctx, async (w) => {
+      w.onAbort(abortSpy);
+      await w.write('chunk-1');
+      // Wait slightly so test reader can cancel
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      try {
+        await w.write('chunk-2');
+      } catch (err) {
+        if (err instanceof StreamAbortedError) writeThrew = true;
+        throw err;
+      }
+    });
+
+    const reader = capturedStream.getReader();
+    const first = await reader.read();
+    expect(new TextDecoder().decode(first.value)).toBe('chunk-1');
+
+    // Consumer cancels stream
+    await reader.cancel('client disconnected');
+
+    // Wait for the detached run loop to finish
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(abortSpy).toHaveBeenCalledTimes(1);
+    expect(writeThrew).toBe(true);
+  });
 });
 
 describe('error propagation', () => {

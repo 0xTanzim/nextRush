@@ -7,6 +7,25 @@
 
 So Lambda reports `ctx.runtime === 'edge'` and `ctx.platform === 'lambda'`.
 
+## Zero-Boilerplate Universal Export (Native `app.fetch`)
+
+Every NextRush application natively implements `app.fetch(request, env?, ctx?)`. Standard Fetch runtimes require **no adapter packages**:
+
+```typescript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+
+app.get('/health', (ctx) => ctx.json({ ok: true }));
+
+// Cloudflare Workers (automatically receives env and execution context on ctx.env and ctx.waitUntil)
+export default app;
+// Or explicit fetch export:
+// export default { fetch: app.fetch };
+```
+
+For advanced edge capabilities (custom timeout racing, specialized Netlify Edge context, or custom error formatting), use `@nextrush/adapter-edge` as detailed below.
+
 ## Edge — `@nextrush/adapter-edge`
 
 ### Install
@@ -92,6 +111,7 @@ createFetchHandler(app, {
 | Lambda via serverless | `'edge'` | `'lambda'` |
 | GCF via serverless | `'edge'` | `'gcf'` |
 | Azure via serverless | `'edge'` | `'azure'` |
+| Vercel Serverless via serverless | `'edge'` | `'vercel'` |
 
 Detection order (edge): Cloudflare UA → `VERCEL_REGION` → Netlify (`Deno` + `NETLIFY=true`) → generic edge.
 
@@ -136,6 +156,21 @@ export const handler = createLambdaHandler(app);
 // optional: createLambdaHandler(app, { timeout: 10_000 })
 ```
 
+#### Async App Factory Pattern (Eliminates Top-Level Await)
+
+Node runtimes on AWS Lambda and serverless platforms reject top-level `await` with `ERR_REQUIRE_ASYNC_MODULE`. When your application requires async setup (database connection, async controller discovery), pass an async factory function:
+
+```typescript
+export const handler = createLambdaHandler(async () => {
+  const app = createApp();
+  await initDatabase();
+  app.get('/users', async (ctx) => ctx.json(await getUsers()));
+  return app;
+});
+```
+
+The factory runs lazily on the first incoming request and is memoized across warm invocations. Concurrent first requests await the same promise.
+
 **Wrong** (rebuilds every invocation):
 
 ```typescript
@@ -168,13 +203,53 @@ import { app as functions } from '@azure/functions';
 functions.http('api', { handler: createAzureHandler(app) });
 ```
 
+### Vercel Serverless Functions (Node.js runtime / Fluid Compute)
+
+For Node.js Serverless Functions on Vercel (`api/index.ts` or standalone API deployments), use `@nextrush/adapter-serverless`. It provides dual-dispatch:
+- Native Web standard Route Handlers (`fetch`, `GET`, `POST`, `PUT`, etc.)
+- Node.js `(req, res)` compatibility with backpressured chunk streaming and multi-cookie preservation
+- Local standalone execution with `listenIfStandalone(handler)`
+
+```typescript
+import { createApp } from 'nextrush';
+import { createVercelHandler, listenIfStandalone } from '@nextrush/adapter-serverless';
+
+const app = createApp();
+app.get('/api/health', (ctx) => ctx.json({ status: 'ok', platform: ctx.platform }));
+
+const handler = createVercelHandler(app);
+
+// 1. Universal default export (handles both Web Request and Node req/res)
+export default handler;
+
+// 2. Named route handler exports for Vercel Web Route Handlers
+export const { GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, fetch } = handler;
+
+// 3. Standalone runner (starts server when NOT in serverless Vercel environment)
+listenIfStandalone(handler);
+```
+
+> **Edge vs Serverless on Vercel:**
+> - If you configure `export const config = { runtime: 'edge' }`, use `createVercelHandler` from `@nextrush/adapter-edge`.
+> - If you use Node.js serverless functions (default Vercel Function runtime / Fluid Compute) or want hybrid standalone local execution, use `createVercelHandler` from `@nextrush/adapter-serverless`.
+
 ### Serverless rules
 
-1. App + handler at **module scope**
+1. App + handler at **module scope** (or pass an async app factory `() => Promise<Application>` to avoid top-level await)
 2. Per-request data on `ctx` / `ctx.state` only — no module-scope mutable request state
 3. Branch on `ctx.platform`, not `ctx.runtime === 'node'`
-4. Timeout → cooperative cancel via `ctx.signal`, result 504
-5. Cloudflare is **not** in this package — use adapter-edge
+4. **Background tasks (`ctx.waitUntil`)**: Serverless handlers automatically drain background promises before returning to the runtime (or bridge to `@vercel/request-context` on Vercel), preventing premature container freeze and dropped tasks
+5. Timeout → cooperative cancel via `ctx.signal`, result 504
+6. Cloudflare is **not** in this package — use adapter-edge
+7. **Packaging & Zero Forced `.mts`**: Always write standard `.ts` files (`src/index.ts`). Never force `.mts` renaming.
+   - Using `nextrush build --serverless`: Automatically emits companion `dist/package.json` (`"type": "module"`) and `dist/index.mjs` bridge to prevent cloud CommonJS loader syntax errors.
+   - Using `tsdown`: Run `"build": "tsdown src/index.ts --format esm && nextrush-serverless-prep dist"` or configure `outExtension: () => ({ js: '.mjs' })`.
+   - Using raw `tsc`: Run `"build": "tsc && nextrush-serverless-prep dist"` or call `prepareServerlessPackage({ outDir: 'dist' })`.
+   - Using `esbuild`: `esbuild src/index.ts --bundle --format=esm --platform=node --outfile=dist/index.mjs` (or run `nextrush-serverless-prep dist` as a postbuild step).
+8. **Bun & Deno Runtime Guarding & Ergonomics**:
+   - `createHandler(app)` from `@nextrush/adapter-bun` or `@nextrush/adapter-deno` produces `(request: Request, server?: ...) => Response | Promise<Response>`. Calling with 1 argument (`await handler(request)`) is fully typed and supported; no dummy server/info object is required.
+   - Calling `serve(app)` from `@nextrush/adapter-bun` or `@nextrush/adapter-deno` in an incompatible runtime (such as Node.js or a Vercel Serverless Function without `"bunVersion": "1.4.x"` in `vercel.json`) throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` and actionable instructions to use `@nextrush/adapter-node` or `@nextrush/adapter-serverless`.
+   - Both adapters re-export `isBun` / `isDeno` (and `isBunRuntime` / `isDenoRuntime`) and `ServerStartError`.
 
 ### Warm instance note
 

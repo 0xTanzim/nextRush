@@ -12,7 +12,12 @@
 import { NextRushError } from '@nextrush/errors';
 
 /** Known, normalized startup failure codes. */
-export type ServerStartErrorCode = 'EADDRINUSE' | 'EACCES' | 'EADDRNOTAVAIL' | 'UNKNOWN';
+export type ServerStartErrorCode =
+  | 'EADDRINUSE'
+  | 'EACCES'
+  | 'EADDRNOTAVAIL'
+  | 'ERR_RUNTIME_NOT_DETECTED'
+  | 'UNKNOWN';
 
 /**
  * Error thrown when a server adapter fails to bind/start.

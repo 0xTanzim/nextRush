@@ -1,7 +1,7 @@
 ---
 title: 'Serverless'
 package: '@nextrush/adapter-serverless'
-description: 'Deploy a NextRush app to AWS Lambda, Google Cloud Functions, or Azure Functions in one line.'
+description: 'Deploy a NextRush app to AWS Lambda, Google Cloud Functions, Azure Functions, or Vercel Serverless in one line.'
 keywords: [nextrush, platforms, reference, serverless]
 ---
 
@@ -22,12 +22,12 @@ never touch the mapper plumbing underneath.
 | **Status** | Beta |
 | **Support tier** | Internal — non-`-node` adapter until GA, may change without a major ([ADR-0005](https://github.com/0xTanzim/nextRush/blob/main/docs/adr/ADR-0005-package-tiers-sealed-surface-deprecation.md)) |
 | **Included in `nextrush`?** | No — standalone install |
-| **Runtime** | AWS Lambda, Google Cloud Functions, Azure Functions — built on `@nextrush/adapter-edge`'s fetch engine |
+| **Runtime** | AWS Lambda, Google Cloud Functions, Azure Functions, Vercel Serverless (Node.js) — built on `@nextrush/adapter-edge`'s fetch engine |
 
-<Callout type="info" title="Cloudflare Workers uses a different package">
-  Cloudflare's Tier-1 handler (`createCloudflareHandler`) ships in
-  [`@nextrush/adapter-edge`](/docs/reference/platforms/edge), not here — it
-  shares the edge execution model, not the serverless one.
+<Callout type="info" title="Cloudflare Workers and Vercel Edge use a different package">
+  For Cloudflare Workers or Vercel Edge (`runtime: 'edge'`), use
+  [`@nextrush/adapter-edge`](/docs/reference/platforms/edge). For Vercel Serverless Functions
+  running on Node.js (Fluid Compute) or hybrid standalone apps, use `createVercelHandler` here.
 </Callout>
 
 ## Installation
@@ -57,6 +57,21 @@ export const handler = createLambdaHandler(app);
 | `createLambdaStreamingHandler(app, options?)` | AWS Lambda response streaming (`awslambda.streamifyResponse`) | Lambda Function URL streaming |
 | `createGoogleHandler(app, options?)` | Google Cloud Functions | HTTP-triggered functions — a `(req, res)` drop-in for `functions.http()` |
 | `createAzureHandler(app, options?)` | Azure Functions | HTTP-triggered functions (v4 model) — a `(req) => response` drop-in for `app.http()` |
+| `createVercelHandler(app, options?)` | Vercel Serverless (Node.js) | Dual-dispatch for Web Fetch Route Handlers (`fetch`, `GET`, `POST`, ...) and Node.js `(req, res)` invocations with chunk streaming backpressure and standalone runner support (`listenIfStandalone`). |
+
+```typescript
+// Vercel Serverless Functions (Node.js runtime / Fluid Compute)
+import { createVercelHandler, listenIfStandalone } from '@nextrush/adapter-serverless';
+
+const handler = createVercelHandler(app);
+
+// Universal default export + named HTTP method exports
+export default handler;
+export const { GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, fetch } = handler;
+
+// Auto-starts standalone HTTP server when run locally or outside Vercel
+listenIfStandalone(handler);
+```
 
 ```typescript
 // Google Cloud Functions
@@ -96,8 +111,8 @@ platform-specific configuration these two drop-ins need.
 AWS/GCP/Azure branch. A check for `ctx.runtime === 'node'` typechecks and never
 matches.
 
-`ctx.platform` is the field that names the provider: `'lambda'`, `'gcf'`, or
-`'azure'`. Each Tier-1 handler sets it explicitly, so it is declared rather than
+`ctx.platform` is the field that names the provider: `'lambda'`, `'gcf'`,
+`'azure'`, or `'vercel'`. Each Tier-1 handler sets it explicitly, so it is declared rather than
 guessed.
 
 ```typescript

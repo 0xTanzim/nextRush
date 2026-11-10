@@ -61,15 +61,72 @@ is what lets AWS reuse the same booted instance across warm invocations.
 > you're actually running on -- each Tier-1 handler here sets it explicitly, so it is never
 > detected/guessed on this package.
 
-## The three platform handlers
+## Async application factory (Preventing top-level await)
+
+On AWS Lambda and serverless Node.js environments, using top-level `await` for database initialization or async controller registration can cause `ERR_REQUIRE_ASYNC_MODULE` errors when the runtime invokes handlers via CommonJS loader wrappers.
+
+All serverless handlers accept an `AppSource<Application>` (either an `Application` instance or a factory `() => Application | Promise<Application>`):
+
+```ts
+import { createApp } from '@nextrush/core';
+import { createLambdaHandler } from '@nextrush/adapter-serverless';
+
+export const handler = createLambdaHandler(async () => {
+  const app = createApp();
+  await initDatabase();
+  app.get('/', (ctx) => ctx.json({ message: 'Hello from Lambda!' }));
+  return app;
+});
+```
+
+The factory function runs lazily on the first incoming request and is memoized across warm invocations. Multiple concurrent first requests await the same initialization promise, preventing duplicate bootstrap passes.
+
+## Serverless ESM Packaging & Cloud Loaders
+
+In cloud serverless environments (AWS Lambda zip deployments, Vercel Serverless Function builder, Google Cloud Functions), build artifacts are deployed into an isolated task root (such as `/var/task/`). In Node.js 20+, any `.js` file with no enclosing `package.json` declaring `"type": "module"` defaults to CommonJS, causing fatal `SyntaxError: Cannot use import statement outside a module` crashes.
+
+**Zero Forced `.mts`**: Developers and AI agents write standard TypeScript (`src/index.ts`). You never need to rename files to `.mts`.
+
+### 1. Using `nextrush build`
+When compiling with NextRush's dev toolkit, `nextrush build` (or `nextrush build --serverless`) automatically emits:
+- `dist/package.json` with `{"type": "module"}` (ensuring isolated `/var/task/` executes `.js` files as native ESM).
+- `dist/index.mjs` dual-entry bridge (ensuring cloud configurations pointing to either `index.handler` or `index.mjs.handler` resolve seamlessly).
+
+### 2. Standalone Package Users (External Bundlers & `tsc`)
+If you install `@nextrush/adapter-serverless` directly without `@nextrush/dev`:
+
+- **Standalone `tsdown`**:
+  ```json
+  "scripts": {
+    "build": "tsdown src/index.ts --format esm && nextrush-serverless-prep dist"
+  }
+  ```
+- **Raw `tsc` compilation**: Add `nextrush-serverless-prep` to your build script:
+  ```json
+  "scripts": {
+    "build": "tsc && nextrush-serverless-prep dist"
+  }
+  ```
+- **Programmatic build pipelines**:
+  ```ts
+  import { prepareServerlessPackage } from '@nextrush/adapter-serverless';
+
+  await prepareServerlessPackage({ outDir: 'dist' });
+  ```
+- **Custom bundler recipes (`esbuild`, etc.)**:
+  - `esbuild`: `esbuild src/index.ts --bundle --format=esm --platform=node --outfile=dist/index.mjs`
+  - Any bundler: run `nextrush-serverless-prep dist` as a postbuild step
+
+## The platform handlers
 
 | Handler | Platform | Detection |
 | --- | --- | --- |
 | `createLambdaHandler(app, options?)` | AWS Lambda (Function URL, API Gateway v1/v2) | Automatic -- payload shape is unambiguous |
+| `createVercelHandler(app, options?)` | Vercel Serverless (Node.js & Web) | Dual-protocol auto-dispatch (Node `(req, res)` and Web Fetch) |
 | `createGoogleHandler(app, options?)` | Google Cloud Functions (functions-framework) | Fixed to the `gcf` mapper |
 | `createAzureHandler(app, options?)` | Azure Functions v4 model | Fixed to the `azure` mapper |
 
-All three are true drop-ins -- pass them straight to the platform's own registration call, with no
+All are true drop-ins -- pass them straight to the platform's own registration call, with no
 hand-written field mapping:
 
 ```ts
@@ -196,13 +253,16 @@ per-adapter and immutable -- there is no global mutable mapper registry.
 
 | Export | Signature | Since | Stability | Description |
 | --- | --- | --- | --- | --- |
-| `createLambdaHandler` | `(app: Application, options?: ServerlessHandlerOptions) => ServerlessHandler<LambdaEvent, LambdaResult>` | 1.0.0-beta.0 | Internal | AWS Lambda handler; auto-detects Function URL / API Gateway v1/v2 |
-| `createLambdaStreamingHandler` | `(app: Application, options?: ServerlessHandlerOptions) => StreamingLambdaHandler` | 1.0.0-beta.0 | Internal | True Function URL response streaming |
-| `createGoogleHandler` | `(app: Application, options?: ServerlessHandlerOptions) => (req: GcfHttpRequest, res: GcfHttpResponse) => Promise<void>` | 1.0.0-beta.1 | Internal | Google Cloud Functions true drop-in -- pass directly to `functions.http('api', handler)` |
-| `createAzureHandler` | `(app: Application, options?: ServerlessHandlerOptions) => (req: AzureHttpRequestLike) => Promise<AzureHttpResponseLike>` | 1.0.0-beta.1 | Internal | Azure Functions v4 true drop-in -- pass directly to `app.http('api', { handler })` |
-| `createGoogleEventHandler` | `(app: Application, options?: ServerlessHandlerOptions) => ServerlessHandler<GcfEvent, GcfResult>` | 1.0.0-beta.1 | Internal | The struct-based path `createGoogleHandler` had before `1.0.0-beta.1` -- fixture testing, custom bridges |
-| `createAzureEventHandler` | `(app: Application, options?: ServerlessHandlerOptions) => ServerlessHandler<AzureEvent, AzureResult>` | 1.0.0-beta.1 | Internal | The struct-based path `createAzureHandler` had before `1.0.0-beta.1` -- fixture testing, custom bridges |
-| `createServerlessAdapter` | `(options: ServerlessAdapterOptions<Event, Result, Ctx>) => { createHandler(app): ServerlessHandler<Event, Result, Ctx> }` | 1.0.0-beta.0 | Internal | Runtime-author escape hatch -- build a handler from a custom `EventMapper` list |
+| `createLambdaHandler` | `(app: AppSource<Application>, options?: ServerlessHandlerOptions) => ServerlessHandler<LambdaEvent, LambdaResult>` | 1.0.0-beta.0 | Internal | AWS Lambda handler; auto-detects Function URL / API Gateway v1/v2 |
+| `createLambdaStreamingHandler` | `(app: AppSource<Application>, options?: ServerlessHandlerOptions) => StreamingLambdaHandler` | 1.0.0-beta.0 | Internal | True Function URL response streaming |
+| `createVercelHandler` | `(app: AppSource<Application>, options?: ServerlessHandlerOptions) => VercelHandler` | 1.0.0-beta.1 | Internal | Universal Vercel handler supporting both Node.js HTTP and Web Fetch invocations |
+| `createGoogleHandler` | `(app: AppSource<Application>, options?: ServerlessHandlerOptions) => (req: GcfHttpRequest, res: GcfHttpResponse) => Promise<void>` | 1.0.0-beta.1 | Internal | Google Cloud Functions true drop-in -- pass directly to `functions.http('api', handler)` |
+| `createAzureHandler` | `(app: AppSource<Application>, options?: ServerlessHandlerOptions) => (req: AzureHttpRequestLike) => Promise<AzureHttpResponseLike>` | 1.0.0-beta.1 | Internal | Azure Functions v4 true drop-in -- pass directly to `app.http('api', { handler })` |
+| `createGoogleEventHandler` | `(app: AppSource<Application>, options?: ServerlessHandlerOptions) => ServerlessHandler<GcfEvent, GcfResult>` | 1.0.0-beta.1 | Internal | The struct-based path `createGoogleHandler` had before `1.0.0-beta.1` -- fixture testing, custom bridges |
+| `createAzureEventHandler` | `(app: AppSource<Application>, options?: ServerlessHandlerOptions) => ServerlessHandler<AzureEvent, AzureResult>` | 1.0.0-beta.1 | Internal | The struct-based path `createAzureHandler` had before `1.0.0-beta.1` -- fixture testing, custom bridges |
+| `createServerlessAdapter` | `(options: ServerlessAdapterOptions<Event, Result, Ctx>) => { createHandler(app: AppSource<Application>): ServerlessHandler<Event, Result, Ctx> }` | 1.0.0-beta.0 | Internal | Runtime-author escape hatch -- build a handler from a custom `EventMapper` list |
+| `prepareServerlessPackage` | `(options?: PrepareServerlessOptions) => Promise<PrepareServerlessResult>` | 1.1.0 | Stable | Standalone helper emitting `dist/package.json` (`"type": "module"`) and `.mjs` bridge for serverless deployments |
+| `nextrush-serverless-prep` | CLI: `nextrush-serverless-prep [outDir] [entryName]` | 1.1.0 | Stable | Zero-dependency CLI companion for `tsdown`/`tsc`/`esbuild` build pipelines |
 | `toGcfEvent`, `writeGcfResult` | `(req: GcfHttpRequest) => GcfEvent`; `(res: GcfHttpResponse, result: GcfResult) => void` | 1.0.0-beta.1 | Internal | The pure bridge functions `createGoogleHandler` composes -- exported for a custom drop-in variant |
 | `toAzureEvent`, `toAzureResponse` | `(req: AzureHttpRequestLike) => Promise<AzureEvent>`; `(result: AzureResult) => AzureHttpResponseLike` | 1.0.0-beta.1 | Internal | The pure bridge functions `createAzureHandler` composes -- exported for a custom drop-in variant |
 | `type EventMapper<Event, Result, Ctx>` | -- | 1.0.0-beta.0 | Internal | The plugin shape: `toRequest`, `fromResponse`, optional `detect` |
@@ -297,9 +357,10 @@ function host to preserve `rawBody` if the request body matters.
 **Diagnostics inherited from `@nextrush/adapter-edge`.** Because every invocation here runs through
 edge's fetch engine, three of its development-mode diagnostics apply on Lambda/GCF/Azure too:
 
-- **`ctx.waitUntil()` no-op warning** — serverless invocations supply no execution context, so a
-  promise passed to `ctx.waitUntil()` is dropped without running. Outside production the first such
-  call warns once per context.
+- **`ctx.waitUntil()` background task settlement** — serverless invocations automatically track promises
+  passed to `ctx.waitUntil()` and drain them before the final response is returned to the platform runtime (or
+  bridge them to `@vercel/request-context` on Vercel), ensuring background work settles before the container freezes.
+  The maximum time spent waiting can be configured via `options.waitUntilTimeout` (default: 15,000ms).
 - **Boot-reuse warning** — if a *different* `Application` boots in the same process than the one
   that booted first (the mechanical signature of calling `createApp()` inside the exported handler),
   a one-time development warning fires.

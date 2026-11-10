@@ -176,3 +176,22 @@ export {
   createEmptyBodySource,
   createWebBodySource,
 } from './body-source';
+
+// ============================================================================
+// Universal Web Context & Fetch Runner (RFC-052)
+// ============================================================================
+
+export {
+  createUniversalFetchHandler,
+  DEFAULT_UNIVERSAL_TIMEOUT_MS,
+} from './universal-runner';
+export type { UniversalFetchOptions } from './universal-runner';
+
+export { UniversalWebContext } from './universal-context';
+export type {
+  UniversalContextOptions,
+  UniversalExecutionContext,
+} from './universal-context';
+
+export { memoizeAppSource } from './memoize-app';
+

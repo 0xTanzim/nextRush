@@ -1,39 +1,81 @@
 # NextRush OpenSpec — Governance & Capability Registry
 
-This directory has two layers with **opposite lifecycles**. Understanding the split is the
-whole point.
+This directory separates **living behavioral truth** from **change-level engineering history**.
+The distinction is intentional: the capability specs stay small and stable, while the change
+records explain why and how the framework evolved.
 
-```
+```text
 openspec/
-├── specs/      →  TRUTH:   what the framework does NOW.  SMALL & STABLE (~18 folders, forever).
-│                          One folder per durable CAPABILITY. Changes EDIT these. We read this.
-├── changes/    →  HISTORY: why we did it.  Grows forever — that's fine, git is the real history.
-│   └── archive/            DISPOSABLE. Not read for truth. See "Archive retention" below.
-docs/RFC/       →  the ~1% of durable architectural decisions (ADRs/RFCs). Curated by hand.
+├── config.yaml       → Workflow configuration and NextRush-specific OpenSpec guidance.
+├── README.md         → This governance guide and the capability ownership registry.
+├── specs/            → LIVING TRUTH: what the framework is required to do today.
+└── changes/          → CHANGE RECORDS: proposals, deltas, designs, and implementation tasks.
+    └── archive/      → Completed change records, subject to the retention policy below.
+
+docs/RFC/ and docs/adr/
+                    → Curated, durable architectural decisions.
 ```
 
-`specs/` growing one-folder-per-change is the failure mode this registry exists to prevent. A
-`specs/` full of change-shaped stubs (`router-match-path-allocation-trim`, `*-fastpath`,
-`TBD - created by archiving…`) makes "what does NextRush do today?" unanswerable. Keep it flat.
+The two OpenSpec directories have different purposes and lifecycles:
 
-## The one rule
+- **`specs/` is the current contract.** It is a small, stable set of durable capability specs.
+  Agents and maintainers should read it to understand what NextRush is required to do.
+- **`changes/` records proposed and completed work.** Active changes explain what is being
+  changed and how. Archived changes are historical records, not the current behavioral source
+  of truth.
+- **`docs/RFC/` and `docs/adr/` preserve decisions that outlive an individual change.** Only
+  decisions with lasting architectural significance belong there.
 
-> **A change EDITS an existing capability's requirements.** It does **not** create a new
-> `specs/<capability>/` folder — unless a genuinely new, durable capability is being born (rare,
-> and you should expect to justify it).
+The failure mode this governance prevents is one-folder-per-change growth in `specs/`. A
+`specs/` directory full of change-shaped stubs (`router-match-path-allocation-trim`,
+`*-fastpath`, `*-cleanup`, or `TBD - created by archiving…`) makes the question
+"What does NextRush guarantee today?" difficult to answer. Keep capability ownership durable
+and the living spec set intentionally small.
 
-Concretely, a change's delta targets one of the capabilities below with `ADDED` / `MODIFIED` /
-`REMOVED` requirements. On sync/archive, that delta merges *into* the capability's living spec.
-The folder count stays flat no matter how many changes ship.
+## 1. The governing rule
 
-- Capability names are **durable** (`router`, `node-adapter`), never change-shaped
-  (`*-fastpath`, `*-trim`, `*-cleanup`, `*-microtrims`).
-- Every capability spec has a **real `## Purpose`** — never a `TBD - created by archiving…` stub.
+> **A change updates the requirements of an existing durable capability. It does not create a
+> new capability folder unless a genuinely new, durable responsibility is being introduced.**
 
-## Capability registry (19)
+A change targets one or more capabilities from the registry below. Its delta uses the
+appropriate `ADDED`, `MODIFIED`, `REMOVED`, or `RENAMED` requirement section. When the change
+is synchronized or archived, the delta is incorporated into the owning capability's living
+spec. The number of capabilities should grow only when the framework's durable responsibility
+set actually grows.
 
-Pick the target capability for any change from this list. If nothing fits, that is the signal to
-consider (and justify) a new capability — not to fall back to a change-shaped folder.
+### Capability naming and ownership
+
+- Names describe durable responsibilities (`router`, `node-adapter`), never a change,
+  optimization, implementation technique, or temporary cleanup
+  (`router-fastpath`, `*-trim`, `*-cleanup`, `*-microtrims`).
+- Every capability spec has a meaningful `## Purpose` that explains what the capability owns.
+  Never leave a generated `TBD - created by archiving…` placeholder.
+- Choose ownership by **behavior and responsibility**, not merely by package name or the file
+  being edited. A package can participate in more than one capability; one capability can
+  span multiple packages.
+- A cross-cutting change may update multiple existing capability specs, but each requirement
+  must have one clear owner. Do not duplicate the same contract across capabilities.
+- If no capability fits, first check whether the behavior belongs to an existing broader
+  capability. Create a new capability only when it represents a distinct, durable framework
+  responsibility that cannot be expressed cleanly under an existing owner.
+
+### What belongs in a spec versus a design
+
+- **Specs define observable contracts:** inputs, outputs, ordering, errors, lifecycle, limits,
+  security guarantees, runtime behavior, and compatibility expectations.
+- **Designs explain implementation choices:** package boundaries, algorithms, data structures,
+  allocation behavior, runtime mechanisms, performance hypotheses, trade-offs, and alternatives.
+- Do not turn living specs into implementation notes, benchmark diaries, task lists, or source
+  code inventories. Those belong in change designs, tests, benchmark reports, or engineering docs.
+- A pure internal refactor or optimization that does not change observable behavior does not
+  need an invented spec delta. Use the OpenSpec `skip_specs` mechanism when appropriate and
+  explain the reason in the change proposal.
+
+## 2. Capability registry
+
+The registry currently contains **19 durable capabilities**. This is the ownership index for
+changes; it is not a target count or a reason to create more folders. For each change, select
+the closest existing owner based on the behavior being specified.
 
 | Capability | Owns |
 | ---------- | ---- |
@@ -59,25 +101,78 @@ consider (and justify) a new capability — not to fall back to a change-shaped 
 | `dev-tooling` | The `@nextrush/dev` local-development lifecycle contract: the CLI (`dev`, `build`, `generate`, `codemod`), SWC-everywhere TypeScript compilation with guaranteed decorator-metadata emission (so DI works), cross-runtime process spawning and native-watcher auto-restart, the incremental build cache, type-declaration emission, the cross-runtime loader-resolution strategy, and the toolchain's diagnostics and verification bar. |
 | `ecosystem-interop` | Optional, opt-in adapters that wrap a stable external execution contract into NextRush `Middleware`, without reversing the dependency arrow into core, without claiming Edge portability, and with a test-backed compatibility registry. |
 
-## Archive retention
+### How to choose a capability
 
-The archive is **not** read for truth, so it is treated as disposable:
+1. Identify the externally observable behavior or guarantee being changed.
+2. Find the capability whose **Owns** description covers that behavior.
+3. Read that capability's living `spec.md` and inspect its existing requirements before writing
+   a delta.
+4. If the change spans capabilities, split the delta by ownership and avoid duplicated
+   requirements.
+5. If no owner fits, explain why in `proposal.md` and justify a new durable capability before
+   creating its folder.
 
-- **Git is the history.** Every proposal/design/tasks/delta is in git; the archive folder is a
-  convenience copy, not the record of record.
-- **Prune freely.** Archived change folders may be deleted after their change has shipped (and,
-  if you like, one release later). Deleting them loses nothing recoverable — `git log` still has
-  everything.
-- **Promote the ~1% that's durable.** A decision with lasting architectural weight ("why the
-  segment trie", "why ESM-only", "why request-scope bubbles") belongs in `docs/RFC/` as an
-  RFC/ADR — a small, curated, hand-maintained set — **before** the change is archived, so nothing
-  load-bearing lives only in a prunable archive.
+Do not select a capability just because its package contains the implementation. The spec owner
+is determined by the contract being changed.
 
-## When a change lands (the loop that keeps `specs/` flat)
+## 3. Change lifecycle
 
-1. Propose the change against an **existing** capability (name it in `proposal.md`).
-2. Write the delta as requirements ADDED/MODIFIED/REMOVED under that capability.
-3. Sync/archive merges the delta into `specs/<capability>/spec.md` and updates its `## Purpose`
-   if the capability's scope genuinely grew.
-4. If the decision is architecturally durable, capture it in `docs/RFC/` too.
-5. The archived change folder is now disposable.
+Use the built-in OpenSpec `spec-driven` workflow unless the project explicitly adopts a
+different schema.
+
+1. **Understand first.** Inspect the relevant living specs, source, tests, package boundaries,
+   runtime behavior, and applicable RFCs/ADRs. Establish what the framework currently does and
+   where the intended contract is recorded.
+2. **Propose.** Explain the problem, motivation, scope, non-goals, affected capabilities,
+   packages/runtimes, and compatibility impact.
+3. **Specify.** Write deltas against existing capability requirements. Use `ADDED`,
+   `MODIFIED`, `REMOVED`, or `RENAMED` correctly. Do not create a new capability merely to
+   hold one change.
+4. **Design.** For non-trivial work, explain the affected execution path, package boundaries,
+   design decisions, alternatives, risks, and relevant performance/security/runtime implications.
+   Keep implementation detail out of behavioral requirements.
+5. **Plan.** Break the approved design into ordered, verifiable tasks. Include tests,
+   conformance, benchmarks, documentation, and release work when applicable.
+6. **Apply.** Implement against the approved artifacts. If implementation evidence changes the
+   scope, contract, or design, update the change artifacts rather than silently drifting.
+7. **Verify and archive.** Verify the implementation against every relevant scenario, synchronize
+   the intended living specs, and preserve durable decisions in RFCs/ADRs before archiving.
+
+The configuration in `config.yaml` adds NextRush-specific instructions to the built-in
+`spec-driven` workflow. It does not redefine the schema's artifact graph or replace the generic
+OpenSpec artifact syntax.
+
+## 4. Archive retention
+
+The archive is **not the source of current behavioral truth**. It is a historical convenience
+whose retention follows the repository's actual Git and ignore policy.
+
+- **Living specs are authoritative for current contracts.** Do not use archived change files to
+  decide what the framework currently guarantees.
+- **Git is the durable history.** Preserve the shipped change's rationale and implementation
+  history in commits. The archive may be retained or pruned according to repository policy.
+- **Do not assume archive contents are tracked.** Check `.gitignore` and the repository's
+  configured OpenSpec archive behavior before relying on an archived folder as a durable record.
+- **Promote the durable decisions.** A lasting architectural decision ("why the segment trie",
+  "why ESM-only", "why request-scope bubbles") belongs in `docs/RFC/` or `docs/adr/` as
+  appropriate. Capture and approve it **before** archiving if the change's governance requires
+  it. A disposable archive is never the only home for load-bearing architectural rationale.
+
+## 5. Keeping the living specs accurate
+
+When a change ships:
+
+1. Confirm the implementation and tests satisfy the accepted delta scenarios.
+2. Synchronize the delta into the correct existing capability spec.
+3. Preserve the capability's meaningful `## Purpose`; update it only if the durable ownership
+   genuinely expands.
+4. Check that no requirement was accidentally dropped, duplicated, weakened, or left describing
+   behavior that was not shipped.
+5. Check cross-capability references and runtime guarantees for consistency.
+6. Confirm any required RFC/ADR, Changeset, migration note, and documentation updates exist.
+7. Review the final diff. The living specs must describe the shipped contract, not the original
+   intention if implementation changed through an approved revision.
+
+The capability set should remain small and stable. The goal is not to minimize the number at all
+costs; it is to ensure every folder represents a real, durable responsibility and every
+requirement has a clear owner.

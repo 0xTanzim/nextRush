@@ -3,12 +3,17 @@
 ## Decision tree
 
 ```
+Universal Fetch host (no adapter needed)?
+├─ Cloudflare Workers → export default app; (or export default { fetch: app.fetch })
+├─ Bun / Deno         → export default app; or Bun.serve(app) / Deno.serve(app.fetch)
+└─ Vercel Edge        → export default app; (with config.runtime = 'edge')
+
 Own long-running process?
 ├─ Node → import { serve, listen } from 'nextrush'   (@nextrush/adapter-node)
 ├─ Bun  → @nextrush/adapter-bun
 └─ Deno → @nextrush/adapter-deno
 
-Fetch API host?
+Advanced Fetch / Edge (custom timeouts, bindings)?
 ├─ Cloudflare Workers → createCloudflareHandler(app)
 ├─ Vercel Edge        → createVercelHandler(app)
 ├─ Netlify Edge       → createNetlifyHandler(app)
@@ -25,6 +30,21 @@ Inside Next.js App Router?
 ```
 
 Deep dives: `serverless-edge.md`, `nextjs.md`.
+
+## Universal Fetch (Zero Adapter)
+
+Every NextRush application natively provides `app.fetch: (req: Request, ...args: unknown[]) => Promise<Response>`:
+
+```typescript
+import { createApp } from 'nextrush';
+
+const app = createApp();
+app.get('/health', (ctx) => ctx.json({ ok: true }));
+
+// Cloudflare Workers, Bun, Deno, Vercel Edge
+export default app;
+// or: export default { fetch: app.fetch };
+```
 
 ## Node (default)
 

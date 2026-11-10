@@ -23,6 +23,8 @@ export interface BuildOptions {
   clean?: boolean;
   /** Use incremental build cache */
   cache?: boolean;
+  /** Emit serverless deployment artifacts (companion package.json, index.mjs bridge) */
+  serverless?: boolean;
   /** Verbose output */
   verbose?: boolean;
 }

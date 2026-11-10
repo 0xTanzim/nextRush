@@ -38,6 +38,8 @@ describe('Public API surface (runtime exports)', () => {
       'generateAdapter',
       'generateCli',
       'generateHelp',
+      'detectTopLevelAwait',
+      'formatTopLevelAwaitWarning',
     ].sort();
 
     expect(actualExports).toEqual(expectedRuntime);

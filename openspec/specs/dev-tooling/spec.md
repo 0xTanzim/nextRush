@@ -237,3 +237,20 @@ usable compiler can be resolved, never silently skipping declaration output whil
 
 - **WHEN** a different TypeScript version is available on the host `PATH` than the one `@nextrush/dev` resolves
 - **THEN** the declaration pass uses the resolved local compiler, so declared output does not vary with the host environment
+
+### Requirement: Production build outputs native ESM companion package.json and serverless bridge
+
+`nextrush build` SHALL on each build emit a companion `dist/package.json` with `{"type": "module"}` ensuring isolated cloud task roots (such as AWS Lambda `/var/task` or Vercel task directories) execute `.js` outputs as native ECMAScript Modules without CommonJS syntax errors. When `--serverless` is enabled or `@nextrush/adapter-serverless` is present, `nextrush build` SHALL also emit a dual-entry `dist/index.mjs` re-export bridge so handlers configured for `index.handler` or `index.mjs.handler` resolve seamlessly. Entrypoint discovery SHALL recognize `.mts` extensions alongside `.ts`.
+
+#### Scenario: Default build emits companion package.json with type module
+- **WHEN** `nextrush build` compiles an application to `dist/`
+- **THEN** `dist/package.json` exists with `"type": "module"` and preserves any pre-existing custom properties
+
+#### Scenario: Serverless build emits dual-entry mjs bridge
+- **WHEN** `nextrush build --serverless` runs or `@nextrush/adapter-serverless` is in dependencies
+- **THEN** `dist/index.mjs` is emitted re-exporting the primary JavaScript entrypoint
+
+#### Scenario: Entrypoint discovery supports .mts extensions
+- **WHEN** a project defines an entrypoint using `.mts` (such as `src/index.mts` or `package.json` main ending in `.mjs`)
+- **THEN** `findEntry()` discovers the `.mts` entrypoint without requiring explicit CLI arguments
+

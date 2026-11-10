@@ -7,8 +7,9 @@
  */
 
 import { createApp } from '@nextrush/core';
+import { ServerStartError } from '@nextrush/runtime';
 import { describe, expect, it } from 'vitest';
-import { createHandler } from '../adapter';
+import { createHandler, serve } from '../adapter';
 
 const info = { remoteAddr: { hostname: '127.0.0.1', port: 1234 } };
 
@@ -59,5 +60,45 @@ describe('deno adapter — F-08 timeout', () => {
     expect(res.status).toBe(504);
     await new Promise((r) => setTimeout(r, 5));
     expect(aborted).toBe(true);
+  });
+});
+
+describe('deno adapter — runtime guarding and ergonomics', () => {
+  it('throws ServerStartError with ERR_RUNTIME_NOT_DETECTED when serve() is called in non-Deno runtime', async () => {
+    const originalDeno = (globalThis as unknown as { Deno?: unknown }).Deno;
+    try {
+      // Ensure Deno is absent in the test execution environment
+      delete (globalThis as unknown as { Deno?: unknown }).Deno;
+
+      const app = createApp();
+      await expect(serve(app, { port: 0 })).rejects.toThrow(ServerStartError);
+
+      try {
+        await serve(app, { port: 0 });
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(ServerStartError);
+        const serverError = err as ServerStartError;
+        expect(serverError.code).toBe('ERR_RUNTIME_NOT_DETECTED');
+        expect(serverError.message).toContain('Deno runtime not detected');
+      }
+    } finally {
+      if (originalDeno !== undefined) {
+        (globalThis as unknown as { Deno?: unknown }).Deno = originalDeno;
+      }
+    }
+  });
+
+  it('functions without a second info argument', async () => {
+    const app = createApp();
+    app.use(async (ctx) => {
+      ctx.json({ ok: true });
+    });
+    const handler = createHandler(app, { timeout: 0 });
+
+    // Call with ONLY the request argument (no dummy info object)
+    const res = await handler(new Request('http://localhost/'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({ ok: true });
   });
 });

@@ -10,7 +10,7 @@
 import type { EventMapper } from '../types';
 import { TEXT_CONTENT_TYPE, base64ToBytes, bytesToBase64 } from './_v2';
 
-/** API Gateway v1 (REST API) event (payload format 1.0). */
+/** API Gateway v1 (REST API) event (payload format 1.0) and ALB event. */
 export interface ApiGatewayV1Event {
   httpMethod: string;
   path?: string;
@@ -20,11 +20,16 @@ export interface ApiGatewayV1Event {
   multiValueHeaders?: Record<string, string[] | undefined> | null;
   body?: string | null;
   isBase64Encoded?: boolean;
+  requestContext?: {
+    elb?: { targetGroupArn?: string };
+    identity?: { sourceIp?: string };
+  } | null;
 }
 
-/** API Gateway v1 (REST API) result (payload format 1.0). */
+/** API Gateway v1 (REST API) and ALB result (payload format 1.0). */
 export interface ApiGatewayV1Result {
   statusCode: number;
+  statusDescription?: string;
   headers: Record<string, string>;
   multiValueHeaders?: Record<string, string[]>;
   body: string;
@@ -69,6 +74,10 @@ function toRequest(event: ApiGatewayV1Event): Request {
     }
   }
 
+  if (!headers.has('x-forwarded-for') && event.requestContext?.identity?.sourceIp) {
+    headers.set('x-forwarded-for', event.requestContext.identity.sourceIp);
+  }
+
   const bodilessMethod = method === 'GET' || method === 'HEAD';
   let body: BodyInit | undefined;
   if (!bodilessMethod && event.body !== undefined && event.body !== null) {
@@ -78,7 +87,7 @@ function toRequest(event: ApiGatewayV1Event): Request {
   return new Request(url, { method, headers, body });
 }
 
-async function fromResponse(response: Response): Promise<ApiGatewayV1Result> {
+async function fromResponse(response: Response, event?: ApiGatewayV1Event): Promise<ApiGatewayV1Result> {
   const headers: Record<string, string> = {};
   for (const [name, value] of response.headers.entries()) {
     if (name.toLowerCase() === 'set-cookie') continue;
@@ -92,8 +101,14 @@ async function fromResponse(response: Response): Promise<ApiGatewayV1Result> {
   const contentType = response.headers.get('content-type') ?? '';
   const isText = bytes.length === 0 || TEXT_CONTENT_TYPE.test(contentType);
 
+  const isAlb = event?.requestContext?.elb !== undefined;
+  const statusDescription = isAlb
+    ? `${String(response.status)} ${response.statusText || 'OK'}`
+    : undefined;
+
   return {
     statusCode: response.status,
+    ...(statusDescription !== undefined ? { statusDescription } : {}),
     headers,
     ...(multiValueHeaders !== undefined ? { multiValueHeaders } : {}),
     body: isText ? new TextDecoder().decode(bytes) : bytesToBase64(bytes),
@@ -101,10 +116,10 @@ async function fromResponse(response: Response): Promise<ApiGatewayV1Result> {
   };
 }
 
-/** AWS API Gateway v1 / REST API (payload format 1.0) EventMapper. */
+/** AWS API Gateway v1 / REST API and ALB (payload format 1.0) EventMapper. */
 export const apigwV1: EventMapper<ApiGatewayV1Event, ApiGatewayV1Result> = {
   name: 'apigw-v1',
   toRequest,
   fromResponse,
-  detect: (event) => typeof event.httpMethod === 'string' && event.multiValueHeaders !== undefined,
+  detect: (event) => typeof event.httpMethod === 'string' && (event as { version?: string }).version !== '2.0',
 };

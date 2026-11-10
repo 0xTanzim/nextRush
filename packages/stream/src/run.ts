@@ -86,9 +86,9 @@ function runStream<W>(
     pull(): void {
       controller.onPull();
     },
-    cancel(): void {
-      // Consumer cancelled the read side — release any pending backpressure wait.
-      controller.onPull();
+    cancel(reason): void {
+      // Consumer cancelled the read side — release pending backpressure and trigger abort cleanup.
+      controller.onCancel(reason);
     },
   });
 

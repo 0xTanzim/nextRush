@@ -13,6 +13,7 @@ import {
   DEFAULT_TIMEOUT_MS,
   jsonErrorResponse,
   normalizeStartupError,
+  ServerStartError,
 } from '@nextrush/runtime';
 import type { AdapterContextFactory, HandlerOptions, ProxyTrust, ServerAdapter } from '@nextrush/types';
 import { createBunContext } from './context';
@@ -185,7 +186,7 @@ export interface ServerInstance {
  */
 export type BunFetchHandler = (
   request: Request,
-  server: ReturnType<typeof Bun.serve>
+  server?: ReturnType<typeof Bun.serve>
 ) => Response | Promise<Response>;
 
 /**
@@ -202,7 +203,7 @@ export type BunFetchHandler = (
 function createBunRequestRunner(app: Application, options: HandlerOptions): BunFetchHandler {
   const proxy = app.options.proxy ?? false;
 
-  return createWebRunner<BunContext, ReturnType<typeof Bun.serve>>(app, {
+  return createWebRunner<BunContext, ReturnType<typeof Bun.serve> | undefined>(app, {
     label: 'bun',
     timeout: options.timeout ?? DEFAULT_TIMEOUT_MS,
     logger: options.logger,
@@ -374,6 +375,15 @@ export async function serve(
 
   // Boot extensions before building the request handler (deferred boot barrier).
   await app.ready();
+
+  const bunGlobal = (globalThis as unknown as { Bun?: { serve?: unknown } }).Bun;
+  if (!bunGlobal || typeof bunGlobal.serve !== 'function') {
+    throw new ServerStartError(
+      `[@nextrush/adapter-bun] Bun runtime not detected (global 'Bun.serve' is undefined). ` +
+      `If you are running on Node.js or Vercel Serverless, please use '@nextrush/adapter-node' or '@nextrush/adapter-serverless'.`,
+      { code: 'ERR_RUNTIME_NOT_DETECTED', port, host }
+    );
+  }
 
   // F-07: serve composes the SAME handler createHandler produces (with timeout).
   // No per-request wrapper: Bun's `stop()` promise reports drain completion.

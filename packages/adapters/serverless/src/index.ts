@@ -21,6 +21,19 @@ export { createLambdaHandler } from './lambda';
 export type { LambdaEvent, LambdaResult } from './lambda';
 export { createGoogleHandler, createGcfHandler } from './google';
 export { createAzureHandler } from './azure';
+export {
+  createVercelHandler,
+  isServerlessEnvironment,
+  isStandaloneEnvironment,
+  listenIfStandalone,
+} from './vercel';
+export type {
+  VercelHandler,
+  VercelHandlerOptions,
+  VercelListenOptions,
+  VercelRouteHandlers,
+  VercelWebHandler,
+} from './types';
 export { createLambdaStreamingHandler } from './lambda-streaming';
 export type {
   AwsLambdaStreaming,
@@ -44,11 +57,14 @@ export type { EventMapper, ServerlessAdapterOptions, ServerlessHandler } from '.
 // (RFC-027) — fixture testing, a custom bridge, or a non-standard host.
 export { createGoogleEventHandler, toGcfEvent, writeGcfResult } from './google';
 export { createAzureEventHandler, toAzureEvent, toAzureResponse } from './azure';
+export { toVercelWebRequest, writeVercelWebResponse } from './vercel';
 export type {
   AzureHttpRequestLike,
   AzureHttpResponseLike,
   GcfHttpRequest,
   GcfHttpResponse,
+  VercelIncomingMessageLike,
+  VercelServerResponseLike,
 } from './platform-shapes';
 
 // Built-in mappers (Tier 3 building blocks — the Tier-1 handlers wire these for you)
@@ -69,3 +85,8 @@ export type { GcfEvent, GcfResult } from './mappers/gcf';
 
 export { azure } from './mappers/azure';
 export type { AzureEvent, AzureResult } from './mappers/azure';
+
+// ─── Standalone Serverless Packaging Helper ─────────────────────────────────
+export { prepareServerlessPackage } from './packaging';
+export type { PrepareServerlessOptions, PrepareServerlessResult } from './packaging';
+

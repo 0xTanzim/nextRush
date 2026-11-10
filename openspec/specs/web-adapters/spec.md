@@ -764,3 +764,78 @@ capability, including the Node body source, SHALL keep its existing read path.
 
 - **WHEN** a body source does not expose the limited text capability
 - **THEN** body-parser uses its existing `buffer(limit)` path and error mapping
+
+### Requirement: Bun and Deno server startup runtime environment verification
+When `serve()` in `@nextrush/adapter-bun` or `@nextrush/adapter-deno` is invoked, the adapter SHALL verify that the native runtime global and server method (`globalThis.Bun.serve` or `globalThis.Deno.serve`) exist before attempting to start the server. If the expected runtime is not detected, it SHALL throw a `ServerStartError` with error code `'ERR_RUNTIME_NOT_DETECTED'`, detailing the missing runtime and recommending the appropriate alternative adapter.
+
+#### Scenario: Non-Bun runtime invocation of Bun adapter serve()
+- **WHEN** `serve()` in `@nextrush/adapter-bun` is called in an environment where `globalThis.Bun.serve` is undefined
+- **THEN** it throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` naming the missing Bun runtime and recommending `@nextrush/adapter-node` or `@nextrush/adapter-serverless`
+
+#### Scenario: Non-Deno runtime invocation of Deno adapter serve()
+- **WHEN** `serve()` in `@nextrush/adapter-deno` is called in an environment where `globalThis.Deno.serve` is undefined
+- **THEN** it throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` naming the missing Deno runtime and recommending `@nextrush/adapter-node`
+
+### Requirement: Optional server context parameter in Bun and Deno request runners
+The request handler returned by `createHandler()` in `@nextrush/adapter-bun` SHALL accept an optional `server?: ReturnType<typeof Bun.serve>`, and the handler returned by `createHandler()` in `@nextrush/adapter-deno` SHALL accept an optional `info?: DenoServeHandlerInfo`, allowing direct single-argument `handler(request)` invocation without requiring caller-provided dummy objects.
+
+#### Scenario: Single-argument Bun handler invocation
+- **WHEN** `handler(request)` in `@nextrush/adapter-bun` is invoked with a single Web standard `Request` without a second server parameter
+- **THEN** it executes the request pipeline and returns a valid Web standard `Response`
+
+#### Scenario: Single-argument Deno handler invocation
+- **WHEN** `handler(request)` in `@nextrush/adapter-deno` is invoked with a single Web standard `Request` without a second info parameter
+- **THEN** it executes the request pipeline and returns a valid Web standard `Response`
+
+#### Scenario: Full runtime server inspection preserved when provided
+- **WHEN** `Bun.serve` or `Deno.serve` invokes the handler providing the runtime's native server or info object
+- **THEN** client IP address resolution uses the native server object properties
+
+### Requirement: Runtime environment detection re-exports on Web adapters
+`@nextrush/adapter-bun` SHALL export `isBun` and `isBunRuntime`, and `@nextrush/adapter-deno` SHALL export `isDeno` and `isDenoRuntime`, enabling consumer code and test runners to inspect the active execution environment prior to binding sockets.
+
+#### Scenario: Consumer checks Bun environment before starting server
+- **WHEN** a consumer calls `isBun()` or `isBunRuntime()` from `@nextrush/adapter-bun`
+- **THEN** it returns `true` when running on Bun and `false` otherwise
+
+#### Scenario: Consumer checks Deno environment before starting server
+- **WHEN** a consumer calls `isDeno()` or `isDenoRuntime()` from `@nextrush/adapter-deno`
+- **THEN** it returns `true` when running on Deno and `false` otherwise
+
+### Requirement: Universal Web Standards Fetch (`app.fetch`)
+
+The `Application` class in `@nextrush/core` and the `nextrush` entrypoint SHALL provide an instance-bound `app.fetch` method adhering to the Web Platform `fetch` signature. It SHALL enable direct zero-boilerplate export across Bun (`export default app;`), Cloudflare Workers (`export default app;`), Vercel Edge (`export default { fetch: app.fetch }`), Deno (`Deno.serve(app.fetch)`), and Web standard fetch unit tests without requiring adapter imports.
+
+#### Scenario: Direct zero-boilerplate export on Web runtimes
+- **WHEN** an application instance is exported as `export default app;` or `{ fetch: app.fetch }`
+- **THEN** it accepts incoming Web standard `Request` objects and dispatches through the application pipeline, returning a valid Web standard `Response` or `Promise<Response>`
+
+#### Scenario: Multi-runtime signature normalization
+- **WHEN** `app.fetch` is called with runtime-specific arguments (Cloudflare Workers `(request, env, ctx)`, Vercel Edge `(request, ctx)`, Bun `(request, server)`, Deno `(request, info)`, or single-argument `(request)`)
+- **THEN** `UniversalWebContext` normalizes the arguments transparently, providing access to `ctx.env`, `ctx.waitUntil()`, and native client IP resolution
+
+#### Scenario: Zero overhead on traditional Node.js servers
+- **WHEN** an application is started using `listen(app, port)` without calling `app.fetch`
+- **THEN** the universal fetch runner is never initialized, incurring zero memory allocations, zero CPU cycles, and zero timer scheduling
+
+#### Scenario: Deferred boot barrier memoization
+- **WHEN** multiple concurrent requests arrive on an unbooted cold application instance via `app.fetch`
+- **THEN** the boot barrier (`app.ready()`) executes exactly once and memoizes the booted handler, dispatching all concurrent requests without race conditions or multiple initialization passes
+
+### Requirement: Edge adapter Vercel waitUntil integration and AppSource support
+
+In `@nextrush/adapter-edge`, `EdgeContext.prototype.waitUntil` and the handler factories (`createFetchHandler`, `createCloudflareHandler`, `createVercelHandler`, and `createNetlifyHandler`) SHALL forward background tasks directly to host execution contexts and global request context symbols (`Symbol.for('@vercel/request-context')`, `Symbol.for('@next/request-context')`). Furthermore, all handler factories SHALL accept `AppSource<Application>` (`Application | (() => Application | Promise<Application>)`) to defer application creation and eliminate top-level `await`.
+
+#### Scenario: Vercel Edge forwards waitUntil to executionContext
+- **WHEN** running on Vercel Edge with `(request, context)` and `ctx.waitUntil(promise)` is called
+- **THEN** the promise is registered directly with `context.waitUntil(promise)` without warning
+
+#### Scenario: Vercel Edge forwards waitUntil to request context symbol
+- **WHEN** running in an environment where `globalThis[Symbol.for('@vercel/request-context')]` is present
+- **THEN** `ctx.waitUntil(promise)` forwards the promise to the request context bridge
+
+#### Scenario: Edge handlers accept AppSource async factory
+- **WHEN** `createVercelHandler` or `createFetchHandler` is initialized with an async factory function
+- **THEN** initialization runs lazily on the first request and is memoized across warm invocations
+
+

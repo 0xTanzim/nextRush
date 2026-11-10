@@ -10,8 +10,8 @@
  */
 
 import type { Application } from '@nextrush/core';
-import { createFetchHandler as createEdgeFetchHandler } from '@nextrush/adapter-edge';
-import type { EventMapper, ServerlessAdapterOptions, ServerlessHandler } from './types';
+import { createFetchHandler as createEdgeFetchHandler, type EdgeExecutionContext } from '@nextrush/adapter-edge';
+import type { AppSource, EventMapper, ServerlessAdapterOptions, ServerlessHandler } from './types';
 
 /**
  * Resolve the mapper for an invocation.
@@ -65,21 +65,74 @@ function resolveMapper<Event, Result, Ctx>(
  */
 export function createServerlessAdapter<Event, Result, Ctx = unknown>(
   options: ServerlessAdapterOptions<Event, Result, Ctx>
-): { createHandler(app: Application): ServerlessHandler<Event, Result, Ctx> } {
+): { createHandler(appSource: AppSource<Application>): ServerlessHandler<Event, Result, Ctx> } {
   const { mappers, provider, timeout, platform } = options;
   return {
-    createHandler(app: Application): ServerlessHandler<Event, Result, Ctx> {
-      // Reuse the edge fetch engine: boots ready() once (warm reuse), races the
-      // per-invocation timeout to a 504, and runs the shared Context pipeline.
-      const engine = createEdgeFetchHandler(app, {
+    createHandler(appSource: AppSource<Application>): ServerlessHandler<Event, Result, Ctx> {
+      // Reuse the edge fetch engine: supports AppSource (memoizing async factory on first request),
+      // races the per-invocation timeout to a 504, and runs the shared Context pipeline.
+      const engine = createEdgeFetchHandler(appSource, {
         ...(timeout !== undefined ? { timeout } : {}),
         ...(platform !== undefined ? { platform } : {}),
       });
+
       return async (event: Event, platformCtx?: Ctx): Promise<Result> => {
+        if (platformCtx && typeof platformCtx === 'object' && 'callbackWaitsForEmptyEventLoop' in platformCtx) {
+          (platformCtx as { callbackWaitsForEmptyEventLoop: boolean }).callbackWaitsForEmptyEventLoop = false;
+        }
+
         const mapper = resolveMapper(mappers, provider, event);
         const request = mapper.toRequest(event, platformCtx);
-        const response = await engine(request);
-        return mapper.fromResponse(response, event);
+
+        // Track background tasks registered via ctx.waitUntil()
+        const trackedTasks: Promise<unknown>[] = [];
+        const executionContext: EdgeExecutionContext = {
+          waitUntil(promise: Promise<unknown>): void {
+            // Shield against unhandled promise rejections on the Node event loop during request dispatch
+            promise.catch(() => {
+              // Intentionally ignore rejected background tasks here as they are settled after response
+            });
+            trackedTasks.push(promise);
+          },
+        };
+
+        const response = await engine(request, executionContext);
+        const result = await mapper.fromResponse(response, event);
+
+        // Settle background tasks before serverless platform freezes the container
+        if (trackedTasks.length > 0) {
+          const lambdaRemainingMs =
+            typeof (platformCtx as { getRemainingTimeInMillis?: () => number } | null | undefined)?.getRemainingTimeInMillis ===
+            'function'
+              ? (platformCtx as { getRemainingTimeInMillis: () => number }).getRemainingTimeInMillis() - 500
+              : undefined;
+
+          const maxWaitMs =
+            lambdaRemainingMs !== undefined
+              ? Math.max(0, Math.min(lambdaRemainingMs, 5000))
+              : 5000;
+
+          if (maxWaitMs > 0) {
+            let timerId: ReturnType<typeof setTimeout> | undefined;
+            const timeoutPromise = new Promise((resolve) => {
+              timerId = setTimeout(resolve, maxWaitMs);
+              if (typeof (timerId as { unref?: () => void } | null | undefined)?.unref === 'function') {
+                (timerId as { unref: () => void }).unref();
+              }
+            });
+
+            await Promise.race([
+              Promise.allSettled(trackedTasks),
+              timeoutPromise,
+            ]).finally(() => {
+              if (timerId !== undefined) {
+                clearTimeout(timerId);
+              }
+            });
+          }
+        }
+
+        return result;
       };
     },
   };

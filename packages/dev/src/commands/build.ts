@@ -25,6 +25,7 @@ import {
   buildWithSwc,
   buildWithBun,
   buildWithDeno,
+  emitPackagingArtifacts,
   parseBuildTarget,
   resolveBuildOptions,
   type BuildOptions,
@@ -121,6 +122,9 @@ export async function build(entry?: string, options: BuildOptions = {}): Promise
     await buildWithSwc(resolvedEntry, resolved.outDir, resolved);
   }
 
+  // Emit serverless & ESM packaging artifacts (dist/package.json and optional .mjs bridge)
+  await emitPackagingArtifacts(cwd, resolvedEntry, resolved.outDir, resolved);
+
   const duration = Date.now() - startTime;
   newline();
   success(`Build completed in ${formatDuration(duration)}`);
@@ -184,6 +188,11 @@ export async function buildCli(args: string[]): Promise<void> {
       }
       case '--no-clean': {
         options.clean = false;
+        break;
+      }
+      case '--serverless':
+      case '-s': {
+        options.serverless = true;
         break;
       }
       case '--verbose':
@@ -268,6 +277,7 @@ Options:
   --cache                   Use incremental build cache (default: true)
   --no-cache                Disable build cache
   --no-clean                Don't clean output directory
+  --serverless, -s          Emit serverless ESM compatibility artifacts (package.json, .mjs bridge)
   --verbose, -v             Verbose output
 
 Examples:

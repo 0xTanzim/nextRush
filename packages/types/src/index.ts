@@ -105,6 +105,7 @@ export {
 // ============================================================================
 
 export {
+  type AppSource,
   type FetchAdapter,
   type FetchHandler,
   type FetchHandlerOptions,
@@ -114,6 +115,8 @@ export {
   // Canonical address + handle
   type ServerAddress,
   type ServerHandle,
+  // Universal fetch handler (Milestone 2)
+  type UniversalFetchHandler,
 } from './adapter';
 
 // ============================================================================

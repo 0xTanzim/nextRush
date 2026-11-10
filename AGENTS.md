@@ -378,3 +378,22 @@ Do not call work complete while required verification or documentation is outsta
 ---
 
 NextRush succeeds when developers spend less time learning the framework and more time building their applications.
+<!-- faultline:start -->
+## Faultline adversarial engineering gate
+
+For substantial new features, architecture changes, APIs/data models, authentication/authorization, integrations, migrations, bug fixes with broad impact, or major refactors:
+
+1. Before `/opsx:propose`, invoke `faultline-preflight`.
+2. For an existing repository, brownfield reconnaissance is mandatory: inspect the actual repository, entry points, modules, dependencies, data/state, runtime, configuration, tests, CI, deployment, observability and recovery boundaries.
+3. Trace concrete code paths and side effects. Identify current behavior/contracts that must remain true and all affected callers/consumers.
+4. Try to falsify the actual implementation where relevant: inspect test scripts, run safe focused checks when permitted, model duplicate/retry/concurrency/interruption/partial-commit paths, and clearly separate executed tests from proposed tests.
+5. Use specialist agents when supported. Antigravity uses `.agents/agents/` with native subagent invocation. OpenCode users can select `faultline-orchestrator` as the primary agent; it can invoke only the named read-only specialists. On other hosts, use sequential passes and disclose that they are not independent.
+6. Keep preflight read-only. Do not change production code, migrations, config, tests or deployment files. Ask before ambiguous or side-effecting test commands.
+7. Save reports under `docs/engineering/pre-spec/` for proposed changes or `docs/engineering/faultline/` for general existing-code audits.
+8. During OpenSpec exploration/proposal, translate Critical/High risks into explicit requirements and testable Given/When/Then scenarios, or document accepted/deferred/out-of-scope decisions with rationale.
+9. After the proposal exists, run `faultline-spec-audit` before implementation.
+10. Do not claim exhaustive coverage. Record inspected scope, evidence, uninspected areas, commands actually run, uncertainty, agent provenance and blind spots. A defensible no-finding result is valid.
+
+Faultline is an analysis workflow, not a permission boundary. Host permissions and CI are required for hard enforcement.
+<!-- faultline:end -->
+

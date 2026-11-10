@@ -13,6 +13,7 @@ import {
   DEFAULT_TIMEOUT_MS,
   jsonErrorResponse,
   normalizeStartupError,
+  ServerStartError,
 } from '@nextrush/runtime';
 import type { AdapterContextFactory, HandlerOptions, ProxyTrust, ServerAdapter } from '@nextrush/types';
 import { createDenoContext } from './context';
@@ -201,7 +202,7 @@ export interface ServerInstance {
 export function createHandler(
   app: Application,
   options: HandlerOptions = {}
-): (request: Request, info: DenoServeHandlerInfo) => Response | Promise<Response> {
+): (request: Request, info?: DenoServeHandlerInfo) => Response | Promise<Response> {
   const proxy = app.options.proxy ?? false;
 
   // Boot barrier, dispatch, timeout race, not-found finalize, and error handling
@@ -345,6 +346,15 @@ export async function serve(
 
   // Boot extensions before building the request handler (deferred boot barrier).
   await app.ready();
+
+  const denoGlobal = (globalThis as unknown as { Deno?: { serve?: unknown } }).Deno;
+  if (!denoGlobal || typeof denoGlobal.serve !== 'function') {
+    throw new ServerStartError(
+      `[@nextrush/adapter-deno] Deno runtime not detected (global 'Deno.serve' is undefined). ` +
+      `If you are running on Node.js or Vercel Serverless, please use '@nextrush/adapter-node' or '@nextrush/adapter-serverless'.`,
+      { code: 'ERR_RUNTIME_NOT_DETECTED', port, host }
+    );
+  }
 
   const handler = createHandler(app, { timeout, logger: options.logger });
 

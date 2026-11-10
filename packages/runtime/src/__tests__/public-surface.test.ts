@@ -14,13 +14,16 @@ import {
   DEFAULT_KEEP_ALIVE_TIMEOUT_MS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
+  DEFAULT_UNIVERSAL_TIMEOUT_MS,
   DenoDeployProfile,
   DenoProfile,
   EdgeProfile,
   LambdaProfile,
   METHODS_WITHOUT_BODY,
   NodeProfile,
+  UniversalWebContext,
   VercelEdgeProfile,
+  createUniversalFetchHandler,
 } from '../index';
 import type {
   BodySource,
@@ -40,6 +43,9 @@ import type {
   RuntimeCapabilities,
   RuntimeInfo,
   ServerStartErrorCode,
+  UniversalContextOptions,
+  UniversalExecutionContext,
+  UniversalFetchOptions,
   WebRunnerApp,
   WebRunnerContext,
   WebRunnerOptions,
@@ -85,6 +91,7 @@ describe('Public API surface (runtime exports)', () => {
       'DEFAULT_KEEP_ALIVE_TIMEOUT_MS',
       'DEFAULT_SHUTDOWN_TIMEOUT_MS',
       'DEFAULT_TIMEOUT_MS',
+      'DEFAULT_UNIVERSAL_TIMEOUT_MS',
       'METHODS_WITHOUT_BODY',
       'NULL_PROTO',
 
@@ -131,15 +138,18 @@ describe('Public API surface (runtime exports)', () => {
       'LAST_RESORT_ERROR_STATUS',
       'unansweredErrorBody',
 
-      // Shared Web Context base (F-08, ADR-0010)
+      // Shared Web Context base (F-08, ADR-0010) & Universal Web Context
+      'UniversalWebContext',
       'WebContextBase',
 
       // Boot gate
       'createBootGate',
 
-      // Shared Web runner
+      // Shared Web runner & Universal Fetch runner
+      'createUniversalFetchHandler',
       'createWebRunner',
       'SETTLE_TURNS',
+      'memoizeAppSource',
 
       // Body source
       'AbstractBodySource',
@@ -154,6 +164,9 @@ describe('Public API surface (runtime exports)', () => {
     ].sort();
 
     expect(actualExports).toEqual(expectedRuntime);
+    expect(typeof createUniversalFetchHandler).toBe('function');
+    expect(typeof UniversalWebContext).toBe('function');
+    expect(typeof DEFAULT_UNIVERSAL_TIMEOUT_MS).toBe('number');
     expect(typeof DEFAULT_TIMEOUT_MS).toBe('number');
     expect(typeof DEFAULT_KEEP_ALIVE_TIMEOUT_MS).toBe('number');
     expect(typeof DEFAULT_SHUTDOWN_TIMEOUT_MS).toBe('number');
@@ -192,6 +205,9 @@ describe('Public API surface (type-only exports)', () => {
       BootableApp<string>,
       BootGate<string>,
       BootGateOptions,
+      UniversalContextOptions,
+      UniversalExecutionContext,
+      UniversalFetchOptions,
       WebRunnerApp<(ctx: never) => Promise<void>>,
       WebRunnerContext,
       WebRunnerOptions<never, undefined>,

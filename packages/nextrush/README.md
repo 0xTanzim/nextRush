@@ -185,9 +185,29 @@ const users = createRouter();
 users.get('/', (ctx) => ctx.json([]));
 users.get('/:id', (ctx) => ctx.json({ id: ctx.params.id }));
 
-app.route('/users', users); // Hono-style composition - mount a feature router at a prefix
+app.route('/users', users); // Modular router composition - mount a feature router at a prefix
 
 listen(app, 8080);
+```
+
+### Universal Web standards export (`app.fetch`)
+
+NextRush applications can be exported directly for Bun, Cloudflare Workers, Vercel Edge, Deno, and Web standard fetch testing without importing runtime adapters:
+
+```ts
+import { createApp } from 'nextrush';
+
+const app = createApp();
+app.get('/api/ping', (ctx) => ctx.json({ status: 'ok' }));
+
+// Bun or Cloudflare Workers:
+export default app;
+
+// Vercel Edge:
+export default { fetch: app.fetch };
+
+// Deno:
+Deno.serve(app.fetch);
 ```
 
 ### Add middleware

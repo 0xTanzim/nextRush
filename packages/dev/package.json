@@ -56,7 +56,7 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@swc/core": "1.15.47"
+    "@swc/core": "^1.16.22"
   },
   "devDependencies": {
     "@types/node": "catalog:node",

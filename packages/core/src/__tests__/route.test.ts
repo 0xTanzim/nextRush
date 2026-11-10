@@ -1,7 +1,7 @@
 /**
  * @nextrush/core - app.route() Tests
  *
- * Tests for the Hono-style router mounting API
+ * Tests for the modular router mounting API (`app.route`)
  */
 
 import type { Middleware } from '@nextrush/types';

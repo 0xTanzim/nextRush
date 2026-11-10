@@ -32,7 +32,7 @@ short-lived invocations.
 | [Bun](/docs/getting-started/runtime/bun) | Local dev speed, native TypeScript, fast cold start | Younger ecosystem, some `node:*` gaps |
 | [Deno](/docs/getting-started/runtime/deno) | Secure by default, permission model | Smaller package ecosystem |
 | [Edge](/docs/getting-started/runtime/edge) | Global low latency, Cloudflare/Vercel | No long-running server, `node:*` limited |
-| **Serverless · this page** | Pay-per-request, auto-scaling, AWS/GCF/Azure | Cold starts, no persistent state |
+| **Serverless · this page** | Pay-per-request, auto-scaling, AWS/GCF/Azure/Vercel | Cold starts, no persistent state |
 
 ## What changes from Node
 
@@ -80,7 +80,7 @@ sure which one fits? See the [runtime decision guide](/docs/getting-started/runt
 - `createApp` and `createRouter` still come from `nextrush` — runtime-independent
 - `createLambdaHandler` comes from `@nextrush/adapter-serverless` — the meta-package's `listen` targets `@nextrush/adapter-node` specifically
 - Covers AWS Lambda Function URLs and both API Gateway payload formats (HTTP API v2, REST API v1) — auto-detects which event shape it received
-- Google Cloud Functions and Azure Functions have their own handlers (`createGoogleHandler`, `createAzureHandler`) from the same package
+- Google Cloud Functions, Azure Functions, and Vercel Node.js Functions have their own handlers (`createGoogleHandler`, `createAzureHandler`, `createVercelHandler`) from the same package
 
 ### Write a hello-world Lambda handler
 

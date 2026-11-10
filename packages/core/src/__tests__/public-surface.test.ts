@@ -7,7 +7,7 @@
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import * as coreApi from '../index';
-import { ContentType, HttpStatus } from '../index';
+import { ContentType, HttpStatus, DEFAULT_UNIVERSAL_TIMEOUT_MS } from '../index';
 import type {
   ApplicationOptions,
   ComposedMiddleware,
@@ -30,6 +30,9 @@ import type {
   RouteHandler,
   RouteParams,
   Router,
+  UniversalFetchHandler,
+  UniversalFetchOptions,
+  UniversalWebContext,
 } from '../index';
 
 describe('Public API surface (runtime exports)', () => {
@@ -59,11 +62,15 @@ describe('Public API surface (runtime exports)', () => {
       // Re-exported constants from @nextrush/types
       'ContentType',
       'HttpStatus',
+
+      // Universal Fetch constants from @nextrush/runtime
+      'DEFAULT_UNIVERSAL_TIMEOUT_MS',
     ].sort();
 
     expect(actualExports).toEqual(expectedRuntime);
     expect(typeof ContentType).toBe('object');
     expect(typeof HttpStatus).toBe('object');
+    expect(typeof DEFAULT_UNIVERSAL_TIMEOUT_MS).toBe('number');
   });
 });
 
@@ -93,6 +100,9 @@ describe('Public API surface (type-only exports)', () => {
       RouteHandler,
       RouteParams,
       Router,
+      UniversalFetchHandler,
+      UniversalFetchOptions,
+      UniversalWebContext,
     ];
     expectTypeOf<Surface>().not.toBeNever();
   });

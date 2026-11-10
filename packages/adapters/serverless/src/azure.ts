@@ -21,7 +21,7 @@ import { createServerlessAdapter } from './adapter';
 import { azure, type AzureEvent, type AzureResult } from './mappers/azure';
 import { TEXT_CONTENT_TYPE, base64ToBytes, bytesToBase64 } from './mappers/_v2';
 import type { AzureHttpRequestLike, AzureHttpResponseLike } from './platform-shapes';
-import type { ServerlessHandler, ServerlessHandlerOptions } from './types';
+import type { AppSource, ServerlessHandler, ServerlessHandlerOptions } from './types';
 
 /**
  * Bridge an Azure Functions v4 request into an {@link AzureEvent}.
@@ -60,21 +60,69 @@ export async function toAzureEvent(req: AzureHttpRequestLike): Promise<AzureEven
 }
 
 /**
- * Parse a raw `Set-Cookie` line's leading `name=value` pair.
+ * Parse a raw `Set-Cookie` line into Azure Functions v4 structured cookie object.
  *
  * @remarks
- * Only the pair is mapped into v4's structured `cookies` array — attribute
- * fidelity (`SameSite`, `Secure`, `Path`, …) is out of scope for this bridge
- * (RFC-027 §18); a mapper that needs full attribute fidelity should emit them
- * via a raw `Set-Cookie` header entry instead of `cookies`.
+ * Preserves security attributes (`SameSite`, `Secure`, `HttpOnly`, `Path`, `Domain`, `Max-Age`, `Expires`)
+ * so session and auth cookies retain their security guarantees on Azure Functions.
  */
-function parseSetCookiePair(line: string): { name: string; value: string } {
-  const separatorIndex = line.indexOf(';');
-  const pair = separatorIndex === -1 ? line : line.slice(0, separatorIndex);
-  const eqIndex = pair.indexOf('=');
-  return eqIndex === -1
-    ? { name: pair.trim(), value: '' }
-    : { name: pair.slice(0, eqIndex).trim(), value: pair.slice(eqIndex + 1).trim() };
+function parseSetCookie(line: string): {
+  name: string;
+  value: string;
+  domain?: string;
+  path?: string;
+  expires?: Date;
+  maxAge?: number;
+  secure?: boolean;
+  httpOnly?: boolean;
+  sameSite?: 'Strict' | 'Lax' | 'None';
+} {
+  const parts = line.split(';').map((p) => p.trim());
+  const [first = '', ...attributes] = parts;
+  const eqIdx = first.indexOf('=');
+  const name = eqIdx === -1 ? first : first.slice(0, eqIdx).trim();
+  const value = eqIdx === -1 ? '' : first.slice(eqIdx + 1).trim();
+
+  const cookie: {
+    name: string;
+    value: string;
+    domain?: string;
+    path?: string;
+    expires?: Date;
+    maxAge?: number;
+    secure?: boolean;
+    httpOnly?: boolean;
+    sameSite?: 'Strict' | 'Lax' | 'None';
+  } = { name, value };
+
+  for (const attr of attributes) {
+    const attrEq = attr.indexOf('=');
+    const attrName = (attrEq === -1 ? attr : attr.slice(0, attrEq)).toLowerCase().trim();
+    const attrVal = attrEq === -1 ? '' : attr.slice(attrEq + 1).trim();
+
+    if (attrName === 'path') {
+      cookie.path = attrVal;
+    } else if (attrName === 'domain') {
+      cookie.domain = attrVal;
+    } else if (attrName === 'httponly') {
+      cookie.httpOnly = true;
+    } else if (attrName === 'secure') {
+      cookie.secure = true;
+    } else if (attrName === 'samesite') {
+      const lower = attrVal.toLowerCase();
+      if (lower === 'strict') cookie.sameSite = 'Strict';
+      else if (lower === 'lax') cookie.sameSite = 'Lax';
+      else if (lower === 'none') cookie.sameSite = 'None';
+    } else if (attrName === 'max-age') {
+      const parsed = parseInt(attrVal, 10);
+      if (!Number.isNaN(parsed)) cookie.maxAge = parsed;
+    } else if (attrName === 'expires') {
+      const d = new Date(attrVal);
+      if (!Number.isNaN(d.getTime())) cookie.expires = d;
+    }
+  }
+
+  return cookie;
 }
 
 /**
@@ -90,7 +138,7 @@ export function toAzureResponse(result: AzureResult): AzureHttpResponseLike {
     status: result.status,
     headers: result.headers,
     ...(result.cookies !== undefined && result.cookies.length > 0
-      ? { cookies: result.cookies.map(parseSetCookiePair) }
+      ? { cookies: result.cookies.map(parseSetCookie) }
       : {}),
     body: result.isBase64Encoded ? base64ToBytes(result.body) : result.body,
   };
@@ -113,7 +161,7 @@ export function toAzureResponse(result: AzureResult): AzureHttpResponseLike {
  * ```
  */
 export function createAzureHandler(
-  app: Application,
+  app: AppSource<Application>,
   options: ServerlessHandlerOptions = {}
 ): (req: AzureHttpRequestLike, ctx?: unknown) => Promise<AzureHttpResponseLike> {
   const eventHandler = createAzureEventHandler(app, options);
@@ -132,14 +180,14 @@ export function createAzureHandler(
  * explicitly named — the honest answer for fixture tests, a custom bridge, or
  * a host whose request shape isn't v4-standard.
  *
- * @param app - The NextRush application.
+ * @param app - The NextRush application instance, or an async factory producing one.
  * @param options - Optional Tier-2 tuning ({@link ServerlessHandlerOptions}).
  * @returns A handler `(event) => Promise<result>` over the Azure v4 request essentials.
  *
  * @see {@link createAzureHandler} for the true drop-in over the real v4 `HttpRequest`.
  */
 export function createAzureEventHandler(
-  app: Application,
+  app: AppSource<Application>,
   options: ServerlessHandlerOptions = {}
 ): ServerlessHandler<AzureEvent, AzureResult> {
   return createServerlessAdapter<AzureEvent, AzureResult>({

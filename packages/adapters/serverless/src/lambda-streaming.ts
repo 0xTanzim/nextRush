@@ -21,12 +21,13 @@
 import type { Application } from '@nextrush/core';
 import { createFetchHandler as createEdgeFetchHandler } from '@nextrush/adapter-edge';
 import { v2ToRequest, type ApiGatewayV2Event } from './mappers/_v2';
-import type { ServerlessHandlerOptions } from './types';
+import type { AppSource, ServerlessHandlerOptions } from './types';
 
 /** Minimal writable surface of the Lambda-provided response stream. */
 export interface LambdaResponseStream {
-  write(chunk: Uint8Array | string): void;
+  write(chunk: Uint8Array | string): boolean | undefined;
   end(): void;
+  once?(event: string, listener: () => void): void;
 }
 
 /** The status/header prelude written ahead of a streamed body. */
@@ -72,7 +73,7 @@ function getAwsLambda(): AwsLambdaStreaming | undefined {
  * use that one unless you specifically need true Function URL response streaming.
  */
 export function createLambdaStreamingHandler(
-  app: Application,
+  app: AppSource<Application>,
   options: ServerlessHandlerOptions = {},
 ): StreamingLambdaHandler {
   const engine = createEdgeFetchHandler(
@@ -103,10 +104,19 @@ export function createLambdaStreamingHandler(
 
     if (response.body !== null) {
       const reader = response.body.getReader();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        out.write(value); // one write per produced chunk — not buffered
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const canContinue = out.write(value);
+          if (canContinue === false && typeof out.once === 'function') {
+            await new Promise<void>((resolve) => {
+              out.once?.('drain', resolve);
+            });
+          }
+        }
+      } finally {
+        reader.releaseLock();
       }
     }
     out.end();

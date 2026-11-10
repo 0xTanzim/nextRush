@@ -1,4 +1,4 @@
-import { createApp, createRouter } from 'nextrush';
+import { createApp, createRouter, type Context } from 'nextrush';
 import { handle } from '@nextrush/adapter-nextjs';
 
 // Next 14: default GET caching is static, not dynamic (flipped in 15.0.0-RC —
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 const app = createApp();
 
 const api = createRouter();
-api.get('/hello', (ctx) => {
+api.get('/hello', (ctx: Context) => {
   ctx.json({ message: 'Hello Next.js!' });
 });
 app.route('/api', api);

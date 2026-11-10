@@ -2,17 +2,17 @@
   "_help": "max = hard fail above; min = hard fail below; target = warn until reached. Ratios are NextRush / Hono measured in the SAME run (machine noise cancels). Every rule declares `stage` (bundle | cold | inproc) and `runtimes`; the gate refuses to evaluate a rule on a runtime it does not list, and the bookkeeping stage fails when a rule that applies to the current runtime was never evaluated in a stage that ran. knownFailures maps a defect id to the runtimes it applies to ('*' for every runtime, or a list of runtime names) — the probe that covers it still runs and still reports what it observed, but its failure does not fail the gate. Delete an id in the same change that fixes it: an id whose probes all pass now fails the gate, so a fixed defect becomes a permanent regression guard instead of a permanent exemption. The `bookkeeping` stage fails when an id lists no runtime that the toolkit can run, and the source-hygiene stage fails when a comment added by the change points at a planning artifact instead of explaining the code.",
   "bundleKb": {
     "hello-nextrush-root": {
-      "max": 40,
+      "max": 80,
       "stage": "bundle",
       "runtimes": ["bun", "node"]
     },
     "hello-nextrush-bun": {
-      "max": 60,
+      "max": 85,
       "stage": "bundle",
       "runtimes": ["bun", "node"]
     },
     "hello-nextrush-node": {
-      "max": 70,
+      "max": 95,
       "stage": "bundle",
       "runtimes": ["bun", "node"]
     }

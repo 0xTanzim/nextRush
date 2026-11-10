@@ -5,13 +5,21 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "nextrush-serverless-prep": "./bin/nextrush-serverless-prep.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./prepare": {
+      "types": "./dist/packaging.d.ts",
+      "import": "./dist/packaging.js"
     }
   },
   "files": [
+    "bin",
     "dist",
     "src",
     "README.md"

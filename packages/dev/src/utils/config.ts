@@ -9,24 +9,32 @@
 import { existsSync, getCwd, joinPath, readFileSync, resolvePath } from '../runtime/index.js';
 
 /**
- * Default entry file candidates
+ * Default entry file candidates (checks .mts for serverless ESM and standard .ts)
  */
 const DEFAULT_ENTRIES = [
+  'src/index.mts',
   'src/index.ts',
+  'src/main.mts',
   'src/main.ts',
+  'src/app.mts',
   'src/app.ts',
+  'src/server.mts',
   'src/server.ts',
+  'index.mts',
   'index.ts',
+  'main.mts',
   'main.ts',
+  'app.mts',
   'app.ts',
+  'server.mts',
   'server.ts',
 ];
 
 /**
  * Find the entry file for the application
  */
-export function findEntry(): string {
-  const cwd = getCwd();
+export function findEntry(customCwd?: string): string {
+  const cwd = customCwd ?? getCwd();
 
   // 1. Try package.json
   try {
@@ -37,13 +45,29 @@ export function findEntry(): string {
       // Check "main" or "module"
       const main = pkg.main ?? pkg.module;
       if (main) {
-        // If it's already a .ts file
-        if (main.endsWith('.ts') && existsSync(resolvePath(cwd, main))) {
+        // If it's already a .ts or .mts file
+        if ((main.endsWith('.ts') || main.endsWith('.mts')) && existsSync(resolvePath(cwd, main))) {
           return main;
         }
 
-        // If it's a .js file in dist, try to find corresponding .ts in src
+        // If it's a .mjs file in dist, try to find corresponding .mts or .ts in src
+        if (main.endsWith('.mjs')) {
+          const mtsEntry = main.replace('dist/', 'src/').replace('.mjs', '.mts');
+          if (existsSync(resolvePath(cwd, mtsEntry))) {
+            return mtsEntry;
+          }
+          const tsEntry = main.replace('dist/', 'src/').replace('.mjs', '.ts');
+          if (existsSync(resolvePath(cwd, tsEntry))) {
+            return tsEntry;
+          }
+        }
+
+        // If it's a .js file in dist, try to find corresponding .mts or .ts in src
         if (main.endsWith('.js')) {
+          const mtsEntry = main.replace('dist/', 'src/').replace('.js', '.mts');
+          if (existsSync(resolvePath(cwd, mtsEntry))) {
+            return mtsEntry;
+          }
           const tsEntry = main.replace('dist/', 'src/').replace('.js', '.ts');
           if (existsSync(resolvePath(cwd, tsEntry))) {
             return tsEntry;

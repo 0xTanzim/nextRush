@@ -8,7 +8,7 @@
 | --- | --- |
 | **Package** | `@nextrush/core` |
 | **Layer** | `core` (above `errors`, below `router`) |
-| **Depends on** | `@nextrush/errors` (default error serializer) · `@nextrush/types` (contracts, erased at build) — no third-party runtime deps |
+| **Depends on** | `@nextrush/errors` (default error serializer) · `@nextrush/types` (contracts, erased at build) · `@nextrush/runtime` (universal fetch runner) — no third-party runtime deps |
 | **Depended on by** | `@nextrush/router`, `@nextrush/runtime`, `@nextrush/class`, adapters, the `nextrush` meta package |
 | **Public entry** | `src/index.ts` (barrel — exports only) |
 | **Internal modules** | 6 files · 1,100 LOC · largest `application.ts` 676 LOC (above the 300 target — see Contributor notes) |
@@ -22,7 +22,8 @@
 
 - ✓ The **`Application` object** — middleware registration, router mounting, and the boot/serve/shutdown lifecycle
 - ✓ **Middleware composition** — `compose()`, the Koa-style dispatcher with single-call `next()` semantics
-- ✓ **Prefix mounting** — `app.route(prefix, router)`, rewriting `ctx.path` for a sub-router and restoring it
+- ✓ **Multi-prefix mounting** — `app.route(prefix | prefixes[], router)`, rewriting `ctx.path` for a sub-router and restoring it, with deduplication and slash normalization
+- ✓ **Universal Web fetch** — `app.fetch`, instance-bound zero-boilerplate export for Web Platform runtimes (Bun, Cloudflare Workers, Vercel Edge, Deno) with zero overhead on `listen()` servers
 - ✓ The **extension lifecycle** — `extend()` queueing, `setup()` at `ready()`, `destroy()` at `close()`, decoration collision detection
 - ✓ The **default error path** — catching a thrown error and serializing it through the `@nextrush/errors` contract
 - ✓ **Config freezing** — making `use`/`route`/`extend`/route-shortcuts throw once the app has booted

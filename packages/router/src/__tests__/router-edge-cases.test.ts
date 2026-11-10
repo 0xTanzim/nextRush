@@ -410,7 +410,7 @@ describe('Router Edge Cases', () => {
     });
   });
 
-  describe('mount() method (Hono-style)', () => {
+  describe('mount() method (modular router mounting)', () => {
     it('should mount sub-router at prefix using mount()', () => {
       const subRouter = createRouter();
       subRouter.get('/items', vi.fn());

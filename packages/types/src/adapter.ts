@@ -98,6 +98,44 @@ export type FetchHandler<Exec = unknown> = (
 ) => Response | Promise<Response>;
 
 /**
+ * A universal fetch handler compatible across all major Web standard runtimes:
+ * - 1-argument `(request)`: Node.js 22+, Deno, native fetch, unit tests
+ * - 2-argument `(request, ctx)`: Vercel Edge Functions (ExecutionContext with `waitUntil`)
+ * - 2-argument `(request, server)`: Bun (`server.requestIP`)
+ * - 2-argument `(request, info)`: Deno (`info.remoteAddr`)
+ * - 3-argument `(request, env, ctx)`: Cloudflare Workers (bindings `env` + `ExecutionContext`)
+ *
+ * @remarks
+ * The parameter signature uses optional `unknown` parameters to achieve universal
+ * contravariant assignability, allowing instance-bound `app.fetch` to be exported
+ * directly (`export default app;` or `export default { fetch: app.fetch };`) without
+ * type errors across runtime hosts.
+ *
+ * The return type `Response | Promise<Response>` supports the synchronous dispatch
+ * fast path: route handlers that settle without pending asynchronous work return a
+ * bare `Response` synchronously with zero Promise allocations.
+ */
+export type UniversalFetchHandler = (
+  request: Request,
+  envOrServerOrInfoOrCtx?: unknown,
+  executionCtx?: unknown
+) => Response | Promise<Response>;
+
+
+// ============================================================================
+// Application Source Contract (Serverless & Edge Top-Level Await Elimination)
+// ============================================================================
+
+/**
+ * An application instance, or a synchronous or asynchronous factory producing one.
+ * Used by serverless and edge adapters to defer initialization until the first request,
+ * eliminating top-level await in module evaluation scope.
+ *
+ * @typeParam TApp - The application type (adapters bind `Application`).
+ */
+export type AppSource<TApp = unknown> = TApp | (() => TApp | Promise<TApp>);
+
+/**
  * Contract for server-style adapters (node/bun/deno).
  *
  * @typeParam App - The application type (adapters bind `Application`).
