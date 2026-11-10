@@ -1,5 +1,26 @@
 # @nextrush/adapter-deno
 
+## 1.2.0
+
+### Minor Changes
+
+- [#80](https://github.com/0xTanzim/nextRush/pull/80) [`4e0169a`](https://github.com/0xTanzim/nextRush/commit/4e0169a111bea817afe45fe330dec076bb4642be) Thanks [@0xTanzim](https://github.com/0xTanzim)! - Hardens Bun and Deno adapters against runtime mismatches, eliminates mandatory second dummy server arguments, and exports runtime checking utilities ([#72](https://github.com/0xTanzim/nextrush/issues/72), [#77](https://github.com/0xTanzim/nextrush/issues/77)).
+
+  ### What's new
+  - **Defensive Runtime Guarding**: Calling `serve(app)` in `@nextrush/adapter-bun` or `@nextrush/adapter-deno` outside their target runtimes (e.g., executing Bun adapter on Node.js or in a Vercel Serverless Function without `"bunVersion"`) throws a descriptive `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` and actionable migration guidance rather than crashing with an unhandled `ReferenceError: Bun is not defined` or `ReferenceError: Deno is not defined`.
+  - **Optional Server / Info Parameter**: `createHandler(app)` in `@nextrush/adapter-bun` and `@nextrush/adapter-deno` now marks the secondary server/connection info parameter as optional (`(request: Request, server?: ...) => Response | Promise<Response>`), enabling clean direct calling `await handler(request)` without supplying dummy mock server or connection info objects.
+  - **Exported Runtime Detection**: Both `@nextrush/adapter-bun` and `@nextrush/adapter-deno` re-export `isBun` / `isDeno` (and `isBunRuntime` / `isDenoRuntime`) and `ServerStartError` for straightforward runtime inspection.
+  - **Runtime Error Hierarchy**: Adds `'ERR_RUNTIME_NOT_DETECTED'` to `ServerStartErrorCode` in `@nextrush/runtime`.
+
+### Patch Changes
+
+- Updated dependencies [[`4e0169a`](https://github.com/0xTanzim/nextRush/commit/4e0169a111bea817afe45fe330dec076bb4642be), [`914f2de`](https://github.com/0xTanzim/nextRush/commit/914f2de19ffbb4ff1790f5be86eadcc771bb7611), [`d87f80e`](https://github.com/0xTanzim/nextRush/commit/d87f80e31e27c04bb7e2bbf1adcbe33f12850afc), [`bd568d8`](https://github.com/0xTanzim/nextRush/commit/bd568d8926ea4ead65c4bce32016f691dec91140), [`4bb3dbf`](https://github.com/0xTanzim/nextRush/commit/4bb3dbf195cdc67833c598e3db1e70efa02bc93e), [`73fd473`](https://github.com/0xTanzim/nextRush/commit/73fd4736234780455adf95e69cc981d52b84422b)]:
+  - @nextrush/runtime@4.2.0
+  - @nextrush/types@4.2.0
+  - @nextrush/stream@1.0.4
+  - @nextrush/core@4.2.0
+  - @nextrush/errors@4.2.0
+
 ## 1.1.0
 
 ### Minor Changes

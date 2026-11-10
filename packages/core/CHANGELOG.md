@@ -1,5 +1,23 @@
 # @nextrush/core
 
+## 4.2.0
+
+### Minor Changes
+
+- [#80](https://github.com/0xTanzim/nextRush/pull/80) [`bd568d8`](https://github.com/0xTanzim/nextRush/commit/bd568d8926ea4ead65c4bce32016f691dec91140) Thanks [@0xTanzim](https://github.com/0xTanzim)! - feat(core,runtime,router): add universal fetch (`app.fetch`) and multi-prefix mounting ([#74](https://github.com/0xTanzim/nextrush/issues/74), [#77](https://github.com/0xTanzim/nextrush/issues/77))
+
+  - **Universal Fetch (`app.fetch`)**: Instance-bound Web standards request handler on `Application` enabling direct zero-boilerplate export (`export default app;` / `export default { fetch: app.fetch }`) across Bun, Cloudflare Workers, Vercel Edge, Deno, and Web standard fetch unit tests without manual adapter imports.
+  - **Multi-Runtime Signature Normalization**: `UniversalWebContext` transparently normalizes 5 runtime signatures (1-arg `fetch(req)`, Cloudflare Workers `(req, env, ctx)` with `ctx.env` and `ctx.waitUntil`, Vercel Edge `(req, ctx)` with `ctx.waitUntil`, Bun `(req, server)` with `server.requestIP`, and Deno `(req, info)` with `info.remoteAddr`).
+  - **Zero Overhead on Traditional Servers**: Lazily initialized fetch runner ensures Node.js `listen(app, port)` servers incur zero allocations, zero CPU overhead, and zero timer scheduling.
+  - **Multi-Prefix Router Mounting**: `app.route(prefixes, router)` and `router.mount(prefixes, subRouter)` accept arrays of path prefixes (e.g. `['/api', '/v1']`), normalizing slashes and deduplicating prefixes automatically.
+
+### Patch Changes
+
+- Updated dependencies [[`4e0169a`](https://github.com/0xTanzim/nextRush/commit/4e0169a111bea817afe45fe330dec076bb4642be), [`914f2de`](https://github.com/0xTanzim/nextRush/commit/914f2de19ffbb4ff1790f5be86eadcc771bb7611), [`bd568d8`](https://github.com/0xTanzim/nextRush/commit/bd568d8926ea4ead65c4bce32016f691dec91140), [`4bb3dbf`](https://github.com/0xTanzim/nextRush/commit/4bb3dbf195cdc67833c598e3db1e70efa02bc93e), [`73fd473`](https://github.com/0xTanzim/nextRush/commit/73fd4736234780455adf95e69cc981d52b84422b)]:
+  - @nextrush/runtime@4.2.0
+  - @nextrush/types@4.2.0
+  - @nextrush/errors@4.2.0
+
 ## 4.1.0
 
 ### Minor Changes

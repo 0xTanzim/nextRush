@@ -1,5 +1,12 @@
 # @nextrush/di
 
+## 4.2.0
+
+### Patch Changes
+
+- Updated dependencies [[`914f2de`](https://github.com/0xTanzim/nextRush/commit/914f2de19ffbb4ff1790f5be86eadcc771bb7611), [`bd568d8`](https://github.com/0xTanzim/nextRush/commit/bd568d8926ea4ead65c4bce32016f691dec91140), [`73fd473`](https://github.com/0xTanzim/nextRush/commit/73fd4736234780455adf95e69cc981d52b84422b)]:
+  - @nextrush/types@4.2.0
+
 ## 4.1.0
 
 ### Minor Changes

@@ -1,5 +1,39 @@
 # @nextrush/adapter-node
 
+## 4.2.0
+
+### Minor Changes
+
+- [#78](https://github.com/0xTanzim/nextRush/pull/78) [`914f2de`](https://github.com/0xTanzim/nextRush/commit/914f2de19ffbb4ff1790f5be86eadcc771bb7611) Thanks [@0xTanzim](https://github.com/0xTanzim)! - `ctx.json()`, `ctx.html()` and `ctx.send()` accept a second argument: a numeric status or a
+  `ResponseOptions` object.
+
+  ```ts
+  ctx.json({ users }); // unchanged
+  ctx.json({ id: 'u_123' }, 201);
+  ctx.json({ id: 'u_123' }, { status: 201, headers: { Location: '/users/u_123' } });
+  ```
+
+  - An explicit status overrides the carried `ctx.status` for that response and is recorded back onto
+    it, so post-handler middleware (logging, metrics) sees the status that was actually sent.
+  - Accepted statuses are integers 200-599; anything else throws a `RangeError` before the response is
+    committed.
+  - Supplied headers merge with recorded headers: an ordinary field overrides its earlier value,
+    `Set-Cookie` accumulates, an array replaces then appends, and a supplied `Content-Type` wins over
+    the helper's automatic media type. `Content-Length` is derived from the body and is rejected.
+  - `ctx.status = code` is unchanged and remains supported.
+
+  Behavior fix included: an explicitly recorded `Content-Type` now wins over a body method's default
+  media type in both orders, which is the behavior the adapter contract already documented.
+
+### Patch Changes
+
+- Updated dependencies [[`4e0169a`](https://github.com/0xTanzim/nextRush/commit/4e0169a111bea817afe45fe330dec076bb4642be), [`914f2de`](https://github.com/0xTanzim/nextRush/commit/914f2de19ffbb4ff1790f5be86eadcc771bb7611), [`d87f80e`](https://github.com/0xTanzim/nextRush/commit/d87f80e31e27c04bb7e2bbf1adcbe33f12850afc), [`bd568d8`](https://github.com/0xTanzim/nextRush/commit/bd568d8926ea4ead65c4bce32016f691dec91140), [`4bb3dbf`](https://github.com/0xTanzim/nextRush/commit/4bb3dbf195cdc67833c598e3db1e70efa02bc93e), [`73fd473`](https://github.com/0xTanzim/nextRush/commit/73fd4736234780455adf95e69cc981d52b84422b)]:
+  - @nextrush/runtime@4.2.0
+  - @nextrush/types@4.2.0
+  - @nextrush/stream@1.0.4
+  - @nextrush/core@4.2.0
+  - @nextrush/errors@4.2.0
+
 ## 4.1.0
 
 ### Minor Changes
