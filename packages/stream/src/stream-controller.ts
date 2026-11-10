@@ -108,6 +108,8 @@ export class StreamController {
       await this._waitForPull();
       // Re-check via the signal directly: the client may have disconnected
       // while we were parked on backpressure.
+      // oxlint-disable-next-line typescript/no-unnecessary-condition
+      /* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */
       if (this.aborted || this._closed) throw new StreamAbortedError();
     }
   }
