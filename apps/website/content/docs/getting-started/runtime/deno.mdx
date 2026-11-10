@@ -85,6 +85,17 @@ before continuing.
 
 - **Why this matters:** like Bun, the `nextrush` meta-package does not bundle a runtime adapter — you add `@nextrush/adapter-deno` alongside it.
 
+<Callout type="info">
+  **Native `Deno.serve` with `app.fetch`**: You can pass `app.fetch` directly to Deno's native HTTP server:
+  ```ts
+  import { createApp } from 'npm:nextrush';
+  const app = createApp();
+  app.get('/', (ctx) => ctx.json({ status: 'ok' }));
+  Deno.serve(app.fetch);
+  ```
+  Use `@nextrush/adapter-deno`'s `listen(app, 8080)` when you prefer the unified NextRush server lifecycle across runtimes.
+</Callout>
+
 **Do:** Deno resolves npm packages directly with the `npm:` specifier — no separate lockfile
 step needed for a quick script:
 

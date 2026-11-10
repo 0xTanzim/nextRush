@@ -126,6 +126,14 @@ Create the handler for your platform:
     export default createCloudflareHandler(app);
     ```
 
+    <Callout type="info">
+      **Universal Fetch (`app.fetch`)**: Starting in NextRush v4, you can also export the application directly with zero adapter imports:
+      ```ts
+      export default app; // or: export default { fetch: app.fetch };
+      ```
+      When using Cloudflare environment bindings (`env`) or background execution tasks (`ctx.waitUntil`), use `createCloudflareHandler(app)` to ensure bindings and execution context are fully mapped to `ctx.env` and `ctx.waitUntil`.
+    </Callout>
+
     ```toml title="wrangler.toml"
     name = "my-nextrush-worker"
     main = "src/index.ts"
