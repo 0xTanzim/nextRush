@@ -46,8 +46,7 @@ export function detectTopLevelAwait(content: string): TopLevelAwaitCheckResult {
     }
 
     // Update block brace depth
-    for (let j = 0; j < rawLine.length; j++) {
-      const char = rawLine[j];
+    for (const char of rawLine) {
       if (char === '{') {
         braceDepth++;
       } else if (char === '}') {

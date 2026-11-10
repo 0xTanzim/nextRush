@@ -26,8 +26,6 @@ import { RESOLVED_PROMISE, SECURITY_AUDIT } from '@nextrush/types';
 import {
   createUniversalFetchHandler,
   type UniversalFetchOptions,
-  type UniversalWebContext,
-  type WebRunnerApp,
 } from '@nextrush/runtime';
 import { compose } from './middleware';
 import { writeDefaultErrorResponse } from './error-handler';
@@ -437,7 +435,7 @@ export class Application {
   route(path: string | readonly string[], router: Routable): this {
     this.assertConfigurable('route');
 
-    if (!router || typeof router.routes !== 'function') {
+    if (typeof (router as unknown as { routes?: unknown } | null | undefined)?.routes !== 'function') {
       throw new TypeError('app.route() requires a router with a routes() method');
     }
 
@@ -445,10 +443,11 @@ export class Application {
       if (path.length === 0) {
         throw new Error('app.route() requires at least one path prefix when an array is provided');
       }
-      for (const p of path) {
+      for (const p of path as readonly unknown[]) {
         if (typeof p !== 'string') {
+          const actualP: unknown = p;
           throw new TypeError(
-            `Route path prefix must be a string, received ${p === null ? 'null' : typeof p}`
+            `Route path prefix must be a string, received ${actualP === null ? 'null' : typeof actualP}`
           );
         }
         if (p.length === 0) {
@@ -456,7 +455,7 @@ export class Application {
         }
       }
       const seen = new Set<string>();
-      for (const p of path) {
+      for (const p of path as readonly string[]) {
         const normalized = this.normalizeMountPrefix(p);
         if (!seen.has(normalized)) {
           seen.add(normalized);
@@ -466,13 +465,15 @@ export class Application {
       return this;
     }
 
-    if (typeof path !== 'string') {
+    if (typeof (path as unknown) !== 'string') {
+      const actualPath: unknown = path;
       throw new TypeError(
-        `Route path prefix must be a string or array of strings, received ${path === null ? 'null' : typeof path}`
+        `Route path prefix must be a string or array of strings, received ${actualPath === null ? 'null' : typeof actualPath}`
       );
     }
 
-    const normalizedPrefix = this.normalizeMountPrefix(path);
+    const singlePath = path as string;
+    const normalizedPrefix = this.normalizeMountPrefix(singlePath);
 
     // Root mount optimization: skip all prefix processing
     if (normalizedPrefix === '/') {
@@ -782,7 +783,7 @@ export class Application {
       this._bootSync();
     }
     return (this._fetchRunner ??= createUniversalFetchHandler(
-      this as unknown as WebRunnerApp<(ctx: UniversalWebContext) => Promise<void>>,
+      this,
       this.options.fetch
     ));
   }

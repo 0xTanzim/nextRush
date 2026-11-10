@@ -65,7 +65,7 @@ export function v2ToRequest(event: ApiGatewayV2Event): Request {
   for (const [name, value] of Object.entries(event.headers ?? {})) {
     if (value !== undefined) headers.set(name, value);
   }
-  if (!headers.has('x-forwarded-for') && event.requestContext?.http?.sourceIp) {
+  if (!headers.has('x-forwarded-for') && event.requestContext.http.sourceIp) {
     headers.set('x-forwarded-for', event.requestContext.http.sourceIp);
   }
   if (event.cookies !== undefined && event.cookies.length > 0) {
@@ -74,7 +74,7 @@ export function v2ToRequest(event: ApiGatewayV2Event): Request {
 
   const bodilessMethod = method === 'GET' || method === 'HEAD';
   let body: BodyInit | undefined;
-  if (!bodilessMethod && event.body !== undefined && event.body !== null && event.body !== '') {
+  if (!bodilessMethod && event.body !== undefined && event.body !== '') {
     body = event.isBase64Encoded === true ? (base64ToBytes(event.body) as BodyInit) : event.body;
   }
 

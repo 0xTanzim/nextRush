@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    pool: 'threads',
+    pool: 'forks',
     minWorkers: 1,
     maxWorkers: 2,
     // Multiple test files mutate the shared examples/dev-cli-fixture (build-e2e runs

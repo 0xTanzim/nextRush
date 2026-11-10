@@ -103,7 +103,7 @@ async function fromResponse(response: Response, event?: ApiGatewayV1Event): Prom
 
   const isAlb = event?.requestContext?.elb !== undefined;
   const statusDescription = isAlb
-    ? `${response.status} ${response.statusText || 'OK'}`
+    ? `${String(response.status)} ${response.statusText || 'OK'}`
     : undefined;
 
   return {

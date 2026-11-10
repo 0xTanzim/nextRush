@@ -251,11 +251,15 @@ export class UniversalWebContext<Env = unknown> extends WebContextBase {
     }
 
     // 2. Vercel / Next.js global request context symbols
+    type GlobalRequestContextStore = Record<
+      symbol,
+      { get?: () => { waitUntil?: (p: Promise<unknown>) => void } }
+    >;
     const globalContext =
-      (globalThis as unknown as { [k: symbol]: { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } })[
+      (globalThis as unknown as GlobalRequestContextStore)[
         Symbol.for('@vercel/request-context')
       ]?.get?.() ??
-      (globalThis as unknown as { [k: symbol]: { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } })[
+      (globalThis as unknown as GlobalRequestContextStore)[
         Symbol.for('@next/request-context')
       ]?.get?.();
 

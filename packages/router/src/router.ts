@@ -254,7 +254,7 @@ export class Router {
    * @see {@link https://github.com/0xTanzim/nextRush/blob/main/packages/router/README.md#sub-router-mounting | README: Sub-Router Mounting}
    */
   mount(path: string | readonly string[], router: Router): this {
-    if (!router || !(router instanceof Router)) {
+    if (!(router instanceof Router)) {
       throw new TypeError('router.mount() requires a Router instance');
     }
 
@@ -262,10 +262,11 @@ export class Router {
       if (path.length === 0) {
         throw new Error('router.mount() requires at least one path prefix when an array is provided');
       }
-      for (const p of path) {
+      for (const p of path as readonly unknown[]) {
         if (typeof p !== 'string') {
+          const actualP: unknown = p;
           throw new TypeError(
-            `Route path prefix must be a string, received ${p === null ? 'null' : typeof p}`
+            `Route path prefix must be a string, received ${actualP === null ? 'null' : typeof actualP}`
           );
         }
         if (p.length === 0) {
@@ -273,7 +274,7 @@ export class Router {
         }
       }
       const seen = new Set<string>();
-      for (const p of path) {
+      for (const p of path as readonly string[]) {
         const normalized = this.normalizeMountPrefix(p);
         if (!seen.has(normalized)) {
           seen.add(normalized);
@@ -283,13 +284,15 @@ export class Router {
       return this;
     }
 
-    if (typeof path !== 'string') {
+    if (typeof (path as unknown) !== 'string') {
+      const actualPath: unknown = path;
       throw new TypeError(
-        `Route path prefix must be a string or array of strings, received ${path === null ? 'null' : typeof path}`
+        `Route path prefix must be a string or array of strings, received ${actualPath === null ? 'null' : typeof actualPath}`
       );
     }
 
-    const normalized = this.normalizeMountPrefix(path);
+    const singlePath = path as string;
+    const normalized = this.normalizeMountPrefix(singlePath);
     this.mountRouter(normalized === '/' ? '' : normalized, router);
     return this;
   }

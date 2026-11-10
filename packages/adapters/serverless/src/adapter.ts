@@ -89,7 +89,9 @@ export function createServerlessAdapter<Event, Result, Ctx = unknown>(
         const executionContext: EdgeExecutionContext = {
           waitUntil(promise: Promise<unknown>): void {
             // Shield against unhandled promise rejections on the Node event loop during request dispatch
-            promise.catch(() => {});
+            promise.catch(() => {
+              // Intentionally ignore rejected background tasks here as they are settled after response
+            });
             trackedTasks.push(promise);
           },
         };
@@ -100,7 +102,7 @@ export function createServerlessAdapter<Event, Result, Ctx = unknown>(
         // Settle background tasks before serverless platform freezes the container
         if (trackedTasks.length > 0) {
           const lambdaRemainingMs =
-            typeof (platformCtx as { getRemainingTimeInMillis?: () => number })?.getRemainingTimeInMillis ===
+            typeof (platformCtx as { getRemainingTimeInMillis?: () => number } | null | undefined)?.getRemainingTimeInMillis ===
             'function'
               ? (platformCtx as { getRemainingTimeInMillis: () => number }).getRemainingTimeInMillis() - 500
               : undefined;
@@ -114,7 +116,7 @@ export function createServerlessAdapter<Event, Result, Ctx = unknown>(
             let timerId: ReturnType<typeof setTimeout> | undefined;
             const timeoutPromise = new Promise((resolve) => {
               timerId = setTimeout(resolve, maxWaitMs);
-              if (typeof (timerId as { unref?: () => void })?.unref === 'function') {
+              if (typeof (timerId as { unref?: () => void } | null | undefined)?.unref === 'function') {
                 (timerId as { unref: () => void }).unref();
               }
             });

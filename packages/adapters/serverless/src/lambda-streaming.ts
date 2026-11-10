@@ -25,8 +25,9 @@ import type { AppSource, ServerlessHandlerOptions } from './types';
 
 /** Minimal writable surface of the Lambda-provided response stream. */
 export interface LambdaResponseStream {
-  write(chunk: Uint8Array | string): void;
+  write(chunk: Uint8Array | string): boolean | undefined;
   end(): void;
+  once?(event: string, listener: () => void): void;
 }
 
 /** The status/header prelude written ahead of a streamed body. */
@@ -107,15 +108,15 @@ export function createLambdaStreamingHandler(
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
-          const canContinue = (out as any).write(value);
-          if (canContinue === false && typeof (out as any).once === 'function') {
+          const canContinue = out.write(value);
+          if (canContinue === false && typeof out.once === 'function') {
             await new Promise<void>((resolve) => {
-              (out as any).once('drain', resolve);
+              out.once?.('drain', resolve);
             });
           }
         }
       } finally {
-        reader.releaseLock?.();
+        reader.releaseLock();
       }
     }
     out.end();

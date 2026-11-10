@@ -116,10 +116,10 @@ export function handle(app: AppSource<Application>, options: NextHandlerOptions 
   const timeout = options.timeout;
   const onError = options.onError;
 
-  let entries = sharedSets.get(app as object);
+  let entries = sharedSets.get(app);
   if (entries === undefined) {
     entries = [];
-    sharedSets.set(app as object, entries);
+    sharedSets.set(app, entries);
   }
 
   const shared = entries.find((entry) => entry.timeout === timeout && entry.onError === onError);

@@ -188,8 +188,8 @@ export async function listenIfStandalone(
 
   const handler =
     typeof appOrHandler === 'function' && 'fetch' in appOrHandler
-      ? (appOrHandler as VercelHandler)
-      : createVercelHandler(appOrHandler as AppSource<Application>);
+      ? appOrHandler
+      : createVercelHandler(appOrHandler);
 
   const envPort = typeof process !== 'undefined' ? process.env.PORT : undefined;
   const port =
@@ -304,11 +304,15 @@ export function createVercelHandler(
 
       if (trackedTasks.length > 0) {
         // 1. Check native Vercel / Next.js request context if available
+        type GlobalRequestContextStore = Record<
+          symbol,
+          { get?: () => { waitUntil?: (p: Promise<unknown>) => void } }
+        >;
         const globalContext =
-          (globalThis as unknown as { [k: symbol]: { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } })[
+          (globalThis as unknown as GlobalRequestContextStore)[
             Symbol.for('@vercel/request-context')
           ]?.get?.() ??
-          (globalThis as unknown as { [k: symbol]: { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } })[
+          (globalThis as unknown as GlobalRequestContextStore)[
             Symbol.for('@next/request-context')
           ]?.get?.();
 
