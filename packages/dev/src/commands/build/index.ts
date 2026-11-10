@@ -13,3 +13,5 @@ export { buildWithDeno, buildWithDenoNative, generateDeclarationsWithDeno } from
 export { writeFileAtomic } from './atomic-write.js';
 export { loadCache, saveCache, createEmptyCache, isCached, updateCacheEntry, hashSourceAndOptions } from './cache.js';
 export { runConcurrent } from './concurrency.js';
+export { emitPackagingArtifacts, type PackagingArtifactsResult } from './packaging-artifacts.js';
+

@@ -28,6 +28,8 @@ import type {
   LambdaResponseStream,
   LambdaResult,
   LambdaStreamMetadata,
+  PrepareServerlessOptions,
+  PrepareServerlessResult,
   ServerlessAdapterOptions,
   ServerlessHandler,
   ServerlessHandlerOptions,
@@ -75,6 +77,9 @@ describe('Public API surface (runtime exports)', () => {
       'apigwV1',
       'gcf',
       'azure',
+
+      // Standalone Serverless Packaging Helper
+      'prepareServerlessPackage',
     ].sort();
 
     expect(actualExports).toEqual(expectedRuntime);
@@ -117,6 +122,8 @@ describe('Public API surface (type-only exports)', () => {
       VercelListenOptions,
       VercelRouteHandlers,
       VercelWebHandler,
+      PrepareServerlessOptions,
+      PrepareServerlessResult,
     ];
     expectTypeOf<Surface>().not.toBeNever();
   });

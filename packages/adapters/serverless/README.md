@@ -81,6 +81,42 @@ export const handler = createLambdaHandler(async () => {
 
 The factory function runs lazily on the first incoming request and is memoized across warm invocations. Multiple concurrent first requests await the same initialization promise, preventing duplicate bootstrap passes.
 
+## Serverless ESM Packaging & Cloud Loaders
+
+In cloud serverless environments (AWS Lambda zip deployments, Vercel Serverless Function builder, Google Cloud Functions), build artifacts are deployed into an isolated task root (such as `/var/task/`). In Node.js 20+, any `.js` file with no enclosing `package.json` declaring `"type": "module"` defaults to CommonJS, causing fatal `SyntaxError: Cannot use import statement outside a module` crashes.
+
+**Zero Forced `.mts`**: Developers and AI agents write standard TypeScript (`src/index.ts`). You never need to rename files to `.mts`.
+
+### 1. Using `nextrush build`
+When compiling with NextRush's dev toolkit, `nextrush build` (or `nextrush build --serverless`) automatically emits:
+- `dist/package.json` with `{"type": "module"}` (ensuring isolated `/var/task/` executes `.js` files as native ESM).
+- `dist/index.mjs` dual-entry bridge (ensuring cloud configurations pointing to either `index.handler` or `index.mjs.handler` resolve seamlessly).
+
+### 2. Standalone Package Users (External Bundlers & `tsc`)
+If you install `@nextrush/adapter-serverless` directly without `@nextrush/dev`:
+
+- **Standalone `tsdown`**:
+  ```json
+  "scripts": {
+    "build": "tsdown src/index.ts --format esm && nextrush-serverless-prep dist"
+  }
+  ```
+- **Raw `tsc` compilation**: Add `nextrush-serverless-prep` to your build script:
+  ```json
+  "scripts": {
+    "build": "tsc && nextrush-serverless-prep dist"
+  }
+  ```
+- **Programmatic build pipelines**:
+  ```ts
+  import { prepareServerlessPackage } from '@nextrush/adapter-serverless';
+
+  await prepareServerlessPackage({ outDir: 'dist' });
+  ```
+- **Custom bundler recipes (`esbuild`, etc.)**:
+  - `esbuild`: `esbuild src/index.ts --bundle --format=esm --platform=node --outfile=dist/index.mjs`
+  - Any bundler: run `nextrush-serverless-prep dist` as a postbuild step
+
 ## The platform handlers
 
 | Handler | Platform | Detection |
@@ -225,6 +261,8 @@ per-adapter and immutable -- there is no global mutable mapper registry.
 | `createGoogleEventHandler` | `(app: AppSource<Application>, options?: ServerlessHandlerOptions) => ServerlessHandler<GcfEvent, GcfResult>` | 1.0.0-beta.1 | Internal | The struct-based path `createGoogleHandler` had before `1.0.0-beta.1` -- fixture testing, custom bridges |
 | `createAzureEventHandler` | `(app: AppSource<Application>, options?: ServerlessHandlerOptions) => ServerlessHandler<AzureEvent, AzureResult>` | 1.0.0-beta.1 | Internal | The struct-based path `createAzureHandler` had before `1.0.0-beta.1` -- fixture testing, custom bridges |
 | `createServerlessAdapter` | `(options: ServerlessAdapterOptions<Event, Result, Ctx>) => { createHandler(app: AppSource<Application>): ServerlessHandler<Event, Result, Ctx> }` | 1.0.0-beta.0 | Internal | Runtime-author escape hatch -- build a handler from a custom `EventMapper` list |
+| `prepareServerlessPackage` | `(options?: PrepareServerlessOptions) => Promise<PrepareServerlessResult>` | 1.1.0 | Stable | Standalone helper emitting `dist/package.json` (`"type": "module"`) and `.mjs` bridge for serverless deployments |
+| `nextrush-serverless-prep` | CLI: `nextrush-serverless-prep [outDir] [entryName]` | 1.1.0 | Stable | Zero-dependency CLI companion for `tsdown`/`tsc`/`esbuild` build pipelines |
 | `toGcfEvent`, `writeGcfResult` | `(req: GcfHttpRequest) => GcfEvent`; `(res: GcfHttpResponse, result: GcfResult) => void` | 1.0.0-beta.1 | Internal | The pure bridge functions `createGoogleHandler` composes -- exported for a custom drop-in variant |
 | `toAzureEvent`, `toAzureResponse` | `(req: AzureHttpRequestLike) => Promise<AzureEvent>`; `(result: AzureResult) => AzureHttpResponseLike` | 1.0.0-beta.1 | Internal | The pure bridge functions `createAzureHandler` composes -- exported for a custom drop-in variant |
 | `type EventMapper<Event, Result, Ctx>` | -- | 1.0.0-beta.0 | Internal | The plugin shape: `toRequest`, `fromResponse`, optional `detect` |

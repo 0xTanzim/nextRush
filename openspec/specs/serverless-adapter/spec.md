@@ -200,3 +200,15 @@ When API Gateway events do not supply an explicit `x-forwarded-for` header, the 
 - **WHEN** an API Gateway v1 event contains `requestContext.identity.sourceIp` and lacks an `x-forwarded-for` header
 - **THEN** the mapped request includes `x-forwarded-for` matching `sourceIp`, allowing `ctx.ip` to report the client IP
 
+### Requirement: Standalone serverless packaging helper for external toolchains
+`@nextrush/adapter-serverless` SHALL export a standalone `prepareServerlessPackage` function and companion `nextrush-serverless-prep` CLI enabling developers using external bundlers (`tsdown`, `tsc`, `esbuild`) to emit companion `dist/package.json` with `{"type": "module"}` and dual-entry `.mjs` bridges without requiring `@nextrush/dev`.
+
+#### Scenario: Standalone packaging prepares directory with package.json and bridge
+- **WHEN** `prepareServerlessPackage({ outDir: 'dist' })` is executed
+- **THEN** `dist/package.json` contains `"type": "module"` and `dist/index.mjs` re-exports the main JavaScript entrypoint
+
+#### Scenario: Standalone CLI runs as a post-build step
+- **WHEN** `npx nextrush-serverless-prep dist` is executed following a `tsc` compilation
+- **THEN** the target directory is prepared for cloud serverless deployment with zero external runtime dependencies
+
+

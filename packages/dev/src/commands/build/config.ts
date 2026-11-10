@@ -25,6 +25,7 @@ export function resolveBuildOptions(options: BuildOptions): {
   dts: boolean;
   clean: boolean;
   cache: boolean;
+  serverless: boolean;
   verbose: boolean;
 } {
   return {
@@ -36,6 +37,7 @@ export function resolveBuildOptions(options: BuildOptions): {
     dts: options.dts ?? true,
     clean: options.clean ?? true,
     cache: options.cache ?? true,
+    serverless: options.serverless ?? false,
     verbose: options.verbose ?? false,
   };
 }

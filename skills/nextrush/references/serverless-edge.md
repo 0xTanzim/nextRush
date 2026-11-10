@@ -241,7 +241,12 @@ listenIfStandalone(handler);
 4. **Background tasks (`ctx.waitUntil`)**: Serverless handlers automatically drain background promises before returning to the runtime (or bridge to `@vercel/request-context` on Vercel), preventing premature container freeze and dropped tasks
 5. Timeout → cooperative cancel via `ctx.signal`, result 504
 6. Cloudflare is **not** in this package — use adapter-edge
-6. **Bun & Deno Runtime Guarding & Ergonomics**:
+7. **Packaging & Zero Forced `.mts`**: Always write standard `.ts` files (`src/index.ts`). Never force `.mts` renaming.
+   - Using `nextrush build --serverless`: Automatically emits companion `dist/package.json` (`"type": "module"`) and `dist/index.mjs` bridge to prevent cloud CommonJS loader syntax errors.
+   - Using `tsdown`: Run `"build": "tsdown src/index.ts --format esm && nextrush-serverless-prep dist"` or configure `outExtension: () => ({ js: '.mjs' })`.
+   - Using raw `tsc`: Run `"build": "tsc && nextrush-serverless-prep dist"` or call `prepareServerlessPackage({ outDir: 'dist' })`.
+   - Using `esbuild`: `esbuild src/index.ts --bundle --format=esm --platform=node --outfile=dist/index.mjs` (or run `nextrush-serverless-prep dist` as a postbuild step).
+8. **Bun & Deno Runtime Guarding & Ergonomics**:
    - `createHandler(app)` from `@nextrush/adapter-bun` or `@nextrush/adapter-deno` produces `(request: Request, server?: ...) => Response | Promise<Response>`. Calling with 1 argument (`await handler(request)`) is fully typed and supported; no dummy server/info object is required.
    - Calling `serve(app)` from `@nextrush/adapter-bun` or `@nextrush/adapter-deno` in an incompatible runtime (such as Node.js or a Vercel Serverless Function without `"bunVersion": "1.4.x"` in `vercel.json`) throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` and actionable instructions to use `@nextrush/adapter-node` or `@nextrush/adapter-serverless`.
    - Both adapters re-export `isBun` / `isDeno` (and `isBunRuntime` / `isDenoRuntime`) and `ServerStartError`.

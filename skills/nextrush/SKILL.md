@@ -229,6 +229,7 @@ Inside Next.js App Router?
 4. Next.js: only App Router. Pages Router unsupported. Mount paths live on the **app** (`app.route('/api', router)`), not the bridge.
 5. WebSocket package is **Node-only**. Edge/Bun/Deno: use platform native WS or SSE via `@nextrush/stream`.
 6. **Runtime Guarding & Clean Calling**: `@nextrush/adapter-bun` and `@nextrush/adapter-deno` handlers have optional second arguments (`await handler(request)` without dummy servers). In non-Bun/Deno runtimes (e.g., Vercel without `bunVersion`), calling `serve()` throws `ServerStartError` with code `'ERR_RUNTIME_NOT_DETECTED'` and actionable migration advice. Both re-export `isBun` / `isDeno` and `ServerStartError`.
+7. **Zero Forced `.mts` Conversion**: Always write standard `.ts` files (`src/index.ts`). Never force `.mts` renaming. For serverless deployments, `nextrush build --serverless` automatically emits a companion `dist/package.json` (`"type": "module"`) and `dist/index.mjs` bridge to prevent cloud CommonJS syntax errors. For standalone package users compiling with `tsdown`, `tsc`, or `esbuild`, use `npx nextrush-serverless-prep dist` or `prepareServerlessPackage()`.
 
 Details: `references/adapters.md`, `references/nextjs.md`, `references/serverless-edge.md`.
 

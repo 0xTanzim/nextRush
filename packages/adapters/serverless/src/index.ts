@@ -85,3 +85,8 @@ export type { GcfEvent, GcfResult } from './mappers/gcf';
 
 export { azure } from './mappers/azure';
 export type { AzureEvent, AzureResult } from './mappers/azure';
+
+// ─── Standalone Serverless Packaging Helper ─────────────────────────────────
+export { prepareServerlessPackage } from './packaging';
+export type { PrepareServerlessOptions, PrepareServerlessResult } from './packaging';
+
