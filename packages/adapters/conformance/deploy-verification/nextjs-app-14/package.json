@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "@nextrush/adapter-nextjs": "workspace:*",
-    "next": "14.2.35",
+    "next": "15.5.28",
     "nextrush": "workspace:*",
     "react": "18.3.1",
     "react-dom": "18.3.1"
